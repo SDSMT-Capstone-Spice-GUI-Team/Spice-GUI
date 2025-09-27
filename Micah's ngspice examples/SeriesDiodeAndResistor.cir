@@ -1,0 +1,30 @@
+Series Diode and Resistor
+
+*The purpose of this circuit was to test the diode and a sinusoidal source. All values were chosen semi-arbitrarily.
+
+Vin 1 0 AC sin(0 100 60 0 0 90)
+*voltage source Vin is connected to node 1 and ground with AC voltage defined by a sine function with 0 DC offset, 100v magnitude, 60Hz frequency, 0 time delay, 0 damping factor, and 90 degree phase shift.
+
+D1 1 2 DMOD
+*diode D1 is connected to nodes 1 and 2 with model type DMOD
+
+R1 2 0 100k
+*resistor R1 is connected to node 2 and ground with 100kohm resistance
+
+.model DMOD D
+*defines model type DMOD as a diode with default characteristics
+
+.tran 0.1ms 100ms
+*selects transient analysis type with 0.1ms timestep and 100ms run time
+
+.control
+run
+*runs analysis
+
+plot v(1) v(2)
+*plots voltages at nodes 1 and 2
+
+.endc
+.end
+*ends program
+
