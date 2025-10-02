@@ -1,24 +1,20 @@
 {
   "main": {
-    "id": "9bca2255fb569d9b",
+    "id": "7dc675324960f77c",
     "type": "split",
     "children": [
       {
-        "id": "f9886b4adeee4367",
+        "id": "fcc5c69098001420",
         "type": "tabs",
         "children": [
           {
-            "id": "bb4d3c849a4d7612",
+            "id": "5949e21784ee2219",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Welcome.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "Welcome"
+              "title": "New tab"
             }
           }
         ]
@@ -27,15 +23,15 @@
     "direction": "vertical"
   },
   "left": {
-    "id": "3957a48e86dce771",
+    "id": "0ab7f790d5658050",
     "type": "split",
     "children": [
       {
-        "id": "f11ead6d5c6e5787",
+        "id": "e97d4c370cdddc7a",
         "type": "tabs",
         "children": [
           {
-            "id": "df82a5c66888b1c6",
+            "id": "9495b73f9abdfc02",
             "type": "leaf",
             "state": {
               "type": "file-explorer",
@@ -48,7 +44,7 @@
             }
           },
           {
-            "id": "7f2f7ac9f2711d9b",
+            "id": "e18015a5eebe15fe",
             "type": "leaf",
             "state": {
               "type": "search",
@@ -65,7 +61,7 @@
             }
           },
           {
-            "id": "37f76b7c5f5d2bd3",
+            "id": "3ec9f1a93653d9b8",
             "type": "leaf",
             "state": {
               "type": "bookmarks",
@@ -81,20 +77,19 @@
     "width": 300
   },
   "right": {
-    "id": "684da9d4293883dd",
+    "id": "99ed18e679b2ec69",
     "type": "split",
     "children": [
       {
-        "id": "aa6642ab4a869088",
+        "id": "e89d6ded05374bda",
         "type": "tabs",
         "children": [
           {
-            "id": "40016c636a8e09d3",
+            "id": "cb3d763a836a2292",
             "type": "leaf",
             "state": {
               "type": "backlink",
               "state": {
-                "file": "Welcome.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,25 +99,24 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for Welcome"
+              "title": "Backlinks"
             }
           },
           {
-            "id": "0ae2021bffefddd5",
+            "id": "d2d1897da5903445",
             "type": "leaf",
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "Welcome.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from Welcome"
+              "title": "Outgoing links"
             }
           },
           {
-            "id": "41bc80819243d79f",
+            "id": "f8a241e5c85affaf",
             "type": "leaf",
             "state": {
               "type": "tag",
@@ -137,18 +131,17 @@
             }
           },
           {
-            "id": "f40dafec664f0546",
+            "id": "35532435ef90da96",
             "type": "leaf",
             "state": {
               "type": "outline",
               "state": {
-                "file": "Welcome.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of Welcome"
+              "title": "Outline"
             }
           }
         ]
@@ -169,15 +162,6 @@
       "bases:Create new base": false
     }
   },
-  "active": "bb4d3c849a4d7612",
-  "lastOpenFiles": [
-    "Meeting with Mcgough 9_25_2025 (AI summary).md",
-    "Welcome.md",
-    "Pictures/Pasted image 20251002123835.png",
-    "Meeting Summary 9_18_2025 AI Summary.md",
-    "Meeting Summary 10_2_2025 AI Summary.md",
-    "Meeting Notes – 2025-09-25 (with Middle Manager) (AI Summary).md",
-    "Pictures/Pasted image 20251002123819.png",
-    "Pictures"
-  ]
+  "active": "5949e21784ee2219",
+  "lastOpenFiles": []
 }
