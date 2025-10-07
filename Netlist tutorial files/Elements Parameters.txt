@@ -105,3 +105,112 @@ Example:
 A sinusoidal current source named sin with positive end connected to node Z and negative end connected to node Y with an offset current of 0A, current amplitude of 5A, frequency off 100kHz, time delay of 10ns, damping factor of 10 s^-1, and phase of 0 degrees would look like:
 
 Isin Z Y SIN(0 5 100k 10n 10 0)
+
+
+
+Pulse Voltage Source:
+
+VXXXXXXX PositiveNode NegativeNode PULSE(InitialVoltage PulsedVoltage DelayTime RiseTime FallTime PulseWidth Period NumberOfPulses)
+
+Note: NumberOfPulses = 0 results in unlimited pulses, i.e. pulse train or square wave
+
+Example:
+
+A pulse voltage source is intended to replicate a square wave. It is named square with positive end connected to node IN and negative end grounded (node 0) with no initial voltage, an amplitude of 10V, no delay, rise time of 1ns, fall time of 1ns, pulse width of 1us, period of 2us, and an unlimited number of pulses (NumberOfPulses = 0). This would look like:
+
+Vsquare IN 0 PULSE(0 10 0 1n 1n 1u 2u 0)
+
+
+
+Pulse Current Source:
+
+IXXXXXXX PositiveNode NegativeNode PULSE(InitialCurrent PulsedCurrent DelayTime RiseTime FallTime PulseWidth Period NumberOfPulses)
+
+Note: NumberOfPulses = 0 results in unlimited pulses, i.e. pulse train or square wave
+
+Example:
+
+A pulse current source named pulse with positive end connected to node 1 and negative end grounded (node 0) with a -2mA initial current, pulsed current of 2mA, delay of 1us, rise time of 1ns, fall time of 1ns, pulse width of 0.5us, period of 3us, and 2 pulses would look like:
+
+Ipulse 1 0 PULSE(-2m 2m 1u 1n 1n 0.5u 3u 2)
+
+
+
+Diode:
+
+DXXXXXXX PositiveNode NegativeNode DMOD
+.model DMOD D
+
+Note: .model DMOD D is necessary to include in the netlist when using a diode as it defines the diode using default parameters, .model DMOD D only needs to be included once if using multiple diodes, it applies to all DMOD diodes
+
+Example:
+
+A diode named rec with anode connected to node 1 and cathode connected to node 2 would look like:
+
+Drec 1 2 DMOD
+.model DMOD D
+
+
+
+NPN BJT:
+
+QXXXXXXX CollectorNode BaseNode EmitterNode SubstrateNode QNPN
+.model QNPN NPN
+
+Note: EmitterNode and SubstrateNode will be the SAME VALUE (the nodes are tied together for practically all applications)
+
+Note: .model QNPN NPN is necessary to include in the netlist when using an NPN BJT as it defines the BJT using default NPN parameters, .model QNPN NPN only needs to be included once if using multiple NPN BJTs, it applies to all QNPN BJTs
+
+Example:
+
+An NPN BJT named npn with collector connected to node 2, base connected to node 3, and emitter grounded (node 0) would look like:
+
+Qnpn 2 3 0 0 QNPN
+.model QNPN NPN
+
+
+
+PNP BJT:
+
+QXXXXXXX CollectorNode BaseNode EmitterNode SubstrateNode QPNP
+.model QPNP PNP
+
+Note: EmitterNode and SubstrateNode will be the SAME VALUE (the nodes are tied together for practically all applications)
+
+Note: .model QPNP PNP is necessary to include in the netlist when using a PNP BJT as it defines the BJT using default PNP parameters, .model QPNP PNP only needs to be included once if using multiple PNP BJTs, it applies to all QPNP BJTs
+
+Example:
+
+A PNP BJT named pnp with collector connected to node 4, base connected to node 3, and emitter connected to node 2 would look like:
+
+Qpnp 4 3 2 2 QPNP
+.model QPNP PNP
+
+
+
+N-Channel MOSFET:
+
+MXXXXXXX DrainNode GateNode SourceNode BulkNode MOSN
+.model MOSN NMOS
+
+Note: SourceNode and BulkNode will be the SAME VALUE (the nodes are tied together for practically all applications)
+
+Note: .model MOSN NMOS is necessary to include in the netlist when using an N-Channel MOSFET as it defines the MOSFET using default NMOS parameters, .model MOSN NMOS only needs to be included once if using multiple N-Channel MOSFETs, it applies to all MOSN MOSFETs
+
+Example:
+
+An N-Channel named 3 with drain connected to node 2, gate connected to node 3, and source grounded (node 0) would look like:
+
+M3 2 3 0 0 MOSN
+.model MOSN NMOS
+
+
+
+P-Channel MOSFET:
+
+MXXXXXXX DrainNode GateNode SourceNode BulkNode MOSP
+.model MOSP PMOS
+
+Note: SourceNode and BulkNode will be the SAME VALUE (the nodes are tied together for practically all applications)
+
+Note: .model MOSP PMOS is necessary to include in the netlist when using a P-Channel MOSFET as it defines the MOSFET using default PMOS parameters, .model MOSN PMOS only needs to be included once if using multiple P-Channel MOSFETs, it applies to all MOSP MOSFETs
