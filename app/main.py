@@ -1,9 +1,9 @@
 """
 Circuit Design GUI Prototype
-Python + Qt + PySpice
+Python + Qt6 + PySpice
 
 Requirements:
-pip install PyQt5 PySpice matplotlib
+pip install PyQt6 PySpice matplotlib
 
 This prototype implements:
 - Component palette with drag-and-drop
@@ -16,13 +16,13 @@ This prototype implements:
 
 import sys
 import json
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QListWidget, QGraphicsView, 
                              QGraphicsScene, QGraphicsItem, QGraphicsLineItem,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
-                             QSplitter, QLabel, QListWidgetItem)
-from PyQt5.QtCore import Qt, QPointF, QRectF, QMimeData
-from PyQt5.QtGui import QPen, QBrush, QColor, QPainter, QDrag, QPixmap
+                             QSplitter, QLabel, QListWidgetItem, QGraphicsEllipseItem)
+from PyQt6.QtCore import Qt, QPointF, QRectF, QMimeData, pyqtSignal
+from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QDrag, QAction, QPalette
 
 # Component definitions
 COMPONENTS = {
@@ -48,9 +48,9 @@ class ComponentItem(QGraphicsItem):
         self.terminals = []
         self.connections = []  # Store wire connections
         
-        self.setFlag(QGraphicsItem.ItemIsMovable)
-        self.setFlag(QGraphicsItem.ItemIsSelectable)
-        self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
         
         # Create terminals based on component type
         terminal_count = COMPONENTS[component_type]['terminals']
@@ -62,12 +62,13 @@ class ComponentItem(QGraphicsItem):
     def boundingRect(self):
         return QRectF(-40, -20, 80, 40)
     
-    def paint(self, painter, option, widget):
+    def paint(self, painter, option = None, widget = None):
+        if painter is None:return
         color = QColor(COMPONENTS[self.component_type]['color'])
         
         # Highlight if selected
         if self.isSelected():
-            painter.setPen(QPen(Qt.yellow, 3))
+            painter.setPen(QPen(Qt.GlobalColor.yellow, 3))
             painter.drawRect(self.boundingRect())
         
         # Draw component body
@@ -110,17 +111,17 @@ class ComponentItem(QGraphicsItem):
             painter.drawLine(20, 0, 30, 0)
         
         # Draw terminals
-        painter.setPen(QPen(Qt.red, 4))
+        painter.setPen(QPen(Qt.GlobalColor.red, 4))
         for terminal in self.terminals:
-            painter.drawPoint(terminal)
+            painter.drawEllipse(terminal, 3, 3)  # Draw small circles for terminals
         
         # Draw label
-        painter.setPen(QPen(Qt.black))
+        painter.setPen(QPen(Qt.GlobalColor.black))
         label = f"{COMPONENTS[self.component_type]['symbol']}{self.component_id}"
         painter.drawText(-20, -25, f"{label} ({self.value})")
     
     def itemChange(self, change, value):
-        if change == QGraphicsItem.ItemPositionChange and self.scene():
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
             # Snap to grid
             new_pos = value
             grid_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
@@ -160,7 +161,7 @@ class WireItem(QGraphicsLineItem):
         self.end_comp = end_comp
         self.end_term = end_term
         
-        self.setPen(QPen(Qt.black, 2))
+        self.setPen(QPen(Qt.GlobalColor.black, 2))
         self.update_position()
     
     def update_position(self):
@@ -182,14 +183,22 @@ class WireItem(QGraphicsLineItem):
 class CircuitCanvas(QGraphicsView):
     """Main circuit drawing canvas"""
     
+    # Signals for component and wire operations
+    componentAdded = pyqtSignal(str)  # component_id
+    wireAdded = pyqtSignal(str, str)  # start_comp_id, end_comp_id
+    
     def __init__(self):
         super().__init__()
         self.scene = QGraphicsScene()
+        if self.scene is None: exit()
+        # scene = QGraphicsScene()
+        # if scene is None: exit()
         self.setScene(self.scene)
         self.setSceneRect(-500, -500, 1000, 1000)
         
-        self.setRenderHint(QPainter.Antialiasing)
-        self.setDragMode(QGraphicsView.RubberBandDrag)
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         
         self.components = {}  # id -> ComponentItem
         self.wires = []
@@ -205,23 +214,32 @@ class CircuitCanvas(QGraphicsView):
         self.setAcceptDrops(True)
     
     def draw_grid(self):
+        if self.scene is None: return
         """Draw background grid"""
         pen = QPen(QColor(200, 200, 200), 0.5)
+        pen.setCosmetic(True)  # Ensure grid doesn't scale with zoom
         for x in range(-500, 501, GRID_SIZE):
             self.scene.addLine(x, -500, x, 500, pen)
         for y in range(-500, 501, GRID_SIZE):
             self.scene.addLine(-500, y, 500, y, pen)
     
     def dragEnterEvent(self, event):
-        if event.mimeData().hasText():
+        if event is None: return
+        mimeData = event.mimeData()
+        if mimeData is None: return
+        if mimeData.hasText():
             event.acceptProposedAction()
     
     def dragMoveEvent(self, event):
+        if event is None: return
         event.acceptProposedAction()
     
     def dropEvent(self, event):
         """Handle component drop from palette"""
-        component_type = event.mimeData().text()
+        if event is None: return
+        mimeData = event.mimeData()
+        if mimeData is None: return
+        component_type = mimeData.text()
         if component_type in COMPONENTS:
             # Create new component
             symbol = COMPONENTS[component_type]['symbol']
@@ -231,24 +249,28 @@ class CircuitCanvas(QGraphicsView):
             component = ComponentItem(component_type, comp_id)
             
             # Position at drop location (snapped to grid)
-            pos = self.mapToScene(event.pos())
-            grid_x = round(pos.x() / GRID_SIZE) * GRID_SIZE
-            grid_y = round(pos.y() / GRID_SIZE) * GRID_SIZE
+            pos = event.position().toPoint()
+            scene_pos = self.mapToScene(pos)
+            grid_x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
+            grid_y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
             component.setPos(grid_x, grid_y)
             
             self.scene.addItem(component)
             self.components[comp_id] = component
+            self.componentAdded.emit(comp_id)
             
             event.acceptProposedAction()
     
     def mousePressEvent(self, event):
         """Handle wire drawing"""
-        if event.button() == Qt.RightButton:
+        if event is None:return
+        if event.button() == Qt.MouseButton.RightButton:
             # Start wire drawing
-            item = self.itemAt(event.pos())
+            pos = event.position().toPoint()
+            item = self.itemAt(pos)
             if isinstance(item, ComponentItem):
                 # Find closest terminal
-                scene_pos = self.mapToScene(event.pos())
+                scene_pos = self.mapToScene(pos)
                 terminals = [item.get_terminal_pos(i) for i in range(len(item.terminals))]
                 distances = [(t - scene_pos).manhattanLength() for t in terminals]
                 closest = distances.index(min(distances))
@@ -261,11 +283,13 @@ class CircuitCanvas(QGraphicsView):
     
     def mouseReleaseEvent(self, event):
         """Complete wire drawing"""
-        if event.button() == Qt.RightButton and self.wire_start_comp:
-            item = self.itemAt(event.pos())
+        if event is None:return
+        if event.button() == Qt.MouseButton.RightButton and self.wire_start_comp:
+            pos = event.position().toPoint()
+            item = self.itemAt(pos)
             if isinstance(item, ComponentItem) and item != self.wire_start_comp:
                 # Find closest terminal
-                scene_pos = self.mapToScene(event.pos())
+                scene_pos = self.mapToScene(pos)
                 terminals = [item.get_terminal_pos(i) for i in range(len(item.terminals))]
                 distances = [(t - scene_pos).manhattanLength() for t in terminals]
                 closest = distances.index(min(distances))
@@ -276,6 +300,7 @@ class CircuitCanvas(QGraphicsView):
                                   item, closest)
                     self.scene.addItem(wire)
                     self.wires.append(wire)
+                    self.wireAdded.emit(self.wire_start_comp.component_id, item.component_id)
             
             self.wire_start_comp = None
             self.wire_start_term = None
@@ -322,11 +347,13 @@ class CircuitCanvas(QGraphicsView):
 
 
 class ComponentPalette(QListWidget):
+# class ComponentPalette(QPalette):
     """Component palette with drag support"""
     
     def __init__(self):
         super().__init__()
         self.setDragEnabled(True)
+        self.setDefaultDropAction(Qt.DropAction.CopyAction)
         
         for component_name in COMPONENTS.keys():
             item = QListWidgetItem(component_name)
@@ -340,7 +367,7 @@ class ComponentPalette(QListWidget):
             mime_data = QMimeData()
             mime_data.setText(item.text())
             drag.setMimeData(mime_data)
-            drag.exec_(Qt.CopyAction)
+            drag.exec(Qt.DropAction.CopyAction)
 
 
 class CircuitDesignGUI(QMainWindow):
@@ -350,8 +377,10 @@ class CircuitDesignGUI(QMainWindow):
         super().__init__()
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.setGeometry(100, 100, 1200, 800)
+        self.current_file = None  # Track current file for save operations
         
         self.init_ui()
+        self.create_menu_bar()
     
     def init_ui(self):
         """Initialize user interface"""
@@ -362,8 +391,8 @@ class CircuitDesignGUI(QMainWindow):
         # Left panel - Component palette
         left_panel = QVBoxLayout()
         left_panel.addWidget(QLabel("Component Palette"))
-        self.palette = ComponentPalette()
-        left_panel.addWidget(self.palette)
+        # self.palette = ComponentPalette() # command palette is not a QPalette so cant be assigned to self.palette
+        left_panel.addWidget(ComponentPalette())
         
         # Instructions
         instructions = QLabel(
@@ -377,7 +406,7 @@ class CircuitDesignGUI(QMainWindow):
         main_layout.addLayout(left_panel, 1)
         
         # Center - Canvas and results
-        center_splitter = QSplitter(Qt.Vertical)
+        center_splitter = QSplitter(Qt.Orientation.Vertical)
         
         # Canvas
         canvas_widget = QWidget()
@@ -430,6 +459,95 @@ class CircuitDesignGUI(QMainWindow):
         right_panel.addStretch()
         main_layout.addLayout(right_panel, 1)
     
+    def create_menu_bar(self):
+        """Create menu bar with File and Edit menus"""
+        menubar = self.menuBar()
+        if menubar is None:return
+        
+        # File menu
+        file_menu = menubar.addMenu("&File")
+        if file_menu is None:return
+        
+        new_action = QAction("&New", self)
+        new_action.setShortcut("Ctrl+N")
+        new_action.triggered.connect(self.new_circuit)
+        file_menu.addAction(new_action)
+        
+        open_action = QAction("&Open...", self)
+        open_action.setShortcut("Ctrl+O")
+        open_action.triggered.connect(self.load_circuit)
+        file_menu.addAction(open_action)
+        
+        save_action = QAction("&Save", self)
+        save_action.setShortcut("Ctrl+S")
+        save_action.triggered.connect(self.save_circuit_quick)
+        file_menu.addAction(save_action)
+        
+        save_as_action = QAction("Save &As...", self)
+        save_as_action.setShortcut("Ctrl+Shift+S")
+        save_as_action.triggered.connect(self.save_circuit)
+        file_menu.addAction(save_as_action)
+        
+        file_menu.addSeparator()
+        
+        exit_action = QAction("E&xit", self)
+        exit_action.setShortcut("Ctrl+Q")
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+        
+        # Edit menu
+        edit_menu = menubar.addMenu("&Edit")
+        if edit_menu is None:return
+        
+        clear_action = QAction("&Clear Canvas", self)
+        clear_action.triggered.connect(self.clear_canvas)
+        edit_menu.addAction(clear_action)
+        
+        # Simulation menu
+        sim_menu = menubar.addMenu("&Simulation")
+        if sim_menu is None:return
+        
+        netlist_action = QAction("Generate &Netlist", self)
+        netlist_action.setShortcut("Ctrl+G")
+        netlist_action.triggered.connect(self.generate_netlist)
+        sim_menu.addAction(netlist_action)
+        
+        run_action = QAction("&Run Simulation", self)
+        run_action.setShortcut("F5")
+        run_action.triggered.connect(self.run_simulation)
+        sim_menu.addAction(run_action)
+    
+    def new_circuit(self):
+        """Create a new circuit"""
+        if len(self.canvas.components) > 0:
+            reply = QMessageBox.question(
+                self, "New Circuit",
+                "Current circuit will be lost. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+        
+        self.canvas.clear_circuit()
+        self.current_file = None
+        self.setWindowTitle("Circuit Design GUI - Student Prototype")
+        self.results_text.clear()
+    
+    def save_circuit_quick(self):
+        """Quick save to current file"""
+        if self.current_file:
+            try:
+                data = self.canvas.to_dict()
+                with open(self.current_file, 'w') as f:
+                    json.dump(data, f, indent=2)
+                statusBar = self.statusBar()
+                if statusBar is None: return
+                statusBar.showMessage(f"Saved to {self.current_file}", 3000)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save: {str(e)}")
+        else:
+            self.save_circuit()
+    
     def save_circuit(self):
         """Save circuit to JSON file"""
         filename, _ = QFileDialog.getSaveFileName(
@@ -440,6 +558,8 @@ class CircuitDesignGUI(QMainWindow):
                 data = self.canvas.to_dict()
                 with open(filename, 'w') as f:
                     json.dump(data, f, indent=2)
+                self.current_file = filename
+                self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 QMessageBox.information(self, "Success", "Circuit saved successfully!")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save: {str(e)}")
@@ -454,6 +574,8 @@ class CircuitDesignGUI(QMainWindow):
                 with open(filename, 'r') as f:
                     data = json.load(f)
                 self.canvas.from_dict(data)
+                self.current_file = filename
+                self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 QMessageBox.information(self, "Success", "Circuit loaded successfully!")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to load: {str(e)}")
@@ -463,9 +585,9 @@ class CircuitDesignGUI(QMainWindow):
         reply = QMessageBox.question(
             self, "Clear Canvas", 
             "Are you sure you want to clear the canvas?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             self.canvas.clear_circuit()
     
     def generate_netlist(self):
@@ -581,7 +703,7 @@ def main():
     app = QApplication(sys.argv)
     window = CircuitDesignGUI()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
