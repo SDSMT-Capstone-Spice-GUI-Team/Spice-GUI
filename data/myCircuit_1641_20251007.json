@@ -1,0 +1,49 @@
+{
+  "components": [
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "1k",
+      "pos": {
+        "x": -120.0,
+        "y": -60.0
+      }
+    },
+    {
+      "type": "Resistor",
+      "id": "R2",
+      "value": "1k",
+      "pos": {
+        "x": 100.0,
+        "y": -60.0
+      }
+    },
+    {
+      "type": "Capacitor",
+      "id": "C1",
+      "value": "1u",
+      "pos": {
+        "x": 60.0,
+        "y": 20.0
+      }
+    },
+    {
+      "type": "Voltage Source",
+      "id": "V1",
+      "value": "1u",
+      "pos": {
+        "x": -260.0,
+        "y": -60.0
+      }
+    }
+  ],
+  "wires": [],
+  "counters": {
+    "R": 2,
+    "C": 1,
+    "L": 0,
+    "V": 1,
+    "I": 0,
+    "GND": 0
+  }
+}

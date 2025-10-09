@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
                              QSplitter, QLabel, QListWidgetItem, QGraphicsEllipseItem)
 from PyQt6.QtCore import Qt, QPointF, QRectF, QMimeData, pyqtSignal
-from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QDrag, QAction, QPalette
+from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QDrag, QAction
 
 # Component definitions
 COMPONENTS = {
@@ -32,6 +32,7 @@ COMPONENTS = {
     'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
     'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
+    'Node': {'symbol': 'N', 'terminals': 1, 'color': '#FF00FF'},
 }
 
 GRID_SIZE = 20
@@ -45,6 +46,7 @@ class ComponentItem(QGraphicsItem):
         self.component_type = component_type
         self.component_id = component_id
         self.value = "1k" if component_type == 'Resistor' else "1u"
+        self.node_label = component_id if component_type == 'Node' else ""  # For node naming
         self.terminals = []
         self.connections = []  # Store wire connections
         
@@ -62,8 +64,9 @@ class ComponentItem(QGraphicsItem):
     def boundingRect(self):
         return QRectF(-40, -20, 80, 40)
     
-    def paint(self, painter, option = None, widget = None):
-        if painter is None:return
+    def paint(self, painter, option=None, widget=None):
+        if painter is None:
+            return
         color = QColor(COMPONENTS[self.component_type]['color'])
         
         # Highlight if selected
@@ -80,6 +83,22 @@ class ComponentItem(QGraphicsItem):
             painter.drawLine(-15, 0, 15, 0)
             painter.drawLine(-10, 5, 10, 5)
             painter.drawLine(-5, 10, 5, 10)
+        elif self.component_type == 'Node':
+            # Draw node marker (diamond shape)
+            painter.setPen(QPen(color, 3))
+            painter.setBrush(QBrush(color))
+            points = [
+                QPointF(0, -10),   # Top
+                QPointF(10, 0),    # Right
+                QPointF(0, 10),    # Bottom
+                QPointF(-10, 0)    # Left
+            ]
+            from PyQt6.QtGui import QPolygonF
+            polygon = QPolygonF(points)
+            painter.drawPolygon(polygon)
+            # Draw node label below
+            painter.setPen(QPen(Qt.GlobalColor.black))
+            painter.drawText(-20, 20, self.node_label)
         elif self.component_type in ['Voltage Source', 'Current Source']:
             # Draw circle for sources
             painter.drawEllipse(-15, -15, 30, 30)
@@ -115,10 +134,11 @@ class ComponentItem(QGraphicsItem):
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)  # Draw small circles for terminals
         
-        # Draw label
-        painter.setPen(QPen(Qt.GlobalColor.black))
-        label = f"{COMPONENTS[self.component_type]['symbol']}{self.component_id}"
-        painter.drawText(-20, -25, f"{label} ({self.value})")
+        # Draw label (skip for nodes since they have custom label)
+        if self.component_type != 'Node':
+            painter.setPen(QPen(Qt.GlobalColor.black))
+            label = f"{COMPONENTS[self.component_type]['symbol']}{self.component_id}"
+            painter.drawText(-20, -25, f"{label} ({self.value})")
     
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
@@ -135,12 +155,15 @@ class ComponentItem(QGraphicsItem):
     
     def to_dict(self):
         """Serialize component to dictionary"""
-        return {
+        data = {
             'type': self.component_type,
             'id': self.component_id,
             'value': self.value,
             'pos': {'x': self.pos().x(), 'y': self.pos().y()}
         }
+        if self.component_type == 'Node':
+            data['node_label'] = self.node_label
+        return data
     
     @staticmethod
     def from_dict(data):
@@ -148,6 +171,8 @@ class ComponentItem(QGraphicsItem):
         comp = ComponentItem(data['type'], data['id'])
         comp.value = data['value']
         comp.setPos(data['pos']['x'], data['pos']['y'])
+        if data['type'] == 'Node' and 'node_label' in data:
+            comp.node_label = data['node_label']
         return comp
 
 
@@ -190,9 +215,8 @@ class CircuitCanvas(QGraphicsView):
     def __init__(self):
         super().__init__()
         self.scene = QGraphicsScene()
-        if self.scene is None: exit()
-        # scene = QGraphicsScene()
-        # if scene is None: exit()
+        if self.scene is None:
+            exit()
         self.setScene(self.scene)
         self.setSceneRect(-500, -500, 1000, 1000)
         
@@ -202,7 +226,7 @@ class CircuitCanvas(QGraphicsView):
         
         self.components = {}  # id -> ComponentItem
         self.wires = []
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
+        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0, 'N': 0}
         
         # Drawing grid
         self.draw_grid()
@@ -214,8 +238,9 @@ class CircuitCanvas(QGraphicsView):
         self.setAcceptDrops(True)
     
     def draw_grid(self):
-        if self.scene is None: return
         """Draw background grid"""
+        if self.scene is None:
+            return
         pen = QPen(QColor(200, 200, 200), 0.5)
         pen.setCosmetic(True)  # Ensure grid doesn't scale with zoom
         for x in range(-500, 501, GRID_SIZE):
@@ -224,21 +249,26 @@ class CircuitCanvas(QGraphicsView):
             self.scene.addLine(-500, y, 500, y, pen)
     
     def dragEnterEvent(self, event):
-        if event is None: return
+        if event is None:
+            return
         mimeData = event.mimeData()
-        if mimeData is None: return
+        if mimeData is None:
+            return
         if mimeData.hasText():
             event.acceptProposedAction()
     
     def dragMoveEvent(self, event):
-        if event is None: return
+        if event is None:
+            return
         event.acceptProposedAction()
     
     def dropEvent(self, event):
         """Handle component drop from palette"""
-        if event is None: return
+        if event is None:
+            return
         mimeData = event.mimeData()
-        if mimeData is None: return
+        if mimeData is None:
+            return
         component_type = mimeData.text()
         if component_type in COMPONENTS:
             # Create new component
@@ -263,7 +293,8 @@ class CircuitCanvas(QGraphicsView):
     
     def mousePressEvent(self, event):
         """Handle wire drawing"""
-        if event is None:return
+        if event is None:
+            return
         if event.button() == Qt.MouseButton.RightButton:
             # Start wire drawing
             pos = event.position().toPoint()
@@ -283,7 +314,8 @@ class CircuitCanvas(QGraphicsView):
     
     def mouseReleaseEvent(self, event):
         """Complete wire drawing"""
-        if event is None:return
+        if event is None:
+            return
         if event.button() == Qt.MouseButton.RightButton and self.wire_start_comp:
             pos = event.position().toPoint()
             item = self.itemAt(pos)
@@ -313,7 +345,7 @@ class CircuitCanvas(QGraphicsView):
         self.draw_grid()
         self.components = {}
         self.wires = []
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
+        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0, 'N': 0}
     
     def to_dict(self):
         """Serialize circuit to dictionary"""
@@ -347,7 +379,6 @@ class CircuitCanvas(QGraphicsView):
 
 
 class ComponentPalette(QListWidget):
-# class ComponentPalette(QPalette):
     """Component palette with drag support"""
     
     def __init__(self):
@@ -391,8 +422,8 @@ class CircuitDesignGUI(QMainWindow):
         # Left panel - Component palette
         left_panel = QVBoxLayout()
         left_panel.addWidget(QLabel("Component Palette"))
-        # self.palette = ComponentPalette() # command palette is not a QPalette so cant be assigned to self.palette
-        left_panel.addWidget(ComponentPalette())
+        self.palette = ComponentPalette()
+        left_panel.addWidget(self.palette)
         
         # Instructions
         instructions = QLabel(
@@ -462,11 +493,13 @@ class CircuitDesignGUI(QMainWindow):
     def create_menu_bar(self):
         """Create menu bar with File and Edit menus"""
         menubar = self.menuBar()
-        if menubar is None:return
+        if menubar is None:
+            return
         
         # File menu
         file_menu = menubar.addMenu("&File")
-        if file_menu is None:return
+        if file_menu is None:
+            return
         
         new_action = QAction("&New", self)
         new_action.setShortcut("Ctrl+N")
@@ -497,7 +530,8 @@ class CircuitDesignGUI(QMainWindow):
         
         # Edit menu
         edit_menu = menubar.addMenu("&Edit")
-        if edit_menu is None:return
+        if edit_menu is None:
+            return
         
         clear_action = QAction("&Clear Canvas", self)
         clear_action.triggered.connect(self.clear_canvas)
@@ -505,7 +539,8 @@ class CircuitDesignGUI(QMainWindow):
         
         # Simulation menu
         sim_menu = menubar.addMenu("&Simulation")
-        if sim_menu is None:return
+        if sim_menu is None:
+            return
         
         netlist_action = QAction("Generate &Netlist", self)
         netlist_action.setShortcut("Ctrl+G")
@@ -541,7 +576,8 @@ class CircuitDesignGUI(QMainWindow):
                 with open(self.current_file, 'w') as f:
                     json.dump(data, f, indent=2)
                 statusBar = self.statusBar()
-                if statusBar is None: return
+                if statusBar is None:
+                    return
                 statusBar.showMessage(f"Saved to {self.current_file}", 3000)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save: {str(e)}")
@@ -645,17 +681,29 @@ class CircuitDesignGUI(QMainWindow):
                     if node_map[k] == gnd_node:
                         node_map[k] = 0
         
+        # Create mapping from node numbers to node labels
+        node_labels = {}  # node_number -> label
+        node_comps = [c for c in self.canvas.components.values() 
+                     if c.component_type == 'Node']
+        for node_comp in node_comps:
+            key = (node_comp.component_id, 0)
+            if key in node_map:
+                node_num = node_map[key]
+                node_labels[node_num] = node_comp.node_label
+        
         # Generate component lines
         for comp in self.canvas.components.values():
-            if comp.component_type == 'Ground':
+            if comp.component_type in ['Ground', 'Node']:
                 continue
             
             comp_id = comp.component_id
             nodes = []
             for i in range(len(comp.terminals)):
                 key = (comp_id, i)
-                node = node_map.get(key, 999)  # 999 for unconnected
-                nodes.append(str(node))
+                node_num = node_map.get(key, 999)  # 999 for unconnected
+                # Use label if available, otherwise use number
+                node_str = node_labels.get(node_num, str(node_num))
+                nodes.append(node_str)
             
             if comp.component_type == 'Resistor':
                 lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
@@ -667,6 +715,13 @@ class CircuitDesignGUI(QMainWindow):
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
             elif comp.component_type == 'Current Source':
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
+        
+        # Add comments about labeled nodes
+        if node_labels:
+            lines.append("")
+            lines.append("* Labeled Nodes:")
+            for node_num, label in sorted(node_labels.items()):
+                lines.append(f"* Node {node_num} = {label}")
         
         lines.append("")
         lines.append(".end")
