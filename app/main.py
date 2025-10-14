@@ -307,8 +307,14 @@ class CircuitCanvas(QGraphicsView):
                 closest = distances.index(min(distances))
                 
                 if min(distances) < 20:  # Within 20 pixels
-                    self.wire_start_comp = item
-                    self.wire_start_term = closest
+                    # For nodes, always allow connection (terminal 0)
+                    # For other components, check if terminal is already used
+                    if item.component_type == 'Node':
+                        self.wire_start_comp = item
+                        self.wire_start_term = 0
+                    elif self.is_terminal_available(item, closest):
+                        self.wire_start_comp = item
+                        self.wire_start_term = closest
         
         super().mousePressEvent(event)
     
@@ -327,17 +333,46 @@ class CircuitCanvas(QGraphicsView):
                 closest = distances.index(min(distances))
                 
                 if min(distances) < 20:
-                    # Create wire
-                    wire = WireItem(self.wire_start_comp, self.wire_start_term, 
-                                  item, closest)
-                    self.scene.addItem(wire)
-                    self.wires.append(wire)
-                    self.wireAdded.emit(self.wire_start_comp.component_id, item.component_id)
+                    # For nodes, always allow connection (terminal 0)
+                    # For other components, check if terminal is available
+                    can_connect = False
+                    target_term = 0
+                    
+                    if item.component_type == 'Node':
+                        can_connect = True
+                        target_term = 0
+                    elif self.is_terminal_available(item, closest):
+                        can_connect = True
+                        target_term = closest
+                    
+                    if can_connect:
+                        # Create wire
+                        wire = WireItem(self.wire_start_comp, self.wire_start_term, 
+                                      item, target_term)
+                        self.scene.addItem(wire)
+                        self.wires.append(wire)
+                        self.wireAdded.emit(self.wire_start_comp.component_id, item.component_id)
             
             self.wire_start_comp = None
             self.wire_start_term = None
         
         super().mouseReleaseEvent(event)
+    
+    def is_terminal_available(self, component, terminal_index):
+        """Check if a component's terminal is available for connection"""
+        # Nodes can have unlimited connections
+        if component.component_type == 'Node':
+            return True
+        
+        # Count existing connections to this terminal
+        connection_count = 0
+        for wire in self.wires:
+            if (wire.start_comp == component and wire.start_term == terminal_index) or \
+               (wire.end_comp == component and wire.end_term == terminal_index):
+                connection_count += 1
+        
+        # Most components have 2 terminals, each can only have one connection
+        return connection_count == 0
     
     def clear_circuit(self):
         """Clear all components and wires"""
