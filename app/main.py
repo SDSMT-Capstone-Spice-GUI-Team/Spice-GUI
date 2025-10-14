@@ -20,9 +20,10 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QListWidget, QGraphicsView, 
                              QGraphicsScene, QGraphicsItem, QGraphicsLineItem,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
-                             QSplitter, QLabel, QListWidgetItem, QGraphicsEllipseItem)
+                             QSplitter, QLabel, QListWidgetItem, QGraphicsEllipseItem,
+                             QMenu)
 from PyQt6.QtCore import Qt, QPointF, QRectF, QMimeData, pyqtSignal
-from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QDrag, QAction
+from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QDrag, QAction, QKeySequence
 
 # Component definitions
 COMPONENTS = {
@@ -47,6 +48,7 @@ class ComponentItem(QGraphicsItem):
         self.component_id = component_id
         self.value = "1k" if component_type == 'Resistor' else "1u"
         self.node_label = component_id if component_type == 'Node' else ""  # For node naming
+        self.rotation_angle = 0  # Rotation in degrees (0, 90, 180, 270)
         self.terminals = []
         self.connections = []  # Store wire connections
         
@@ -55,24 +57,61 @@ class ComponentItem(QGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
         
         # Create terminals based on component type
-        terminal_count = COMPONENTS[component_type]['terminals']
-        if terminal_count == 2:
-            self.terminals = [QPointF(-30, 0), QPointF(30, 0)]
-        elif terminal_count == 1:
-            self.terminals = [QPointF(0, 0)]
+        self.update_terminals()
     
     def boundingRect(self):
-        return QRectF(-40, -20, 80, 40)
+        return QRectF(-40, -30, 80, 60)
+    
+    def update_terminals(self):
+        """Update terminal positions based on rotation"""
+        terminal_count = COMPONENTS[self.component_type]['terminals']
+        
+        # Base terminal positions (horizontal orientation)
+        if terminal_count == 2:
+            base_terminals = [QPointF(-30, 0), QPointF(30, 0)]
+        elif terminal_count == 1:
+            base_terminals = [QPointF(0, 0)]
+        else:
+            base_terminals = []
+        
+        # Rotate terminals based on rotation_angle
+        import math
+        rad = math.radians(self.rotation_angle)
+        cos_a = math.cos(rad)
+        sin_a = math.sin(rad)
+        
+        self.terminals = []
+        for term in base_terminals:
+            # Rotate point around origin
+            new_x = term.x() * cos_a - term.y() * sin_a
+            new_y = term.x() * sin_a + term.y() * cos_a
+            self.terminals.append(QPointF(new_x, new_y))
+    
+    def rotate_component(self, clockwise=True):
+        """Rotate component by 90 degrees"""
+        if clockwise:
+            self.rotation_angle = (self.rotation_angle + 90) % 360
+        else:
+            self.rotation_angle = (self.rotation_angle - 90) % 360
+        
+        self.update_terminals()
+        self.update()  # Trigger repaint
     
     def paint(self, painter, option=None, widget=None):
         if painter is None:
             return
         color = QColor(COMPONENTS[self.component_type]['color'])
         
+        # Save painter state
+        painter.save()
+        
+        # Apply rotation
+        painter.rotate(self.rotation_angle)
+        
         # Highlight if selected
         if self.isSelected():
             painter.setPen(QPen(Qt.GlobalColor.yellow, 3))
-            painter.drawRect(self.boundingRect())
+            painter.drawRect(QRectF(-40, -20, 80, 40))
         
         # Draw component body
         painter.setPen(QPen(color, 2))
@@ -129,16 +168,19 @@ class ComponentItem(QGraphicsItem):
                 painter.drawArc(i, -5, 8, 10, 0, 180*16)
             painter.drawLine(20, 0, 30, 0)
         
-        # Draw terminals
-        painter.setPen(QPen(Qt.GlobalColor.red, 4))
-        for terminal in self.terminals:
-            painter.drawEllipse(terminal, 3, 3)  # Draw small circles for terminals
-        
         # Draw label (skip for nodes since they have custom label)
         if self.component_type != 'Node':
             painter.setPen(QPen(Qt.GlobalColor.black))
             label = f"{COMPONENTS[self.component_type]['symbol']}{self.component_id}"
             painter.drawText(-20, -25, f"{label} ({self.value})")
+        
+        # Restore painter state
+        painter.restore()
+        
+        # Draw terminals in scene coordinates (not rotated)
+        painter.setPen(QPen(Qt.GlobalColor.red, 4))
+        for terminal in self.terminals:
+            painter.drawEllipse(terminal, 3, 3)
     
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
@@ -159,7 +201,8 @@ class ComponentItem(QGraphicsItem):
             'type': self.component_type,
             'id': self.component_id,
             'value': self.value,
-            'pos': {'x': self.pos().x(), 'y': self.pos().y()}
+            'pos': {'x': self.pos().x(), 'y': self.pos().y()},
+            'rotation': self.rotation_angle
         }
         if self.component_type == 'Node':
             data['node_label'] = self.node_label
@@ -171,6 +214,9 @@ class ComponentItem(QGraphicsItem):
         comp = ComponentItem(data['type'], data['id'])
         comp.value = data['value']
         comp.setPos(data['pos']['x'], data['pos']['y'])
+        if 'rotation' in data:
+            comp.rotation_angle = data['rotation']
+            comp.update_terminals()
         if data['type'] == 'Node' and 'node_label' in data:
             comp.node_label = data['node_label']
         return comp
@@ -187,6 +233,7 @@ class WireItem(QGraphicsLineItem):
         self.end_term = end_term
         
         self.setPen(QPen(Qt.GlobalColor.black, 2))
+        self.setFlag(QGraphicsLineItem.GraphicsItemFlag.ItemIsSelectable)
         self.update_position()
     
     def update_position(self):
@@ -194,6 +241,19 @@ class WireItem(QGraphicsLineItem):
         start = self.start_comp.get_terminal_pos(self.start_term)
         end = self.end_comp.get_terminal_pos(self.end_term)
         self.setLine(start.x(), start.y(), end.x(), end.y())
+    
+    def paint(self, painter, option=None, widget=None):
+        """Override paint to show selection highlight"""
+        if painter is None:
+            return
+        
+        # Draw wire
+        if self.isSelected():
+            painter.setPen(QPen(Qt.GlobalColor.yellow, 4))
+        else:
+            painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        
+        painter.drawLine(self.line())
     
     def to_dict(self):
         """Serialize wire to dictionary"""
@@ -236,6 +296,8 @@ class CircuitCanvas(QGraphicsView):
         self.wire_start_term = None
         
         self.setAcceptDrops(True)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
     
     def draw_grid(self):
         """Draw background grid"""
@@ -357,6 +419,140 @@ class CircuitCanvas(QGraphicsView):
             self.wire_start_term = None
         
         super().mouseReleaseEvent(event)
+    
+    def keyPressEvent(self, event):
+        """Handle keyboard shortcuts"""
+        if event is None:
+            return
+        
+        if event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
+            self.delete_selected()
+        elif event.key() == Qt.Key.Key_R:
+            # Rotate selected components clockwise
+            self.rotate_selected(clockwise=True)
+        elif event.key() == Qt.Key.Key_R and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            # Rotate selected components counter-clockwise
+            self.rotate_selected(clockwise=False)
+        else:
+            super().keyPressEvent(event)
+    
+    def show_context_menu(self, position):
+        """Show context menu for delete operations"""
+        # Get item at position
+        item = self.itemAt(position)
+        
+        menu = QMenu()
+        
+        if isinstance(item, ComponentItem):
+            # Component-specific actions
+            delete_action = QAction(f"Delete {item.component_id}", self)
+            delete_action.triggered.connect(lambda: self.delete_component(item))
+            menu.addAction(delete_action)
+            
+            menu.addSeparator()
+            
+            rotate_cw_action = QAction("Rotate Clockwise (R)", self)
+            rotate_cw_action.triggered.connect(lambda: self.rotate_component(item, True))
+            menu.addAction(rotate_cw_action)
+            
+            rotate_ccw_action = QAction("Rotate Counter-Clockwise (Shift+R)", self)
+            rotate_ccw_action.triggered.connect(lambda: self.rotate_component(item, False))
+            menu.addAction(rotate_ccw_action)
+            
+        elif isinstance(item, WireItem):
+            delete_action = QAction("Delete Wire", self)
+            delete_action.triggered.connect(lambda: self.delete_wire(item))
+            menu.addAction(delete_action)
+        else:
+            # No specific item, offer to delete all selected
+            selected_items = self.scene.selectedItems()
+            if selected_items:
+                delete_action = QAction(f"Delete Selected ({len(selected_items)} items)", self)
+                delete_action.triggered.connect(self.delete_selected)
+                menu.addAction(delete_action)
+                
+                # Check if any components are selected
+                selected_components = [i for i in selected_items if isinstance(i, ComponentItem)]
+                if selected_components:
+                    menu.addSeparator()
+                    rotate_cw_action = QAction("Rotate Selected Clockwise", self)
+                    rotate_cw_action.triggered.connect(lambda: self.rotate_selected(True))
+                    menu.addAction(rotate_cw_action)
+                    
+                    rotate_ccw_action = QAction("Rotate Selected Counter-Clockwise", self)
+                    rotate_ccw_action.triggered.connect(lambda: self.rotate_selected(False))
+                    menu.addAction(rotate_ccw_action)
+        
+        if not menu.isEmpty():
+            menu.exec(self.mapToGlobal(position))
+    
+    def delete_selected(self):
+        """Delete all selected items"""
+        selected_items = self.scene.selectedItems()
+        if not selected_items:
+            return
+        
+        # Separate components and wires
+        components_to_delete = [item for item in selected_items if isinstance(item, ComponentItem)]
+        wires_to_delete = [item for item in selected_items if isinstance(item, WireItem)]
+        
+        # Delete components (this will also delete connected wires)
+        for comp in components_to_delete:
+            self.delete_component(comp)
+        
+        # Delete remaining wires
+        for wire in wires_to_delete:
+            if wire in self.wires:  # Check if not already deleted
+                self.delete_wire(wire)
+    
+    def delete_component(self, component):
+        """Delete a component and all connected wires"""
+        if component is None:
+            return
+        
+        # Find and delete all wires connected to this component
+        wires_to_delete = []
+        for wire in self.wires:
+            if wire.start_comp == component or wire.end_comp == component:
+                wires_to_delete.append(wire)
+        
+        for wire in wires_to_delete:
+            self.delete_wire(wire)
+        
+        # Remove component from scene and tracking
+        self.scene.removeItem(component)
+        if component.component_id in self.components:
+            del self.components[component.component_id]
+    
+    def delete_wire(self, wire):
+        """Delete a wire"""
+        if wire is None:
+            return
+        
+        # Remove from scene and tracking
+        self.scene.removeItem(wire)
+        if wire in self.wires:
+            self.wires.remove(wire)
+    
+    def rotate_component(self, component, clockwise=True):
+        """Rotate a single component"""
+        if component is None or not isinstance(component, ComponentItem):
+            return
+        
+        component.rotate_component(clockwise)
+        
+        # Update all connected wires
+        for wire in self.wires:
+            if wire.start_comp == component or wire.end_comp == component:
+                wire.update_position()
+    
+    def rotate_selected(self, clockwise=True):
+        """Rotate all selected components"""
+        selected_items = self.scene.selectedItems()
+        components = [item for item in selected_items if isinstance(item, ComponentItem)]
+        
+        for comp in components:
+            self.rotate_component(comp, clockwise)
     
     def is_terminal_available(self, component, terminal_index):
         """Check if a component's terminal is available for connection"""
@@ -568,6 +764,25 @@ class CircuitDesignGUI(QMainWindow):
         if edit_menu is None:
             return
         
+        delete_action = QAction("&Delete Selected", self)
+        delete_action.setShortcut(QKeySequence.StandardKey.Delete)
+        delete_action.triggered.connect(self.delete_selected)
+        edit_menu.addAction(delete_action)
+        
+        edit_menu.addSeparator()
+        
+        rotate_cw_action = QAction("Rotate Clockwise", self)
+        rotate_cw_action.setShortcut("R")
+        rotate_cw_action.triggered.connect(lambda: self.canvas.rotate_selected(True))
+        edit_menu.addAction(rotate_cw_action)
+        
+        rotate_ccw_action = QAction("Rotate Counter-Clockwise", self)
+        rotate_ccw_action.setShortcut("Shift+R")
+        rotate_ccw_action.triggered.connect(lambda: self.canvas.rotate_selected(False))
+        edit_menu.addAction(rotate_ccw_action)
+        
+        edit_menu.addSeparator()
+        
         clear_action = QAction("&Clear Canvas", self)
         clear_action.triggered.connect(self.clear_canvas)
         edit_menu.addAction(clear_action)
@@ -602,6 +817,10 @@ class CircuitDesignGUI(QMainWindow):
         self.current_file = None
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.results_text.clear()
+    
+    def delete_selected(self):
+        """Delete selected items from canvas"""
+        self.canvas.delete_selected()
     
     def save_circuit_quick(self):
         """Quick save to current file"""
