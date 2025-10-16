@@ -1,0 +1,216 @@
+Elements Parameters
+
+Resistor:
+
+RXXXXXXX Node1 Node2 ResistanceValue
+
+Example:
+
+A resistor named orange connected to nodes A and B with a resistance of 12kohms would look like:
+
+Rorange A B 12k
+
+
+
+Capacitor:
+
+CXXXXXXX Node1 Node2 CapacitanceValue
+
+Example:
+
+A capacitor named tim connected to nodes 5 and 6 with a capacitance of 3uF would look like:
+
+Ctim 5 6 3u
+
+
+
+Inductor:
+
+LXXXXXXX Node1 Node2 InductanceValue
+
+Example:
+
+An inductor named 1 connected to nodes In and Sub with an inductance of 5mH would look like:
+
+L1 In Sub 5m
+
+
+
+DC Voltage Source:
+
+VXXXXXXX PositiveNode NegativeNode DC VoltageValue
+
+Example:
+
+A DC voltage source named input with positive end connected to node D and negative end connected to ground (node 0) with a voltage of 12V would look like:
+
+Vinput D 0 DC 12
+
+
+
+DC Current Source:
+
+IXXXXXXX PositiveNode NegativeNode DC CurrentValue
+
+Example:
+
+A DC current source named jeff with positive end connected to node 3 and negative end connected to node 2 with a current of 1A would look like:
+
+Ijeff 3 2 DC 1
+
+
+
+AC Voltage Source:
+
+VXXXXXXX PositiveNode NegativeNode AC VoltageMagnitude VoltagePhase
+
+Example:
+
+An AC voltage source named D with positive end connected to node D and negative end connected to ground (node 0) with a magnitude of 10mV and phase of 45 degrees would look like:
+
+VD D 0 AC 10m 45
+
+
+
+AC Current Source:
+
+IXXXXXXX PositiveNode NegativeNode AC CurrentMagnitude CurrentPhase
+
+Example:
+
+An AC current source named dad with positive end connected to ground (node 0) and negative end connected to node apple with a magnitude of 100uA and phase of -37 degrees would look like:
+
+Idad 0 apple AC 100u -37
+
+
+
+Sinusoidal Voltage Source:
+
+VXXXXXXX PositiveNode NegativeNode SIN(OffsetVoltage VoltageAmplitude Frequency TimeDelay DampingFactor Phase)
+
+Example:
+
+A sinusoidal voltage source named wiggle with positive end connected to node 2 and negative end connected to node 1 with an offset voltage of 1V, voltage amplitude of 100V, frequency of 80Hz, time delay of 0s, damping factor of 0 s^-1, and phase of 30 degrees would look like:
+
+Vwiggle 2 1 SIN(1 100 80 0 0 30)
+
+
+
+Sinusoidal Current Source:
+
+IXXXXXXX PositiveNode NegativeNode SIN(OffsetCurrent CurrentAmplitude Frequency TimeDelay DampingFactor Phase)
+
+Example:
+
+A sinusoidal current source named sin with positive end connected to node Z and negative end connected to node Y with an offset current of 0A, current amplitude of 5A, frequency off 100kHz, time delay of 10ns, damping factor of 10 s^-1, and phase of 0 degrees would look like:
+
+Isin Z Y SIN(0 5 100k 10n 10 0)
+
+
+
+Pulse Voltage Source:
+
+VXXXXXXX PositiveNode NegativeNode PULSE(InitialVoltage PulsedVoltage DelayTime RiseTime FallTime PulseWidth Period NumberOfPulses)
+
+Note: NumberOfPulses = 0 results in unlimited pulses, i.e. pulse train or square wave
+
+Example:
+
+A pulse voltage source is intended to replicate a square wave. It is named square with positive end connected to node IN and negative end grounded (node 0) with no initial voltage, an amplitude of 10V, no delay, rise time of 1ns, fall time of 1ns, pulse width of 1us, period of 2us, and an unlimited number of pulses (NumberOfPulses = 0). This would look like:
+
+Vsquare IN 0 PULSE(0 10 0 1n 1n 1u 2u 0)
+
+
+
+Pulse Current Source:
+
+IXXXXXXX PositiveNode NegativeNode PULSE(InitialCurrent PulsedCurrent DelayTime RiseTime FallTime PulseWidth Period NumberOfPulses)
+
+Note: NumberOfPulses = 0 results in unlimited pulses, i.e. pulse train or square wave
+
+Example:
+
+A pulse current source named pulse with positive end connected to node 1 and negative end grounded (node 0) with a -2mA initial current, pulsed current of 2mA, delay of 1us, rise time of 1ns, fall time of 1ns, pulse width of 0.5us, period of 3us, and 2 pulses would look like:
+
+Ipulse 1 0 PULSE(-2m 2m 1u 1n 1n 0.5u 3u 2)
+
+
+
+Diode:
+
+DXXXXXXX PositiveNode NegativeNode DMOD
+.model DMOD D
+
+Note: .model DMOD D is necessary to include in the netlist when using a diode as it defines the diode using default parameters, .model DMOD D only needs to be included once if using multiple diodes, it applies to all DMOD diodes
+
+Example:
+
+A diode named rec with anode connected to node 1 and cathode connected to node 2 would look like:
+
+Drec 1 2 DMOD
+.model DMOD D
+
+
+
+NPN BJT:
+
+QXXXXXXX CollectorNode BaseNode EmitterNode SubstrateNode QNPN
+.model QNPN NPN
+
+Note: EmitterNode and SubstrateNode will be the SAME VALUE (the nodes are tied together for practically all applications)
+
+Note: .model QNPN NPN is necessary to include in the netlist when using an NPN BJT as it defines the BJT using default NPN parameters, .model QNPN NPN only needs to be included once if using multiple NPN BJTs, it applies to all QNPN BJTs
+
+Example:
+
+An NPN BJT named npn with collector connected to node 2, base connected to node 3, and emitter grounded (node 0) would look like:
+
+Qnpn 2 3 0 0 QNPN
+.model QNPN NPN
+
+
+
+PNP BJT:
+
+QXXXXXXX CollectorNode BaseNode EmitterNode SubstrateNode QPNP
+.model QPNP PNP
+
+Note: EmitterNode and SubstrateNode will be the SAME VALUE (the nodes are tied together for practically all applications)
+
+Note: .model QPNP PNP is necessary to include in the netlist when using a PNP BJT as it defines the BJT using default PNP parameters, .model QPNP PNP only needs to be included once if using multiple PNP BJTs, it applies to all QPNP BJTs
+
+Example:
+
+A PNP BJT named pnp with collector connected to node 4, base connected to node 3, and emitter connected to node 2 would look like:
+
+Qpnp 4 3 2 2 QPNP
+.model QPNP PNP
+
+
+
+N-Channel MOSFET:
+
+MXXXXXXX DrainNode GateNode SourceNode BulkNode MOSN
+.model MOSN NMOS
+
+Note: SourceNode and BulkNode will be the SAME VALUE (the nodes are tied together for practically all applications)
+
+Note: .model MOSN NMOS is necessary to include in the netlist when using an N-Channel MOSFET as it defines the MOSFET using default NMOS parameters, .model MOSN NMOS only needs to be included once if using multiple N-Channel MOSFETs, it applies to all MOSN MOSFETs
+
+Example:
+
+An N-Channel named 3 with drain connected to node 2, gate connected to node 3, and source grounded (node 0) would look like:
+
+M3 2 3 0 0 MOSN
+.model MOSN NMOS
+
+
+
+P-Channel MOSFET:
+
+MXXXXXXX DrainNode GateNode SourceNode BulkNode MOSP
+.model MOSP PMOS
+
+Note: SourceNode and BulkNode will be the SAME VALUE (the nodes are tied together for practically all applications)
+
+Note: .model MOSP PMOS is necessary to include in the netlist when using a P-Channel MOSFET as it defines the MOSFET using default PMOS parameters, .model MOSN PMOS only needs to be included once if using multiple P-Channel MOSFETs, it applies to all MOSP MOSFETs
