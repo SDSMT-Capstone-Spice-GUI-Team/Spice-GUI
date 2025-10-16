@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QGraphicsScene, QGraphicsItem, QGraphicsLineItem,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
                              QSplitter, QLabel, QListWidgetItem, QGraphicsEllipseItem,
-                             QMenu)
+                             QMenu, QDialog, QFormLayout, QLineEdit, QDialogButtonBox)
 from PyQt6.QtCore import Qt, QPointF, QRectF, QMimeData, pyqtSignal
 from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QDrag, QAction, QKeySequence
 
@@ -37,6 +37,92 @@ COMPONENTS = {
 }
 
 GRID_SIZE = 20
+
+
+class AnalysisDialog(QDialog):
+    """Dialog for configuring analysis parameters"""
+    
+    def __init__(self, analysis_type, parent=None):
+        super().__init__(parent)
+        self.analysis_type = analysis_type
+        self.parameters = {}
+        self.init_ui()
+    
+    def init_ui(self):
+        """Initialize the dialog UI"""
+        self.setWindowTitle(f"{self.analysis_type} Parameters")
+        layout = QVBoxLayout(self)
+        
+        # Create form layout for parameters
+        form_layout = QFormLayout()
+        
+        if self.analysis_type == "DC Sweep":
+            self.min_field = QLineEdit("0")
+            self.max_field = QLineEdit("10")
+            self.step_field = QLineEdit("0.1")
+            
+            form_layout.addRow("Minimum Voltage (V):", self.min_field)
+            form_layout.addRow("Maximum Voltage (V):", self.max_field)
+            form_layout.addRow("Step Size (V):", self.step_field)
+            
+        elif self.analysis_type == "AC Sweep":
+            self.min_field = QLineEdit("1")
+            self.max_field = QLineEdit("1000000")
+            self.points_field = QLineEdit("100")
+            
+            form_layout.addRow("Start Frequency (Hz):", self.min_field)
+            form_layout.addRow("Stop Frequency (Hz):", self.max_field)
+            form_layout.addRow("Points per Decade:", self.points_field)
+            
+        elif self.analysis_type == "Transient":
+            self.duration_field = QLineEdit("1")
+            self.step_field = QLineEdit("0.001")
+            
+            form_layout.addRow("Duration (s):", self.duration_field)
+            form_layout.addRow("Time Step (s):", self.step_field)
+        
+        layout.addLayout(form_layout)
+        
+        # Add buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+    
+    def get_parameters(self):
+        """Get the parameters from the dialog"""
+        if self.analysis_type == "DC Sweep":
+            try:
+                return {
+                    'min': float(self.min_field.text()),
+                    'max': float(self.max_field.text()),
+                    'step': float(self.step_field.text())
+                }
+            except ValueError:
+                return None
+                
+        elif self.analysis_type == "AC Sweep":
+            try:
+                return {
+                    'fstart': float(self.min_field.text()),
+                    'fstop': float(self.max_field.text()),
+                    'points': int(self.points_field.text())
+                }
+            except ValueError:
+                return None
+                
+        elif self.analysis_type == "Transient":
+            try:
+                return {
+                    'duration': float(self.duration_field.text()),
+                    'step': float(self.step_field.text())
+                }
+            except ValueError:
+                return None
+        
+        return {}
 
 
 class ComponentItem(QGraphicsItem):
@@ -294,8 +380,10 @@ class CircuitCanvas(QGraphicsView):
         # Wire drawing mode
         self.wire_start_comp = None
         self.wire_start_term = None
+        self.temp_wire_line = None  # Temporary line while drawing wire
         
         self.setAcceptDrops(True)
+        self.setMouseTracking(True)  # Enable mouse tracking for wire preview
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
     
@@ -354,69 +442,132 @@ class CircuitCanvas(QGraphicsView):
             event.acceptProposedAction()
     
     def mousePressEvent(self, event):
-        """Handle wire drawing"""
+        """Handle wire drawing and component selection"""
         if event is None:
             return
-        if event.button() == Qt.MouseButton.RightButton:
-            # Start wire drawing
-            pos = event.position().toPoint()
-            item = self.itemAt(pos)
-            if isinstance(item, ComponentItem):
-                # Find closest terminal
-                scene_pos = self.mapToScene(pos)
-                terminals = [item.get_terminal_pos(i) for i in range(len(item.terminals))]
-                distances = [(t - scene_pos).manhattanLength() for t in terminals]
-                closest = distances.index(min(distances))
-                
-                if min(distances) < 20:  # Within 20 pixels
-                    # For nodes, always allow connection (terminal 0)
-                    # For other components, check if terminal is already used
-                    if item.component_type == 'Node':
-                        self.wire_start_comp = item
-                        self.wire_start_term = 0
-                    elif self.is_terminal_available(item, closest):
-                        self.wire_start_comp = item
-                        self.wire_start_term = closest
         
+        if event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position().toPoint()
+            scene_pos = self.mapToScene(pos)
+            
+            # Check all components for terminal proximity
+            clicked_terminal = None
+            clicked_component = None
+            clicked_term_index = None
+            
+            for comp in self.components.values():
+                terminals = [comp.get_terminal_pos(i) for i in range(len(comp.terminals))]
+                for i, term_pos in enumerate(terminals):
+                    distance = (term_pos - scene_pos).manhattanLength()
+                    if distance < 20:  # Within 20 pixels of terminal
+                        clicked_terminal = term_pos
+                        clicked_component = comp
+                        clicked_term_index = i
+                        break
+                if clicked_terminal:
+                    break
+            
+            # If we clicked near a terminal
+            if clicked_terminal and clicked_component:
+                if self.wire_start_comp is None:
+                    # Start drawing wire
+                    if clicked_component.component_type == 'Node':
+                        self.wire_start_comp = clicked_component
+                        self.wire_start_term = 0
+                    elif self.is_terminal_available(clicked_component, clicked_term_index):
+                        self.wire_start_comp = clicked_component
+                        self.wire_start_term = clicked_term_index
+                    
+                    if self.wire_start_comp:
+                        # Create temporary wire line for visual feedback
+                        start_pos = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+                        self.temp_wire_line = QGraphicsLineItem(start_pos.x(), start_pos.y(), 
+                                                                 start_pos.x(), start_pos.y())
+                        pen = QPen(Qt.GlobalColor.blue, 3)
+                        pen.setStyle(Qt.PenStyle.DashLine)
+                        self.temp_wire_line.setPen(pen)
+                        self.temp_wire_line.setZValue(100)  # Draw on top
+                        self.scene.addItem(self.temp_wire_line)
+                        print(f"Started wire from {self.wire_start_comp.component_id} terminal {self.wire_start_term}")  # Debug
+                    
+                    # Don't propagate - we're in wire mode
+                    event.accept()
+                    return
+                else:
+                    # Complete the wire
+                    if clicked_component != self.wire_start_comp:
+                        can_connect = False
+                        target_term = 0
+                        
+                        if clicked_component.component_type == 'Node':
+                            can_connect = True
+                            target_term = 0
+                        elif self.is_terminal_available(clicked_component, clicked_term_index):
+                            can_connect = True
+                            target_term = clicked_term_index
+                        
+                        if can_connect:
+                            # Create wire
+                            wire = WireItem(self.wire_start_comp, self.wire_start_term, 
+                                          clicked_component, target_term)
+                            self.scene.addItem(wire)
+                            self.wires.append(wire)
+                            self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
+                            print(f"Completed wire from {self.wire_start_comp.component_id} to {clicked_component.component_id}")  # Debug
+                        else:
+                            print(f"Cannot connect - terminal not available")  # Debug
+                    else:
+                        print(f"Clicked same component - cancelling")  # Debug
+                    
+                    # Clean up temporary wire line
+                    if self.temp_wire_line:
+                        self.scene.removeItem(self.temp_wire_line)
+                        self.temp_wire_line = None
+                    
+                    self.wire_start_comp = None
+                    self.wire_start_term = None
+                    
+                    # Don't propagate - we completed wire drawing
+                    event.accept()
+                    return
+            
+            # If we're in wire drawing mode but clicked elsewhere, cancel it
+            if self.wire_start_comp is not None:
+                print(f"Cancelling wire drawing")  # Debug
+                if self.temp_wire_line:
+                    self.scene.removeItem(self.temp_wire_line)
+                    self.temp_wire_line = None
+                self.wire_start_comp = None
+                self.wire_start_term = None
+                event.accept()
+                return
+        
+        # Normal selection/movement behavior
         super().mousePressEvent(event)
     
-    def mouseReleaseEvent(self, event):
-        """Complete wire drawing"""
+    def mouseMoveEvent(self, event):
+        """Update temporary wire line while drawing"""
         if event is None:
             return
-        if event.button() == Qt.MouseButton.RightButton and self.wire_start_comp:
+        
+        if self.wire_start_comp is not None and self.temp_wire_line is not None:
+            # Update temporary wire to follow mouse
             pos = event.position().toPoint()
-            item = self.itemAt(pos)
-            if isinstance(item, ComponentItem) and item != self.wire_start_comp:
-                # Find closest terminal
-                scene_pos = self.mapToScene(pos)
-                terminals = [item.get_terminal_pos(i) for i in range(len(item.terminals))]
-                distances = [(t - scene_pos).manhattanLength() for t in terminals]
-                closest = distances.index(min(distances))
-                
-                if min(distances) < 20:
-                    # For nodes, always allow connection (terminal 0)
-                    # For other components, check if terminal is available
-                    can_connect = False
-                    target_term = 0
-                    
-                    if item.component_type == 'Node':
-                        can_connect = True
-                        target_term = 0
-                    elif self.is_terminal_available(item, closest):
-                        can_connect = True
-                        target_term = closest
-                    
-                    if can_connect:
-                        # Create wire
-                        wire = WireItem(self.wire_start_comp, self.wire_start_term, 
-                                      item, target_term)
-                        self.scene.addItem(wire)
-                        self.wires.append(wire)
-                        self.wireAdded.emit(self.wire_start_comp.component_id, item.component_id)
-            
-            self.wire_start_comp = None
-            self.wire_start_term = None
+            scene_pos = self.mapToScene(pos)
+            start_pos = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+            self.temp_wire_line.setLine(start_pos.x(), start_pos.y(), 
+                                       scene_pos.x(), scene_pos.y())
+            # Force update
+            self.temp_wire_line.update()
+            event.accept()
+            return
+        
+        super().mouseMoveEvent(event)
+    
+    def mouseReleaseEvent(self, event):
+        """Handle mouse release"""
+        if event is None:
+            return
         
         super().mouseReleaseEvent(event)
     
@@ -641,6 +792,10 @@ class CircuitDesignGUI(QMainWindow):
         self.setGeometry(100, 100, 1200, 800)
         self.current_file = None  # Track current file for save operations
         
+        # Analysis settings
+        self.analysis_type = "Operational Point"  # Default analysis
+        self.analysis_params = {}
+        
         self.init_ui()
         self.create_menu_bar()
     
@@ -659,8 +814,10 @@ class CircuitDesignGUI(QMainWindow):
         # Instructions
         instructions = QLabel(
             "Drag components to canvas\n"
-            "Right-click terminals to wire\n"
-            "Left-click to select/move"
+            "Left-click terminal to start wire\n"
+            "Left-click another terminal to complete\n"
+            "Right-click for context menu\n"
+            "Press R to rotate selected"
         )
         instructions.setWordWrap(True)
         left_panel.addWidget(instructions)
@@ -801,6 +958,46 @@ class CircuitDesignGUI(QMainWindow):
         run_action.setShortcut("F5")
         run_action.triggered.connect(self.run_simulation)
         sim_menu.addAction(run_action)
+        
+        # Analysis menu
+        analysis_menu = menubar.addMenu("&Analysis")
+        if analysis_menu is None:
+            return
+        
+        op_action = QAction("&Operational Point (.op)", self)
+        op_action.setCheckable(True)
+        op_action.setChecked(True)  # Default
+        op_action.triggered.connect(self.set_analysis_op)
+        analysis_menu.addAction(op_action)
+        
+        dc_action = QAction("&DC Sweep", self)
+        dc_action.setCheckable(True)
+        dc_action.triggered.connect(self.set_analysis_dc)
+        analysis_menu.addAction(dc_action)
+        
+        ac_action = QAction("&AC Sweep", self)
+        ac_action.setCheckable(True)
+        ac_action.triggered.connect(self.set_analysis_ac)
+        analysis_menu.addAction(ac_action)
+        
+        tran_action = QAction("&Transient", self)
+        tran_action.setCheckable(True)
+        tran_action.triggered.connect(self.set_analysis_transient)
+        analysis_menu.addAction(tran_action)
+        
+        # Create action group for mutually exclusive analysis types
+        from PyQt6.QtGui import QActionGroup
+        self.analysis_group = QActionGroup(self)
+        self.analysis_group.addAction(op_action)
+        self.analysis_group.addAction(dc_action)
+        self.analysis_group.addAction(ac_action)
+        self.analysis_group.addAction(tran_action)
+        
+        # Store actions for later reference
+        self.op_action = op_action
+        self.dc_action = dc_action
+        self.ac_action = ac_action
+        self.tran_action = tran_action
     
     def new_circuit(self):
         """Create a new circuit"""
@@ -821,6 +1018,67 @@ class CircuitDesignGUI(QMainWindow):
     def delete_selected(self):
         """Delete selected items from canvas"""
         self.canvas.delete_selected()
+    
+    def set_analysis_op(self):
+        """Set analysis type to Operational Point"""
+        self.analysis_type = "Operational Point"
+        self.analysis_params = {}
+        self.statusBar().showMessage("Analysis: Operational Point (.op)", 3000)
+    
+    def set_analysis_dc(self):
+        """Set analysis type to DC Sweep with parameters"""
+        dialog = AnalysisDialog("DC Sweep", self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.analysis_type = "DC Sweep"
+                self.analysis_params = params
+                self.statusBar().showMessage(
+                    f"Analysis: DC Sweep (V: {params['min']}V to {params['max']}V, step {params['step']}V)", 
+                    3000
+                )
+            else:
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                self.op_action.setChecked(True)  # Revert to OP
+        else:
+            # User cancelled, revert to previous selection
+            self.op_action.setChecked(True)
+    
+    def set_analysis_ac(self):
+        """Set analysis type to AC Sweep with parameters"""
+        dialog = AnalysisDialog("AC Sweep", self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.analysis_type = "AC Sweep"
+                self.analysis_params = params
+                self.statusBar().showMessage(
+                    f"Analysis: AC Sweep ({params['fstart']}Hz to {params['fstop']}Hz, {params['points']} pts/decade)", 
+                    3000
+                )
+            else:
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
+    
+    def set_analysis_transient(self):
+        """Set analysis type to Transient with parameters"""
+        dialog = AnalysisDialog("Transient", self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.analysis_type = "Transient"
+                self.analysis_params = params
+                self.statusBar().showMessage(
+                    f"Analysis: Transient (duration: {params['duration']}s, step: {params['step']}s)", 
+                    3000
+                )
+            else:
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
     
     def save_circuit_quick(self):
         """Quick save to current file"""
@@ -976,6 +1234,30 @@ class CircuitDesignGUI(QMainWindow):
             lines.append("* Labeled Nodes:")
             for node_num, label in sorted(node_labels.items()):
                 lines.append(f"* Node {node_num} = {label}")
+        
+        # Add analysis command
+        lines.append("")
+        lines.append("* Analysis Type")
+        if self.analysis_type == "Operational Point":
+            lines.append(".op")
+        elif self.analysis_type == "DC Sweep":
+            params = self.analysis_params
+            # For DC sweep, we need to specify which source to sweep
+            # For now, use the first voltage source found
+            voltage_sources = [c for c in self.canvas.components.values() 
+                             if c.component_type == 'Voltage Source']
+            if voltage_sources:
+                source_name = voltage_sources[0].component_id
+                lines.append(f".dc {source_name} {params['min']} {params['max']} {params['step']}")
+            else:
+                lines.append("* Warning: DC Sweep requires a voltage source")
+                lines.append(".op")
+        elif self.analysis_type == "AC Sweep":
+            params = self.analysis_params
+            lines.append(f".ac dec {params['points']} {params['fstart']} {params['fstop']}")
+        elif self.analysis_type == "Transient":
+            params = self.analysis_params
+            lines.append(f".tran {params['step']} {params['duration']}")
         
         lines.append("")
         lines.append(".end")
