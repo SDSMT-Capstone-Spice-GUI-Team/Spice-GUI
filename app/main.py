@@ -36,7 +36,131 @@ COMPONENTS = {
     'Node': {'symbol': 'N', 'terminals': 1, 'color': '#FF00FF'},
 }
 
+# Component definitions
+COMPONENTS = {
+    'Resistor': {'symbol': 'R', 'terminals': 2, 'color': '#2196F3'},
+    'Capacitor': {'symbol': 'C', 'terminals': 2, 'color': '#4CAF50'},
+    'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
+    'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
+    'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
+    'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
+}
+
 GRID_SIZE = 20
+
+
+class Node:
+    """Represents an electrical node - a set of electrically connected terminals"""
+    
+    _node_counter = 0  # Class variable for generating node labels
+    
+    def __init__(self, is_ground=False, custom_label=None):
+        self.terminals = set()  # Set of (component_id, terminal_index) tuples
+        self.wires = set()  # Set of WireItem objects
+        self.is_ground = is_ground
+        self.custom_label = custom_label
+        
+        if is_ground:
+            self.auto_label = "0"
+        elif custom_label:
+            self.auto_label = custom_label
+        else:
+            # Generate auto label: nodeA, nodeB, nodeC...
+            Node._node_counter += 1
+            label_index = Node._node_counter - 1
+            self.auto_label = self._generate_label(label_index)
+    
+    @staticmethod
+    def _generate_label(index):
+        """Generate label like nodeA, nodeB, ..., nodeZ, nodeAA, nodeAB..."""
+        label = "node"
+        if index < 26:
+            label += chr(ord('A') + index)
+        else:
+            # For more than 26 nodes, use AA, AB, AC...
+            first = (index // 26) - 1
+            second = index % 26
+            label += chr(ord('A') + first) + chr(ord('A') + second)
+        return label
+    
+    def get_label(self):
+        """Get the display label for this node"""
+        if self.custom_label:
+            if self.is_ground:
+                return f"{self.custom_label} (ground)"
+            return self.custom_label
+        return self.auto_label
+    
+    def add_terminal(self, component_id, terminal_index):
+        """Add a terminal to this node"""
+        self.terminals.add((component_id, terminal_index))
+    
+    def remove_terminal(self, component_id, terminal_index):
+        """Remove a terminal from this node"""
+        self.terminals.discard((component_id, terminal_index))
+    
+    def add_wire(self, wire):
+        """Add a wire to this node"""
+        self.wires.add(wire)
+    
+    def remove_wire(self, wire):
+        """Remove a wire from this node"""
+        self.wires.discard(wire)
+    
+    def merge_with(self, other_node):
+        """Merge another node into this one"""
+        self.terminals.update(other_node.terminals)
+        self.wires.update(other_node.wires)
+        
+        # Handle ground merging
+        if other_node.is_ground:
+            self.is_ground = True
+            if self.custom_label:
+                self.custom_label = f"{self.custom_label}"  # Will add (ground) in get_label()
+            else:
+                self.auto_label = "0"
+    
+    def set_as_ground(self):
+        """Mark this node as ground (node 0)"""
+        self.is_ground = True
+        if not self.custom_label:
+            self.auto_label = "0"
+    
+    def unset_ground(self):
+        """Remove ground designation from this node"""
+        was_ground = self.is_ground
+        self.is_ground = False
+        
+        if was_ground:
+            if self.custom_label:
+                # Remove (ground) suffix if present
+                self.custom_label = self.custom_label.replace(" (ground)", "")
+            else:
+                # Re-generate auto label
+                Node._node_counter += 1
+                label_index = Node._node_counter - 1
+                self.auto_label = self._generate_label(label_index)
+    
+    def get_position(self, components):
+        """Get a representative position for label placement (near a junction)"""
+        if not self.terminals:
+            return None
+        
+        # Find the average position of all terminals in this node
+        positions = []
+        for comp_id, term_idx in self.terminals:
+            if comp_id in components:
+                comp = components[comp_id]
+                pos = comp.get_terminal_pos(term_idx)
+                positions.append(pos)
+        
+        if not positions:
+            return None
+        
+        # Return average position
+        avg_x = sum(p.x() for p in positions) / len(positions)
+        avg_y = sum(p.y() for p in positions) / len(positions)
+        return QPointF(avg_x, avg_y)
 
 
 class AnalysisDialog(QDialog):
@@ -133,7 +257,6 @@ class ComponentItem(QGraphicsItem):
         self.component_type = component_type
         self.component_id = component_id
         self.value = "1k" if component_type == 'Resistor' else "1u"
-        self.node_label = component_id if component_type == 'Node' else ""  # For node naming
         self.rotation_angle = 0  # Rotation in degrees (0, 90, 180, 270)
         self.terminals = []
         self.connections = []  # Store wire connections
@@ -208,22 +331,6 @@ class ComponentItem(QGraphicsItem):
             painter.drawLine(-15, 0, 15, 0)
             painter.drawLine(-10, 5, 10, 5)
             painter.drawLine(-5, 10, 5, 10)
-        elif self.component_type == 'Node':
-            # Draw node marker (diamond shape)
-            painter.setPen(QPen(color, 3))
-            painter.setBrush(QBrush(color))
-            points = [
-                QPointF(0, -10),   # Top
-                QPointF(10, 0),    # Right
-                QPointF(0, 10),    # Bottom
-                QPointF(-10, 0)    # Left
-            ]
-            from PyQt6.QtGui import QPolygonF
-            polygon = QPolygonF(points)
-            painter.drawPolygon(polygon)
-            # Draw node label below
-            painter.setPen(QPen(Qt.GlobalColor.black))
-            painter.drawText(-20, 20, self.node_label)
         elif self.component_type in ['Voltage Source', 'Current Source']:
             # Draw circle for sources
             painter.drawEllipse(-15, -15, 30, 30)
@@ -290,8 +397,6 @@ class ComponentItem(QGraphicsItem):
             'pos': {'x': self.pos().x(), 'y': self.pos().y()},
             'rotation': self.rotation_angle
         }
-        if self.component_type == 'Node':
-            data['node_label'] = self.node_label
         return data
     
     @staticmethod
@@ -303,8 +408,6 @@ class ComponentItem(QGraphicsItem):
         if 'rotation' in data:
             comp.rotation_angle = data['rotation']
             comp.update_terminals()
-        if data['type'] == 'Node' and 'node_label' in data:
-            comp.node_label = data['node_label']
         return comp
 
 
@@ -317,6 +420,7 @@ class WireItem(QGraphicsLineItem):
         self.start_term = start_term
         self.end_comp = end_comp
         self.end_term = end_term
+        self.node = None  # Reference to the Node this wire belongs to
         
         self.setPen(QPen(Qt.GlobalColor.black, 2))
         self.setFlag(QGraphicsLineItem.GraphicsItemFlag.ItemIsSelectable)
@@ -340,6 +444,13 @@ class WireItem(QGraphicsLineItem):
             painter.setPen(QPen(Qt.GlobalColor.black, 2))
         
         painter.drawLine(self.line())
+    
+    def get_terminals(self):
+        """Get both terminal identifiers for this wire"""
+        return [
+            (self.start_comp.component_id, self.start_term),
+            (self.end_comp.component_id, self.end_term)
+        ]
     
     def to_dict(self):
         """Serialize wire to dictionary"""
@@ -372,7 +483,9 @@ class CircuitCanvas(QGraphicsView):
         
         self.components = {}  # id -> ComponentItem
         self.wires = []
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0, 'N': 0}
+        self.nodes = []  # List of Node objects
+        self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
+        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
         
         # Drawing grid
         self.draw_grid()
@@ -438,6 +551,10 @@ class CircuitCanvas(QGraphicsView):
             self.scene.addItem(component)
             self.components[comp_id] = component
             self.componentAdded.emit(comp_id)
+            
+            # If this is a ground component, create/update node 0
+            if component_type == 'Ground':
+                self.handle_ground_added(component)
             
             event.acceptProposedAction()
     
@@ -680,6 +797,9 @@ class CircuitCanvas(QGraphicsView):
         if wire is None:
             return
         
+        # Update node connectivity before removing wire
+        self.update_nodes_after_wire_deletion(wire)
+        
         # Remove from scene and tracking
         self.scene.removeItem(wire)
         if wire in self.wires:
@@ -705,10 +825,42 @@ class CircuitCanvas(QGraphicsView):
         for comp in components:
             self.rotate_component(comp, clockwise)
     
+    def drawForeground(self, painter, rect):
+        """Draw node labels on top of everything"""
+        if painter is None:
+            return
+        
+        painter.setPen(QPen(QColor(255, 0, 255), 1))  # Magenta for node labels
+        painter.setBrush(QBrush(QColor(255, 255, 255, 200)))  # Semi-transparent white background
+        
+        font = painter.font()
+        font.setPointSize(10)
+        font.setBold(True)
+        painter.setFont(font)
+        
+        # Draw each node label once
+        for node in self.nodes:
+            pos = node.get_position(self.components)
+            if pos:
+                label = node.get_label()
+                # Draw background rectangle
+                metrics = painter.fontMetrics()
+                text_width = metrics.horizontalAdvance(label)
+                text_height = metrics.height()
+                
+                # Use QRectF for floating point coordinates
+                label_rect = QRectF(pos.x() - text_width/2 - 2, pos.y() - text_height - 2,
+                                   text_width + 4, text_height + 4)
+                painter.drawRect(label_rect)
+                
+                # Draw text
+                painter.setPen(QPen(QColor(255, 0, 255)))
+                painter.drawText(int(pos.x() - text_width/2), int(pos.y() - 4), label)
+    
     def is_terminal_available(self, component, terminal_index):
         """Check if a component's terminal is available for connection"""
-        # Nodes can have unlimited connections
-        if component.component_type == 'Node':
+        # Ground can have unlimited connections
+        if component.component_type == 'Ground':
             return True
         
         # Count existing connections to this terminal
@@ -721,13 +873,147 @@ class CircuitCanvas(QGraphicsView):
         # Most components have 2 terminals, each can only have one connection
         return connection_count == 0
     
+    def handle_ground_added(self, ground_comp):
+        """Handle adding a ground component - create or update node 0"""
+        terminal_key = (ground_comp.component_id, 0)
+        
+        # Check if we already have a ground node
+        ground_node = None
+        for node in self.nodes:
+            if node.is_ground:
+                ground_node = node
+                break
+        
+        if ground_node is None:
+            # Create new ground node
+            ground_node = Node(is_ground=True)
+            self.nodes.append(ground_node)
+        
+        # Add this ground terminal to the ground node
+        ground_node.add_terminal(ground_comp.component_id, 0)
+        self.terminal_to_node[terminal_key] = ground_node
+    
+    def update_nodes_for_wire(self, wire):
+        """Update node connectivity when a wire is added"""
+        start_terminal = (wire.start_comp.component_id, wire.start_term)
+        end_terminal = (wire.end_comp.component_id, wire.end_term)
+        
+        start_node = self.terminal_to_node.get(start_terminal)
+        end_node = self.terminal_to_node.get(end_terminal)
+        
+        # Case 1: Both terminals are unwired - create new node
+        if start_node is None and end_node is None:
+            new_node = Node()
+            new_node.add_terminal(*start_terminal)
+            new_node.add_terminal(*end_terminal)
+            new_node.add_wire(wire)
+            wire.node = new_node
+            
+            self.nodes.append(new_node)
+            self.terminal_to_node[start_terminal] = new_node
+            self.terminal_to_node[end_terminal] = new_node
+            
+            # Check if either component is ground
+            if wire.start_comp.component_type == 'Ground' or wire.end_comp.component_type == 'Ground':
+                new_node.set_as_ground()
+        
+        # Case 2: Start unwired, end wired - add start to end's node
+        elif start_node is None and end_node is not None:
+            end_node.add_terminal(*start_terminal)
+            end_node.add_wire(wire)
+            wire.node = end_node
+            self.terminal_to_node[start_terminal] = end_node
+            
+            # Check if start is ground
+            if wire.start_comp.component_type == 'Ground':
+                end_node.set_as_ground()
+        
+        # Case 3: End unwired, start wired - add end to start's node
+        elif end_node is None and start_node is not None:
+            start_node.add_terminal(*end_terminal)
+            start_node.add_wire(wire)
+            wire.node = start_node
+            self.terminal_to_node[end_terminal] = start_node
+            
+            # Check if end is ground
+            if wire.end_comp.component_type == 'Ground':
+                start_node.set_as_ground()
+        
+        # Case 4: Both wired - merge nodes
+        elif start_node is not None and end_node is not None and start_node != end_node:
+            # Merge end_node into start_node
+            start_node.merge_with(end_node)
+            start_node.add_wire(wire)
+            wire.node = start_node
+            
+            # Update all terminals that pointed to end_node
+            for terminal in end_node.terminals:
+                self.terminal_to_node[terminal] = start_node
+            
+            # Remove end_node from nodes list
+            self.nodes.remove(end_node)
+        
+        # Redraw to show updated node labels
+        self.scene.update()
+    
+    def update_nodes_after_wire_deletion(self, wire):
+        """Recalculate nodes after a wire is deleted"""
+        if wire.node is None:
+            return
+        
+        old_node = wire.node
+        old_node.remove_wire(wire)
+        
+        # Remove the two terminals from the old node
+        start_terminal = (wire.start_comp.component_id, wire.start_term)
+        end_terminal = (wire.end_comp.component_id, wire.end_term)
+        
+        old_node.remove_terminal(*start_terminal)
+        old_node.remove_terminal(*end_terminal)
+        
+        # Now we need to recalculate connectivity
+        # Remove old node and rebuild from remaining wires
+        if old_node in self.nodes:
+            self.nodes.remove(old_node)
+        
+        # Clear terminal mappings for this node
+        terminals_to_clear = list(self.terminal_to_node.keys())
+        for terminal in terminals_to_clear:
+            if self.terminal_to_node.get(terminal) == old_node:
+                del self.terminal_to_node[terminal]
+        
+        # Rebuild nodes from all remaining wires
+        self.rebuild_all_nodes()
+        
+        self.scene.update()
+    
+    def rebuild_all_nodes(self):
+        """Rebuild all nodes from scratch based on current wires"""
+        # Clear existing nodes (except preserve ground components)
+        self.nodes.clear()
+        self.terminal_to_node.clear()
+        Node._node_counter = 0
+        
+        # Re-add ground components first
+        for comp in self.components.values():
+            if comp.component_type == 'Ground':
+                self.handle_ground_added(comp)
+        
+        # Process all wires to rebuild nodes
+        for wire in self.wires:
+            wire.node = None  # Clear old node reference
+            self.update_nodes_for_wire(wire)
+    
     def clear_circuit(self):
         """Clear all components and wires"""
         self.scene.clear()
         self.draw_grid()
         self.components = {}
         self.wires = []
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0, 'N': 0}
+        self.nodes = []
+        self.terminal_to_node = {}
+        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
+        Node._node_counter = 0
     
     def to_dict(self):
         """Serialize circuit to dictionary"""
@@ -1150,6 +1436,11 @@ class CircuitDesignGUI(QMainWindow):
         """Create SPICE netlist from circuit"""
         lines = ["* Circuit Netlist Generated by Circuit Design GUI", ""]
         
+        # Add title (required as first line for some SPICE variants)
+        lines[0] = "Circuit Design GUI Netlist"
+        lines.append("* Generated netlist")
+        lines.append("")
+        
         # Build node connectivity map
         node_map = {}  # (comp_id, term_index) -> node_number
         next_node = 1
@@ -1235,29 +1526,71 @@ class CircuitDesignGUI(QMainWindow):
             for node_num, label in sorted(node_labels.items()):
                 lines.append(f"* Node {node_num} = {label}")
         
+        # Add simulation options
+        lines.append("")
+        lines.append("* Simulation Options")
+        lines.append(".option TEMP=27")
+        lines.append(".option TNOM=27")
+        
         # Add analysis command
         lines.append("")
         lines.append("* Analysis Type")
         if self.analysis_type == "Operational Point":
             lines.append(".op")
+            lines.append("")
+            lines.append("* Control section for output")
+            lines.append(".control")
+            lines.append("op")
+            lines.append("print all")
+            lines.append(".endc")
         elif self.analysis_type == "DC Sweep":
             params = self.analysis_params
             # For DC sweep, we need to specify which source to sweep
-            # For now, use the first voltage source found
             voltage_sources = [c for c in self.canvas.components.values() 
                              if c.component_type == 'Voltage Source']
             if voltage_sources:
                 source_name = voltage_sources[0].component_id
                 lines.append(f".dc {source_name} {params['min']} {params['max']} {params['step']}")
+                lines.append("")
+                lines.append("* Control section for output")
+                lines.append(".control")
+                lines.append(f"dc {source_name} {params['min']} {params['max']} {params['step']}")
+                # Print voltages at all labeled nodes
+                if node_labels:
+                    print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
+                    lines.append(f"print {print_nodes}")
+                else:
+                    lines.append("print all")
+                lines.append(".endc")
             else:
                 lines.append("* Warning: DC Sweep requires a voltage source")
                 lines.append(".op")
         elif self.analysis_type == "AC Sweep":
             params = self.analysis_params
             lines.append(f".ac dec {params['points']} {params['fstart']} {params['fstop']}")
+            lines.append("")
+            lines.append("* Control section for output")
+            lines.append(".control")
+            lines.append(f"ac dec {params['points']} {params['fstart']} {params['fstop']}")
+            if node_labels:
+                print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
+                lines.append(f"print {print_nodes}")
+            else:
+                lines.append("print all")
+            lines.append(".endc")
         elif self.analysis_type == "Transient":
             params = self.analysis_params
             lines.append(f".tran {params['step']} {params['duration']}")
+            lines.append("")
+            lines.append("* Control section for output")
+            lines.append(".control")
+            lines.append(f"tran {params['step']} {params['duration']}")
+            if node_labels:
+                print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
+                lines.append(f"print {print_nodes}")
+            else:
+                lines.append("print all")
+            lines.append(".endc")
         
         lines.append("")
         lines.append(".end")
