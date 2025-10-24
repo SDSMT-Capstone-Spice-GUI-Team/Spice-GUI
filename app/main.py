@@ -21,7 +21,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QGraphicsScene, QGraphicsItem, QGraphicsLineItem,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
                              QSplitter, QLabel, QListWidgetItem, QGraphicsEllipseItem,
-                             QMenu, QDialog, QFormLayout, QLineEdit, QDialogButtonBox)
+                             QMenu, QDialog, QFormLayout, QLineEdit, QDialogButtonBox,
+                             QInputDialog)
 from PyQt6.QtCore import Qt, QPointF, QRectF, QMimeData, pyqtSignal
 from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QDrag, QAction, QKeySequence
 
@@ -82,6 +83,11 @@ class Node:
             second = index % 26
             label += chr(ord('A') + first) + chr(ord('A') + second)
         return label
+    
+    def set_custom_label(self, label):
+        """Set a custom label for this node"""
+        self.custom_label = label
+        # If currently ground, the (ground) suffix will be added by get_label()
     
     def get_label(self):
         """Get the display label for this node"""
@@ -622,15 +628,19 @@ class CircuitCanvas(QGraphicsView):
                         elif self.is_terminal_available(clicked_component, clicked_term_index):
                             can_connect = True
                             target_term = clicked_term_index
-                        
                         if can_connect:
                             # Create wire
                             wire = WireItem(self.wire_start_comp, self.wire_start_term, 
-                                          clicked_component, target_term)
+                                            clicked_component, target_term)
                             self.scene.addItem(wire)
                             self.wires.append(wire)
+                            
+                            print(f"Completed wire from {self.wire_start_comp.component_id} to {clicked_component.component_id}")
+                            
+                            # UPDATE NODE CONNECTIVITY - THIS IS CRITICAL!
+                            self.update_nodes_for_wire(wire)
+                            
                             self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
-                            print(f"Completed wire from {self.wire_start_comp.component_id} to {clicked_component.component_id}")  # Debug
                         else:
                             print(f"Cannot connect - terminal not available")  # Debug
                     else:
@@ -708,6 +718,7 @@ class CircuitCanvas(QGraphicsView):
         """Show context menu for delete operations"""
         # Get item at position
         item = self.itemAt(position)
+        scene_pos = self.mapToScene(position)
         
         menu = QMenu()
         
@@ -728,10 +739,51 @@ class CircuitCanvas(QGraphicsView):
             menu.addAction(rotate_ccw_action)
             
         elif isinstance(item, WireItem):
+            # Wire-specific actions
             delete_action = QAction("Delete Wire", self)
             delete_action.triggered.connect(lambda: self.delete_wire(item))
             menu.addAction(delete_action)
+            
+            # Add node labeling option
+            print(f"Wire clicked: start={item.start_comp.component_id}[{item.start_term}], end={item.end_comp.component_id}[{item.end_term}]")
+            print(f"Wire.node: {item.node}")
+            print(f"Total nodes in scene: {len(self.nodes)}")
+            print(f"Terminal to node map size: {len(self.terminal_to_node)}")
+            
+            if item.node:
+                menu.addSeparator()
+                label_action = QAction(f"Label Node ({item.node.get_label()})", self)
+                label_action.triggered.connect(lambda: self.label_node(item.node))
+                menu.addAction(label_action)
+            else:
+                # Wire has no node reference - try to find it
+                print("Wire has no node, attempting to find...")
+                start_terminal = (item.start_comp.component_id, item.start_term)
+                end_terminal = (item.end_comp.component_id, item.end_term)
+                print(f"Looking for start terminal: {start_terminal}")
+                print(f"Looking for end terminal: {end_terminal}")
+                
+                found_node = self.terminal_to_node.get(start_terminal)
+                print(f"Found node from start terminal: {found_node}")
+                
+                if found_node:
+                    print(f"Found node: {found_node.get_label()}")
+                    item.node = found_node  # Update the reference
+                    menu.addSeparator()
+                    label_action = QAction(f"Label Node ({found_node.get_label()})", self)
+                    label_action.triggered.connect(lambda: self.label_node(found_node))
+                    menu.addAction(label_action)
+                else:
+                    print("Could not find node for this wire!")
         else:
+            # Check if we clicked near a terminal to label its node
+            clicked_node = self.find_node_at_position(scene_pos)
+            if clicked_node:
+                label_action = QAction(f"Label Node ({clicked_node.get_label()})", self)
+                label_action.triggered.connect(lambda: self.label_node(clicked_node))
+                menu.addAction(label_action)
+                menu.addSeparator()
+            
             # No specific item, offer to delete all selected
             selected_items = self.scene.selectedItems()
             if selected_items:
@@ -857,6 +909,51 @@ class CircuitCanvas(QGraphicsView):
                 painter.setPen(QPen(QColor(255, 0, 255)))
                 painter.drawText(int(pos.x() - text_width/2), int(pos.y() - 4), label)
     
+    def find_node_at_position(self, scene_pos):
+        """Find a node near the given scene position (near a terminal)"""
+        for comp_id, comp in self.components.items():
+            for term_idx in range(len(comp.terminals)):
+                term_pos = comp.get_terminal_pos(term_idx)
+                distance = (term_pos - scene_pos).manhattanLength()
+                if distance < 20:  # Within 20 pixels
+                    terminal_key = (comp_id, term_idx)
+                    return self.terminal_to_node.get(terminal_key)
+        return None
+    
+    def label_node(self, node):
+        """Open dialog to label a node"""
+        if node is None:
+            print("Error: node is None")
+            return
+        
+        print(f"Labeling node: {node.get_label()}, is_ground: {node.is_ground}")  # Debug
+        
+        # Get current label (without ground suffix)
+        current_label = node.custom_label if node.custom_label else node.auto_label
+        if node.is_ground and " (ground)" in current_label:
+            current_label = current_label.replace(" (ground)", "")
+        
+        print(f"Current label for editing: {current_label}")  # Debug
+        
+        # Show input dialog
+        text, ok = QInputDialog.getText(
+            None,
+            "Label Node",
+            f"Enter label for node (currently: {node.get_label()}):",
+            QLineEdit.EchoMode.Normal,
+            current_label
+        )
+        
+        print(f"Dialog result: ok={ok}, text={text}")  # Debug
+        
+        if ok and text:
+            # Set the custom label
+            node.set_custom_label(text.strip())
+            print(f"Node labeled: {node.get_label()}")  # Debug
+            # Redraw to show new label
+            self.scene.update()
+            self.viewport().update()  # Force viewport update
+    
     def is_terminal_available(self, component, terminal_index):
         """Check if a component's terminal is available for connection"""
         # Ground can have unlimited connections
@@ -895,14 +992,24 @@ class CircuitCanvas(QGraphicsView):
     
     def update_nodes_for_wire(self, wire):
         """Update node connectivity when a wire is added"""
+        print(f"\n=== update_nodes_for_wire called ===")
+        print(f"Wire: {wire.start_comp.component_id}[{wire.start_term}] -> {wire.end_comp.component_id}[{wire.end_term}]")
+        
         start_terminal = (wire.start_comp.component_id, wire.start_term)
         end_terminal = (wire.end_comp.component_id, wire.end_term)
+        
+        print(f"Start terminal: {start_terminal}")
+        print(f"End terminal: {end_terminal}")
         
         start_node = self.terminal_to_node.get(start_terminal)
         end_node = self.terminal_to_node.get(end_terminal)
         
+        print(f"Start node: {start_node}")
+        print(f"End node: {end_node}")
+        
         # Case 1: Both terminals are unwired - create new node
         if start_node is None and end_node is None:
+            print("Case 1: Both unwired - creating new node")
             new_node = Node()
             new_node.add_terminal(*start_terminal)
             new_node.add_terminal(*end_terminal)
@@ -913,38 +1020,53 @@ class CircuitCanvas(QGraphicsView):
             self.terminal_to_node[start_terminal] = new_node
             self.terminal_to_node[end_terminal] = new_node
             
+            print(f"Created node: {new_node.get_label()}")
+            print(f"Wire.node set to: {wire.node.get_label() if wire.node else 'None'}")
+            
             # Check if either component is ground
             if wire.start_comp.component_type == 'Ground' or wire.end_comp.component_type == 'Ground':
                 new_node.set_as_ground()
+                print("Set node as ground")
         
         # Case 2: Start unwired, end wired - add start to end's node
         elif start_node is None and end_node is not None:
+            print("Case 2: Start unwired, end wired")
             end_node.add_terminal(*start_terminal)
             end_node.add_wire(wire)
             wire.node = end_node
             self.terminal_to_node[start_terminal] = end_node
             
+            print(f"Added to node: {end_node.get_label()}")
+            
             # Check if start is ground
             if wire.start_comp.component_type == 'Ground':
                 end_node.set_as_ground()
+                print("Set node as ground")
         
         # Case 3: End unwired, start wired - add end to start's node
         elif end_node is None and start_node is not None:
+            print("Case 3: End unwired, start wired")
             start_node.add_terminal(*end_terminal)
             start_node.add_wire(wire)
             wire.node = start_node
             self.terminal_to_node[end_terminal] = start_node
             
+            print(f"Added to node: {start_node.get_label()}")
+            
             # Check if end is ground
             if wire.end_comp.component_type == 'Ground':
                 start_node.set_as_ground()
+                print("Set node as ground")
         
         # Case 4: Both wired - merge nodes
         elif start_node is not None and end_node is not None and start_node != end_node:
+            print("Case 4: Both wired - merging nodes")
             # Merge end_node into start_node
             start_node.merge_with(end_node)
             start_node.add_wire(wire)
             wire.node = start_node
+            
+            print(f"Merged into node: {start_node.get_label()}")
             
             # Update all terminals that pointed to end_node
             for terminal in end_node.terminals:
@@ -952,6 +1074,11 @@ class CircuitCanvas(QGraphicsView):
             
             # Remove end_node from nodes list
             self.nodes.remove(end_node)
+        
+        print(f"Final: wire.node = {wire.node.get_label() if wire.node else 'None'}")
+        print(f"Total nodes: {len(self.nodes)}")
+        print(f"Terminal map entries: {len(self.terminal_to_node)}")
+        print("=== end update_nodes_for_wire ===\n")
         
         # Redraw to show updated node labels
         self.scene.update()
