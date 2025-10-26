@@ -1,0 +1,21 @@
+RLC Sweep Test
+
+*the purpose of this circuit is to test the functionality of the decade variation of the ac sweep analysis
+
+Vin 1 0 AC 10
+
+L1 1 2 10m
+
+C1 2 3 10u
+
+R1 3 0 10
+
+.ac dec 100 50 5k
+
+.control
+run
+
+plot v(3)
+
+.endc
+.end
