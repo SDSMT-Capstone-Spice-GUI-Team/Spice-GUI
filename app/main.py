@@ -1,21 +1,27 @@
 """
 Circuit Design GUI Prototype
-Python + Qt6 + PySpice
+Python + Qt6 + ngspice
 
 Requirements:
-pip install PyQt6 PySpice matplotlib
+pip install PyQt6
+
+External Requirements:
+- ngspice must be installed on the system
 
 This prototype implements:
 - Component palette with drag-and-drop
 - Grid-aligned canvas
 - Save/Load (JSON with visual layout)
 - SPICE netlist generation
-- SPICE simulation
+- SPICE simulation via ngspice
 - Results display
 """
 
 import sys
 import json
+import subprocess
+import tempfile
+import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QListWidget, QGraphicsView, 
                              QGraphicsScene, QGraphicsItem, QGraphicsLineItem,
@@ -628,10 +634,11 @@ class CircuitCanvas(QGraphicsView):
                         elif self.is_terminal_available(clicked_component, clicked_term_index):
                             can_connect = True
                             target_term = clicked_term_index
+                        
                         if can_connect:
                             # Create wire
                             wire = WireItem(self.wire_start_comp, self.wire_start_term, 
-                                            clicked_component, target_term)
+                                          clicked_component, target_term)
                             self.scene.addItem(wire)
                             self.wires.append(wire)
                             
@@ -1725,29 +1732,135 @@ class CircuitDesignGUI(QMainWindow):
         return "\n".join(lines)
     
     def run_simulation(self):
-        """Run SPICE simulation (simplified version)"""
+        """Run SPICE simulation using ngspice"""
         try:
+            # Generate netlist
             netlist = self.create_netlist()
             
-            # Display netlist and placeholder results
-            results = "SPICE Netlist:\n" + netlist + "\n\n"
-            results += "=" * 50 + "\n"
-            results += "Simulation Results (Placeholder):\n\n"
-            results += "NOTE: Full SPICE simulation requires PySpice integration.\n"
-            results += "This prototype shows netlist generation.\n\n"
-            results += "To enable full simulation:\n"
-            results += "1. Install PySpice: pip install PySpice\n"
-            results += "2. Install ngspice backend\n"
-            results += "3. Extend this function to use PySpice Circuit class\n\n"
-            results += "Example node voltages (placeholder):\n"
-            results += "Node 0: 0.000V (Ground)\n"
-            results += "Node 1: 5.000V\n"
-            results += "Node 2: 2.500V\n"
+            # Create temporary file for netlist
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.cir', delete=False) as f:
+                netlist_file = f.name
+                f.write(netlist)
             
-            self.results_text.setPlainText(results)
+            # Create temporary file for output
+            output_file = tempfile.NamedTemporaryFile(mode='w', suffix='.out', delete=False).name
             
+            try:
+                # Find ngspice executable
+                ngspice_cmd = self.find_ngspice()
+                
+                if not ngspice_cmd:
+                    QMessageBox.critical(
+                        self, 
+                        "ngspice Not Found", 
+                        "ngspice is not installed or not found in PATH.\n\n"
+                        "Please install ngspice:\n"
+                        "- Windows: Download from ngspice.sourceforge.net\n"
+                        "- Linux: sudo apt-get install ngspice\n"
+                        "- Mac: brew install ngspice"
+                    )
+                    return
+                
+                # Run ngspice in batch mode
+                # -b: batch mode, -o: output file
+                cmd = [ngspice_cmd, '-b', netlist_file, '-o', output_file]
+                
+                self.results_text.setPlainText(f"Running simulation...\nCommand: {' '.join(cmd)}\n\n")
+                QApplication.processEvents()  # Update UI
+                
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=30  # 30 second timeout
+                )
+                
+                # Read output file
+                if os.path.exists(output_file):
+                    with open(output_file, 'r') as f:
+                        output = f.read()
+                else:
+                    output = result.stdout
+                
+                # Display results
+                results_text = "=" * 60 + "\n"
+                results_text += "NGSPICE SIMULATION RESULTS\n"
+                results_text += "=" * 60 + "\n\n"
+                
+                if result.returncode == 0:
+                    results_text += "Simulation completed successfully!\n\n"
+                    results_text += "NETLIST:\n"
+                    results_text += "-" * 60 + "\n"
+                    results_text += netlist + "\n\n"
+                    results_text += "OUTPUT:\n"
+                    results_text += "-" * 60 + "\n"
+                    results_text += output
+                else:
+                    results_text += "Simulation failed!\n\n"
+                    results_text += "ERROR OUTPUT:\n"
+                    results_text += "-" * 60 + "\n"
+                    results_text += result.stderr if result.stderr else "No error message"
+                    results_text += "\n\nSTDOUT:\n"
+                    results_text += "-" * 60 + "\n"
+                    results_text += result.stdout if result.stdout else "No output"
+                    results_text += "\n\nNETLIST:\n"
+                    results_text += "-" * 60 + "\n"
+                    results_text += netlist
+                
+                self.results_text.setPlainText(results_text)
+                
+                # Scroll to top
+                cursor = self.results_text.textCursor()
+                cursor.movePosition(cursor.MoveOperation.Start)
+                self.results_text.setTextCursor(cursor)
+                
+            finally:
+                # Clean up temporary files
+                try:
+                    if os.path.exists(netlist_file):
+                        os.unlink(netlist_file)
+                    if os.path.exists(output_file):
+                        os.unlink(output_file)
+                except:
+                    pass  # Ignore cleanup errors
+                    
+        except subprocess.TimeoutExpired:
+            QMessageBox.critical(self, "Error", "Simulation timeout (30 seconds)")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Simulation failed: {str(e)}")
+    
+    def find_ngspice(self):
+        """Find ngspice executable on the system"""
+        # Try common ngspice command names
+        possible_commands = ['ngspice', 'ngspice.exe']
+        
+        # Check if ngspice is in PATH
+        for cmd in possible_commands:
+            try:
+                result = subprocess.run(
+                    [cmd, '--version'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    return cmd
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                continue
+        
+        # Try common installation paths on Windows
+        if sys.platform == 'win32':
+            common_paths = [
+                r'C:\Program Files\ngspice\bin\ngspice.exe',
+                r'C:\Program Files (x86)\ngspice\bin\ngspice.exe',
+                r'C:\ngspice\bin\ngspice.exe',
+                # r'..\ngspice(\d+\.\d+(_(64|86))?)?\Spice64\bin\ngspice.exe',
+            ]
+            for path in common_paths:
+                if os.path.exists(path):
+                    return path
+        
+        return None
 
 
 def main():
