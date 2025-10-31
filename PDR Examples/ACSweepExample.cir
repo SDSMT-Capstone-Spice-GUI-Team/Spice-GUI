@@ -1,0 +1,22 @@
+AC Sweep Example
+
+*the purpose of this circuit is to give a simple circuit that reflects an ac sweep analysis use case for potential display in the PDR (and/or CDR). It explores how the voltage across a resistor in an RC circuit changes as the frequency increases. All values were arbitrarily chosen.
+
+*this is a 10V magnitude AC voltage source
+Vin A 0 AC 10
+
+*this is a 1uF capacitor
+C1 A B 1u
+
+*this is a 10kohm resistor
+RL B 0 10k
+
+.ac dec 100 1 999
+
+.control
+run
+
+plot v(B)
+
+.endc
+.end

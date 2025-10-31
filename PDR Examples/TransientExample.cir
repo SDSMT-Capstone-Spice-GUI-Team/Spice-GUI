@@ -1,0 +1,27 @@
+Transient Example
+
+*the purpose of this circuit is to give a simple circuit that reflects a transient analysis use case for potential display in the PDR (and/or CDR). It explores the output of a half-wave rectifier. All values were arbitrarily chosen.
+
+*this is a sinusoidal voltage source with 0 dc offset, 10V amplitude, and 1kHz frequency
+Vin A 0 sin(0 10 1k)
+
+*this is a diode modeled by DMOD
+D1 A B DMOD
+
+*this is a 10kohm resistor
+RL B 0 10k
+
+*this defines model DMOD using default diode parameters
+.model DMOD D
+
+*this selects transient analysis with a timestep of 1us and a duration of 3ms
+.tran 1u 3m
+
+.control
+run
+
+*this outputs the input voltage and the load voltage
+plot v(A) v(B)
+
+.endc
+.end

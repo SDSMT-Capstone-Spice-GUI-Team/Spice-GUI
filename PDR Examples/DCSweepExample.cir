@@ -1,0 +1,30 @@
+DC Sweep Example
+
+*the purpose of this circuit is to give a simple circuit that reflects a dc sweep analysis use case for potential display in the PDR (and/or CDR). It explores how the voltage across a MOSFET changes as the gate voltage increases. All values were arbitrarily chosen.
+
+*this is a 10V voltage source
+Vd A 0 10
+
+*this is a 10kohm resistor
+R1 A B 10k
+
+*this is a MOSFET modeled by MOSN
+M1 B C 0 0 MOSN
+
+*this is the gate voltage source that will be adjusted during analysis
+Vg C 0
+
+*this defines model MOSN using default N-Channel MOSFET parameters
+.model MOSN NMOS
+
+*this selects source Vg for dc sweep from 0 to 10V in 1mV steps
+.dc Vg 0 10 1m
+
+.control
+run
+
+*this outputs the input voltage and the voltage across the MOSFET
+plot v(A) v(B)
+
+.endc
+.end

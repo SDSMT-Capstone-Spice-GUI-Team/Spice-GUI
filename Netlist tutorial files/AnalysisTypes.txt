@@ -1,2 +1,47 @@
 Analysis Types
 
+Operating Point:
+
+.op
+
+Example:
+
+Performing operating point analysis would look like:
+
+.op
+
+
+
+Transient Analysis:
+
+.tran StepSize StopTime
+
+Example:
+
+Performing transient analysis over 10ms with a step size of 100ns would look like:
+
+.tran 100n 10m
+
+
+
+AC Sweep:
+
+.ac dec PointsPerDecade StartFrequency EndFreqency
+
+Example:
+
+Performing AC sweep analysis starting at 50Hz and ending at 5kHz with 100 points per decade would look like:
+
+.ac dec 100 50 5k
+
+
+
+DC Sweep:
+
+.dc SourceName StartVoltage EndVoltage StepSize
+
+Example:
+
+Performing DC sweep analysis on a source named Vvar starting at 0V, ending at 20V, with a step size of 0.1V would look like:
+
+.dc Vvar 0 20 0.1
