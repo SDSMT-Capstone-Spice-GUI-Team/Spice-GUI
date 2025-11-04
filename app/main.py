@@ -1,26 +1,24 @@
 """
 Circuit Design GUI Prototype
-Python + Qt6 + ngspice
+Python + Qt6 + PySpice
 
 Requirements:
-pip install PyQt6
-
-External Requirements:
-- ngspice must be installed on the system
+pip install PyQt6 PySpice matplotlib
 
 This prototype implements:
 - Component palette with drag-and-drop
 - Grid-aligned canvas
 - Save/Load (JSON with visual layout)
 - SPICE netlist generation
-- SPICE simulation via ngspice
+- SPICE simulation
 - Results display
 """
 
 import sys
 import json
-import subprocess
 import os
+import subprocess
+import tempfile
 import platform
 from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
@@ -500,6 +498,10 @@ class CircuitCanvas(QGraphicsView):
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
         self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
         
+        # Simulation results storage
+        self.node_voltages = {}  # node_label -> voltage value
+        self.show_node_voltages = False  # Toggle for showing voltage values
+        
         # Drawing grid
         self.draw_grid()
         
@@ -886,7 +888,7 @@ class CircuitCanvas(QGraphicsView):
             self.rotate_component(comp, clockwise)
     
     def drawForeground(self, painter, rect):
-        """Draw node labels on top of everything"""
+        """Draw node labels and voltages on top of everything"""
         if painter is None:
             return
         
@@ -903,19 +905,52 @@ class CircuitCanvas(QGraphicsView):
             pos = node.get_position(self.components)
             if pos:
                 label = node.get_label()
+                
+                # Add voltage value if available and enabled
+                display_text = label
+                if self.show_node_voltages and label in self.node_voltages:
+                    voltage = self.node_voltages[label]
+                    display_text = f"{label}\n{voltage:.3f}V"
+                
                 # Draw background rectangle
                 metrics = painter.fontMetrics()
-                text_width = metrics.horizontalAdvance(label)
-                text_height = metrics.height()
+                lines = display_text.split('\n')
+                max_width = max(metrics.horizontalAdvance(line) for line in lines)
+                text_height = metrics.height() * len(lines)
                 
-                # Use QRectF for floating point coordinates
-                label_rect = QRectF(pos.x() - text_width/2 - 2, pos.y() - text_height - 2,
-                                   text_width + 4, text_height + 4)
+                label_rect = QRectF(pos.x() - max_width/2 - 2, pos.y() - text_height - 2,
+                                   max_width + 4, text_height + 4)
                 painter.drawRect(label_rect)
                 
                 # Draw text
                 painter.setPen(QPen(QColor(255, 0, 255)))
-                painter.drawText(int(pos.x() - text_width/2), int(pos.y() - 4), label)
+                y_offset = int(pos.y() - 4)
+                for line in lines:
+                    text_width = metrics.horizontalAdvance(line)
+                    painter.drawText(int(pos.x() - text_width/2), y_offset, line)
+                    y_offset += metrics.height()
+    
+    def set_node_voltages(self, voltages_dict):
+        """Set node voltages from simulation results"""
+        self.node_voltages = voltages_dict
+        self.show_node_voltages = True
+        self.scene.update()
+    
+    def clear_node_voltages(self):
+        """Clear displayed node voltages"""
+        self.node_voltages = {}
+        self.show_node_voltages = False
+        self.scene.update()
+
+    def display_node_voltages(self):
+        """enable display node voltages"""
+        self.show_node_voltages = True
+        self.scene.update()
+
+    def hide_node_voltages(self):
+        """disable display node voltages"""
+        self.show_node_voltages = False
+        self.scene.update()
     
     def find_node_at_position(self, scene_pos):
         """Find a node near the given scene position (near a terminal)"""
@@ -1786,15 +1821,12 @@ class CircuitDesignGUI(QMainWindow):
                 
                 # Try to find ngspice
                 for cmd in possible_paths:
-                    self.results_text.append(f"Trying: {cmd}\n")
                     try:
                         # For full paths on Windows, check if file exists first
                         if system == "Windows" and '\\' in cmd:
                             if not os.path.exists(cmd):
-                                self.results_text.append(f"  File does not exist\n")
                                 continue
                             else:
-                                self.results_text.append(f"  File exists!\n")
                                 # On Windows, if the file exists, assume it works
                                 # Don't run --version as it may open a GUI
                                 ngspice_cmd = cmd
@@ -1804,26 +1836,15 @@ class CircuitDesignGUI(QMainWindow):
                         # For commands in PATH, try running --version
                         result = subprocess.run([cmd, '--version'], 
                                               capture_output=True, 
-                                              timeout=5,  # Increased timeout
+                                              timeout=5,
                                               text=True,
                                               creationflags=subprocess.CREATE_NO_WINDOW if system == "Windows" else 0)
-                        self.results_text.append(f"  Return code: {result.returncode}\n")
                         if result.returncode == 0:
                             ngspice_cmd = cmd
                             self.results_text.append(f"Found ngspice at: {cmd}\n")
                             break
-                        else:
-                            self.results_text.append(f"  Command failed with return code {result.returncode}\n")
-                    except FileNotFoundError as e:
-                        self.results_text.append(f"  FileNotFoundError\n")
-                    except subprocess.TimeoutExpired:
-                        self.results_text.append(f"  Timeout (ngspice may have opened a window)\n")
-                    except PermissionError as e:
-                        self.results_text.append(f"  PermissionError\n")
-                    except Exception as e:
-                        self.results_text.append(f"  Exception: {type(e).__name__}\n")
-                
-                self.results_text.append(f"\nAfter loop, ngspice_cmd = {ngspice_cmd}\n\n")
+                    except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError, Exception):
+                        continue
                 
                 if ngspice_cmd is None:
                     self.results_text.append("ERROR: ngspice not found!\n\n")
@@ -1864,6 +1885,20 @@ class CircuitDesignGUI(QMainWindow):
                     self.results_text.append("Simulation Results:\n")
                     self.results_text.append("="*60 + "\n\n")
                     self.results_text.append(output)
+                    
+                    # Parse and display node voltages for OP analysis
+                    if self.analysis_type == "Operational Point":
+                        node_voltages = self.parse_op_results(output)
+                        if node_voltages:
+                            self.canvas.set_node_voltages(node_voltages)
+                            self.results_text.append("\n" + "="*60 + "\n")
+                            # debugging print
+                            self.results_text.append("Node voltages displayed on canvas\n")
+                        else:
+                            self.canvas.clear_node_voltages()
+                    else:
+                        # For other analysis types, clear voltage display
+                        self.canvas.clear_node_voltages()
                 else:
                     self.results_text.append(f"Warning: Output file not created at {output_filename}\n")
                     self.results_text.append(f"Checking if file exists: {os.path.exists(output_filename)}\n")
@@ -1882,6 +1917,69 @@ class CircuitDesignGUI(QMainWindow):
             QMessageBox.critical(self, "Error", f"Simulation failed: {str(e)}")
             import traceback
             self.results_text.append(f"\n\nError details:\n{traceback.format_exc()}")
+    
+    def parse_op_results(self, output):
+        """Parse operational point analysis results to extract node voltages"""
+        import re
+        node_voltages = {}
+        
+        try:
+            # Look for the node voltage table in ngspice output
+            # Format: v(nodename) = voltage or nodename voltage
+            lines = output.split('\n')
+            
+            for i, line in enumerate(lines):
+                # Look for voltage output patterns
+                # Pattern 1: "v(nodename) = voltage" or "v(nodename) voltage"
+                match = re.search(r'v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)', line, re.IGNORECASE)
+                if match:
+                    node_name = match.group(1)
+                    voltage = float(match.group(2))
+                    node_voltages[node_name] = voltage
+                    continue
+                
+                # Pattern 2: Just node name and voltage in columns
+                # After finding "Node" and "Voltage" headers
+                if 'node' in line.lower() and 'voltage' in line.lower():
+                    # Found header, parse following lines
+                    for j in range(i+1, min(i+50, len(lines))):
+                        result_line = lines[j].strip()
+                        if not result_line or result_line.startswith('-'):
+                            continue
+                        if result_line.startswith('*') or result_line.lower().startswith('source'):
+                            break
+                        
+                        # Try to parse: nodename voltage
+                        parts = result_line.split()
+                        if len(parts) >= 2:
+                            try:
+                                node_name = parts[0].replace('v(', '').replace(')', '')
+                                voltage = float(parts[1])
+                                node_voltages[node_name] = voltage
+                            except (ValueError, IndexError):
+                                continue
+            
+            # Also look for the format in .print output
+            # "0 voltage"
+            for line in lines:
+                # Match lines like:
+                # V(5)                             1.000000e-06
+                # V(4)                             5.000000e-07
+                # V(2)                             -5.00000e-07
+                # V(1)                             -1.00000e-06
+                match = re.match(r'^\s*(V(\((\d+)\)|\d+))\s+([-+]?[\d.]+e?[-+]?\d*)\s*', line)
+                if match:
+                    node_name = match.group(1)
+                    voltage = float(match.group(4))
+                    node_voltages[node_name] = voltage
+                    # debugging print statement
+                    print("node_name:", node_name, "voltage:", voltage )
+            
+            return node_voltages
+            
+        except Exception as e:
+            print(f"Error parsing OP results: {e}")
+            return {}
 
 
 def main():
