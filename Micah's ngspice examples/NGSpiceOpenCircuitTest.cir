@@ -1,0 +1,24 @@
+NGSpice Open Circuit Test
+
+*the purpose of this circuit is to determine how ngspice handles open circuits. Note: it is expected that v(B)=v(C)=5V and i(Vmeas)=0.
+*running the netlist showed that the expected outputs of v(B)=v(C)=5V and i(Vmeas)=0 were generated so, ngspice can handle open circuits, at least in resistive networks using .op analysis.
+
+Vin A 0 10
+
+R1 A B 5
+
+R2 B 0 5
+
+Vmeas B C
+
+Rhang C D 5
+
+.op
+
+.control
+run
+
+print v(B) v(C) i(Vmeas)
+
+.endc
+.end
