@@ -1,0 +1,179 @@
+"""
+simulation/netlist_generator.py
+
+Handles SPICE netlist generation from circuit data
+"""
+
+
+class NetlistGenerator:
+    """Generates SPICE netlists from circuit components and nodes"""
+    
+    def __init__(self, components, wires, nodes, terminal_to_node, analysis_type, analysis_params):
+        self.components = components
+        self.wires = wires
+        self.nodes = nodes
+        self.terminal_to_node = terminal_to_node
+        self.analysis_type = analysis_type
+        self.analysis_params = analysis_params
+    
+    def generate(self):
+        """Generate complete SPICE netlist"""
+        lines = ["Circuit Design GUI Netlist", "* Generated netlist", ""]
+        
+        # Build node connectivity map
+        node_map = {}  # (comp_id, term_index) -> node_number
+        next_node = 1
+        
+        # Process wires to assign nodes
+        for wire in self.wires:
+            start_key = (wire.start_comp.component_id, wire.start_term)
+            end_key = (wire.end_comp.component_id, wire.end_term)
+            
+            start_node = node_map.get(start_key)
+            end_node = node_map.get(end_key)
+            
+            if start_node is None and end_node is None:
+                node_map[start_key] = next_node
+                node_map[end_key] = next_node
+                next_node += 1
+            elif start_node is None:
+                node_map[start_key] = end_node
+            elif end_node is None:
+                node_map[end_key] = start_node
+            else:
+                merged_node = min(start_node, end_node)
+                for key, node in list(node_map.items()):
+                    if node == max(start_node, end_node):
+                        node_map[key] = merged_node
+        
+        # Ground nodes should be 0
+        ground_comps = [c for c in self.components.values() 
+                       if c.component_type == 'Ground']
+        for gnd in ground_comps:
+            key = (gnd.component_id, 0)
+            if key in node_map:
+                gnd_node = node_map[key]
+                for k in node_map:
+                    if node_map[k] == gnd_node:
+                        node_map[k] = 0
+        
+        # Create mapping from node numbers to node labels
+        node_labels = {}  # node_number -> label
+        node_comps = [c for c in self.nodes if hasattr(c, 'get_label')]
+        for node_comp in node_comps:
+            # Find which terminals belong to this node
+            for terminal_key, terminal_node in self.terminal_to_node.items():
+                if terminal_node == node_comp:
+                    if terminal_key in node_map:
+                        node_num = node_map[terminal_key]
+                        node_labels[node_num] = node_comp.get_label()
+                        break
+        
+        # Generate component lines
+        for comp in self.components.values():
+            if comp.component_type in ['Ground']:
+                continue
+            
+            comp_id = comp.component_id
+            nodes = []
+            for i in range(len(comp.terminals)):
+                key = (comp_id, i)
+                node_num = node_map.get(key, 999)
+                node_str = node_labels.get(node_num, str(node_num))
+                nodes.append(node_str)
+            
+            if comp.component_type == 'Resistor':
+                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
+            elif comp.component_type == 'Capacitor':
+                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
+            elif comp.component_type == 'Inductor':
+                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
+            elif comp.component_type == 'Voltage Source':
+                lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
+            elif comp.component_type == 'Current Source':
+                lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
+        
+        # Add comments about labeled nodes
+        if node_labels:
+            lines.append("")
+            lines.append("* Labeled Nodes:")
+            for node_num, label in sorted(node_labels.items()):
+                lines.append(f"* Node {node_num} = {label}")
+        
+        # Add simulation options
+        lines.append("")
+        lines.append("* Simulation Options")
+        lines.append(".option TEMP=27")
+        lines.append(".option TNOM=27")
+        
+        # Add analysis command
+        lines.extend(self._generate_analysis_commands(node_labels))
+        
+        lines.append("")
+        lines.append(".end")
+        
+        return "\n".join(lines)
+    
+    def _generate_analysis_commands(self, node_labels):
+        """Generate analysis-specific SPICE commands"""
+        lines = ["", "* Analysis Type"]
+        
+        if self.analysis_type == "Operational Point":
+            lines.append(".op")
+            lines.append("")
+            lines.append("* Control section for output")
+            lines.append(".control")
+            lines.append("op")
+            lines.append("print all")
+            lines.append(".endc")
+            
+        elif self.analysis_type == "DC Sweep":
+            params = self.analysis_params
+            voltage_sources = [c for c in self.components.values() 
+                             if c.component_type == 'Voltage Source']
+            if voltage_sources:
+                source_name = voltage_sources[0].component_id
+                lines.append(f".dc {source_name} {params['min']} {params['max']} {params['step']}")
+                lines.append("")
+                lines.append("* Control section for output")
+                lines.append(".control")
+                lines.append(f"dc {source_name} {params['min']} {params['max']} {params['step']}")
+                if node_labels:
+                    print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
+                    lines.append(f"print {print_nodes}")
+                else:
+                    lines.append("print all")
+                lines.append(".endc")
+            else:
+                lines.append("* Warning: DC Sweep requires a voltage source")
+                lines.append(".op")
+                
+        elif self.analysis_type == "AC Sweep":
+            params = self.analysis_params
+            lines.append(f".ac dec {params['points']} {params['fstart']} {params['fstop']}")
+            lines.append("")
+            lines.append("* Control section for output")
+            lines.append(".control")
+            lines.append(f"ac dec {params['points']} {params['fstart']} {params['fstop']}")
+            if node_labels:
+                print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
+                lines.append(f"print {print_nodes}")
+            else:
+                lines.append("print all")
+            lines.append(".endc")
+            
+        elif self.analysis_type == "Transient":
+            params = self.analysis_params
+            lines.append(f".tran {params['step']} {params['duration']}")
+            lines.append("")
+            lines.append("* Control section for output")
+            lines.append(".control")
+            lines.append(f"tran {params['step']} {params['duration']}")
+            if node_labels:
+                print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
+                lines.append(f"print {print_nodes}")
+            else:
+                lines.append("print all")
+            lines.append(".endc")
+        
+        return lines
