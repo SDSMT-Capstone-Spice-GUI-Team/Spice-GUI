@@ -208,6 +208,7 @@ __marimo__/
 
 # VS Code
 .vscode/
+.vscode/settings.json
 
 # NGSPICE app
 ngspice-45.2_64/

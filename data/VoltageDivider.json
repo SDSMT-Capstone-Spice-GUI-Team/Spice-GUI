@@ -5,7 +5,7 @@
       "id": "R1",
       "value": "1k",
       "pos": {
-        "x": -120.0,
+        "x": -140.0,
         "y": -80.0
       },
       "rotation": 0
@@ -15,7 +15,7 @@
       "id": "R2",
       "value": "1k",
       "pos": {
-        "x": 20.0,
+        "x": 0.0,
         "y": -80.0
       },
       "rotation": 0
@@ -25,8 +25,8 @@
       "id": "GND1",
       "value": "1u",
       "pos": {
-        "x": 60.0,
-        "y": -20.0
+        "x": 80.0,
+        "y": 40.0
       },
       "rotation": 0
     },
@@ -35,34 +35,34 @@
       "id": "V1",
       "value": "1u",
       "pos": {
-        "x": -180.0,
-        "y": -20.0
+        "x": -140.0,
+        "y": 40.0
       },
-      "rotation": 270
+      "rotation": 0
     }
   ],
   "wires": [
     {
-      "start_comp": "GND1",
-      "start_term": 0,
-      "end_comp": "R2",
-      "end_term": 1
-    },
-    {
-      "start_comp": "R2",
+      "start_comp": "V1",
       "start_term": 0,
       "end_comp": "R1",
-      "end_term": 1
+      "end_term": 0
     },
     {
       "start_comp": "R1",
-      "start_term": 0,
-      "end_comp": "V1",
-      "end_term": 1
+      "start_term": 1,
+      "end_comp": "R2",
+      "end_term": 0
+    },
+    {
+      "start_comp": "R2",
+      "start_term": 1,
+      "end_comp": "GND1",
+      "end_term": 0
     },
     {
       "start_comp": "V1",
-      "start_term": 0,
+      "start_term": 1,
       "end_comp": "GND1",
       "end_term": 0
     }

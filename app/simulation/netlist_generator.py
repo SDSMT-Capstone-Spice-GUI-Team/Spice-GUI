@@ -150,11 +150,11 @@ class NetlistGenerator:
                 
         elif self.analysis_type == "AC Sweep":
             params = self.analysis_params
-            lines.append(f".ac dec {params['points']} {params['fstart']} {params['fstop']}")
+            lines.append(f".ac dec {params['points']} {params['fStart']} {params['fStop']}")
             lines.append("")
             lines.append("* Control section for output")
             lines.append(".control")
-            lines.append(f"ac dec {params['points']} {params['fstart']} {params['fstop']}")
+            lines.append(f"ac dec {params['points']} {params['fStart']} {params['fStop']}")
             if node_labels:
                 print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
                 lines.append(f"print {print_nodes}")
