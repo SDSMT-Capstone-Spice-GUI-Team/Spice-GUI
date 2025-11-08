@@ -91,7 +91,7 @@ class NetlistGenerator:
             elif comp.component_type == 'Voltage Source':
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
             elif comp.component_type == 'Current Source':
-                lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
+                lines.append(f"{comp_id} {' '.join(nodes)} AC {comp.value}")
         
         # Add comments about labeled nodes
         if node_labels:

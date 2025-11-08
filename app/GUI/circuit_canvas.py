@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsLineItem,
                              QMenu, QLineEdit, QInputDialog)
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal
 from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QAction
-from .component_item import ComponentItem
+from .component_item import ComponentItem, create_component
 from .wire_item import WireItem
 from .circuit_node import Node
 
@@ -128,7 +128,7 @@ class CircuitCanvas(QGraphicsView):
             self.component_counter[symbol] += 1
             comp_id = f"{symbol}{self.component_counter[symbol]}"
             
-            component = ComponentItem(component_type, comp_id)
+            component = create_component(component_type, comp_id)
             
             # Position at drop location (snapped to grid)
             pos = event.position().toPoint()

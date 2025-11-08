@@ -1,27 +1,24 @@
 from PyQt6.QtWidgets import QGraphicsItem
 from PyQt6.QtCore import Qt, QPointF, QRectF
 from PyQt6.QtGui import QPen, QBrush, QColor
-
-# Component definitions
-COMPONENTS = {
-    'Resistor': {'symbol': 'R', 'terminals': 2, 'color': '#2196F3'},
-    'Capacitor': {'symbol': 'C', 'terminals': 2, 'color': '#4CAF50'},
-    'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
-    'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
-    'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
-    'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
-}
+import math
 
 GRID_SIZE = 20
 
 class ComponentItem(QGraphicsItem):
-    """Graphical component on the canvas"""
+    """Base class for graphical components on the canvas"""
     
-    def __init__(self, component_type, component_id):
+    # Class attributes to be overridden by child classes
+    SYMBOL = ''
+    TERMINALS = 2
+    COLOR = '#000000'
+    DEFAULT_VALUE = '1u'
+    
+    def __init__(self, component_id, component_type = 'Unknown'):
         super().__init__()
         self.component_type = component_type
         self.component_id = component_id
-        self.value = "1k" if component_type == 'Resistor' else "1u"
+        self.value = self.DEFAULT_VALUE
         self.rotation_angle = 0  # Rotation in degrees (0, 90, 180, 270)
         self.terminals = []
         self.connections = []  # Store wire connections
@@ -31,12 +28,8 @@ class ComponentItem(QGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
         
-        # Create terminals based on component type
+        # Create terminals
         self.update_terminals()
-
-    # unsuccessful attempt to get rid of red squiggles
-    # def scene(self):
-    #     return super().scene()
     
     def hoverMoveEvent(self, event):
         """Update cursor based on whether hovering over terminal"""
@@ -55,11 +48,11 @@ class ComponentItem(QGraphicsItem):
         
         # Change cursor based on position
         if near_terminal:
-            self.setCursor(Qt.CursorShape.ArrowCursor)  # Normal cursor for wire drawing
+            self.setCursor(Qt.CursorShape.ArrowCursor)
         elif self.is_being_dragged:
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
         else:
-            self.setCursor(Qt.CursorShape.OpenHandCursor)  # Hand cursor for dragging
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
         
         super().hoverMoveEvent(event)
     
@@ -68,18 +61,13 @@ class ComponentItem(QGraphicsItem):
     
     def update_terminals(self):
         """Update terminal positions based on rotation"""
-        terminal_count = COMPONENTS[self.component_type]['terminals']
-        
         # Base terminal positions (horizontal orientation)
-        if terminal_count == 2:
-            base_terminals = [QPointF(-30, 0), QPointF(30, 0)]
-        elif terminal_count == 1:
-            base_terminals = [QPointF(0, 0)]
+        if self.TERMINALS == 2:
+            base_terminals = [QPointF(-20, 0), QPointF(20, 0)]
         else:
             base_terminals = []
         
         # Rotate terminals based on rotation_angle
-        import math
         rad = math.radians(self.rotation_angle)
         cos_a = math.cos(rad)
         sin_a = math.sin(rad)
@@ -99,12 +87,17 @@ class ComponentItem(QGraphicsItem):
             self.rotation_angle = (self.rotation_angle - 90) % 360
         
         self.update_terminals()
-        self.update()  # Trigger repaint
+        self.update()
+    
+    def draw_component_body(self, painter):
+        """Override this method in child classes to draw component-specific shape"""
+        pass
     
     def paint(self, painter, option=None, widget=None):
         if painter is None:
             return
-        color = QColor(COMPONENTS[self.component_type]['color'])
+        
+        color = QColor(self.COLOR)
         
         # Save painter state
         painter.save()
@@ -120,45 +113,11 @@ class ComponentItem(QGraphicsItem):
         # Draw component body
         painter.setPen(QPen(color, 2))
         painter.setBrush(QBrush(color.lighter(150)))
-        
-        if self.component_type == 'Ground':
-            # Draw ground symbol
-            painter.drawLine(-15, 0, 15, 0)
-            painter.drawLine(-10, 5, 10, 5)
-            painter.drawLine(-5, 10, 5, 10)
-        elif self.component_type in ['Voltage Source', 'Current Source']:
-            # Draw circle for sources
-            painter.drawEllipse(-15, -15, 30, 30)
-            if self.component_type == 'Voltage Source':
-                painter.drawText(-5, 5, 'V')
-            else:
-                painter.drawText(-5, 5, 'I')
-        elif self.component_type == 'Resistor':
-            # Draw resistor zigzag
-            painter.drawLine(-30, 0, -15, 0)
-            painter.drawLine(-15, 0, -10, -8)
-            painter.drawLine(-10, -8, -5, 8)
-            painter.drawLine(-5, 8, 0, -8)
-            painter.drawLine(0, -8, 5, 8)
-            painter.drawLine(5, 8, 10, -8)
-            painter.drawLine(10, -8, 15, 0)
-            painter.drawLine(15, 0, 30, 0)
-        elif self.component_type == 'Capacitor':
-            # Draw capacitor plates
-            painter.drawLine(-30, 0, -5, 0)
-            painter.drawLine(-5, -12, -5, 12)
-            painter.drawLine(5, -12, 5, 12)
-            painter.drawLine(5, 0, 30, 0)
-        elif self.component_type == 'Inductor':
-            # Draw inductor coils
-            painter.drawLine(-30, 0, -20, 0)
-            for i in range(-20, 20, 8):
-                painter.drawArc(i, -5, 8, 10, 0, 180*16)
-            painter.drawLine(20, 0, 30, 0)
+        self.draw_component_body(painter)
         
         # Draw label
         painter.setPen(QPen(Qt.GlobalColor.black))
-        label = f"{COMPONENTS[self.component_type]['symbol']}{self.component_id}"
+        label = f"{self.SYMBOL}{self.component_id}"
         painter.drawText(-20, -25, f"{label} ({self.value})")
         
         # Restore painter state
@@ -194,7 +153,7 @@ class ComponentItem(QGraphicsItem):
     def to_dict(self):
         """Serialize component to dictionary"""
         data = {
-            'type': self.component_type,
+            'type': self.__class__.__name__,
             'id': self.component_id,
             'value': self.value,
             'pos': {'x': self.pos().x(), 'y': self.pos().y()},
@@ -205,10 +164,167 @@ class ComponentItem(QGraphicsItem):
     @staticmethod
     def from_dict(data):
         """Deserialize component from dictionary"""
-        comp = ComponentItem(data['type'], data['id'])
+        component_class = COMPONENT_CLASSES.get(data['type'])
+        if component_class is None:
+            raise ValueError(f"Unknown component type: {data['type']}")
+        
+        comp = component_class(data['id'])
         comp.value = data['value']
         comp.setPos(data['pos']['x'], data['pos']['y'])
         if 'rotation' in data:
             comp.rotation_angle = data['rotation']
             comp.update_terminals()
         return comp
+
+
+class Resistor(ComponentItem):
+    """Resistor component"""
+    SYMBOL = 'R'
+    TERMINALS = 2
+    COLOR = '#2196F3'
+    DEFAULT_VALUE = '1k'
+    type_name = 'Resistor'
+    
+    def __init__(self, component_id):
+        super().__init__(component_id, self.type_name)
+    
+    def draw_component_body(self, painter):
+        # Draw resistor zigzag
+        painter.drawLine(-20, 0, -15, 0)
+        painter.drawLine(-15, 0, -10, -8)
+        painter.drawLine(-10, -8, -5, 8)
+        painter.drawLine(-5, 8, 0, -8)
+        painter.drawLine(0, -8, 5, 8)
+        painter.drawLine(5, 8, 10, -8)
+        painter.drawLine(10, -8, 15, 0)
+        painter.drawLine(15, 0, 20, 0)
+
+
+class Capacitor(ComponentItem):
+    """Capacitor component"""
+    SYMBOL = 'C'
+    TERMINALS = 2
+    COLOR = '#4CAF50'
+    DEFAULT_VALUE = '1u'
+    type_name = 'Capacitor'
+    
+    def __init__(self, component_id):
+        super().__init__(component_id, self.type_name)
+    
+    def draw_component_body(self, painter):
+        # Draw capacitor plates
+        painter.drawLine(-20, 0, -5, 0)
+        painter.drawLine(-5, -12, -5, 12)
+        painter.drawLine(5, -12, 5, 12)
+        painter.drawLine(5, 0, 20, 0)
+
+
+class Inductor(ComponentItem):
+    """Inductor component"""
+    SYMBOL = 'L'
+    TERMINALS = 2
+    COLOR = '#FF9800'
+    DEFAULT_VALUE = '1m'
+    type_name = 'Inductor'
+    
+    def __init__(self, component_id):
+        super().__init__(component_id, self.type_name)
+
+    
+    def draw_component_body(self, painter):
+        # Draw inductor coils
+        painter.drawLine(-20, 0, -20, 0)
+        for i in range(-20, 20, 8):
+            painter.drawArc(i, -5, 8, 10, 0, 180*16)
+        painter.drawLine(20, 0, 20, 0)
+
+
+class VoltageSource(ComponentItem):
+    """Voltage source component"""
+    SYMBOL = 'V'
+    TERMINALS = 2
+    COLOR = '#F44336'
+    DEFAULT_VALUE = '5V'
+    type_name = 'Voltage Source'
+    
+    def __init__(self, component_id):
+        super().__init__(component_id, self.type_name)
+    
+    def draw_component_body(self, painter):
+        # Draw circle for source
+        painter.drawEllipse(-15, -15, 30, 30)
+        painter.drawLine(-10, 2, -10, -2)
+        painter.drawLine(-12, 0, -8, 0)
+        painter.drawLine(12, 0, 8, 0)
+        # painter.drawText(-5, 5, 'V')
+
+
+class CurrentSource(ComponentItem):
+    """Current source component"""
+    SYMBOL = 'I'
+    TERMINALS = 2
+    COLOR = '#9C27B0'
+    DEFAULT_VALUE = '1A'
+
+    type_name = 'Current Source'
+    
+    def __init__(self, component_id):
+        super().__init__(component_id, self.type_name)
+
+    def draw_component_body(self, painter):
+        # Draw circle for source
+        painter.drawEllipse(-15, -15, 30, 30)
+        painter.drawLine(-20, 5, -20, -5)
+        painter.drawLine(-25, 0, -15, 0)
+        painter.drawLine(15, 0, 25, 0)
+        painter.drawText(-5, 5, 'I')
+
+class Ground(ComponentItem):
+    """Ground component"""
+    SYMBOL = 'GND'
+    TERMINALS = 1
+    COLOR = '#000000'
+    DEFAULT_VALUE = ''
+    type_name = 'Ground'
+    
+    def __init__(self, component_id):
+        super().__init__(component_id, self.type_name)
+
+
+    def draw_component_body(self, painter):
+        # Draw ground symbol
+        painter.drawLine(0, 0, 0, 10)
+        painter.drawLine(-15, 10, 15, 10)
+        painter.drawLine(-10, 15, 10, 15)
+        painter.drawLine(-5, 20, 5, 20)
+        
+    def update_terminals(self):
+        self.terminals = [QPointF(0, 0)]
+
+# Component registry for factory pattern
+COMPONENT_CLASSES = {
+    'Resistor': Resistor,
+    'Capacitor': Capacitor,
+    'Inductor': Inductor,
+    'Voltage Source': VoltageSource,
+    'Current Source': CurrentSource,
+    'Ground': Ground
+}
+
+# # Legacy component definitions for compatibility
+# COMPONENTS = {
+#     'Resistor': {'symbol': 'R', 'terminals': 2, 'color': '#2196F3'},
+#     'Capacitor': {'symbol': 'C', 'terminals': 2, 'color': '#4CAF50'},
+#     'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
+#     'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
+#     'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
+#     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
+# }
+
+
+def create_component(component_type, component_id):
+    """Factory function to create components"""
+    component_class = COMPONENT_CLASSES.get(component_type)
+    if component_class is None:
+        raise ValueError(f"Unknown component type: {component_type}")
+    return component_class(component_id)
