@@ -138,11 +138,13 @@ class ComponentItem(QGraphicsItem):
             return snapped_pos
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             # Position has changed, update wires
-            print(f"Component {self.component_id} moved, updating wires...")
+            # print(f"Component {self.component_id} moved, updating wires...") #TODO: remove debug statements
             if hasattr(self.scene(), 'reroute_connected_wires'):
                 self.scene().reroute_connected_wires(self)
             else:
                 print("  Scene doesn't have reroute_connected_wires!")
+                self.update_terminals()
+                self.update()
         
         return super().itemChange(change, value)
     

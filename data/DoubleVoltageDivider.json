@@ -21,7 +21,7 @@
       "rotation": 0
     },
     {
-      "type": "Voltage Source",
+      "type": "VoltageSource",
       "id": "V1",
       "value": "1u",
       "pos": {
@@ -61,7 +61,7 @@
       "rotation": 0
     },
     {
-      "type": "Voltage Source",
+      "type": "VoltageSource",
       "id": "V2",
       "value": "1u",
       "pos": {

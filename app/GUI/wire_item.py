@@ -26,7 +26,7 @@ class WireItem(QGraphicsPathItem):
     
     def update_position(self):
         """Update wire path using A* pathfinding"""
-        print(f"      WireItem.update_position() called")
+        # print(f"      WireItem.update_position() called") #TODO: remove debug statements
         start = self.start_comp.get_terminal_pos(self.start_term)
         end = self.end_comp.get_terminal_pos(self.end_term)
         

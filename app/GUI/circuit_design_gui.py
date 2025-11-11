@@ -32,7 +32,7 @@ class CircuitDesignGUI(QMainWindow):
         self.current_file = None
 
         # Analysis settings
-        self.analysis_type = "Operational Point"
+        self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
 
         # Initialize ngspice runner
@@ -216,7 +216,7 @@ class CircuitDesignGUI(QMainWindow):
         if analysis_menu is None:
             return
 
-        op_action = QAction("&Operational Point (.op)", self)
+        op_action = QAction("&DC Operating Point (.op)", self)
         op_action.setCheckable(True)
         op_action.setChecked(True)
         op_action.triggered.connect(self.set_analysis_op)
@@ -271,14 +271,14 @@ class CircuitDesignGUI(QMainWindow):
         self.canvas.delete_selected()
 
     def set_analysis_op(self):
-        """Set analysis type to Operational Point"""
-        self.analysis_type = "Operational Point"
+        """Set analysis type to DC Operating Point"""
+        self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
         statusbar = self.statusBar()
         if statusbar is None:
             print("status bar is missing function showMessage()")
         else:
-            statusbar.showMessage("Analysis: Operational Point (.op)", 3000)
+            statusbar.showMessage("Analysis: DC Operating Point (.op)", 3000)
 
     def set_analysis_dc(self):
         """Set analysis type to DC Sweep with parameters"""
@@ -438,52 +438,36 @@ class CircuitDesignGUI(QMainWindow):
         try:
             netlist = self.create_netlist()
 
-            self.results_text.setPlainText("Running ngspice simulation...\n\n")
+            self.results_text.setPlainText("Running ngspice simulation...")
 
             ngspice_path = self.ngspice_runner.find_ngspice()
             if ngspice_path is None:
-                self.results_text.append("ERROR: ngspice not found!\n\n")
-                self.results_text.append("Please install ngspice:\n")
+                self.results_text.append("\nERROR: ngspice not found!\n")
+                self.results_text.append("Please install ngspice:")
                 self.results_text.append(
-                    "- Windows: http://ngspice.sourceforge.net/download.html\n")
+                    "- Windows: http://ngspice.sourceforge.net/download.html")
                 self.results_text.append(
-                    "- Linux: sudo apt-get install ngspice\n")
-                self.results_text.append("- Mac: brew install ngspice\n")
+                    "- Linux: sudo apt-get install ngspice")
+                self.results_text.append("- Mac: brew install ngspice")
                 return
 
-            self.results_text.append(f"Found ngspice at: {ngspice_path}\n\n")
+            self.results_text.append(f"Found ngspice: {ngspice_path}")
 
             success, output_file, stdout, stderr = self.ngspice_runner.run_simulation(
                 netlist)
 
             if not success:
-                self.results_text.append("ERROR: Simulation failed!\n\n")
+                self.results_text.append("ERROR: Simulation failed!\n")
                 if stderr:
-                    self.results_text.append(f"Error: {stderr}\n")
+                    self.results_text.append(f"Error: {stderr}")
                 if stdout:
-                    self.results_text.append(f"Output: {stdout}\n")
+                    self.results_text.append(f"Output: {stdout}")
                 return
 
             output = self.ngspice_runner.read_output(output_file)
 
-            self.results_text.append(f"Simulation complete!\n")
-            self.results_text.append(f"Output saved to: {output_file}\n")
-            self.results_text.append("="*60 + "\n")
-            self.results_text.append("Simulation Results:\n")
-            self.results_text.append("="*60 + "\n\n")
-            self.results_text.append(output)
-
-            if self.analysis_type == "Operational Point":
-                node_voltages = ResultParser.parse_op_results(output)
-                if node_voltages:
-                    self.canvas.set_node_voltages(node_voltages)
-                    self.results_text.append("\n" + "="*60 + "\n")
-                    self.results_text.append(
-                        "Node voltages displayed on canvas\n")
-                else:
-                    self.canvas.clear_node_voltages()
-            else:
-                self.canvas.clear_node_voltages()
+            # Display formatted results based on analysis type
+            self._display_formatted_results(output, output_file)
 
         except Exception as e:
             from PyQt6.QtWidgets import QMessageBox
@@ -491,3 +475,122 @@ class CircuitDesignGUI(QMainWindow):
             import traceback
             self.results_text.append(
                 f"\n\nError details:\n{traceback.format_exc()}")
+
+    def _display_formatted_results(self, output, output_file):
+        """Format and display simulation results based on analysis type"""
+        # Filter out verbose ngspice output for cleaner display
+        filtered_output = self._filter_raw_output(output)
+
+        self.results_text.setPlainText("\n" + "=" * 70 + "")
+        self.results_text.append(f"SIMULATION COMPLETE - {self.analysis_type}")
+        self.results_text.append("=" * 70 + "")
+
+        if self.analysis_type == "DC Operating Point":
+            # Parse and display operating point results
+            node_voltages = ResultParser.parse_op_results(output)
+
+            if node_voltages:
+                self.results_text.append("\nNODE VOLTAGES:")
+                self.results_text.append("-" * 40 + "")
+                for node, voltage in sorted(node_voltages.items()):
+                    self.results_text.append(f"  {node:15s} : {voltage:12.6f} V")
+
+                self.canvas.set_node_voltages(node_voltages)
+                self.results_text.append("-" * 40 + "")
+                # self.results_text.append("Voltages displayed on canvas")
+            else:
+                self.results_text.append("\nNo node voltages found in output.")
+                self.canvas.clear_node_voltages()
+
+        elif self.analysis_type == "DC Sweep":
+            # Parse and display DC sweep results
+            sweep_data = ResultParser.parse_dc_results(output)
+            if sweep_data:
+                self.results_text.append("\nDC SWEEP RESULTS:")
+                self.results_text.append("-" * 40 + "")
+                self.results_text.append(str(sweep_data) + "")
+            else:
+                self.results_text.append("\nDC Sweep data - see raw output below")
+            self.canvas.clear_node_voltages()
+
+        elif self.analysis_type == "AC Sweep":
+            # Parse and display AC sweep results
+            ac_data = ResultParser.parse_ac_results(output)
+            if ac_data:
+                self.results_text.append("\nAC SWEEP RESULTS:")
+                self.results_text.append("-" * 40 + "")
+                self.results_text.append(str(ac_data) + "")
+            else:
+                self.results_text.append("\nAC Sweep data - see raw output below")
+            self.canvas.clear_node_voltages()
+
+        elif self.analysis_type == "Transient":
+            # Parse and display transient results
+            tran_data = ResultParser.parse_transient_results(output)
+            if tran_data:
+                self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
+                self.results_text.append("-" * 40 + "")
+                self.results_text.append(str(tran_data) + "")
+            else:
+                self.results_text.append("\nTransient data - see raw output below")
+            self.canvas.clear_node_voltages()
+
+        # Show output file location
+        # self.results_text.append("\n" + "=" * 70 + "")
+        # self.results_text.append(f"Output file: {output_file}")
+
+        # # Show filtered raw output
+        # if filtered_output.strip():
+        #     self.results_text.append("\nRAW NGSPICE OUTPUT:")
+        #     self.results_text.append("-" * 70 + "")
+        #     self.results_text.append(filtered_output)
+
+        self.results_text.append("=" * 70 + "")
+
+    def _filter_raw_output(self, output):
+        """Filter out verbose/unnecessary lines from ngspice output"""
+        lines = output.split('\n')
+        filtered_lines = []
+
+        # Patterns to skip
+        skip_patterns = [
+            'Note: No compatibility mode',
+            'Doing analysis at TEMP',
+            'Using SPARSE',
+            'No. of Data Rows',
+            'Total analysis time',
+            'Total elapsed time',
+            'DRAM available',
+            'DRAM currently',
+            'Maximum ngspice program size',
+            'Current ngspice program size',
+            'Shared ngspice pages',
+            'Text (code) pages',
+            'Stack =',
+            'Library pages',
+            'Resistor models',
+            'Resistor: Simple',
+            'Vsource: Independent',
+        ]
+
+        skip_section = False
+        for line in lines:
+            # Skip model detail sections
+            if 'models (' in line.lower() or 'model' in line and 'rsh' in line.lower():
+                skip_section = True
+            elif skip_section and (line.strip().startswith('device') or line.strip() == ''):
+                continue
+            elif skip_section and not any(c.isspace() or c == '-' for c in line.strip()[:5] if line.strip()):
+                skip_section = False
+
+            # Check if line matches skip patterns
+            if any(pattern in line for pattern in skip_patterns):
+                continue
+
+            # Keep important lines
+            if skip_section:
+                continue
+
+            filtered_lines.append(line)
+
+        return '\n'.join(filtered_lines)

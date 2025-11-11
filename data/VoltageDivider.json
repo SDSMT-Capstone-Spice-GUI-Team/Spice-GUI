@@ -1,9 +1,9 @@
 {
   "components": [
     {
-      "type": "Resistor",
-      "id": "R1",
-      "value": "1k",
+      "type": "Voltage Source",
+      "id": "V1",
+      "value": "5V",
       "pos": {
         "x": -160.0,
         "y": -80.0
@@ -11,22 +11,12 @@
       "rotation": 0
     },
     {
-      "type": "VoltageSource",
-      "id": "V1",
-      "value": "5V",
+      "type": "Resistor",
+      "id": "R1",
+      "value": "1k",
       "pos": {
         "x": -160.0,
-        "y": 20.0
-      },
-      "rotation": 0
-    },
-    {
-      "type": "Ground",
-      "id": "GND1",
-      "value": "",
-      "pos": {
-        "x": 40.0,
-        "y": 20.0
+        "y": -160.0
       },
       "rotation": 0
     },
@@ -36,6 +26,16 @@
       "value": "1k",
       "pos": {
         "x": -40.0,
+        "y": -160.0
+      },
+      "rotation": 0
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "",
+      "pos": {
+        "x": 40.0,
         "y": -80.0
       },
       "rotation": 0
@@ -43,28 +43,28 @@
   ],
   "wires": [
     {
-      "start_comp": "R1",
-      "start_term": 1,
-      "end_comp": "R2",
-      "end_term": 0
-    },
-    {
-      "start_comp": "R1",
+      "start_comp": "GND1",
       "start_term": 0,
       "end_comp": "V1",
-      "end_term": 0
+      "end_term": 1
     },
     {
       "start_comp": "V1",
-      "start_term": 1,
-      "end_comp": "GND1",
+      "start_term": 0,
+      "end_comp": "R1",
       "end_term": 0
     },
     {
-      "start_comp": "GND1",
-      "start_term": 0,
+      "start_comp": "R1",
+      "start_term": 1,
       "end_comp": "R2",
-      "end_term": 1
+      "end_term": 0
+    },
+    {
+      "start_comp": "R2",
+      "start_term": 1,
+      "end_comp": "GND1",
+      "end_term": 0
     }
   ],
   "counters": {
@@ -72,7 +72,7 @@
     "C": 0,
     "L": 0,
     "V": 1,
-    "I": 0,
+    "I": 1,
     "GND": 1
   }
 }

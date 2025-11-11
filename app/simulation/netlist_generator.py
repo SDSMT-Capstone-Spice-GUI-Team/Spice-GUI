@@ -116,64 +116,45 @@ class NetlistGenerator:
     
     def _generate_analysis_commands(self, node_labels):
         """Generate analysis-specific SPICE commands"""
-        lines = ["", "* Analysis Type"]
-        
-        if self.analysis_type == "Operational Point":
+        lines = ["", "* Analysis Command"]
+
+        if self.analysis_type in ["DC Operating Point", "Operational Point"]:
             lines.append(".op")
-            lines.append("")
-            lines.append("* Control section for output")
-            lines.append(".control")
-            lines.append("op")
-            lines.append("print all")
-            lines.append(".endc")
-            
+
         elif self.analysis_type == "DC Sweep":
             params = self.analysis_params
-            voltage_sources = [c for c in self.components.values() 
+            voltage_sources = [c for c in self.components.values()
                              if c.component_type == 'Voltage Source']
             if voltage_sources:
                 source_name = voltage_sources[0].component_id
                 lines.append(f".dc {source_name} {params['min']} {params['max']} {params['step']}")
-                lines.append("")
-                lines.append("* Control section for output")
-                lines.append(".control")
-                lines.append(f"dc {source_name} {params['min']} {params['max']} {params['step']}")
-                if node_labels:
-                    print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
-                    lines.append(f"print {print_nodes}")
-                else:
-                    lines.append("print all")
-                lines.append(".endc")
             else:
                 lines.append("* Warning: DC Sweep requires a voltage source")
                 lines.append(".op")
-                
+
         elif self.analysis_type == "AC Sweep":
             params = self.analysis_params
-            lines.append(f".ac dec {params['points']} {params['fStart']} {params['fStop']}")
-            lines.append("")
-            lines.append("* Control section for output")
-            lines.append(".control")
-            lines.append(f"ac dec {params['points']} {params['fStart']} {params['fStop']}")
-            if node_labels:
-                print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
-                lines.append(f"print {print_nodes}")
-            else:
-                lines.append("print all")
-            lines.append(".endc")
-            
+            sweep_type = params.get('sweep_type', 'dec')
+            lines.append(f".ac {sweep_type} {params['points']} {params['fStart']} {params['fStop']}")
+
         elif self.analysis_type == "Transient":
             params = self.analysis_params
-            lines.append(f".tran {params['step']} {params['duration']}")
-            lines.append("")
-            lines.append("* Control section for output")
-            lines.append(".control")
-            lines.append(f"tran {params['step']} {params['duration']}")
-            if node_labels:
-                print_nodes = " ".join([f"v({label})" for label in node_labels.values()])
-                lines.append(f"print {print_nodes}")
-            else:
-                lines.append("print all")
-            lines.append(".endc")
-        
+            tstart = params.get('start', 0)
+            lines.append(f".tran {params['step']} {params['duration']} {tstart}")
+
+        # Add control block for running simulation and getting output
+        lines.append("")
+        lines.append("* Control block for batch execution")
+        lines.append(".control")
+        lines.append("run")
+
+        # Generate appropriate print/plot commands based on analysis type
+        if node_labels:
+            print_vars = " ".join([f"v({label})" for label in node_labels.values()])
+        else:
+            print_vars = "all"
+
+        lines.append(f"print {print_vars}")
+        lines.append(".endc")
+
         return lines
