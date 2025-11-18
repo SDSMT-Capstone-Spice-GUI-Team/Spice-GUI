@@ -35,8 +35,8 @@
               "title": "Meeting 10_9_2025"
             }
           }
-        ],
         "currentTab": 1
+        ]
       }
     ],
     "direction": "vertical"
@@ -184,10 +184,11 @@
       "bases:Create new base": false
     }
   },
-  "active": "a537ee1b78daae60",
+  "active": "df82a5c66888b1c6",
   "lastOpenFiles": [
-    "Welcome.md",
+    "Untitled",
     "Meeting 10_9_2025.md",
+    "Welcome.md",
     "Meeting with Mcgough 9_25_2025 (AI summary).md",
     "Pictures/Pasted image 20251002123835.png",
     "Meeting Summary 9_18_2025 AI Summary.md",
