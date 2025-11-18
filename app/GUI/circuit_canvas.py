@@ -89,19 +89,23 @@ class CircuitCanvas(QGraphicsView):
                 print(f"    Found wire: {wire.start_comp.component_id} -> {wire.end_comp.component_id}")
                 wire.update_position()
                 wire_count += 1
-        
+
         print(f"  Rerouted {wire_count} wires")
+
+        # Force a full scene update to ensure wires are redrawn
+        if wire_count > 0:
+            self.scene.update()
+            if self.viewport():
+                self.viewport().update()
         
         # Show status message if rerouted wires
         if wire_count > 0:
             # Try to update status bar if main window is available
-            view = self.views()[0] if self.views() else None
-            if view:
-                main_window = view.window()
-                if hasattr(main_window, 'statusBar'):
-                    status = main_window.statusBar()
-                    if status:
-                        status.showMessage(f"Rerouted {wire_count} wire{'s' if wire_count != 1 else ''} connected to {component.component_id}", 1000)
+            main_window = self.window()
+            if main_window and hasattr(main_window, 'statusBar'):
+                status = main_window.statusBar()
+                if status:
+                    status.showMessage(f"Rerouted {wire_count} wire{'s' if wire_count != 1 else ''} connected to {component.component_id}", 1000)
     
     def dragEnterEvent(self, event):
         if event is None:

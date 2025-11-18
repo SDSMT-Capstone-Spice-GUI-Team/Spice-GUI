@@ -27,32 +27,45 @@ class WireItem(QGraphicsPathItem):
     def update_position(self):
         """Update wire path using A* pathfinding"""
         # print(f"      WireItem.update_position() called") #TODO: remove debug statements
+
+        # Get old bounding rect for invalidation
+        old_rect = self.boundingRect()
+
+        # Prepare for update by invalidating current bounds
+        self.prepareGeometryChange()
+
         start = self.start_comp.get_terminal_pos(self.start_term)
         end = self.end_comp.get_terminal_pos(self.end_term)
-        
+
         # Get obstacles from canvas
         if self.canvas:
             # Exclude the components we're connecting from obstacles
             exclude_ids = {self.start_comp.component_id, self.end_comp.component_id}
-            
-            obstacles = get_component_obstacles(self.canvas.components, GRID_SIZE, 
+
+            obstacles = get_component_obstacles(self.canvas.components, GRID_SIZE,
                                                padding=0, exclude_ids=exclude_ids)
             pathfinder = GridPathfinder(GRID_SIZE)
             self.waypoints = pathfinder.find_path(start, end, obstacles)
         else:
             # Fallback to direct line
             self.waypoints = [start, end]
-        
+
         # Create path from waypoints
         path = QPainterPath()
         if self.waypoints:
             path.moveTo(self.waypoints[0])
             for waypoint in self.waypoints[1:]:
                 path.lineTo(waypoint)
-        
+
         self.setPath(path)
-        self.update()  # Force redraw
-        print(f"      Wire updated with {len(self.waypoints)} waypoints")
+
+        # Force updates on both old and new regions
+        if self.scene():
+            self.scene().update(old_rect)
+            self.scene().update(self.boundingRect())
+
+        self.update()  # Force item redraw
+        print(f"      Wire updated with {len(self.waypoints)} waypoints from {start} to {end}")
     
     def paint(self, painter, option=None, widget=None):
         """Override paint to show selection highlight"""

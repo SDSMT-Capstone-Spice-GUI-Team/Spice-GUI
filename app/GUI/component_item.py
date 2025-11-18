@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QGraphicsItem
-from PyQt6.QtCore import Qt, QPointF, QRectF
+from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer
 from PyQt6.QtGui import QPen, QBrush, QColor
 import math
 
@@ -23,29 +23,43 @@ class ComponentItem(QGraphicsItem):
         self.terminals = []
         self.connections = []  # Store wire connections
         self.is_being_dragged = False
-        
+        self.last_position = None
+        self.update_timer = None
+
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
-        
+
         # Create terminals
         self.update_terminals()
     
+    def mousePressEvent(self, event):
+        """Track when dragging starts"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_being_dragged = True
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Handle drag end"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_being_dragged = False
+        super().mouseReleaseEvent(event)
+
     def hoverMoveEvent(self, event):
         """Update cursor based on whether hovering over terminal"""
         if event is None:
             return
-        
+
         hover_pos = event.pos()
         near_terminal = False
-        
+
         # Check if hovering near a terminal
         for terminal in self.terminals:
             distance = (terminal - hover_pos).manhattanLength()
             if distance < 15:
                 near_terminal = True
                 break
-        
+
         # Change cursor based on position
         if near_terminal:
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -53,7 +67,7 @@ class ComponentItem(QGraphicsItem):
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
         else:
             self.setCursor(Qt.CursorShape.OpenHandCursor)
-        
+
         super().hoverMoveEvent(event)
     
     def boundingRect(self):
@@ -128,6 +142,42 @@ class ComponentItem(QGraphicsItem):
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)
     
+    def schedule_wire_update(self):
+        """Schedule a wire update after a short delay"""
+        # Cancel any existing timer
+        if self.update_timer is not None:
+            self.update_timer.stop()
+            self.update_timer = None
+
+        # Create a new timer to update wires after dragging stops
+        self.update_timer = QTimer()
+        self.update_timer.setSingleShot(True)
+        self.update_timer.timeout.connect(self.update_wires_after_drag)
+        self.update_timer.start(50)  # 50ms delay
+
+    def update_wires_after_drag(self):
+        """Called after drag motion has stopped"""
+        print(f"Timer fired for {self.component_id}, last_pos={self.last_position}, current_pos={self.pos()}")
+        if self.last_position is not None and self.last_position != self.pos():
+            print(f"Component {self.component_id} finished moving, updating wires...")
+            # Get the CircuitCanvas (view) from the scene
+            if self.scene():
+                views = self.scene().views()
+                if views:
+                    canvas = views[0]  # Get the first (and typically only) view
+                    if hasattr(canvas, 'reroute_connected_wires'):
+                        canvas.reroute_connected_wires(self)
+                    else:
+                        print(f"  ERROR: View doesn't have reroute_connected_wires!")
+                else:
+                    print(f"  ERROR: Scene has no views!")
+            else:
+                print(f"  ERROR: Component has no scene!")
+        else:
+            print(f"  Component {self.component_id} did not move or last_position is None")
+        self.last_position = None
+        self.update_timer = None
+
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
             # Snap to grid
@@ -135,19 +185,18 @@ class ComponentItem(QGraphicsItem):
             grid_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
             grid_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
             snapped_pos = QPointF(grid_x, grid_y)
+
+            # Track that we're moving and schedule an update
+            if self.last_position is None:
+                self.last_position = self.pos()
+            self.schedule_wire_update()
+
             return snapped_pos
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            # Position has changed, update wires
-            print(f"Component {self.component_id} moved, updating wires...")
-            if hasattr(self.scene(), 'reroute_connected_wires'):
-                self.scene().reroute_connected_wires(self)
-            else:
-                print("  Scene doesn't have reroute_connected_wires!")
-
             # Force scene update to prevent dragging artifacts
             if self.scene():
                 self.scene().update()
-        
+
         return super().itemChange(change, value)
     
     def get_terminal_pos(self, index):
