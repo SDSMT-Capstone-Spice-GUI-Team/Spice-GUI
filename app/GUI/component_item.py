@@ -3,7 +3,7 @@ from PyQt6.QtCore import Qt, QPointF, QRectF
 from PyQt6.QtGui import QPen, QBrush, QColor
 import math
 
-GRID_SIZE = 20
+GRID_SIZE = 10
 
 class ComponentItem(QGraphicsItem):
     """Base class for graphical components on the canvas"""
@@ -138,13 +138,11 @@ class ComponentItem(QGraphicsItem):
             return snapped_pos
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             # Position has changed, update wires
-            # print(f"Component {self.component_id} moved, updating wires...") #TODO: remove debug statements
+            print(f"Component {self.component_id} moved, updating wires...")
             if hasattr(self.scene(), 'reroute_connected_wires'):
                 self.scene().reroute_connected_wires(self)
             else:
                 print("  Scene doesn't have reroute_connected_wires!")
-                self.update_terminals()
-                self.update()
         
         return super().itemChange(change, value)
     
@@ -308,6 +306,8 @@ COMPONENT_CLASSES = {
     'Resistor': Resistor,
     'Capacitor': Capacitor,
     'Inductor': Inductor,
+    'VoltageSource': VoltageSource,
+    'CurrentSource': CurrentSource,
     'Voltage Source': VoltageSource,
     'Current Source': CurrentSource,
     'Ground': Ground

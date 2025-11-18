@@ -19,7 +19,7 @@ COMPONENTS = {
     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
 }
 
-GRID_SIZE = 20
+GRID_SIZE = 10
 
 
 class CircuitDesignGUI(QMainWindow):

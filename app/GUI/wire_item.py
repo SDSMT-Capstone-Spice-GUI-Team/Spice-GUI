@@ -4,7 +4,7 @@ from PyQt6.QtGui import QPen, QPainterPath
 from .path_finding import GridPathfinder, get_component_obstacles
 
 # from . import GRID_SIZE
-GRID_SIZE = 20
+GRID_SIZE = 10
 
 class WireItem(QGraphicsPathItem):
     """Wire connecting components with A* pathfinding"""
