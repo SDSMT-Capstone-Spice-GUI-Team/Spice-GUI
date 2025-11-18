@@ -143,6 +143,10 @@ class ComponentItem(QGraphicsItem):
                 self.scene().reroute_connected_wires(self)
             else:
                 print("  Scene doesn't have reroute_connected_wires!")
+
+            # Force scene update to prevent dragging artifacts
+            if self.scene():
+                self.scene().update()
         
         return super().itemChange(change, value)
     

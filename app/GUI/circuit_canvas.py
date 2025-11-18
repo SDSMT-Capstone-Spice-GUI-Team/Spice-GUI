@@ -37,6 +37,9 @@ class CircuitCanvas(QGraphicsView):
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
+
+        # Fix dragging artifacts by forcing full viewport updates
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
         
         self.components = {}  # id -> ComponentItem
         self.wires = []
