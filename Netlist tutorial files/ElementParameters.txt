@@ -214,3 +214,50 @@ MXXXXXXX DrainNode GateNode SourceNode BulkNode MOSP
 Note: SourceNode and BulkNode will be the SAME VALUE (the nodes are tied together for practically all applications)
 
 Note: .model MOSP PMOS is necessary to include in the netlist when using a P-Channel MOSFET as it defines the MOSFET using default PMOS parameters, .model MOSN PMOS only needs to be included once if using multiple P-Channel MOSFETs, it applies to all MOSP MOSFETs
+
+
+Linear Voltage-Controlled Current Source (VCCS):
+
+GXXXXXXX PositiveNode NegativeNode PositiveReferenceNode NegativeReferenceNode TransconductanceValue
+
+Example:
+
+A Linear VCCS named henry with positive end connected to node A, negative end grounded (node 0), positive reference of node C, negative reference of node D, and a transconductance of 3 S would look like:
+
+Ghenry A 0 C D 3
+
+
+
+Linear Voltage-Controlled Voltage Source (VCVS):
+
+EXXXXXXX PositiveNode NegativeNode PositiveReferenceNode NegativeReferenceNode VoltageGain
+
+Example:
+
+A Linear VCVS named joy with positive end connected to node A, negative end connected to ground (node 0), positive reference of node V, negative reference of node W, and a voltage gain of 0.2 would look like:
+
+Ejoy A 0 V W 0.2
+
+
+
+Linear Current-Controlled Current Source (CCCS)
+
+FXXXXXXX PositiveNode NegativeNode ReferenceSourceName TransresistanceValue
+
+Example:
+
+A Linear CCCS named goob with positive end connected to node H, negative end connected to node G, reference source of Vref, and a transresistance of 50 would look like:
+
+Fgoob H G Vref 50
+
+
+
+Linear Current-Controlled Voltage Source (CCVS)
+
+HXXXXXXX PositiveNode NegativeNode ReferenceSourceName CurrentGain
+
+Example:
+
+A Linear CCVS named billyjo with positive end connected to node R, negative end connected to node X, reference source of Vcheese, and a current gain of 7 would look like:
+
+Hbillyjo R X Vcheese 7

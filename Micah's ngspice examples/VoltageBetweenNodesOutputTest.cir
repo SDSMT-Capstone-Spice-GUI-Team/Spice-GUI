@@ -1,0 +1,23 @@
+Voltage Between Nodes Output Test
+
+*this test is intended to test the v(x,y) output format to find the voltage between nodes
+
+Vin A 0 DC 12
+
+R1 A B 1k
+
+R2 B C 1k
+
+R3 C 0 1k
+
+.op
+
+.control
+run
+
+print v(A,B) v(B,C) v(A,C) v(A) v(B) v(C)
+
+print @R1[i]
+
+.endc
+.end

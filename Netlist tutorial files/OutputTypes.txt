@@ -1,0 +1,71 @@
+Output Types
+
+Print:
+
+Print Data
+
+Example:
+
+Printing the voltage at node A would look like:
+
+Print v(A)
+
+
+
+Plot:
+
+Plot Data
+
+Example:
+
+Plotting the voltage at node C would look like:
+
+Plot v(C)
+
+
+
+Voltage at a Node:
+
+v(NodeName)
+
+Example:
+
+Printing the voltage at node B would look like:
+
+Print v(B)
+
+
+
+Voltage Between Nodes:
+
+v(PositiveNode,NegativeNode)
+
+Example:
+
+Plotting the voltage between nodes X and Y would look like:
+
+Plot v(X,Y)
+
+
+
+Current through a Voltage Source:
+
+i(SourceName)
+
+Example:
+
+Printing the current through Vhat would look like:
+
+Print i(Vhat)
+
+
+
+Current through an Element
+
+@ElementName[i]
+
+Example:
+
+Plotting the current through R7 would look like:
+
+Plot @R7[i]

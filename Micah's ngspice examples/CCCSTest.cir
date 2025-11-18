@@ -1,0 +1,23 @@
+CCCS Test
+
+*this test is intended to test the CCCS element in a simple, parallel system
+
+Vin A 0 DC 20
+
+R1 A 0 1k
+
+R2 A 0 2k
+
+F1 A 0 Vin 0.2
+
+R3 A 0 1k
+
+.op
+
+.control
+run
+
+print v(a) i(Vin) @R1[i] @R2[i] @F1[i] @R3[i]
+
+.endc
+.end
