@@ -1,0 +1,5 @@
+Voltage controlled, current controlled.
+Siemens to ohms conversion
+node labelling
+current labelling... instead of having to create a voltage source 0 volts and direction. 
+connections versus non connections for planar versus non planar
