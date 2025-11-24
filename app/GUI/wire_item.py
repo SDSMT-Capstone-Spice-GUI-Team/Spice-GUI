@@ -39,11 +39,35 @@ class WireItem(QGraphicsPathItem):
 
         # Get obstacles from canvas
         if self.canvas:
-            # Exclude the components we're connecting from obstacles
-            exclude_ids = {self.start_comp.component_id, self.end_comp.component_id}
+            # Don't exclude connected components entirely, but only clear their terminal areas
+            # This prevents wires from crossing through component bodies
+            terminal_clearance = {self.start_comp.component_id, self.end_comp.component_id}
+
+            # Specify the exact terminals this wire is using - these MUST be cleared for pathfinding
+            active_terminals = [
+                (self.start_comp.component_id, self.start_term),
+                (self.end_comp.component_id, self.end_term)
+            ]
+
+            print(f"      Routing wire from {self.start_comp.component_id}[{self.start_term}] to {self.end_comp.component_id}[{self.end_term}]")
+            print(f"      Active terminals: {active_terminals}")
 
             obstacles = get_component_obstacles(self.canvas.components, GRID_SIZE,
-                                               padding=0, exclude_ids=exclude_ids)
+                                               padding=0,
+                                               terminal_clearance_only=terminal_clearance,
+                                               active_terminals=active_terminals)
+
+            # Debug: Check if start/end positions are in obstacles
+            start_grid = (round(start.x() / GRID_SIZE), round(start.y() / GRID_SIZE))
+            end_grid = (round(end.x() / GRID_SIZE), round(end.y() / GRID_SIZE))
+            print(f"      Start grid: {start_grid}, in obstacles: {start_grid in obstacles}")
+            print(f"      End grid: {end_grid}, in obstacles: {end_grid in obstacles}")
+            print(f"      Total obstacles: {len(obstacles)}")
+
+            # Debug: Check if there's a clear path out from both terminals
+            manhattan_dist = abs(end_grid[0] - start_grid[0]) + abs(end_grid[1] - start_grid[1])
+            print(f"      Manhattan distance: {manhattan_dist}")
+
             pathfinder = GridPathfinder(GRID_SIZE)
             self.waypoints = pathfinder.find_path(start, end, obstacles)
         else:
