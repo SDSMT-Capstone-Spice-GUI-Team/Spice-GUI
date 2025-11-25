@@ -337,7 +337,7 @@ class Ground(ComponentItem):
     SYMBOL = 'GND'
     TERMINALS = 1
     COLOR = '#000000'
-    DEFAULT_VALUE = ''
+    DEFAULT_VALUE = '0V'
     type_name = 'Ground'
     
     def __init__(self, component_id):
