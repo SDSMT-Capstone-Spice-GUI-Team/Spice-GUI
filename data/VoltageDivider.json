@@ -33,7 +33,7 @@
     {
       "type": "Ground",
       "id": "GND1",
-      "value": "",
+      "value": "0V",
       "pos": {
         "x": 40.0,
         "y": -80.0

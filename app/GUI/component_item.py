@@ -343,6 +343,39 @@ class Ground(ComponentItem):
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
 
+    def paint(self, painter, option=None, widget=None):
+        if painter is None:
+            return
+        
+        color = QColor(self.COLOR)
+        
+        # Save painter state
+        painter.save()
+        
+        # Apply rotation
+        painter.rotate(self.rotation_angle)
+        
+        # Highlight if selected
+        if self.isSelected():
+            painter.setPen(QPen(Qt.GlobalColor.yellow, 3))
+            painter.drawRect(QRectF(-40, -20, 80, 40))
+        
+        # Draw component body
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(QBrush(color.lighter(150)))
+        self.draw_component_body(painter)
+        
+        # Draw label
+        painter.setPen(QPen(Qt.GlobalColor.black))
+        painter.drawText(-20, -25, "GND (0V)")
+        
+        # Restore painter state
+        painter.restore()
+        
+        # Draw terminals in scene coordinates (not rotated)
+        painter.setPen(QPen(Qt.GlobalColor.red, 4))
+        for terminal in self.terminals:
+            painter.drawEllipse(terminal, 3, 3)
 
     def draw_component_body(self, painter):
         # Draw ground symbol
