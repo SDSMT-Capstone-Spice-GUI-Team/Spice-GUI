@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QGraphicsItem
 from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer
-from PyQt6.QtGui import QPen, QBrush, QColor
+from PyQt6.QtGui import QPen, QBrush, QColor, QPainterPath
 import math
 
 GRID_SIZE = 10
@@ -131,7 +131,7 @@ class ComponentItem(QGraphicsItem):
         
         # Draw label
         painter.setPen(QPen(Qt.GlobalColor.black))
-        label = f"{self.SYMBOL}{self.component_id}"
+        label = f"{self.component_id}"
         painter.drawText(-20, -25, f"{label} ({self.value})")
         
         # Restore painter state
@@ -352,7 +352,74 @@ class Ground(ComponentItem):
         painter.drawLine(-5, 20, 5, 20)
         
     def update_terminals(self):
-        self.terminals = [QPointF(0, 0)]
+        """Update terminal positions based on rotation"""
+        # Base terminal positions (horizontal orientation)
+        if self.TERMINALS == 2:
+            base_terminals = [QPointF(-20, 0), QPointF(20, 0)]
+        elif self.TERMINALS == 1:
+            base_terminals = [QPointF(0, 0)]
+        else:
+            base_terminals = []
+        
+        # Rotate terminals based on rotation_angle
+        rad = math.radians(self.rotation_angle)
+        cos_a = math.cos(rad)
+        sin_a = math.sin(rad)
+        
+        self.terminals = []
+        for term in base_terminals:
+            # Rotate point around origin
+            new_x = term.x() * cos_a - term.y() * sin_a
+            new_y = term.x() * sin_a + term.y() * cos_a
+            self.terminals.append(QPointF(new_x, new_y))
+
+class OpAmp(ComponentItem):
+    """Operational Amplifier component"""
+    SYMBOL = 'OA'
+    TERMINALS = 5
+    COLOR = '#FFC107'
+    DEFAULT_VALUE = 'LM741'
+    type_name = 'Op-Amp'
+
+    def __init__(self, component_id):
+        super().__init__(component_id, self.type_name)
+
+    def draw_component_body(self, painter):
+        # Draw the triangular body of the op-amp
+        painter.drawLine(-20, -15, 20, 0)
+        painter.drawLine(20, 0, -20, 15)
+        painter.drawLine(-20, 15, -20, -15)
+
+        # Draw '+' and '-' signs for inputs
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        painter.drawLine(-17, -8, -13, -8) # Inverting (-)
+        painter.drawLine(-17, 8, -13, 8)  # Non-inverting (+)
+        painter.drawLine(-15, 6, -15, 10) # Non-inverting (+)
+
+    def update_terminals(self):
+        """Update terminal positions for the op-amp based on rotation"""
+        # Base terminal positions (inverting, non-inverting, output, V+, V-)
+        base_terminals = [
+            QPointF(-20, -10),  # Inverting input
+            QPointF(-20, 10),   # Non-inverting input
+            QPointF(20, 0),     # Output
+            QPointF(0, -15),    # V+
+            QPointF(0, 15)      # V-
+        ]
+
+        # Rotate terminals based on rotation_angle
+        rad = math.radians(self.rotation_angle)
+        cos_a = math.cos(rad)
+        sin_a = math.sin(rad)
+
+        self.terminals = []
+        for term in base_terminals:
+            new_x = term.x() * cos_a - term.y() * sin_a
+            new_y = term.x() * sin_a + term.y() * cos_a
+            self.terminals.append(QPointF(new_x, new_y))
+
+    def boundingRect(self):
+        return QRectF(-30, -25, 60, 50)
 
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
@@ -363,7 +430,9 @@ COMPONENT_CLASSES = {
     'CurrentSource': CurrentSource,
     'Voltage Source': VoltageSource,
     'Current Source': CurrentSource,
-    'Ground': Ground
+    'Ground': Ground,
+    'OpAmp': OpAmp,
+    'Op-Amp': OpAmp
 }
 
 # # Legacy component definitions for compatibility

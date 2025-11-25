@@ -15,6 +15,7 @@ COMPONENTS = {
     'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
     'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
+    'Op-Amp': {'symbol': 'OA', 'terminals': 5, 'color': '#FFC107'},
 }
 
 GRID_SIZE = 10
@@ -45,7 +46,7 @@ class CircuitCanvas(QGraphicsView):
         self.wires = []
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
+        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0, 'OA': 0}
         
         # Simulation results storage
         self.node_voltages = {}  # node_label -> voltage value
@@ -644,7 +645,7 @@ class CircuitCanvas(QGraphicsView):
         self.wires = []
         self.nodes = []
         self.terminal_to_node = {}
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
+        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0, 'OA': 0}
         Node._node_counter = 0
     
     def to_dict(self):
