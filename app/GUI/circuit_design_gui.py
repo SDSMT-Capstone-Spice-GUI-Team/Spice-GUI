@@ -1,5 +1,6 @@
 from simulation import NetlistGenerator, NgspiceRunner, ResultParser
 import json
+import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
                              QSplitter, QLabel, QDialog)
@@ -22,6 +23,9 @@ COMPONENTS = {
     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
 }
 
+# Define the session file path
+SESSION_FILE = "last_session.txt"
+
 GRID_SIZE = 10
 
 
@@ -43,6 +47,33 @@ class CircuitDesignGUI(QMainWindow):
 
         self.init_ui()
         self.create_menu_bar()
+        
+        # ADD THIS LINE to load the last session when the app starts
+        self._load_last_session()
+
+    def _save_session(self, file_path):
+        """Saves the absolute path of the current file to disk."""
+        try:
+            # Use abspath to ensure the path is valid after an application restart
+            with open(SESSION_FILE, 'w') as f:
+                f.write(os.path.abspath(file_path))
+        except Exception as e:
+            print(f"Error saving session: {e}")
+
+    def _load_last_session(self):
+        """Loads the last saved file path and tries to open the circuit."""
+        if os.path.exists(SESSION_FILE):
+            try:
+                with open(SESSION_FILE, 'r') as f:
+                    file_path = f.read().strip()
+
+                # Check if the path is valid and the file still exists
+                if file_path and os.path.exists(file_path):
+                    print(f"Hot-reload: Attempting to reload last file: {file_path}")
+                    # Call the existing load method to restore state
+                    self.load_circuit(file_path, is_reload=True) 
+            except Exception as e:
+                print(f"Error loading last session: {e}")
 
     def init_ui(self):
         """Initialize user interface"""
@@ -390,26 +421,35 @@ class CircuitDesignGUI(QMainWindow):
                     json.dump(data, f, indent=2)
                 self.current_file = filename
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
+                self._save_session(filename)  # Save session on successful save
                 QMessageBox.information(
                     self, "Success", "Circuit saved successfully!")
             except Exception as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to save: {str(e)}")
 
-    def load_circuit(self):
+    def load_circuit(self, filename=None, is_reload=False):
         """Load circuit from JSON file"""
-        filename, _ = QFileDialog.getOpenFileName(
-            self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)"
-        )
+        if not filename:
+            filename, _ = QFileDialog.getOpenFileName(
+                self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)"
+            )
+        
         if filename:
             try:
                 with open(filename, 'r') as f:
                     data = json.load(f)
+                
                 self.canvas.from_dict(data)
                 self.current_file = filename
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
-                QMessageBox.information(
-                    self, "Success", "Circuit loaded successfully!")
+                
+                # Save the successfully loaded file path
+                self._save_session(filename)
+
+                if not is_reload:
+                    QMessageBox.information(
+                        self, "Success", "Circuit loaded successfully!")
             except Exception as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to load: {str(e)}")

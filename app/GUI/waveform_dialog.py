@@ -2,6 +2,7 @@ import matplotlib
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QWidget, QHeaderView, QLabel,
                              QPushButton, QGroupBox, QFormLayout, QLineEdit)
+from PyQt6.QtGui import QColor
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from .format_utils import parse_value, format_value
@@ -11,6 +12,15 @@ matplotlib.use('QtAgg')
 # Constants for infinite scroll
 INITIAL_LOAD_COUNT = 50
 SCROLL_LOAD_COUNT = 25
+
+HIGHLIGHT_COLORS = [
+    QColor(255, 230, 230),  # Light Red
+    QColor(230, 255, 230),  # Light Green
+    QColor(230, 230, 255),  # Light Blue
+    QColor(255, 255, 230),  # Light Yellow
+    QColor(255, 230, 255),  # Light Magenta
+    QColor(230, 255, 255),  # Light Cyan
+]
 
 class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -30,6 +40,12 @@ class WaveformDialog(QDialog):
         self.view_data = self.full_data
         self.headers = []
         self.rows_loaded = 0
+
+        # Filter ranges
+        self.time_min = None
+        self.time_max = None
+        self.volt_min = None
+        self.volt_max = None
 
         # Main layout
         main_layout = QHBoxLayout()
