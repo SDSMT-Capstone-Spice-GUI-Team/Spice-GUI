@@ -20,6 +20,16 @@ class NetlistGenerator:
         """Generate complete SPICE netlist"""
         lines = ["Circuit Design GUI Netlist", "* Generated netlist", ""]
         
+        # Check for op-amps to add subcircuit
+        has_opamp = any(c.component_type == 'Op-Amp' for c in self.components.values())
+        if has_opamp:
+            lines.append("* Ideal Op-Amp Subcircuit")
+            lines.append(".subckt OPAMP_IDEAL inp inn out")
+            lines.append("E_amp out 0 inp inn 1e6")
+            lines.append("R_out out 0 1e-3")
+            lines.append(".ends")
+            lines.append("")
+
         # Build node connectivity map
         node_map = {}  # (comp_id, term_index) -> node_number
         next_node = 1
@@ -92,6 +102,11 @@ class NetlistGenerator:
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
             elif comp.component_type == 'Current Source':
                 lines.append(f"{comp_id} {' '.join(nodes)} AC {comp.value}")
+            elif comp.component_type == 'Op-Amp':
+                # Map terminals to subcircuit nodes: inp, inn, out
+                # Terminal 1 is non-inverting (inp), 0 is inverting (inn), 2 is output (out)
+                opamp_nodes = [nodes[1], nodes[0], nodes[2]]
+                lines.append(f"X{comp_id} {' '.join(opamp_nodes)} OPAMP_IDEAL")
         
         # Add comments about labeled nodes
         if node_labels:

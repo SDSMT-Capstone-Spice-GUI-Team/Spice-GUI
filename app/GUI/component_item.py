@@ -409,9 +409,9 @@ class Ground(ComponentItem):
 class OpAmp(ComponentItem):
     """Operational Amplifier component"""
     SYMBOL = 'OA'
-    TERMINALS = 5
+    TERMINALS = 3
     COLOR = '#FFC107'
-    DEFAULT_VALUE = 'LM741'
+    DEFAULT_VALUE = 'Ideal'
     type_name = 'Op-Amp'
 
     def __init__(self, component_id):
@@ -431,13 +431,11 @@ class OpAmp(ComponentItem):
 
     def update_terminals(self):
         """Update terminal positions for the op-amp based on rotation"""
-        # Base terminal positions (inverting, non-inverting, output, V+, V-)
+        # Base terminal positions (inverting, non-inverting, output)
         base_terminals = [
             QPointF(-20, -10),  # Inverting input
             QPointF(-20, 10),   # Non-inverting input
             QPointF(20, 0),     # Output
-            QPointF(0, -15),    # V+
-            QPointF(0, 15)      # V-
         ]
 
         # Rotate terminals based on rotation_angle
