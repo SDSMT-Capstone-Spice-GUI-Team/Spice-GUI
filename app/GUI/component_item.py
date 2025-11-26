@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QGraphicsItem
+from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit
 from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer
 from PyQt6.QtGui import QPen, QBrush, QColor, QPainterPath
 import math
@@ -69,6 +69,26 @@ class ComponentItem(QGraphicsItem):
             self.setCursor(Qt.CursorShape.OpenHandCursor)
 
         super().hoverMoveEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        """Open a dialog to edit component value on double-click"""
+        if self.component_type == 'Ground':
+            return  # Don't allow editing ground value
+
+        current_value = self.value
+        new_value, ok = QInputDialog.getText(
+            None, 
+            f"Edit Value for {self.component_id}", 
+            "Enter new value:", 
+            QLineEdit.EchoMode.Normal, 
+            current_value
+        )
+
+        if ok and new_value:
+            self.value = new_value
+            self.update()  # Redraw the item to show the new value
+            if self.scene():
+                self.scene().update()  # Redraw the scene
     
     def boundingRect(self):
         return QRectF(-40, -30, 80, 60)

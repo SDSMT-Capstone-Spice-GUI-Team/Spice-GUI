@@ -312,6 +312,24 @@ class CircuitCanvas(QGraphicsView):
             rotate_ccw_action.triggered.connect(lambda: self.rotate_component(item, False))
             menu.addAction(rotate_ccw_action)
             
+    def edit_component_value(self, item):
+        """Open a dialog to edit a component's value."""
+        if not isinstance(item, ComponentItem):
+            return
+
+        current_value = item.value
+        text, ok = QInputDialog.getText(
+            self,
+            f"Edit Value for {item.component_id}",
+            "Enter new value (e.g., 10k, 1u, 5V):",
+            QLineEdit.EchoMode.Normal,
+            current_value
+        )
+
+        if ok and text:
+            item.value = text
+            item.update()
+            
         elif isinstance(item, WireItem):
             delete_action = QAction("Delete Wire", self)
             delete_action.triggered.connect(lambda: self.delete_wire(item))
