@@ -8,6 +8,10 @@ from .format_utils import parse_value, format_value
 
 matplotlib.use('QtAgg')
 
+# Constants for infinite scroll
+INITIAL_LOAD_COUNT = 50
+SCROLL_LOAD_COUNT = 25
+
 class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
@@ -23,9 +27,9 @@ class WaveformDialog(QDialog):
 
         # Store data
         self.full_data = data
-        self.current_page = 0
-        self.page_size = 10
         self.view_data = self.full_data
+        self.headers = []
+        self.rows_loaded = 0
 
         # Main layout
         main_layout = QHBoxLayout()
@@ -71,50 +75,60 @@ class WaveformDialog(QDialog):
         # Data Table
         right_layout.addWidget(QLabel("Simulation Data"))
         self.table = QTableWidget()
+        self.table.verticalScrollBar().valueChanged.connect(self._on_scroll)
         right_layout.addWidget(self.table)
-        
-        # Pagination Controls
-        pagination_layout = QHBoxLayout()
-        self.prev_button = QPushButton("<< Previous")
-        self.prev_button.clicked.connect(self.show_previous_page)
-        self.page_label = QLabel()
-        self.next_button = QPushButton("Next >>")
-        self.next_button.clicked.connect(self.show_next_page)
-        
-        pagination_layout.addWidget(self.prev_button)
-        pagination_layout.addStretch()
-        pagination_layout.addWidget(self.page_label)
-        pagination_layout.addStretch()
-        pagination_layout.addWidget(self.next_button)
-        right_layout.addLayout(pagination_layout)
         
         # Initial population
         self.update_view()
+
+    def _on_scroll(self, value):
+        """Handler for the scrollbar valueChanged signal."""
+        scrollbar = self.table.verticalScrollBar()
+        # Load more rows if user is near the bottom
+        if value >= scrollbar.maximum() - 5:
+            self._load_more_rows()
+
+    def _load_more_rows(self):
+        """Appends the next chunk of data to the table."""
+        if self.rows_loaded >= len(self.view_data):
+            return
+
+        start_index = self.rows_loaded
+        end_index = min(start_index + SCROLL_LOAD_COUNT, len(self.view_data))
+        
+        data_chunk = self.view_data[start_index:end_index]
+        
+        current_row_count = self.table.rowCount()
+        self.table.setRowCount(current_row_count + len(data_chunk))
+        
+        for row_index_offset, row_data in enumerate(data_chunk):
+            table_row_index = current_row_count + row_index_offset
+            for col_index, header in enumerate(self.headers):
+                unit = "s" if header == "time" else "V"
+                formatted_str = format_value(row_data[header], unit)
+                item = QTableWidgetItem(formatted_str)
+                self.table.setItem(table_row_index, col_index, item)
+        
+        self.rows_loaded = end_index
 
     def apply_filters(self):
         """Filters the data based on user input and updates the view."""
         filtered_data = self.full_data
         
-        # Parse filter values safely
         try:
             time_min = parse_value(self.time_min_edit.text()) if self.time_min_edit.text() else None
             time_max = parse_value(self.time_max_edit.text()) if self.time_max_edit.text() else None
             volt_min = parse_value(self.volt_min_edit.text()) if self.volt_min_edit.text() else None
             volt_max = parse_value(self.volt_max_edit.text()) if self.volt_max_edit.text() else None
         except ValueError:
-            # Handle case where user enters non-numeric text
-            # For simplicity, we just won't filter in this case.
-            # A real app would show an error message.
             self.reset_filters() 
             return
 
-        # Apply time filter
         if time_min is not None:
             filtered_data = [row for row in filtered_data if row.get('time', 0) >= time_min]
         if time_max is not None:
             filtered_data = [row for row in filtered_data if row.get('time', 0) <= time_max]
 
-        # Apply voltage filter
         if (volt_min is not None or volt_max is not None) and filtered_data:
             voltage_keys = [k for k in filtered_data[0].keys() if k not in ['time', 'index']]
             
@@ -124,13 +138,12 @@ class WaveformDialog(QDialog):
                     in_min = (volt_min is None or v >= volt_min)
                     in_max = (volt_max is None or v <= volt_max)
                     if in_min and in_max:
-                        return True # Match if any voltage in the row is within range
+                        return True
                 return False
 
             filtered_data = [row for row in filtered_data if voltage_in_range(row)]
 
         self.view_data = filtered_data
-        self.current_page = 0
         self.update_view()
 
     def reset_filters(self):
@@ -141,69 +154,31 @@ class WaveformDialog(QDialog):
         self.volt_max_edit.clear()
         
         self.view_data = self.full_data
-        self.current_page = 0
         self.update_view()
 
     def update_view(self):
-        """Populates the table and plot with the current view_data"""
+        """Resets and populates the table and plot with the current view_data."""
         self.plot_data(self.view_data)
-        self.populate_table()
+        self.table.clear()
+        self.table.setRowCount(0)
+        self.rows_loaded = 0
+        self.populate_table_initial()
 
-    def populate_table(self):
-        """Populates the data table with the current page of view_data"""
+    def populate_table_initial(self):
+        """Populates the data table with the first chunk of view_data."""
         if not self.view_data:
-            self.table.setRowCount(0)
             self.table.setColumnCount(0)
-            self._update_pagination_controls()
             return
-
-        headers = list(self.view_data[0].keys())
-        self.table.setColumnCount(len(headers))
-        self.table.setHorizontalHeaderLabels(headers)
-
-        # Calculate data slice for the current page
-        start_index = self.current_page * self.page_size
-        end_index = start_index + self.page_size
-        data_slice = self.view_data[start_index:end_index]
         
-        self.table.setRowCount(len(data_slice))
-
-        for row_index, row_data in enumerate(data_slice):
-            for col_index, header in enumerate(headers):
-                unit = "s" if header == "time" else "V"
-                formatted_str = format_value(row_data[header], unit)
-                item = QTableWidgetItem(formatted_str)
-                self.table.setItem(row_index, col_index, item)
+        # Set headers, excluding 'index'
+        self.headers = [h for h in self.view_data[0].keys() if h.lower() != 'index']
+        self.table.setColumnCount(len(self.headers))
+        self.table.setHorizontalHeaderLabels(self.headers)
         
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self._update_pagination_controls()
-
-    def _update_pagination_controls(self):
-        """Updates the pagination buttons and label"""
-        total_rows = len(self.view_data)
-        start_index = self.current_page * self.page_size
-        end_index = min(start_index + self.page_size, total_rows)
-
-        if total_rows > 0:
-            self.page_label.setText(f"Showing {start_index + 1}-{end_index} of {total_rows}")
-        else:
-            self.page_label.setText("Showing 0-0 of 0")
-
-        self.prev_button.setEnabled(self.current_page > 0)
-        self.next_button.setEnabled(end_index < total_rows)
-
-    def show_previous_page(self):
-        """Navigate to the previous page of data"""
-        if self.current_page > 0:
-            self.current_page -= 1
-            self.populate_table()
-    
-    def show_next_page(self):
-        """Navigate to the next page of data"""
-        total_rows = len(self.view_data)
-        if (self.current_page + 1) * self.page_size < total_rows:
-            self.current_page += 1
-            self.populate_table()
+        
+        # Load the first chunk of rows
+        self._load_more_rows()
 
     def plot_data(self, data):
         """Plots the transient analysis data from a list of dictionaries."""
