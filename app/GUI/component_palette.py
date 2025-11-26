@@ -9,6 +9,7 @@ COMPONENTS = {
     'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
     'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
     'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
+    'Waveform Source': {'symbol': 'VW', 'terminals': 2, 'color': '#E91E63'},
     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
     'Op-Amp': {'symbol': 'OA', 'terminals': 5, 'color': '#FFC107'},
 }
