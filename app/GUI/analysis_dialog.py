@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox, QComboBox, QLabel
 )
 from PyQt6.QtCore import Qt
+from .format_utils import parse_value
 
 
 class AnalysisDialog(QDialog):
@@ -125,9 +126,9 @@ class AnalysisDialog(QDialog):
                 if field_type == "combo":
                     params[key] = widget.currentText()
                 elif field_type == "float":
-                    params[key] = float(widget.text())
+                    params[key] = parse_value(widget.text())
                 elif field_type == "int":
-                    params[key] = int(widget.text())
+                    params[key] = int(parse_value(widget.text()))
                 else:  # text
                     params[key] = widget.text()
 

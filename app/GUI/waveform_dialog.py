@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QPushButton, QGroupBox, QFormLayout, QLineEdit)
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from .format_utils import parse_value, format_value
 
 matplotlib.use('QtAgg')
 
@@ -96,10 +97,10 @@ class WaveformDialog(QDialog):
         
         # Parse filter values safely
         try:
-            time_min = float(self.time_min_edit.text()) if self.time_min_edit.text() else None
-            time_max = float(self.time_max_edit.text()) if self.time_max_edit.text() else None
-            volt_min = float(self.volt_min_edit.text()) if self.volt_min_edit.text() else None
-            volt_max = float(self.volt_max_edit.text()) if self.volt_max_edit.text() else None
+            time_min = parse_value(self.time_min_edit.text()) if self.time_min_edit.text() else None
+            time_max = parse_value(self.time_max_edit.text()) if self.time_max_edit.text() else None
+            volt_min = parse_value(self.volt_min_edit.text()) if self.volt_min_edit.text() else None
+            volt_max = parse_value(self.volt_max_edit.text()) if self.volt_max_edit.text() else None
         except ValueError:
             # Handle case where user enters non-numeric text
             # For simplicity, we just won't filter in this case.
@@ -114,8 +115,8 @@ class WaveformDialog(QDialog):
             filtered_data = [row for row in filtered_data if row.get('time', 0) <= time_max]
 
         # Apply voltage filter
-        if volt_min is not None or volt_max is not None:
-            voltage_keys = [k for k in self.full_data[0].keys() if k not in ['time', 'index']]
+        if (volt_min is not None or volt_max is not None) and filtered_data:
+            voltage_keys = [k for k in filtered_data[0].keys() if k not in ['time', 'index']]
             
             def voltage_in_range(row):
                 for key in voltage_keys:
@@ -169,7 +170,9 @@ class WaveformDialog(QDialog):
 
         for row_index, row_data in enumerate(data_slice):
             for col_index, header in enumerate(headers):
-                item = QTableWidgetItem(f"{row_data[header]:.6e}")
+                unit = "s" if header == "time" else "V"
+                formatted_str = format_value(row_data[header], unit)
+                item = QTableWidgetItem(formatted_str)
                 self.table.setItem(row_index, col_index, item)
         
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
