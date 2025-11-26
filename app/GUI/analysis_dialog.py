@@ -16,27 +16,27 @@ class AnalysisDialog(QDialog):
         },
         "DC Sweep": {
             "fields": [
-                ("Source", "text", "V1"),
-                ("Start Voltage (V)", "float", "0"),
-                ("Stop Voltage (V)", "float", "10"),
-                ("Step Size (V)", "float", "0.1")
+                ("Source", "source", "text", "V1"),
+                ("Start Voltage (V)", "min", "float", "0"),
+                ("Stop Voltage (V)", "max", "float", "10"),
+                ("Step Size (V)", "step", "float", "0.1")
             ],
             "description": "Sweep a voltage source and measure circuit response"
         },
         "AC Sweep": {
             "fields": [
-                ("Start Frequency (Hz)", "float", "1"),
-                ("Stop Frequency (Hz)", "float", "1e6"),
-                ("Points per Decade", "int", "100"),
-                ("Sweep Type", "combo", ["dec", "oct", "lin"])
+                ("Start Frequency (Hz)", "fStart", "float", "1"),
+                ("Stop Frequency (Hz)", "fStop", "float", "1e6"),
+                ("Points per Decade", "points", "int", "100"),
+                ("Sweep Type", "sweepType", "combo", ["dec", "oct", "lin"], "dec")
             ],
             "description": "Frequency domain analysis"
         },
         "Transient": {
             "fields": [
-                ("Stop Time (s)", "float", "1"),
-                ("Time Step (s)", "float", "0.001"),
-                ("Start Time (s)", "float", "0")
+                ("Stop Time (s)", "duration", "float", "1"),
+                ("Time Step (s)", "step", "float", "0.001"),
+                ("Start Time (s)", "startTime", "float", "0")
             ],
             "description": "Time domain analysis"
         }
@@ -93,50 +93,46 @@ class AnalysisDialog(QDialog):
             item = self.form_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        
+
         self.field_widgets.clear()
-        
+
         # Set window title and description
         self.setWindowTitle(f"{self.analysis_type} Parameters")
         config = self.ANALYSIS_CONFIGS[self.analysis_type]
         self.desc_label.setText(config["description"])
-        
+
         # Build fields
         for field_config in config["fields"]:
-            if len(field_config) == 4:
-                label, field_type, default, *extra = field_config
-            else:
-                label, field_type, default = field_config
-                extra = []
-            
-            if field_type == "combo":
+            # Unpack based on field type
+            if field_config[2] == "combo":  # (label, key, "combo", options, default)
+                label, key, field_type, options, default = field_config
                 widget = QComboBox()
-                widget.addItems(default)
-                if extra:
-                    widget.setCurrentText(extra[0])
-            else:
+                widget.addItems(options)
+                widget.setCurrentText(default)
+            else:  # (label, key, type, default)
+                label, key, field_type, default = field_config
                 widget = QLineEdit(str(default))
-            
-            self.field_widgets[label] = (widget, field_type)
+
+            self.field_widgets[key] = (widget, field_type)
             self.form_layout.addRow(f"{label}:", widget)
     
     def get_parameters(self):
         """Get parameters from dialog with validation"""
         params = {"analysis_type": self.analysis_type}
-        
+
         try:
-            for label, (widget, field_type) in self.field_widgets.items():
+            for key, (widget, field_type) in self.field_widgets.items():
                 if field_type == "combo":
-                    params[label] = widget.currentText()
+                    params[key] = widget.currentText()
                 elif field_type == "float":
-                    params[label] = float(widget.text())
+                    params[key] = float(widget.text())
                 elif field_type == "int":
-                    params[label] = int(widget.text())
+                    params[key] = int(widget.text())
                 else:  # text
-                    params[label] = widget.text()
-            
+                    params[key] = widget.text()
+
             return params
-            
+
         except ValueError as e:
             return None
     
@@ -145,28 +141,28 @@ class AnalysisDialog(QDialog):
         params = self.get_parameters()
         if params is None:
             return None
-        
+
         if self.analysis_type == "DC Operating Point":
             return ".op"
-        
+
         elif self.analysis_type == "DC Sweep":
-            source = params.get("Source", "V1")
-            start = params.get("Start Voltage (V)", 0)
-            stop = params.get("Stop Voltage (V)", 10)
-            step = params.get("Step Size (V)", 0.1)
+            source = params.get("source", "V1")
+            start = params.get("min", 0)
+            stop = params.get("max", 10)
+            step = params.get("step", 0.1)
             return f".dc {source} {start} {stop} {step}"
-        
+
         elif self.analysis_type == "AC Sweep":
-            fstart = params.get("Start Frequency (Hz)", 1)
-            fstop = params.get("Stop Frequency (Hz)", 1e6)
-            points = params.get("Points per Decade", 100)
-            sweep_type = params.get("Sweep Type", "dec")
+            fstart = params.get("fStart", 1)
+            fstop = params.get("fStop", 1e6)
+            points = params.get("points", 100)
+            sweep_type = params.get("sweepType", "dec")
             return f".ac {sweep_type} {points} {fstart} {fstop}"
-        
+
         elif self.analysis_type == "Transient":
-            tstop = params.get("Stop Time (s)", 1)
-            tstep = params.get("Time Step (s)", 0.001)
-            tstart = params.get("Start Time (s)", 0)
+            tstep = params.get("step", 0.001)
+            tstop = params.get("duration", 1)
+            tstart = params.get("startTime", 0)
             return f".tran {tstep} {tstop} {tstart}"
-        
+
         return ""

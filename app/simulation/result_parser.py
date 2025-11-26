@@ -153,48 +153,87 @@ class ResultParser:
 
     @staticmethod
     def parse_transient_results(output):
-        """Parse transient analysis results"""
+        """Parse transient analysis results into a list of dictionaries."""
         try:
             lines = output.split('\n')
-            tran_data = {'time': [], 'voltages': {}}
-
-            # Look for transient data
-            # Format: "Index   time   v(node1)   v(node2) ..."
-            header_found = False
+            results = []
             headers = []
+            data_started = False
 
-            for i, line in enumerate(lines):
-                # Look for time-based headers
-                if 'time' in line.lower() and ('v(' in line.lower() or 'index' in line.lower()):
-                    headers = line.split()
-                    header_found = True
-                    tran_data['headers'] = headers
-                    # Initialize voltage arrays for each node
-                    for header in headers[2:]:  # Skip index and time
-                        if 'v(' in header.lower():
-                            node = header.replace('v(', '').replace(')', '')
-                            tran_data['voltages'][node] = []
+            for line in lines:
+                line = line.strip()
+
+                if not line or line.startswith('*') or line.startswith('$') or "No. of Data Rows" in line:
                     continue
 
-                # Parse data rows
-                if header_found and line.strip():
-                    parts = line.strip().split()
-                    if len(parts) >= 2:
+                if '---' in line:
+                    continue
+
+                # Find header row
+                if not data_started and ('time' in line.lower() or 'v(' in line.lower() or 'i(' in line.lower()):
+                    raw_headers = line.split()
+                    # Sanitize headers: v(node) -> node, and handle potential duplicates
+                    headers = []
+                    for h in raw_headers:
+                        sanitized_h = re.sub(r'^[vi]\((.*?)\)$', r'\1', h)
+                        headers.append(sanitized_h)
+                    data_started = True
+                    continue
+
+                if data_started:
+                    parts = line.split()
+                    if len(parts) == len(headers):
                         try:
-                            # Second column is time (first is index)
-                            time = float(parts[1]) if len(parts) > 1 else float(parts[0])
-                            tran_data['time'].append(time)
-
-                            # Parse voltages for each node
-                            for j, header in enumerate(headers[2:], start=2):
-                                if j < len(parts) and 'v(' in header.lower():
-                                    node = header.replace('v(', '').replace(')', '')
-                                    tran_data['voltages'][node].append(float(parts[j]))
+                            row_data = {headers[i]: float(parts[i]) for i in range(len(headers))}
+                            results.append(row_data)
                         except (ValueError, IndexError):
+                            # Stop if a line doesn't conform, it might be the end of the data block
                             continue
-
-            return tran_data if tran_data['time'] else None
+            
+            return results if results else None
 
         except Exception as e:
             print(f"Error parsing transient results: {e}")
             return None
+
+    @staticmethod
+    def format_results_as_table(results):
+        """
+        Format a list of dictionaries into a string table.
+
+        Args:
+            results (list of dict): The parsed data from parse_transient_results.
+
+        Returns:
+            str: A formatted string representing the data in a table.
+        """
+        if not results:
+            return "No data to display."
+
+        headers = list(results[0].keys())
+        
+        # Define column widths, with a minimum
+        col_widths = {h: max(len(h), 12) for h in headers}
+        for row in results:
+            for h in headers:
+                # Pad for floating point representation
+                col_widths[h] = max(col_widths[h], len(f"{row[h]:<12.5e}"))
+
+        # Header string
+        header_str_list = []
+        for h in headers:
+            header_str_list.append(f"{h:<{col_widths[h]}}")
+        header_str = " | ".join(header_str_list)
+
+        # Separator
+        separator = "-" * len(header_str)
+
+        # Data rows
+        data_rows = []
+        for row in results:
+            row_list = []
+            for h in headers:
+                row_list.append(f"{row[h]:<{col_widths[h]}.5e}")
+            data_rows.append(" | ".join(row_list))
+        
+        return f"{header_str}\n{separator}\n" + "\n".join(data_rows)

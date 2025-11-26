@@ -1,0 +1,15 @@
+Of course. Here is a step-by-step breakdown of the debugging process we followed to solve the data point limitation issue:
+
+Initial Analysis: You reported that plots seemed to have a limited number of data points. My first goal was to determine if this was an intentional limit or a bug. I started by investigating the Python code that handles simulations.
+
+Investigating the Simulation Runner: I began by reading app/simulation/ngspice_runner.py. I found that it used subprocess.run to execute ngspice and redirected the main simulation output to a file using the -o flag. This was a key detail, as it meant the full output should be saved correctly. My initial hypothesis was that another part of the code might be incorrectly reading from a truncated memory buffer instead of this file.
+
+Checking the GUI Logic: To test that hypothesis, I examined app/GUI/circuit_design_gui.py. I found the run_simulation function and confirmed that it was correctly reading the complete data from the output file, not from a truncated buffer. This proved my initial hypothesis was wrong and the problem was more subtle.
+
+Verifying Input Parameters: My next step was to see if the limitation was being set when you define the analysis. I read app/GUI/analysis_dialog.py and saw that while it has default values for "duration" and "step," it doesn't enforce any maximums. This ruled out the user interface as the source of the limit.
+
+Discovering the Bug in the Parser: With the obvious causes eliminated, I performed a more detailed review of app/simulation/result_parser.py. I looked for logical errors instead of hardcoded limits. I found a try...except block inside the loop that parses the data line-by-line. Inside that block, a break statement would cause the entire parsing process to stop if it encountered a single badly formatted line. This was the critical flaw: a longer simulation had a higher chance of containing a stray empty or corrupted line, causing the parser to quit early and making the plot look truncated.
+
+Implementing the Fix: I explained that the break statement was the likely cause and that changing it to continue would make the parser more robust by simply skipping bad lines instead of stopping. I then used the replace tool to apply this one-word change, resolving the underlying issue.
+
+Through this process, we systematically narrowed down the possibilities and discovered a subtle bug in the result parser was the root cause of the problem.

@@ -9,6 +9,7 @@ from .component_palette import ComponentPalette
 from .circuit_canvas import CircuitCanvas
 from .analysis_dialog import AnalysisDialog
 from .properties_panel import PropertiesPanel
+from .waveform_dialog import WaveformDialog
 
 # Component definitions
 COMPONENTS = {
@@ -489,9 +490,6 @@ class CircuitDesignGUI(QMainWindow):
 
     def _display_formatted_results(self, output, output_file):
         """Format and display simulation results based on analysis type"""
-        # Filter out verbose ngspice output for cleaner display
-        filtered_output = self._filter_raw_output(output)
-
         self.results_text.setPlainText("\n" + "=" * 70 + "")
         self.results_text.append(f"SIMULATION COMPLETE - {self.analysis_type}")
         self.results_text.append("=" * 70 + "")
@@ -540,10 +538,19 @@ class CircuitDesignGUI(QMainWindow):
             tran_data = ResultParser.parse_transient_results(output)
             if tran_data:
                 self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
-                self.results_text.append("-" * 40 + "")
-                self.results_text.append(str(tran_data) + "")
+                
+                # Format and display the table in the text area
+                table_string = ResultParser.format_results_as_table(tran_data)
+                self.results_text.append(table_string)
+
+                self.results_text.append("\n" + "-" * 40 + "")
+                self.results_text.append("Waveform plot has also been generated in a new window.")
+
+                # Show waveform plot
+                self.waveform_dialog = WaveformDialog(tran_data, self)
+                self.waveform_dialog.show()
             else:
-                self.results_text.append("\nTransient data - see raw output below")
+                self.results_text.append("\nNo transient data found in output.")
             self.canvas.clear_node_voltages()
 
         # Show output file location

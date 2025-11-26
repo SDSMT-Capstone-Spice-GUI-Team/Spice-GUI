@@ -1,0 +1,92 @@
+{
+  "components": [
+    {
+      "id": "VW1",
+      "type": "VoltageSource",
+      "value": "SIN(0 5 1k 0 0 0)",
+      "label": "VW1",
+      "properties": {
+        "Value": "SIN(0 5 1k 0 0 0)",
+        "Type": "SINE"
+      },
+      "connections": [
+        "nodeA",
+        "GND"
+      ],
+      "pos": [
+        100,
+        200
+      ]
+    },
+    {
+      "id": "R1",
+      "type": "Resistor",
+      "value": "1k",
+      "label": "R1",
+      "properties": {
+        "Resistance": "1k"
+      },
+      "connections": [
+        "nodeA",
+        "nodeB"
+      ],
+      "pos": [
+        250,
+        150
+      ]
+    },
+    {
+      "id": "R2",
+      "type": "Resistor",
+      "value": "1k",
+      "label": "R2",
+      "properties": {
+        "Resistance": "1k"
+      },
+      "connections": [
+        "nodeB",
+        "GND"
+      ],
+      "pos": [
+        400,
+        200
+      ]
+    }
+  ],
+  "wires": [
+    {
+      "from": "VW1.p1",
+      "to": "R1.p1"
+    },
+    {
+      "from": "R1.p2",
+      "to": "R2.p1"
+    },
+    {
+      "from": "VW1.p2",
+      "to": "R2.p2"
+    },
+    {
+      "from": "VW1.p2",
+      "to": "GND"
+    },
+    {
+      "from": "R2.p2",
+      "to": "GND"
+    }
+  ],
+  "nodes": {
+    "nodeA": [
+      "VW1.p1",
+      "R1.p1"
+    ],
+    "nodeB": [
+      "R1.p2",
+      "R2.p1"
+    ],
+    "GND": [
+      "VW1.p2",
+      "R2.p2"
+    ]
+  }
+}

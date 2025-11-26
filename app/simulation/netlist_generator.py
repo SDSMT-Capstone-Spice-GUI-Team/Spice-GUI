@@ -18,7 +18,7 @@ class NetlistGenerator:
     
     def generate(self):
         """Generate complete SPICE netlist"""
-        lines = ["Circuit Design GUI Netlist", "* Generated netlist", ""]
+        lines = ["My Test Circuit", "* Generated netlist", ""]
         
         # Check for op-amps to add subcircuit
         has_opamp = any(c.component_type == 'Op-Amp' for c in self.components.values())
@@ -129,14 +129,14 @@ class NetlistGenerator:
         lines.append(".option TNOM=27")
         
         # Add analysis command
-        lines.extend(self._generate_analysis_commands(node_labels))
+        lines.extend(self._generate_analysis_commands(node_labels, node_map))
         
         lines.append("")
         lines.append(".end")
         
         return "\n".join(lines)
     
-    def _generate_analysis_commands(self, node_labels):
+    def _generate_analysis_commands(self, node_labels, node_map):
         """Generate analysis-specific SPICE commands"""
         lines = ["", "* Analysis Command"]
 
@@ -162,21 +162,39 @@ class NetlistGenerator:
         elif self.analysis_type == "Transient":
             params = self.analysis_params
             tstart = params.get('start', 0)
+            
+            # For accurate simulation of periodic signals (e.g., 1kHz sine wave),
+            # the step size should be at least 20-50 times smaller than the signal's period.
+            # For 1kHz (1ms period), a step of 20us is recommended.
+            # The duration should be enough to capture several cycles (e.g., 5ms for 1kHz).
+            # These parameters are typically set by the user in the analysis dialog.
             lines.append(f".tran {params['step']} {params['duration']} {tstart}")
 
         # Add control block for running simulation and getting output
         lines.append("")
         lines.append("* Control block for batch execution")
         lines.append(".control")
+        lines.append("set wr_vecnames  * Ensure header is printed for table")
         lines.append("run")
 
-        # Generate appropriate print/plot commands based on analysis type
-        if node_labels:
-            print_vars = " ".join([f"v({label})" for label in node_labels.values()])
-        else:
-            print_vars = "all"
+        # Generate appropriate print commands, excluding ground node 0.
+        nodes_to_print = set(node_map.values())
+        nodes_to_print.discard(0)
 
-        lines.append(f"print {print_vars}")
+        labeled_nodes_to_print = {num: label for num, label in node_labels.items() if num != 0}
+
+        print_vars = ""
+        if labeled_nodes_to_print:
+            # If there are labeled nodes (not ground), print them
+            print_vars = " ".join([f"v({label})" for label in sorted(labeled_nodes_to_print.values())])
+        elif nodes_to_print:
+            # Otherwise, print all non-ground nodes by number
+            print_vars = " ".join([f"v({node})" for node in sorted(list(nodes_to_print))])
+        
+        if print_vars:
+            lines.append(f"print {print_vars}")
+            lines.append(f"wrdata transient_data.txt {print_vars}")
+            
         lines.append(".endc")
 
         return lines
