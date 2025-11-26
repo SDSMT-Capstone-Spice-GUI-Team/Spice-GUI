@@ -220,13 +220,18 @@ class ComponentItem(QGraphicsItem):
         component_class = COMPONENT_CLASSES.get(data['type'])
         if component_class is None:
             raise ValueError(f"Unknown component type: {data['type']}")
-        
+
         comp = component_class(data['id'])
         comp.value = data['value']
         comp.setPos(data['pos']['x'], data['pos']['y'])
         if 'rotation' in data:
             comp.rotation_angle = data['rotation']
             comp.update_terminals()
+
+        # Handle special deserialization for waveform sources
+        if hasattr(component_class, 'from_dict_custom'):
+            component_class.from_dict_custom(data, comp)
+
         return comp
 
 
@@ -332,6 +337,91 @@ class CurrentSource(ComponentItem):
         painter.drawLine(15, 0, 25, 0)
         painter.drawText(-5, 5, 'I')
 
+class WaveformVoltageSource(ComponentItem):
+    """Waveform voltage source component (sine, pulse, PWL, etc.)"""
+    SYMBOL = 'VW'
+    TERMINALS = 2
+    COLOR = '#E91E63'  # Pink color to distinguish from regular voltage source
+    DEFAULT_VALUE = 'SIN(0 5 1k)'
+    type_name = 'Waveform Source'
+
+    def __init__(self, component_id):
+        super().__init__(component_id, self.type_name)
+        # Waveform parameters
+        self.waveform_type = 'SIN'  # SIN, PULSE, PWL, EXP, SFFM
+        self.waveform_params = {
+            'SIN': {
+                'offset': '0',      # DC offset (V)
+                'amplitude': '5',   # Peak amplitude (V)
+                'frequency': '1k',  # Frequency (Hz)
+                'delay': '0',       # Time delay (s)
+                'theta': '0',       # Damping factor (1/s)
+                'phase': '0'        # Phase (degrees)
+            },
+            'PULSE': {
+                'v1': '0',          # Initial value (V)
+                'v2': '5',          # Pulsed value (V)
+                'td': '0',          # Delay time (s)
+                'tr': '1n',         # Rise time (s)
+                'tf': '1n',         # Fall time (s)
+                'pw': '500u',       # Pulse width (s)
+                'per': '1m'         # Period (s)
+            },
+            'EXP': {
+                'v1': '0',          # Initial value (V)
+                'v2': '5',          # Pulsed value (V)
+                'td1': '0',         # Rise delay time (s)
+                'tau1': '1u',       # Rise time constant (s)
+                'td2': '2u',        # Fall delay time (s)
+                'tau2': '2u'        # Fall time constant (s)
+            }
+        }
+
+    def draw_component_body(self, painter):
+        # Draw circle for source
+        painter.drawEllipse(-15, -15, 30, 30)
+        # Draw sine wave symbol
+        painter.setPen(QPen(QColor(self.COLOR), 2))
+        # Draw a simplified sine wave inside
+        from PyQt6.QtGui import QPainterPath
+        import math
+        path = QPainterPath()
+        path.moveTo(-10, 0)
+        for x in range(-10, 11, 2):
+            y = 8 * math.sin(x * math.pi / 10)
+            path.lineTo(x, y)
+        painter.drawPath(path)
+
+    def get_spice_value(self):
+        """Generate SPICE waveform specification"""
+        if self.waveform_type == 'SIN':
+            params = self.waveform_params['SIN']
+            return f"SIN({params['offset']} {params['amplitude']} {params['frequency']} {params['delay']} {params['theta']} {params['phase']})"
+        elif self.waveform_type == 'PULSE':
+            params = self.waveform_params['PULSE']
+            return f"PULSE({params['v1']} {params['v2']} {params['td']} {params['tr']} {params['tf']} {params['pw']} {params['per']})"
+        elif self.waveform_type == 'EXP':
+            params = self.waveform_params['EXP']
+            return f"EXP({params['v1']} {params['v2']} {params['td1']} {params['tau1']} {params['td2']} {params['tau2']})"
+        else:
+            return self.value
+
+    def to_dict(self):
+        """Serialize component to dictionary"""
+        data = super().to_dict()
+        data['waveform_type'] = self.waveform_type
+        data['waveform_params'] = self.waveform_params
+        return data
+
+    @staticmethod
+    def from_dict_custom(data, component):
+        """Additional deserialization for waveform parameters"""
+        if 'waveform_type' in data:
+            component.waveform_type = data['waveform_type']
+        if 'waveform_params' in data:
+            component.waveform_params = data['waveform_params']
+
+
 class Ground(ComponentItem):
     """Ground component"""
     SYMBOL = 'GND'
@@ -339,7 +429,7 @@ class Ground(ComponentItem):
     COLOR = '#000000'
     DEFAULT_VALUE = '0V'
     type_name = 'Ground'
-    
+
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
 
@@ -461,6 +551,8 @@ COMPONENT_CLASSES = {
     'CurrentSource': CurrentSource,
     'Voltage Source': VoltageSource,
     'Current Source': CurrentSource,
+    'WaveformVoltageSource': WaveformVoltageSource,
+    'Waveform Source': WaveformVoltageSource,
     'Ground': Ground,
     'OpAmp': OpAmp,
     'Op-Amp': OpAmp

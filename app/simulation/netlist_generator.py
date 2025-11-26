@@ -102,6 +102,13 @@ class NetlistGenerator:
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
             elif comp.component_type == 'Current Source':
                 lines.append(f"{comp_id} {' '.join(nodes)} AC {comp.value}")
+            elif comp.component_type == 'Waveform Source':
+                # Use get_spice_value() method if available, otherwise use value
+                if hasattr(comp, 'get_spice_value'):
+                    spice_value = comp.get_spice_value()
+                else:
+                    spice_value = comp.value
+                lines.append(f"{comp_id} {' '.join(nodes)} {spice_value}")
             elif comp.component_type == 'Op-Amp':
                 # Map terminals to subcircuit nodes: inp, inn, out
                 # Terminal 1 is non-inverting (inp), 0 is inverting (inn), 2 is output (out)

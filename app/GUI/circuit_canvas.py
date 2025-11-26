@@ -14,6 +14,7 @@ COMPONENTS = {
     'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
     'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
     'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
+    'Waveform Source': {'symbol': 'VW', 'terminals': 2, 'color': '#E91E63'},
     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
     'Op-Amp': {'symbol': 'OA', 'terminals': 5, 'color': '#FFC107'},
 }
@@ -26,6 +27,7 @@ class CircuitCanvas(QGraphicsView):
     # Signals for component and wire operations
     componentAdded = pyqtSignal(str)  # component_id
     wireAdded = pyqtSignal(str, str)  # start_comp_id, end_comp_id
+    selectionChanged = pyqtSignal(object)  # selected component (or None)
     
     def __init__(self):
         super().__init__()
@@ -46,7 +48,7 @@ class CircuitCanvas(QGraphicsView):
         self.wires = []
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0, 'OA': 0}
+        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'VW': 0, 'GND': 0, 'OA': 0}
         
         # Simulation results storage
         self.node_voltages = {}  # node_label -> voltage value
@@ -64,6 +66,9 @@ class CircuitCanvas(QGraphicsView):
         self.setMouseTracking(True)  # Enable mouse tracking for wire preview
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+
+        # Connect scene selection changes to our signal
+        self.scene.selectionChanged.connect(self.on_selection_changed)
 
     # unsuccessful attempt to get rid of red squiggles
     # def views(self) -> list | None:
@@ -413,9 +418,22 @@ class CircuitCanvas(QGraphicsView):
         """Rotate all selected components"""
         selected_items = self.scene.selectedItems()
         components = [item for item in selected_items if isinstance(item, ComponentItem)]
-        
+
         for comp in components:
             self.rotate_component(comp, clockwise)
+
+    def on_selection_changed(self):
+        """Handle selection changes in the scene"""
+        selected_items = self.scene.selectedItems()
+
+        # Filter for component items only
+        components = [item for item in selected_items if isinstance(item, ComponentItem)]
+
+        # Emit signal with the first selected component (or None if no selection)
+        if components:
+            self.selectionChanged.emit(components[0])
+        else:
+            self.selectionChanged.emit(None)
     
     def drawForeground(self, painter, rect):
         """Draw node labels and voltages on top of everything"""

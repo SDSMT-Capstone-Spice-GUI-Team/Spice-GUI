@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt
 from .component_palette import ComponentPalette
 from .circuit_canvas import CircuitCanvas
 from .analysis_dialog import AnalysisDialog
+from .properties_panel import PropertiesPanel
 
 # Component definitions
 COMPONENTS = {
@@ -16,6 +17,7 @@ COMPONENTS = {
     'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
     'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
     'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
+    'Waveform Source': {'symbol': 'VW', 'terminals': 2, 'color': '#E91E63'},
     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
 }
 
@@ -82,6 +84,7 @@ class CircuitDesignGUI(QMainWindow):
         canvas_layout.addWidget(
             QLabel("Circuit Canvas (Grid-Aligned Routing)"))
         self.canvas = CircuitCanvas()
+        self.canvas.selectionChanged.connect(self.on_selection_changed)
         canvas_layout.addWidget(self.canvas)
         center_splitter.addWidget(canvas_widget)
 
@@ -97,8 +100,16 @@ class CircuitDesignGUI(QMainWindow):
         center_splitter.setSizes([500, 300])
         main_layout.addWidget(center_splitter, 3)
 
-        # Right panel - Controls
+        # Right panel - Properties and Controls
         right_panel = QVBoxLayout()
+
+        # Add Properties Panel
+        self.properties_panel = PropertiesPanel()
+        self.properties_panel.property_changed.connect(self.on_property_changed)
+        right_panel.addWidget(self.properties_panel)
+
+        right_panel.addWidget(QLabel(""))  # Spacer
+
         right_panel.addWidget(QLabel("Actions"))
 
         # File operations
@@ -594,3 +605,42 @@ class CircuitDesignGUI(QMainWindow):
             filtered_lines.append(line)
 
         return '\n'.join(filtered_lines)
+
+    def on_selection_changed(self, component):
+        """Handle component selection changes from canvas"""
+        if component is not None:
+            self.properties_panel.show_component(component)
+        else:
+            self.properties_panel.show_no_selection()
+
+    def on_property_changed(self, component_id, property_name, new_value):
+        """Handle property changes from properties panel"""
+        # Find the component
+        component = self.canvas.components.get(component_id)
+        if not component:
+            return
+
+        if property_name == 'value':
+            # Update component value
+            component.value = new_value
+            component.update()
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
+
+        elif property_name == 'rotation':
+            # Update component rotation
+            old_rotation = component.rotation_angle
+            component.rotation_angle = new_value
+            component.update_terminals()
+            component.update()
+
+            # Reroute connected wires
+            self.canvas.reroute_connected_wires(component)
+
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
+
+            # Update the properties panel to reflect the change
+            self.properties_panel.show_component(component)
