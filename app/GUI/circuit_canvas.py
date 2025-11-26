@@ -517,16 +517,7 @@ class CircuitCanvas(QGraphicsView):
     
     def is_terminal_available(self, component, terminal_index):
         """Check if a component's terminal is available for connection"""
-        if component.component_type == 'Ground':
-            return True
-        
-        connection_count = 0
-        for wire in self.wires:
-            if (wire.start_comp == component and wire.start_term == terminal_index) or \
-               (wire.end_comp == component and wire.end_term == terminal_index):
-                connection_count += 1
-        
-        return connection_count == 0
+        return True
     
     def handle_ground_added(self, ground_comp):
         """Handle adding a ground component"""
