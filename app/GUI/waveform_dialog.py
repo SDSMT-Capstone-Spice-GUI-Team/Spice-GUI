@@ -2,6 +2,7 @@ import matplotlib
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QWidget, QHeaderView, QLabel,
                              QPushButton, QGroupBox, QFormLayout, QLineEdit)
+import matplotlib.pyplot as plt
 from PyQt6.QtGui import QColor
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -13,14 +14,9 @@ matplotlib.use('QtAgg')
 INITIAL_LOAD_COUNT = 50
 SCROLL_LOAD_COUNT = 25
 
-HIGHLIGHT_COLORS = [
-    QColor(255, 230, 230),  # Light Red
-    QColor(230, 255, 230),  # Light Green
-    QColor(230, 230, 255),  # Light Blue
-    QColor(255, 255, 230),  # Light Yellow
-    QColor(255, 230, 255),  # Light Magenta
-    QColor(230, 255, 255),  # Light Cyan
-]
+# Get colors from the 'Paired' colormap for color-blind friendliness
+cmap = plt.get_cmap('Paired')
+HIGHLIGHT_COLORS = [QColor.fromRgbF(*cmap(i)) for i in range(12)]
 
 class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -75,10 +71,13 @@ class WaveformDialog(QDialog):
         form_layout.addRow("Voltage Max:", self.volt_max_edit)
         
         filter_buttons_layout = QHBoxLayout()
+        highlight_button = QPushButton("Highlight")
+        highlight_button.clicked.connect(self.apply_highlight)
         apply_button = QPushButton("Apply Filter")
         apply_button.clicked.connect(self.apply_filters)
-        reset_button = QPushButton("Reset")
-        reset_button.clicked.connect(self.reset_filters)
+        reset_button = QPushButton("Reset View")
+        reset_button.clicked.connect(self.reset_view)
+        filter_buttons_layout.addWidget(highlight_button)
         filter_buttons_layout.addWidget(apply_button)
         filter_buttons_layout.addWidget(reset_button)
         
@@ -119,40 +118,109 @@ class WaveformDialog(QDialog):
         
         for row_index_offset, row_data in enumerate(data_chunk):
             table_row_index = current_row_count + row_index_offset
+
+            time_val = row_data.get('time', 0)
+            row_in_time_range = False
+            if self.time_min is not None or self.time_max is not None:
+                if (self.time_min is None or time_val >= self.time_min) and \
+                   (self.time_max is None or time_val <= self.time_max):
+                    row_in_time_range = True
+
             for col_index, header in enumerate(self.headers):
+                value = row_data[header]
                 unit = "s" if header == "time" else "V"
-                formatted_str = format_value(row_data[header], unit)
+                formatted_str = format_value(value, unit)
                 item = QTableWidgetItem(formatted_str)
+
+                should_highlight = False
+                if header == 'time':
+                    if row_in_time_range:
+                        should_highlight = True
+                else:  # Voltage column
+                    cell_in_volt_range = False
+                    if self.volt_min is not None or self.volt_max is not None:
+                        if (self.volt_min is None or value >= self.volt_min) and \
+                           (self.volt_max is None or value <= self.volt_max):
+                            cell_in_volt_range = True
+                    
+                    if row_in_time_range or cell_in_volt_range:
+                        should_highlight = True
+                
+                if should_highlight:
+                    color = HIGHLIGHT_COLORS[col_index % len(HIGHLIGHT_COLORS)]
+                    item.setBackground(color)
+
                 self.table.setItem(table_row_index, col_index, item)
         
         self.rows_loaded = end_index
 
-    def apply_filters(self):
-        """Filters the data based on user input and updates the view."""
-        filtered_data = self.full_data
-        
+    def apply_highlight(self):
+        """Applies highlighting without filtering the data and scrolls to the first highlighted row."""
         try:
-            time_min = parse_value(self.time_min_edit.text()) if self.time_min_edit.text() else None
-            time_max = parse_value(self.time_max_edit.text()) if self.time_max_edit.text() else None
-            volt_min = parse_value(self.volt_min_edit.text()) if self.volt_min_edit.text() else None
-            volt_max = parse_value(self.volt_max_edit.text()) if self.volt_max_edit.text() else None
+            self.time_min = parse_value(self.time_min_edit.text()) if self.time_min_edit.text() else None
+            self.time_max = parse_value(self.time_max_edit.text()) if self.time_max_edit.text() else None
+            self.volt_min = parse_value(self.volt_min_edit.text()) if self.volt_min_edit.text() else None
+            self.volt_max = parse_value(self.volt_max_edit.text()) if self.volt_max_edit.text() else None
         except ValueError:
-            self.reset_filters() 
+            self.reset_view()
             return
 
-        if time_min is not None:
-            filtered_data = [row for row in filtered_data if row.get('time', 0) >= time_min]
-        if time_max is not None:
-            filtered_data = [row for row in filtered_data if row.get('time', 0) <= time_max]
+        # Always show all data when highlighting
+        self.view_data = self.full_data
+        self.update_view()
 
-        if (volt_min is not None or volt_max is not None) and filtered_data:
+        # Scroll to the first relevant row
+        first_highlight_row = -1
+        for i, row in enumerate(self.view_data):
+            time_val = row['time']
+            time_in_range = (self.time_min is None or time_val >= self.time_min) and \
+                            (self.time_max is None or time_val <= self.time_max)
+            
+            if self.time_min is not None or self.time_max is not None:
+                if time_in_range:
+                    first_highlight_row = i
+                    break
+            
+            if self.volt_min is not None or self.volt_max is not None:
+                voltage_keys = [k for k in row.keys() if k not in ['time', 'index']]
+                for key in voltage_keys:
+                    v = row.get(key, 0)
+                    if (self.volt_min is None or v >= self.volt_min) and \
+                       (self.volt_max is None or v <= self.volt_max):
+                        first_highlight_row = i
+                        break
+                if first_highlight_row != -1:
+                    break
+
+        if first_highlight_row != -1:
+            self.table.scrollToItem(self.table.item(first_highlight_row, 0))
+
+    def apply_filters(self):
+        """Filters the data based on user input and updates the view."""
+        try:
+            self.time_min = parse_value(self.time_min_edit.text()) if self.time_min_edit.text() else None
+            self.time_max = parse_value(self.time_max_edit.text()) if self.time_max_edit.text() else None
+            self.volt_min = parse_value(self.volt_min_edit.text()) if self.volt_min_edit.text() else None
+            self.volt_max = parse_value(self.volt_max_edit.text()) if self.volt_max_edit.text() else None
+        except ValueError:
+            self.reset_view()
+            return
+
+        filtered_data = self.full_data
+        
+        if self.time_min is not None:
+            filtered_data = [row for row in filtered_data if row.get('time', 0) >= self.time_min]
+        if self.time_max is not None:
+            filtered_data = [row for row in filtered_data if row.get('time', 0) <= self.time_max]
+
+        if (self.volt_min is not None or self.volt_max is not None) and filtered_data:
             voltage_keys = [k for k in filtered_data[0].keys() if k not in ['time', 'index']]
             
             def voltage_in_range(row):
                 for key in voltage_keys:
                     v = row.get(key, 0)
-                    in_min = (volt_min is None or v >= volt_min)
-                    in_max = (volt_max is None or v <= volt_max)
+                    in_min = (self.volt_min is None or v >= self.volt_min)
+                    in_max = (self.volt_max is None or v <= self.volt_max)
                     if in_min and in_max:
                         return True
                 return False
@@ -162,12 +230,17 @@ class WaveformDialog(QDialog):
         self.view_data = filtered_data
         self.update_view()
 
-    def reset_filters(self):
-        """Resets all filters and shows the full dataset."""
+    def reset_view(self):
+        """Resets all filters and highlights, showing the full dataset."""
         self.time_min_edit.clear()
         self.time_max_edit.clear()
         self.volt_min_edit.clear()
         self.volt_max_edit.clear()
+        
+        self.time_min = None
+        self.time_max = None
+        self.volt_min = None
+        self.volt_max = None
         
         self.view_data = self.full_data
         self.update_view()
@@ -197,33 +270,82 @@ class WaveformDialog(QDialog):
         self._load_more_rows()
 
     def plot_data(self, data):
-        """Plots the transient analysis data from a list of dictionaries."""
+        """Plots the transient analysis data and highlights specific segments."""
         self.canvas.axes.clear()
         if not data:
             self.canvas.axes.text(0.5, 0.5, 'No data to display.',
-                                  horizontalalignment='center',
-                                  verticalalignment='center')
+                                  horizontalalignment='center', verticalalignment='center')
             self.canvas.draw()
             return
 
         headers = list(data[0].keys())
-        time_key = 'time' if 'time' in headers else None
-        
-        if not time_key or not data:
+        time_key = 'time'
+        if time_key not in headers:
             self.canvas.axes.text(0.5, 0.5, 'No "time" column found in data.',
-                                  horizontalalignment='center',
-                                  verticalalignment='center')
+                                  horizontalalignment='center', verticalalignment='center')
             self.canvas.draw()
             return
-            
-        time = [row[time_key] for row in data]
-        
+
+        time_full = [row[time_key] for row in data]
         voltage_keys = [h for h in headers if h != time_key and h.lower() != 'index']
-        
+
+        # 1. Plot base lines and store colors
+        line_colors = {}
         for key in voltage_keys:
             voltage_values = [row[key] for row in data]
-            if len(time) == len(voltage_values):
-                self.canvas.axes.plot(time, voltage_values, label=f'V({key})')
+            if len(time_full) == len(voltage_values):
+                line, = self.canvas.axes.plot(time_full, voltage_values, label=f'V({key})')
+                line_colors[key] = line.get_color()
+
+        # 2. Highlighting logic: plot highlighted segments on top
+        is_highlighting = self.time_min is not None or self.time_max is not None or \
+                          self.volt_min is not None or self.volt_max is not None
+
+        if is_highlighting:
+            for key in voltage_keys:
+                current_segment_t = []
+                current_segment_v = []
+
+                for row in data:
+                    t = row[time_key]
+                    v = row[key]
+
+                    # Determine if the point is in range
+                    time_in_range = (self.time_min is None or t >= self.time_min) and \
+                                    (self.time_max is None or t <= self.time_max)
+                    volt_in_range = (self.volt_min is None or v >= self.volt_min) and \
+                                    (self.volt_max is None or v <= self.volt_max)
+
+                    # Highlight if it matches time OR voltage criteria, consistent with table
+                    point_is_in_highlight_range = False
+                    if self.time_min is not None or self.time_max is not None:
+                        if time_in_range:
+                            point_is_in_highlight_range = True
+                    
+                    if self.volt_min is not None or self.volt_max is not None:
+                        if volt_in_range:
+                            point_is_in_highlight_range = True
+
+                    if point_is_in_highlight_range:
+                        current_segment_t.append(t)
+                        current_segment_v.append(v)
+                    else:
+                        if current_segment_t:
+                            self.canvas.axes.plot(current_segment_t, current_segment_v,
+                                                  color=line_colors[key],
+                                                  linewidth=4,
+                                                  alpha=0.7,
+                                                  solid_capstyle='round')
+                            current_segment_t = []
+                            current_segment_v = []
+                
+                # Plot the last segment if it exists
+                if current_segment_t:
+                    self.canvas.axes.plot(current_segment_t, current_segment_v,
+                                          color=line_colors[key],
+                                          linewidth=4,
+                                          alpha=0.7,
+                                          solid_capstyle='round')
 
         self.canvas.axes.set_title('Transient Analysis')
         self.canvas.axes.set_xlabel('Time (s)')
