@@ -162,37 +162,76 @@ class NetlistGenerator:
         elif self.analysis_type == "Transient":
             params = self.analysis_params
             tstart = params.get('start', 0)
-            
-            # For accurate simulation of periodic signals (e.g., 1kHz sine wave),
-            # the step size should be at least 20-50 times smaller than the signal's period.
-            # For 1kHz (1ms period), a step of 20us is recommended.
-            # The duration should be enough to capture several cycles (e.g., 5ms for 1kHz).
-            # These parameters are typically set by the user in the analysis dialog.
             lines.append(f".tran {params['step']} {params['duration']} {tstart}")
 
         # Add control block for running simulation and getting output
         lines.append("")
         lines.append("* Control block for batch execution")
         lines.append(".control")
-        lines.append("set wr_vecnames  * Ensure header is printed for table")
-        lines.append("run")
+        lines.append("run")  # Run first to populate vectors
+        lines.append("")
+        lines.append("* Calculate voltage drops for all resistors")
 
+        # Define variables for voltages across resistors
+        resistor_voltages_let = []
+        resistor_voltages_print = []
+        resistors = [c for c in self.components.values() if c.component_type == 'Resistor']
+        for res in resistors:
+            try:
+                node1_num = node_map.get((res.component_id, 0))
+                node2_num = node_map.get((res.component_id, 1))
+
+                if node1_num is not None and node2_num is not None:
+                    node1_str = node_labels.get(node1_num, str(node1_num))
+                    node2_str = node_labels.get(node2_num, str(node2_num))
+                    
+                    # Standardize to lowercase for easier parsing, e.g., v_r1
+                    alias = f"v_{res.component_id.lower()}"
+                    
+                    if node1_num == 0:  # Connected to ground
+                        let_expression = f"-v({node2_str})"
+                    elif node2_num == 0:  # Connected to ground
+                        let_expression = f"v({node1_str})"
+                    else:
+                        let_expression = f"v({node1_str}) - v({node2_str})"
+                    
+                    resistor_voltages_let.append(f"let {alias} = {let_expression}")
+                    resistor_voltages_print.append(alias)
+            except Exception as e:
+                # This may be too noisy, but it's useful for debugging
+                print(f"Warning: Could not create voltage calculation for {res.component_id}: {e}")
+        
+        if resistor_voltages_let:
+            lines.extend(resistor_voltages_let)
+        
+        lines.append("")
+        lines.append("* Print to stdout (for parser)")
+        
         # Generate appropriate print commands, excluding ground node 0.
         nodes_to_print = set(node_map.values())
         nodes_to_print.discard(0)
-
         labeled_nodes_to_print = {num: label for num, label in node_labels.items() if num != 0}
 
-        print_vars = ""
+        all_print_vars = []
         if labeled_nodes_to_print:
-            # If there are labeled nodes (not ground), print them
-            print_vars = " ".join([f"v({label})" for label in sorted(labeled_nodes_to_print.values())])
+            all_print_vars.extend([f"v({label})" for label in sorted(labeled_nodes_to_print.values())])
         elif nodes_to_print:
-            # Otherwise, print all non-ground nodes by number
-            print_vars = " ".join([f"v({node})" for node in sorted(list(nodes_to_print))])
+            all_print_vars.extend([f"v({node})" for node in sorted(list(nodes_to_print))])
+        
+        # Add resistor voltages to the print list
+        all_print_vars.extend(resistor_voltages_print)
+        
+        print_vars = " ".join(all_print_vars)
         
         if print_vars:
             lines.append(f"print {print_vars}")
+        
+        lines.append("")
+        lines.append("* Save to file (for backup)")
+        lines.append("set wr_vecnames")
+        lines.append("set wr_singlescale")
+        
+        if print_vars:
             lines.append(f"wrdata transient_data.txt {print_vars}")
             
         lines.append(".endc")

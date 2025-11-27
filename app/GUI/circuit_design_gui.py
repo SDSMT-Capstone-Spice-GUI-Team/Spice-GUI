@@ -516,10 +516,15 @@ class CircuitDesignGUI(QMainWindow):
                     self.results_text.append(f"Output: {stdout}")
                 return
 
-            output = self.ngspice_runner.read_output(output_file)
-
-            # Display formatted results based on analysis type
-            self._display_formatted_results(output, output_file)
+            # For transient analysis, the `wrdata` command in the netlist creates
+            # a clean data file. We parse that directly for reliability.
+            if self.analysis_type == "Transient":
+                wrdata_filepath = "transient_data.txt"
+                self._display_formatted_results(None, wrdata_filepath, is_wrdata=True)
+            else:
+                # For other analysis types, parse the stdout dump.
+                output = self.ngspice_runner.read_output(output_file)
+                self._display_formatted_results(output, output_file, is_wrdata=False)
 
         except Exception as e:
             from PyQt6.QtWidgets import QMessageBox
@@ -528,7 +533,7 @@ class CircuitDesignGUI(QMainWindow):
             self.results_text.append(
                 f"\n\nError details:\n{traceback.format_exc()}")
 
-    def _display_formatted_results(self, output, output_file):
+    def _display_formatted_results(self, output, filepath, is_wrdata=False):
         """Format and display simulation results based on analysis type"""
         self.results_text.setPlainText("\n" + "=" * 70 + "")
         self.results_text.append(f"SIMULATION COMPLETE - {self.analysis_type}")
@@ -575,7 +580,11 @@ class CircuitDesignGUI(QMainWindow):
 
         elif self.analysis_type == "Transient":
             # Parse and display transient results
-            tran_data = ResultParser.parse_transient_results(output)
+            if is_wrdata:
+                tran_data = ResultParser.parse_transient_results(filepath)
+            else:
+                tran_data = ResultParser.parse_transient_results(output)
+
             if tran_data:
                 self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
                 
@@ -595,7 +604,7 @@ class CircuitDesignGUI(QMainWindow):
 
         # Show output file location
         # self.results_text.append("\n" + "=" * 70 + "")
-        # self.results_text.append(f"Output file: {output_file}")
+        # self.results_text.append(f"Output file: {filepath}")
 
         # # Show filtered raw output
         # if filtered_output.strip():

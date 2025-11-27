@@ -102,7 +102,7 @@ class NgspiceRunner:
                 [self.ngspice_cmd, '-b', netlist_filename, '-o', output_filename],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=60
             )
             
             # Check if output file was created

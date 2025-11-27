@@ -152,48 +152,46 @@ class ResultParser:
             return None
 
     @staticmethod
-    def parse_transient_results(output):
-        """Parse transient analysis results into a list of dictionaries."""
+    def parse_transient_results(filepath):
+        """
+        Parses a wrdata output file from ngspice, which has a clean,
+        whitespace-delimited format.
+        """
         try:
-            lines = output.split('\n')
-            results = []
+            with open(filepath, 'r') as f:
+                lines = f.readlines()
+            
+            if not lines:
+                return None
+            
+            # First line contains whitespace-separated headers
+            raw_headers = lines[0].strip().split()
             headers = []
-            data_started = False
+            for h in raw_headers:
+                # Sanitize headers: v(node) -> node, i(branch) -> i_branch
+                sanitized_h = re.sub(r'^v\((.*?)\)$', r'\1', h, flags=re.IGNORECASE)
+                sanitized_h = re.sub(r'^i\((.*?)\)$', r'i_\1', sanitized_h, flags=re.IGNORECASE)
+                headers.append(sanitized_h)
 
-            for line in lines:
-                line = line.strip()
-
-                if not line or line.startswith('*') or line.startswith('$') or "No. of Data Rows" in line:
-                    continue
-
-                if '---' in line:
-                    continue
-
-                # Find header row
-                if not data_started and ('time' in line.lower() or 'v(' in line.lower() or 'i(' in line.lower()):
-                    raw_headers = line.split()
-                    # Sanitize headers: v(node) -> node, and handle potential duplicates
-                    headers = []
-                    for h in raw_headers:
-                        sanitized_h = re.sub(r'^[vi]\((.*?)\)$', r'\1', h)
-                        headers.append(sanitized_h)
-                    data_started = True
-                    continue
-
-                if data_started:
-                    parts = line.split()
-                    if len(parts) == len(headers):
-                        try:
-                            row_data = {headers[i]: float(parts[i]) for i in range(len(headers))}
-                            results.append(row_data)
-                        except (ValueError, IndexError):
-                            # Stop if a line doesn't conform, it might be the end of the data block
-                            continue
+            results = []
+            # Data starts from the second line
+            for line in lines[1:]:
+                parts = line.strip().split()
+                if len(parts) == len(headers):
+                    try:
+                        row_data = {headers[i]: float(parts[i]) for i in range(len(parts))}
+                        results.append(row_data)
+                    except (ValueError, IndexError):
+                        continue
             
             return results if results else None
-
+        except FileNotFoundError:
+            print(f"Error: wrdata file not found at {filepath}")
+            return None
         except Exception as e:
-            print(f"Error parsing transient results: {e}")
+            print(f"Error parsing wrdata file: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     @staticmethod
