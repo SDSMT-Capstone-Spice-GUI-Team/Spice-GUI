@@ -1,7 +1,7 @@
 import matplotlib
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QWidget, QHeaderView, QLabel,
-                             QPushButton, QGroupBox, QFormLayout, QLineEdit)
+                             QPushButton, QGroupBox, QFormLayout, QLineEdit, QCheckBox, QScrollArea)
 import matplotlib.pyplot as plt
 from PyQt6.QtGui import QColor
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -37,6 +37,10 @@ class WaveformDialog(QDialog):
         self.headers = []
         self.rows_loaded = 0
 
+        # Visibility state for columns
+        self.voltage_keys = sorted([k for k in data[0].keys() if k.lower() not in ['time', 'index']])
+        self.column_visibility = {key: True for key in self.voltage_keys}
+
         # Filter ranges
         self.time_min = None
         self.time_max = None
@@ -55,6 +59,26 @@ class WaveformDialog(QDialog):
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         main_layout.addWidget(right_panel, 1)
+
+        # --- Toggle Overlays ---
+        toggle_group = QGroupBox("Toggle Overlays")
+        toggle_layout = QVBoxLayout()
+        
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+
+        for key in self.voltage_keys:
+            checkbox = QCheckBox(key)
+            checkbox.setChecked(True)
+            checkbox.toggled.connect(lambda state, k=key: self._on_visibility_changed(k, state))
+            scroll_layout.addWidget(checkbox)
+        
+        scroll_area.setWidget(scroll_content)
+        toggle_layout.addWidget(scroll_area)
+        toggle_group.setLayout(toggle_layout)
+        right_layout.addWidget(toggle_group)
 
         # --- Filter Controls ---
         filter_group = QGroupBox("Filter Data")
@@ -94,6 +118,11 @@ class WaveformDialog(QDialog):
         right_layout.addWidget(self.table)
         
         # Initial population
+        self.update_view()
+
+    def _on_visibility_changed(self, key, is_checked):
+        """Updates the visibility state and refreshes the view."""
+        self.column_visibility[key] = is_checked
         self.update_view()
 
     def _on_scroll(self, value):
@@ -182,7 +211,7 @@ class WaveformDialog(QDialog):
                     break
             
             if self.volt_min is not None or self.volt_max is not None:
-                voltage_keys = [k for k in row.keys() if k not in ['time', 'index']]
+                voltage_keys = [k for k in row.keys() if k.lower() not in ['time', 'index']]
                 for key in voltage_keys:
                     v = row.get(key, 0)
                     if (self.volt_min is None or v >= self.volt_min) and \
@@ -214,7 +243,7 @@ class WaveformDialog(QDialog):
             filtered_data = [row for row in filtered_data if row.get('time', 0) <= self.time_max]
 
         if (self.volt_min is not None or self.volt_max is not None) and filtered_data:
-            voltage_keys = [k for k in filtered_data[0].keys() if k not in ['time', 'index']]
+            voltage_keys = [k for k in filtered_data[0].keys() if k.lower() not in ['time', 'index']]
             
             def voltage_in_range(row):
                 for key in voltage_keys:
@@ -259,8 +288,10 @@ class WaveformDialog(QDialog):
             self.table.setColumnCount(0)
             return
         
-        # Set headers, excluding 'index'
-        self.headers = [h for h in self.view_data[0].keys() if h.lower() != 'index']
+        all_headers = [h for h in self.view_data[0].keys() if h.lower() != 'index']
+        # Filter headers based on visibility, always keeping 'time'
+        self.headers = [h for h in all_headers if h == 'time' or self.column_visibility.get(h, False)]
+
         self.table.setColumnCount(len(self.headers))
         self.table.setHorizontalHeaderLabels(self.headers)
         
@@ -287,11 +318,13 @@ class WaveformDialog(QDialog):
             return
 
         time_full = [row[time_key] for row in data]
-        voltage_keys = [h for h in headers if h != time_key and h.lower() != 'index']
+        
+        # Use only visible keys
+        visible_voltage_keys = [k for k in self.voltage_keys if self.column_visibility.get(k, False)]
 
         # 1. Plot base lines and store colors
         line_colors = {}
-        for key in voltage_keys:
+        for key in visible_voltage_keys:
             voltage_values = [row[key] for row in data]
             if len(time_full) == len(voltage_values):
                 line, = self.canvas.axes.plot(time_full, voltage_values, label=f'V({key})')
@@ -302,7 +335,7 @@ class WaveformDialog(QDialog):
                           self.volt_min is not None or self.volt_max is not None
 
         if is_highlighting:
-            for key in voltage_keys:
+            for key in visible_voltage_keys:
                 current_segment_t = []
                 current_segment_v = []
 
@@ -316,7 +349,6 @@ class WaveformDialog(QDialog):
                     volt_in_range = (self.volt_min is None or v >= self.volt_min) and \
                                     (self.volt_max is None or v <= self.volt_max)
 
-                    # Highlight if it matches time OR voltage criteria, consistent with table
                     point_is_in_highlight_range = False
                     if self.time_min is not None or self.time_max is not None:
                         if time_in_range:
@@ -339,7 +371,6 @@ class WaveformDialog(QDialog):
                             current_segment_t = []
                             current_segment_v = []
                 
-                # Plot the last segment if it exists
                 if current_segment_t:
                     self.canvas.axes.plot(current_segment_t, current_segment_v,
                                           color=line_colors[key],
