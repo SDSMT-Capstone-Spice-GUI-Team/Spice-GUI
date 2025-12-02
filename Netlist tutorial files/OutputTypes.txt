@@ -60,7 +60,7 @@ Print i(Vhat)
 
 
 
-Current through an Element
+Current through an Element:
 
 @ElementName[i]
 
@@ -69,3 +69,41 @@ Example:
 Plotting the current through R7 would look like:
 
 Plot @R7[i]
+
+*note: not supported for AC Sweep
+
+
+
+Magnitude:
+
+mag(x)
+
+Example:
+
+Plotting the magnitude of the voltage at node G would look like:
+
+Plot mag(v(G))
+
+
+
+Phase:
+
+phase(x)
+
+Example:
+
+Plotting the phase of the voltage at node G would look like:
+
+Plot phase(v(G))
+
+
+
+Unwrapped Phase:
+
+unwrap(phase(x))
+
+Example:
+
+Plotting the unwrapped phase of the voltage at node G would look like:
+
+Plot unwrap(phase(v(G)))

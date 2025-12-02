@@ -1,0 +1,62 @@
+10th Order Bandpass Filter
+
+*10th order Butterworth Bandpass Filter centered at 400kHz with a fractional bandwidth of 1 in a 50ohm system
+
+VS A 0 AC 1
+
+RS A B 50
+
+L1 B 0 63.58u
+C1 B 0 2.490n
+
+L2 B BC 18.06u
+C2 BC C 8.764n
+
+L3 C 0 14.07u
+C3 C 0 11.25n
+
+L4 C CD 35.45u
+C4 CD D 4.466n
+
+L5 D 0 10.07u
+C5 D 0 15.72n
+
+L6 D DE 39.30u
+C6 DE E 4.028n
+
+L7 E 0 11.16u
+C7 E 0 14.18n
+
+L8 E EF 28.13u
+C8 EF F 5.627n
+
+L9 F 0 21.91u
+C9 F 0 7.226n
+
+L10 F FG 6.225u
+C10 FG G 25.53n
+
+RL G Meas 50
+Vmeas Meas 0
+
+.ac dec 1000 10k 10MEG
+
+.control
+run
+
+plot mag(v(G))
+
+plot mag(i(Vmeas))
+
+plot phase(v(G))
+
+plot phase(i(Vmeas))
+
+plot unwrap(phase(v(G)))
+
+plot unwrap(phase(i(Vmeas)))
+
+*Note: the magnitude and phase (wrapped and unwrapped) of the outputs are plotted here. ngspice plots the real part of the voltage by default which isn't very useful here.
+
+.endc
+.end
