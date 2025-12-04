@@ -28,6 +28,10 @@ class CircuitCanvas(QGraphicsView):
     componentAdded = pyqtSignal(str)  # component_id
     wireAdded = pyqtSignal(str, str)  # start_comp_id, end_comp_id
     selectionChanged = pyqtSignal(object)  # selected component (or None)
+    componentRightClicked = pyqtSignal(object, object)  # component, global position
+    canvasClicked = pyqtSignal()
+    
+    
     
     def __init__(self):
         super().__init__()
@@ -165,12 +169,13 @@ class CircuitCanvas(QGraphicsView):
         if event is None:
             return
         
+        clicked_terminal = None  # Initialize here
+        
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.position().toPoint()
             scene_pos = self.mapToScene(pos)
             
             # Check all components for terminal proximity
-            clicked_terminal = None
             clicked_component = None
             clicked_term_index = None
             
@@ -242,15 +247,21 @@ class CircuitCanvas(QGraphicsView):
                     # Don't accept - let event propagate for other handling
             
             # If we're in wire drawing mode but clicked elsewhere, cancel it
-            if self.wire_start_comp is not None:
+            elif self.wire_start_comp is not None:
                 if self.temp_wire_line:
                     self.scene.removeItem(self.temp_wire_line)
                     self.temp_wire_line = None
                 self.wire_start_comp = None
                 self.wire_start_term = None
-                # Wire canceled, allow normal behavior
-                # Don't accept - let event propagate
-        
+
+            # If we didn't click a terminal, check if we clicked an empty area
+            else:
+                item = self.itemAt(event.position().toPoint())
+                if item is None:
+                    self.canvasClicked.emit()
+                    # Clear scene selection when clicking on background
+                    self.scene.clearSelection()
+
         # Normal selection/movement behavior
         super().mousePressEvent(event)
     
@@ -296,8 +307,13 @@ class CircuitCanvas(QGraphicsView):
             super().keyPressEvent(event)
     
     def show_context_menu(self, position):
-        """Show context menu for delete operations"""
+        """Show context menu for delete operations and component properties"""
         item = self.itemAt(position)
+        
+        # If a component is right-clicked, emit a signal to show properties
+        if isinstance(item, ComponentItem):
+            self.componentRightClicked.emit(item, self.mapToGlobal(position))
+        
         scene_pos = self.mapToScene(position)
         
         menu = QMenu()

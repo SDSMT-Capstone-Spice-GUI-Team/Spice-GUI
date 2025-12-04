@@ -41,6 +41,12 @@ class WaveformDialog(QDialog):
         self.voltage_keys = sorted([k for k in data[0].keys() if k.lower() not in ['time', 'index']])
         self.column_visibility = {key: True for key in self.voltage_keys}
 
+        # Assign persistent colors for each plot for color stability
+        self.plot_colors = {}
+        color_map = plt.get_cmap('Paired')  # Good for distinct colors
+        for i, key in enumerate(self.voltage_keys):
+            self.plot_colors[key] = color_map(i % 12)
+
         # Filter ranges
         self.time_min = None
         self.time_max = None
@@ -322,13 +328,12 @@ class WaveformDialog(QDialog):
         # Use only visible keys
         visible_voltage_keys = [k for k in self.voltage_keys if self.column_visibility.get(k, False)]
 
-        # 1. Plot base lines and store colors
-        line_colors = {}
+        # 1. Plot base lines using persistent colors
         for key in visible_voltage_keys:
             voltage_values = [row[key] for row in data]
             if len(time_full) == len(voltage_values):
-                line, = self.canvas.axes.plot(time_full, voltage_values, label=f'V({key})')
-                line_colors[key] = line.get_color()
+                color = self.plot_colors.get(key, 'k')  # Use stored color
+                self.canvas.axes.plot(time_full, voltage_values, label=f'V({key})', color=color)
 
         # 2. Highlighting logic: plot highlighted segments on top
         is_highlighting = self.time_min is not None or self.time_max is not None or \
@@ -338,6 +343,7 @@ class WaveformDialog(QDialog):
             for key in visible_voltage_keys:
                 current_segment_t = []
                 current_segment_v = []
+                color = self.plot_colors.get(key, 'k') # Get stored color
 
                 for row in data:
                     t = row[time_key]
@@ -364,7 +370,7 @@ class WaveformDialog(QDialog):
                     else:
                         if current_segment_t:
                             self.canvas.axes.plot(current_segment_t, current_segment_v,
-                                                  color=line_colors[key],
+                                                  color=color,
                                                   linewidth=4,
                                                   alpha=0.7,
                                                   solid_capstyle='round')
@@ -373,7 +379,7 @@ class WaveformDialog(QDialog):
                 
                 if current_segment_t:
                     self.canvas.axes.plot(current_segment_t, current_segment_v,
-                                          color=line_colors[key],
+                                          color=color,
                                           linewidth=4,
                                           alpha=0.7,
                                           solid_capstyle='round')

@@ -3,7 +3,7 @@ import json
 import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
-                             QSplitter, QLabel, QDialog)
+                             QSplitter, QLabel, QDialog, QStackedWidget, QSizePolicy)
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtCore import Qt
 from .component_palette import ComponentPalette
@@ -84,12 +84,7 @@ class CircuitDesignGUI(QMainWindow):
         # Left panel - Component palette
         left_panel = QVBoxLayout()
         left_panel.addWidget(QLabel("Component Palette"))
-        # our palette is not an actual Qt palette item
-        # self.palette = ComponentPalette()
-        # left_panel.addWidget(self.palette)
         left_panel.addWidget(ComponentPalette())
-
-        # Instructions
         instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
@@ -104,23 +99,18 @@ class CircuitDesignGUI(QMainWindow):
         instructions.setStyleSheet(
             "QLabel { background-color: #f0f0f0; padding: 10px; border-radius: 5px; }")
         left_panel.addWidget(instructions)
-
         main_layout.addLayout(left_panel, 1)
 
         # Center - Canvas and results
         center_splitter = QSplitter(Qt.Orientation.Vertical)
-
-        # Canvas
         canvas_widget = QWidget()
         canvas_layout = QVBoxLayout(canvas_widget)
-        canvas_layout.addWidget(
-            QLabel("Circuit Canvas (Grid-Aligned Routing)"))
+        canvas_layout.addWidget(QLabel("Circuit Canvas (Grid-Aligned Routing)"))
         self.canvas = CircuitCanvas()
-        self.canvas.selectionChanged.connect(self.on_selection_changed)
+        self.canvas.componentRightClicked.connect(self.on_component_right_clicked)
+        self.canvas.canvasClicked.connect(self.on_canvas_clicked)
         canvas_layout.addWidget(self.canvas)
         center_splitter.addWidget(canvas_widget)
-
-        # Results display
         results_widget = QWidget()
         results_layout = QVBoxLayout(results_widget)
         results_layout.addWidget(QLabel("Simulation Results"))
@@ -128,48 +118,44 @@ class CircuitDesignGUI(QMainWindow):
         self.results_text.setReadOnly(True)
         results_layout.addWidget(self.results_text)
         center_splitter.addWidget(results_widget)
-
         center_splitter.setSizes([500, 300])
         main_layout.addWidget(center_splitter, 3)
 
         # Right panel - Properties and Controls
-        right_panel = QVBoxLayout()
+        right_panel_layout = QVBoxLayout()
 
-        # Add Properties Panel
+        # A stack to show either the properties panel or a blank widget
+        self.properties_stack = QStackedWidget()
         self.properties_panel = PropertiesPanel()
         self.properties_panel.property_changed.connect(self.on_property_changed)
-        right_panel.addWidget(self.properties_panel)
-
-        right_panel.addWidget(QLabel(""))  # Spacer
-
-        right_panel.addWidget(QLabel("Actions"))
-
-        # File operations
+        
+        blank_widget = QWidget() # A blank placeholder
+        
+        self.properties_stack.addWidget(blank_widget)       # Index 0
+        self.properties_stack.addWidget(self.properties_panel) # Index 1
+        
+        right_panel_layout.addWidget(self.properties_stack)
+        
+        right_panel_layout.addStretch() # Pushes buttons to the bottom
+        right_panel_layout.addWidget(QLabel("Actions"))
         self.btn_save = QPushButton("Save Circuit")
         self.btn_save.clicked.connect(self.save_circuit)
-        right_panel.addWidget(self.btn_save)
-
+        right_panel_layout.addWidget(self.btn_save)
         self.btn_load = QPushButton("Load Circuit")
         self.btn_load.clicked.connect(self.load_circuit)
-        right_panel.addWidget(self.btn_load)
-
+        right_panel_layout.addWidget(self.btn_load)
         self.btn_clear = QPushButton("Clear Canvas")
         self.btn_clear.clicked.connect(self.clear_canvas)
-        right_panel.addWidget(self.btn_clear)
-
-        right_panel.addWidget(QLabel(""))  # Spacer
-
-        # Simulation operations
+        right_panel_layout.addWidget(self.btn_clear)
+        right_panel_layout.addWidget(QLabel(""))  # Spacer
         self.btn_netlist = QPushButton("Generate Netlist")
         self.btn_netlist.clicked.connect(self.generate_netlist)
-        right_panel.addWidget(self.btn_netlist)
-
+        right_panel_layout.addWidget(self.btn_netlist)
         self.btn_simulate = QPushButton("Run Simulation")
         self.btn_simulate.clicked.connect(self.run_simulation)
-        right_panel.addWidget(self.btn_simulate)
-
-        right_panel.addStretch()
-        main_layout.addLayout(right_panel, 1)
+        right_panel_layout.addWidget(self.btn_simulate)
+        
+        main_layout.addLayout(right_panel_layout, 1)
 
     def create_menu_bar(self):
         """Create menu bar with File and Edit menus"""
@@ -662,12 +648,18 @@ class CircuitDesignGUI(QMainWindow):
 
         return '\n'.join(filtered_lines)
 
-    def on_selection_changed(self, component):
-        """Handle component selection changes from canvas"""
-        if component is not None:
+    def on_component_right_clicked(self, component, event_pos):
+        """Handle right-click on a component."""
+        if component:
             self.properties_panel.show_component(component)
+            self.properties_stack.setCurrentIndex(1)  # Show properties
         else:
-            self.properties_panel.show_no_selection()
+            self.properties_stack.setCurrentIndex(0)  # Show blank
+
+    def on_canvas_clicked(self):
+        """Handle click on an empty canvas area."""
+        self.properties_stack.setCurrentIndex(0)  # Show blank
+        self.properties_panel.show_no_selection()
 
     def on_property_changed(self, component_id, property_name, new_value):
         """Handle property changes from properties panel"""

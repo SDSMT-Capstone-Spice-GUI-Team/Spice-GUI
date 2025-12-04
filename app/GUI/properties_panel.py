@@ -50,22 +50,6 @@ class PropertiesPanel(QWidget):
         self.value_input.textChanged.connect(self.on_value_changed)
         self.form_layout.addRow("Value:", self.value_input)
 
-        # Rotation field (editable via combo box)
-        self.rotation_combo = QComboBox()
-        self.rotation_combo.addItems(["0°", "90°", "180°", "270°"])
-        self.rotation_combo.currentIndexChanged.connect(self.on_rotation_changed)
-        self.form_layout.addRow("Rotation:", self.rotation_combo)
-
-        # Position fields (read-only, for information)
-        self.position_label = QLabel("-")
-        self.position_label.setStyleSheet("QLabel { color: #666; }")
-        self.form_layout.addRow("Position:", self.position_label)
-
-        # Number of terminals (read-only)
-        self.terminals_label = QLabel("-")
-        self.terminals_label.setStyleSheet("QLabel { color: #666; }")
-        self.form_layout.addRow("Terminals:", self.terminals_label)
-
         layout.addWidget(self.properties_group)
 
         # Apply button
@@ -80,22 +64,6 @@ class PropertiesPanel(QWidget):
         self.waveform_button.setVisible(False)
         layout.addWidget(self.waveform_button)
 
-        # Help text
-        help_text = QLabel(
-            "Select a component on the canvas to edit its properties.\n\n"
-            "Value examples:\n"
-            "• Resistors: 1k, 10k, 1M\n"
-            "• Capacitors: 1u, 100n, 1p\n"
-            "• Inductors: 1m, 100u, 1n\n"
-            "• Sources: 5V, 3.3V, 1A"
-        )
-        help_text.setWordWrap(True)
-        help_text.setStyleSheet(
-            "QLabel { background-color: #f9f9f9; padding: 8px; "
-            "border: 1px solid #ddd; border-radius: 3px; font-size: 9pt; }"
-        )
-        layout.addWidget(help_text)
-
         layout.addStretch()
 
         # Initially show "no selection" state
@@ -107,10 +75,7 @@ class PropertiesPanel(QWidget):
         self.id_label.setText("-")
         self.type_label.setText("-")
         self.value_input.clear()
-        self.value_input.setPlaceholderText("No component selected")
-        self.rotation_combo.setCurrentIndex(0)
-        self.position_label.setText("-")
-        self.terminals_label.setText("-")
+        self.value_input.setPlaceholderText("")
         self.apply_button.setEnabled(False)
         self.waveform_button.setVisible(False)
         self.current_component = None
@@ -120,10 +85,10 @@ class PropertiesPanel(QWidget):
         if component is None:
             self.show_no_selection()
             return
-
+        
         self.current_component = component
         self.properties_group.setEnabled(True)
-        self.apply_button.setEnabled(True)
+        self.apply_button.setEnabled(False) # Only enable on actual change
 
         # Update fields with component data
         self.id_label.setText(component.component_id)
@@ -131,25 +96,9 @@ class PropertiesPanel(QWidget):
 
         # Block signals temporarily to avoid triggering change events
         self.value_input.blockSignals(True)
-        self.rotation_combo.blockSignals(True)
-
         self.value_input.setText(component.value)
         self.value_input.setPlaceholderText(f"Default: {component.DEFAULT_VALUE}")
-
-        # Set rotation combo box
-        rotation_index = int(component.rotation_angle / 90) % 4
-        self.rotation_combo.setCurrentIndex(rotation_index)
-
-        # Update position
-        pos = component.pos()
-        self.position_label.setText(f"({pos.x():.0f}, {pos.y():.0f})")
-
-        # Update terminals count
-        self.terminals_label.setText(str(component.TERMINALS))
-
-        # Re-enable signals
         self.value_input.blockSignals(False)
-        self.rotation_combo.blockSignals(False)
 
         # Show/hide waveform button for waveform sources
         if component.component_type == 'Waveform Source':
@@ -161,17 +110,6 @@ class PropertiesPanel(QWidget):
         """Handle value input changes"""
         if self.current_component:
             self.apply_button.setEnabled(True)
-
-    def on_rotation_changed(self, index):
-        """Handle rotation changes"""
-        if self.current_component:
-            new_rotation = index * 90
-            if new_rotation != self.current_component.rotation_angle:
-                self.property_changed.emit(
-                    self.current_component.component_id,
-                    'rotation',
-                    new_rotation
-                )
 
     def apply_changes(self):
         """Apply property changes to the current component"""
@@ -195,12 +133,6 @@ class PropertiesPanel(QWidget):
             )
 
         self.apply_button.setEnabled(False)
-
-    def update_position_display(self):
-        """Update the position display for the current component"""
-        if self.current_component:
-            pos = self.current_component.pos()
-            self.position_label.setText(f"({pos.x():.0f}, {pos.y():.0f})")
 
     def configure_waveform(self):
         """Open waveform configuration dialog"""
