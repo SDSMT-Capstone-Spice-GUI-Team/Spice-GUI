@@ -65,6 +65,7 @@ class ComponentItem(QGraphicsItem):
             self.setCursor(Qt.CursorShape.ArrowCursor)
         elif self.is_being_dragged:
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            pass
         else:
             self.setCursor(Qt.CursorShape.OpenHandCursor)
 
@@ -72,12 +73,36 @@ class ComponentItem(QGraphicsItem):
     
     def boundingRect(self):
         return QRectF(-40, -30, 80, 60)
-    
+
+    def get_obstacle_shape(self):
+        """
+        Return the obstacle boundary shape for pathfinding.
+
+        Returns a list of (x, y) points defining a polygon in LOCAL coordinates
+        (relative to component center, before rotation).
+        The rotation will be applied by the pathfinding system.
+
+        Default implementation returns rectangle based on boundingRect().
+        Override in subclasses to provide custom shapes matching visual appearance.
+
+        Returns:
+            List of (x, y) tuples forming a closed polygon
+        """
+        rect = self.boundingRect()
+        # Return rectangle as 4-point polygon (clockwise from top-left)
+        return [
+            (rect.left(), rect.top()),      # Top-left
+            (rect.right(), rect.top()),     # Top-right
+            (rect.right(), rect.bottom()),  # Bottom-right
+            (rect.left(), rect.bottom())    # Bottom-left
+        ]
+
     def update_terminals(self):
         """Update terminal positions based on rotation"""
         # Base terminal positions (horizontal orientation)
         if self.TERMINALS == 2:
             base_terminals = [QPointF(-20, 0), QPointF(20, 0)]
+            pass
         else:
             base_terminals = []
         
@@ -97,6 +122,7 @@ class ComponentItem(QGraphicsItem):
         """Rotate component by 90 degrees"""
         if clockwise:
             self.rotation_angle = (self.rotation_angle + 90) % 360
+            pass
         else:
             self.rotation_angle = (self.rotation_angle - 90) % 360
         
@@ -157,24 +183,25 @@ class ComponentItem(QGraphicsItem):
 
     def update_wires_after_drag(self):
         """Called after drag motion has stopped"""
-        print(f"Timer fired for {self.component_id}, last_pos={self.last_position}, current_pos={self.pos()}")
+        # print(f"Timer fired for {self.component_id}, last_pos={self.last_position}, current_pos={self.pos()}")
         if self.last_position is not None and self.last_position != self.pos():
-            print(f"Component {self.component_id} finished moving, updating wires...")
+            # print(f"Component {self.component_id} finished moving, updating wires...")
             # Get the CircuitCanvas (view) from the scene
             if self.scene():
                 views = self.scene().views()
                 if views:
                     canvas = views[0]  # Get the first (and typically only) view
                     if hasattr(canvas, 'reroute_connected_wires'):
+
                         canvas.reroute_connected_wires(self)
-                    else:
-                        print(f"  ERROR: View doesn't have reroute_connected_wires!")
-                else:
-                    print(f"  ERROR: Scene has no views!")
-            else:
-                print(f"  ERROR: Component has no scene!")
-        else:
-            print(f"  Component {self.component_id} did not move or last_position is None")
+        #             else:
+        #                 # print(f"  ERROR: View doesn't have reroute_connected_wires!")
+        #         else:
+        #             # print(f"  ERROR: Scene has no views!")
+        #     else:
+        #         # print(f"  ERROR: Component has no scene!")
+        # else:
+        #     # print(f"  Component {self.component_id} did not move or last_position is None")
         self.last_position = None
         self.update_timer = None
 
@@ -252,6 +279,19 @@ class Resistor(ComponentItem):
         painter.drawLine(10, -8, 15, 0)
         painter.drawLine(15, 0, 20, 0)
 
+    def get_obstacle_shape(self):
+        """
+        Resistor zigzag pattern - tight rectangle around the zigzag
+        Body spans from X=-15 to X=15 (leads), Y=-8 to Y=8 (zigzag height)
+        Add small margin for clearance
+        """
+        return [
+            (-18.0, -11.0),   # Top-left (with 3px margin on X, 2px on Y)
+            (18.0, -11.0),    # Top-right
+            (18.0, 11.0),     # Bottom-right
+            (-18.0, 11.0)     # Bottom-left
+        ]
+
 
 class Capacitor(ComponentItem):
     """Capacitor component"""
@@ -270,6 +310,19 @@ class Capacitor(ComponentItem):
         painter.drawLine(-5, -12, -5, 12)
         painter.drawLine(5, -12, 5, 12)
         painter.drawLine(5, 0, 20, 0)
+
+    def get_obstacle_shape(self):
+        """
+        Capacitor with two plates - rectangle around plates
+        Body: plates at X=-5 and X=5, Y=-12 to Y=12, leads extend to ±20
+        Add margin around plates area
+        """
+        return [
+            (-18.0, -14.0),   # Top-left (with margin)
+            (18.0, -14.0),    # Top-right
+            (18.0, 14.0),     # Bottom-right
+            (-18.0, 14.0)     # Bottom-left
+        ]
 
 
 class Inductor(ComponentItem):
@@ -291,6 +344,19 @@ class Inductor(ComponentItem):
             painter.drawArc(i, -5, 8, 10, 0, 180*16)
         painter.drawLine(20, 0, 20, 0)
 
+    def get_obstacle_shape(self):
+        """
+        Inductor coils - narrow rectangle around coil series
+        Body: coils span X=-20 to X=20, arcs are 10px high (Y=-5 to Y=5)
+        Add small margin
+        """
+        return [
+            (-18.0, -11.0),   # Top-left (with margin)
+            (18.0, -11.0),    # Top-right
+            (18.0, 11.0),     # Bottom-right
+            (-18.0, 11.0)     # Bottom-left
+        ]
+
 
 class VoltageSource(ComponentItem):
     """Voltage source component"""
@@ -310,6 +376,19 @@ class VoltageSource(ComponentItem):
         painter.drawLine(-12, 0, -8, 0)
         painter.drawLine(12, 0, 8, 0)
         # painter.drawText(-5, 5, 'V')
+
+    def get_obstacle_shape(self):
+        """
+        Voltage source circle - use simple square for efficiency
+        Body: circle with radius 15, terminals extend to ±20
+        Use square obstacle for simplicity (slightly larger than circle)
+        """
+        return [
+            (-18.0, -18.0),  # Top-left (square around 15-radius circle + margin)
+            (18.0, -18.0),   # Top-right
+            (18.0, 18.0),    # Bottom-right
+            (-18.0, 18.0)    # Bottom-left
+        ]
 
 
 class CurrentSource(ComponentItem):
@@ -332,6 +411,19 @@ class CurrentSource(ComponentItem):
         painter.drawLine(15, 0, 25, 0)
         painter.drawText(-5, 5, 'I')
 
+    def get_obstacle_shape(self):
+        """
+        Current source circle - use simple square for efficiency
+        Body: circle with radius 15, terminals extend to ±25
+        Use square obstacle for simplicity (slightly larger than circle)
+        """
+        return [
+            (-18.0, -18.0),  # Top-left (square around 15-radius circle + margin)
+            (18.0, -18.0),   # Top-right
+            (18.0, 18.0),    # Bottom-right
+            (-18.0, 18.0)    # Bottom-left
+        ]
+
 class Ground(ComponentItem):
     """Ground component"""
     SYMBOL = 'GND'
@@ -350,7 +442,21 @@ class Ground(ComponentItem):
         painter.drawLine(-15, 10, 15, 10)
         painter.drawLine(-10, 15, 10, 15)
         painter.drawLine(-5, 20, 5, 20)
-        
+
+    def get_obstacle_shape(self):
+        """
+        Ground extends downward only from terminal at (0, 0)
+        Shape matches the 3 ground bars: widest at top, narrowest at bottom
+        Body: 3 horizontal bars at Y=10, Y=15, Y=20, widths 30, 20, 10 respectively
+        Use rectangle covering the full width
+        """
+        return [
+            (-17.0, 1.0),    # Top-left (above first bar with margin)
+            (17.0, 1.0),     # Top-right
+            (17.0, 22.0),    # Bottom-right (below last bar with margin)
+            (-17.0, 22.0)    # Bottom-left
+        ]
+
     def update_terminals(self):
         self.terminals = [QPointF(0, 0)]
 

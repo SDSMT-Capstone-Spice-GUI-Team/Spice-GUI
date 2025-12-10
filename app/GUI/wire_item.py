@@ -1,15 +1,16 @@
 from PyQt6.QtWidgets import QGraphicsPathItem
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPen, QPainterPath
-from .path_finding import GridPathfinder, get_component_obstacles
+from PyQt6.QtGui import QPen, QPainterPath, QColor
+# from .path_finding import GridPathfinder, get_component_obstacles
+from .path_finding import AStarPathfinder, IDAStarPathfinder, get_component_obstacles
 
 # from . import GRID_SIZE
 GRID_SIZE = 10
 
 class WireItem(QGraphicsPathItem):
-    """Wire connecting components with A* pathfinding"""
-    
-    def __init__(self, start_comp, start_term, end_comp, end_term, canvas=None):
+    """Wire connecting components with multi-algorithm pathfinding support"""
+
+    def __init__(self, start_comp, start_term, end_comp, end_term, canvas=None, algorithm='astar', layer_color=None):
         super().__init__()
         self.start_comp = start_comp
         self.start_term = start_term
@@ -17,17 +18,21 @@ class WireItem(QGraphicsPathItem):
         self.end_term = end_term
         self.node = None  # Reference to the Node this wire belongs to
         self.canvas = canvas  # Reference to canvas for pathfinding
-        
+
+        # Algorithm layer support
+        self.algorithm = algorithm  # Which algorithm generated this wire
+        self.layer_color = layer_color if layer_color else QColor(Qt.GlobalColor.black)
+        self.runtime = 0.0  # Time taken to route this wire
+        self.iterations = 0  # Iterations used by algorithm
+
         self.waypoints = []  # List of QPointF waypoints
-        
-        self.setPen(QPen(Qt.GlobalColor.black, 2))
+
+        self.setPen(QPen(self.layer_color, 2))
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable)
         self.update_position()
     
     def update_position(self):
-        """Update wire path using A* pathfinding"""
-        # print(f"      WireItem.update_position() called") #TODO: remove debug statements
-
+        """Update wire path using selected algorithm"""
         # Get old bounding rect for invalidation
         old_rect = self.boundingRect()
 
@@ -49,30 +54,34 @@ class WireItem(QGraphicsPathItem):
                 (self.end_comp.component_id, self.end_term)
             ]
 
-            print(f"      Routing wire from {self.start_comp.component_id}[{self.start_term}] to {self.end_comp.component_id}[{self.end_term}]")
-            print(f"      Active terminals: {active_terminals}")
+            print(f"      Routing wire ({self.algorithm}) from {self.start_comp.component_id}[{self.start_term}] to {self.end_comp.component_id}[{self.end_term}]")
 
-            obstacles = get_component_obstacles(self.canvas.components, GRID_SIZE,
-                                               padding=0,
-                                               terminal_clearance_only=terminal_clearance,
-                                               active_terminals=active_terminals)
+            # Get all existing wires in the circuit for wire-to-wire obstacle detection
+            # Only consider wires from the SAME algorithm layer for fair comparison
+            # Wires from the same node won't be treated as obstacles (allows bundling)
+            all_wires = self.canvas.wires if hasattr(self.canvas, 'wires') else []
+            existing_wires = [w for w in all_wires if w.algorithm == self.algorithm]
 
-            # Debug: Check if start/end positions are in obstacles
-            start_grid = (round(start.x() / GRID_SIZE), round(start.y() / GRID_SIZE))
-            end_grid = (round(end.x() / GRID_SIZE), round(end.y() / GRID_SIZE))
-            print(f"      Start grid: {start_grid}, in obstacles: {start_grid in obstacles}")
-            print(f"      End grid: {end_grid}, in obstacles: {end_grid in obstacles}")
-            print(f"      Total obstacles: {len(obstacles)}")
+            obstacles = get_component_obstacles(
+                self.canvas.components,
+                GRID_SIZE,
+                terminal_clearance_only=terminal_clearance,
+                active_terminals=active_terminals,
+                existing_wires=existing_wires,
+                current_node=self.node
+            )
 
-            # Debug: Check if there's a clear path out from both terminals
-            manhattan_dist = abs(end_grid[0] - start_grid[0]) + abs(end_grid[1] - start_grid[1])
-            print(f"      Manhattan distance: {manhattan_dist}")
+            pathfinder = IDAStarPathfinder(GRID_SIZE)
+            result = pathfinder.find_path(start, end, obstacles, algorithm=self.algorithm)
 
-            pathfinder = GridPathfinder(GRID_SIZE)
-            self.waypoints = pathfinder.find_path(start, end, obstacles)
+            # Unpack result (waypoints, runtime, iterations)
+            self.waypoints, self.runtime, self.iterations = result
+            pass
         else:
             # Fallback to direct line
             self.waypoints = [start, end]
+            self.runtime = 0.0
+            self.iterations = 0
 
         # Create path from waypoints
         path = QPainterPath()
@@ -89,19 +98,21 @@ class WireItem(QGraphicsPathItem):
             self.scene().update(self.boundingRect())
 
         self.update()  # Force item redraw
-        print(f"      Wire updated with {len(self.waypoints)} waypoints from {start} to {end}")
+        # print(f"      Wire ({self.algorithm}) updated: {len(self.waypoints)} waypoints, {self.runtime*1000:.2f}ms, {self.iterations} iterations")
+        # print(f"          Waypoints: {self.waypoints}")
     
     def paint(self, painter, option=None, widget=None):
-        """Override paint to show selection highlight"""
+        """Override paint to show selection highlight and layer color"""
         if painter is None:
             return
-        
-        # Draw wire
+
+        # Draw wire with layer color
         if self.isSelected():
             painter.setPen(QPen(Qt.GlobalColor.yellow, 4))
+            pass
         else:
-            painter.setPen(QPen(Qt.GlobalColor.black, 2))
-        
+            painter.setPen(QPen(self.layer_color, 2))
+
         painter.drawPath(self.path())
     
     def get_terminals(self):

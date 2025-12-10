@@ -7,7 +7,7 @@ pip install PyQt6 PySpice matplotlib
 
 This prototype implements:
 - Component palette with drag-and-drop
-- Grid-aligned canvas with A* path finding for wires
+- Grid-aligned canvas with IDA* path finding for wires
 - Save/Load (JSON with visual layout)
 - SPICE netlist generation
 - SPICE simulation

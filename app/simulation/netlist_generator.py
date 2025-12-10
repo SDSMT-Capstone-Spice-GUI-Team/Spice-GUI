@@ -40,6 +40,7 @@ class NetlistGenerator:
                 node_map[start_key] = end_node
             elif end_node is None:
                 node_map[end_key] = start_node
+                pass
             else:
                 merged_node = min(start_node, end_node)
                 for key, node in list(node_map.items()):
@@ -128,6 +129,7 @@ class NetlistGenerator:
             if voltage_sources:
                 source_name = voltage_sources[0].component_id
                 lines.append(f".dc {source_name} {params['min']} {params['max']} {params['step']}")
+                pass
             else:
                 lines.append("* Warning: DC Sweep requires a voltage source")
                 lines.append(".op")
@@ -151,6 +153,7 @@ class NetlistGenerator:
         # Generate appropriate print/plot commands based on analysis type
         if node_labels:
             print_vars = " ".join([f"v({label})" for label in node_labels.values()])
+            pass
         else:
             print_vars = "all"
 

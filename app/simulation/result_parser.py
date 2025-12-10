@@ -57,7 +57,7 @@ class ResultParser:
             return node_voltages
             
         except Exception as e:
-            print(f"Error parsing OP results: {e}")
+            # print(f"Error parsing OP results: {e}")
             import traceback
             traceback.print_exc()
             return {}
@@ -96,7 +96,7 @@ class ResultParser:
             return sweep_data if sweep_data['data'] else None
 
         except Exception as e:
-            print(f"Error parsing DC results: {e}")
+            # print(f"Error parsing DC results: {e}")
             return None
 
     @staticmethod
@@ -148,7 +148,7 @@ class ResultParser:
             return ac_data if ac_data['frequencies'] else None
 
         except Exception as e:
-            print(f"Error parsing AC results: {e}")
+            # print(f"Error parsing AC results: {e}")
             return None
 
     @staticmethod
@@ -196,5 +196,5 @@ class ResultParser:
             return tran_data if tran_data['time'] else None
 
         except Exception as e:
-            print(f"Error parsing transient results: {e}")
+            # print(f"Error parsing transient results: {e}")
             return None

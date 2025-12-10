@@ -64,7 +64,7 @@ class CircuitDesignGUI(QMainWindow):
             "🗑️ Right-click for context menu\n"
             "⌫ Delete key to remove selected\n"
             "\n"
-            "Wires auto-route using A* path finding!"
+            "Wires auto-route using IDA* path finding!"
         )
         instructions.setWordWrap(True)
         instructions.setStyleSheet(
@@ -276,7 +276,8 @@ class CircuitDesignGUI(QMainWindow):
         self.analysis_params = {}
         statusbar = self.statusBar()
         if statusbar is None:
-            print("status bar is missing function showMessage()")
+            # print("status bar is missing function showMessage()")
+            pass
         else:
             statusbar.showMessage("Analysis: DC Operating Point (.op)", 3000)
 
@@ -290,16 +291,19 @@ class CircuitDesignGUI(QMainWindow):
                 self.analysis_params = params
                 statusBar = self.statusBar()
                 if statusBar is None:
-                    print("status bar is missing function showMessage()")
+                    # print("status bar is missing function showMessage()")
+                    pass
                 else:
                     statusBar.showMessage(
                         f"Analysis: DC Sweep (V: {params['min']}V to {params['max']}V, step {params['step']}V)",
                         3000
                     )
+                pass
             else:
                 QMessageBox.warning(self, "Invalid Parameters",
                                     "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
+            pass
         else:
             self.op_action.setChecked(True)
 
@@ -313,16 +317,19 @@ class CircuitDesignGUI(QMainWindow):
                 self.analysis_params = params
                 statusBar = self.statusBar()
                 if statusBar is None:
-                    print("status bar is missing function showMessage()")
+                    # print("status bar is missing function showMessage()")
+                    pass
                 else:
                     statusBar.showMessage(
                         f"Analysis: AC Sweep ({params['fStart']}Hz to {params['fStop']}Hz, {params['points']} pts/decade)",
                         3000
                     )
+                pass
             else:
                 QMessageBox.warning(self, "Invalid Parameters",
                                     "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
+            pass
         else:
             self.op_action.setChecked(True)
 
@@ -336,16 +343,19 @@ class CircuitDesignGUI(QMainWindow):
                 self.analysis_params = params
                 statusBar = self.statusBar()
                 if statusBar is None:
-                    print("status bar is missing function showMessage()")
+                    # print("status bar is missing function showMessage()")
+                    pass
                 else:
                     statusBar.showMessage(
                         f"Analysis: Transient (duration: {params['duration']}s, step: {params['step']}s)",
                         3000
                     )
+                pass
             else:
                 QMessageBox.warning(self, "Invalid Parameters",
                                     "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
+            pass
         else:
             self.op_action.setChecked(True)
 
@@ -363,6 +373,7 @@ class CircuitDesignGUI(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to save: {str(e)}")
+            pass
         else:
             self.save_circuit()
 
@@ -498,6 +509,7 @@ class CircuitDesignGUI(QMainWindow):
                 self.canvas.set_node_voltages(node_voltages)
                 self.results_text.append("-" * 40 + "")
                 # self.results_text.append("Voltages displayed on canvas")
+                pass
             else:
                 self.results_text.append("\nNo node voltages found in output.")
                 self.canvas.clear_node_voltages()
@@ -509,6 +521,7 @@ class CircuitDesignGUI(QMainWindow):
                 self.results_text.append("\nDC SWEEP RESULTS:")
                 self.results_text.append("-" * 40 + "")
                 self.results_text.append(str(sweep_data) + "")
+                pass
             else:
                 self.results_text.append("\nDC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -520,6 +533,7 @@ class CircuitDesignGUI(QMainWindow):
                 self.results_text.append("\nAC SWEEP RESULTS:")
                 self.results_text.append("-" * 40 + "")
                 self.results_text.append(str(ac_data) + "")
+                pass
             else:
                 self.results_text.append("\nAC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -531,6 +545,7 @@ class CircuitDesignGUI(QMainWindow):
                 self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
                 self.results_text.append("-" * 40 + "")
                 self.results_text.append(str(tran_data) + "")
+                pass
             else:
                 self.results_text.append("\nTransient data - see raw output below")
             self.canvas.clear_node_voltages()

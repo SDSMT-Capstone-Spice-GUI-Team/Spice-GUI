@@ -105,6 +105,7 @@ class AnalysisDialog(QDialog):
         for field_config in config["fields"]:
             if len(field_config) == 4:
                 label, field_type, default, *extra = field_config
+                pass
             else:
                 label, field_type, default = field_config
                 extra = []
@@ -114,6 +115,7 @@ class AnalysisDialog(QDialog):
                 widget.addItems(default)
                 if extra:
                     widget.setCurrentText(extra[0])
+                pass
             else:
                 widget = QLineEdit(str(default))
             
@@ -132,6 +134,7 @@ class AnalysisDialog(QDialog):
                     params[label] = float(widget.text())
                 elif field_type == "int":
                     params[label] = int(widget.text())
+                    pass
                 else:  # text
                     params[label] = widget.text()
             

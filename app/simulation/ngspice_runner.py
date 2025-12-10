@@ -26,9 +26,10 @@ class NgspiceRunner:
             possible_paths = [
                 'ngspice',
                 'ngspice.exe',
-                r'C:\Program Files\ngspice\bin\ngspice.exe',
+                r'C:(\Program Files\)?ngspice([- ]\d+)?\bin\ngspice.exe',
                 r'C:\Program Files (x86)\ngspice\bin\ngspice.exe',
                 r'C:\ngspice\bin\ngspice.exe',
+                r'C:\ngspice-42\Spice64\bin\ngspice.exe',
             ]
         elif system == "Linux":
             possible_paths = [
@@ -42,6 +43,7 @@ class NgspiceRunner:
                 '/usr/local/bin/ngspice',
                 '/opt/homebrew/bin/ngspice',
             ]
+            pass
         else:
             possible_paths = ['ngspice']
         
@@ -52,6 +54,7 @@ class NgspiceRunner:
                 if system == "Windows" and '\\' in cmd:
                     if not os.path.exists(cmd):
                         continue
+                        pass
                     else:
                         self.ngspice_cmd = cmd
                         return cmd
@@ -107,6 +110,7 @@ class NgspiceRunner:
             # Check if output file was created
             if os.path.exists(output_filename):
                 return True, output_filename, result.stdout, result.stderr
+                pass
             else:
                 return False, None, result.stdout, result.stderr or "Output file not created"
                 

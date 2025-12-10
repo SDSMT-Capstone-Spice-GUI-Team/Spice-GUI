@@ -1,10 +1,11 @@
 from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsLineItem,
-                             QMenu, QLineEdit, QInputDialog)
+                             QMenu, QLineEdit, QInputDialog, QGraphicsTextItem)
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal
-from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QAction
+from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QAction, QFont
 from .component_item import ComponentItem, create_component
 from .wire_item import WireItem
 from .circuit_node import Node
+from .algorithm_layers import AlgorithmLayerManager
 
 # from . import GRID_SIZE, COMPONENTS
 # Component definitions
@@ -33,23 +34,31 @@ class CircuitCanvas(QGraphicsView):
             exit()
         self.setScene(self.scene)
         self.setSceneRect(-500, -500, 1000, 1000)
-        
+
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
 
         # Fix dragging artifacts by forcing full viewport updates
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
-        
+
         self.components = {}  # id -> ComponentItem
-        self.wires = []
+        self.wires = []  # All wires (for backward compatibility)
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
         self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
-        
+
+        # Multi-algorithm layer management
+        self.layer_manager = AlgorithmLayerManager()
+        self.multi_algorithm_mode = False  # Disable multi-algorithm mode - use only IDA*
+
         # Simulation results storage
         self.node_voltages = {}  # node_label -> voltage value
         self.show_node_voltages = False  # Toggle for showing voltage values
+
+        # Debug visualization
+        self.show_obstacle_boundaries = False  # Toggle for showing obstacle boundaries
+        self.obstacle_boundary_items = []  # Store obstacle boundary graphics items
         
         # Drawing grid
         self.draw_grid()
@@ -70,27 +79,63 @@ class CircuitCanvas(QGraphicsView):
     #     return views
     
     def draw_grid(self):
-        """Draw background grid"""
+        """Draw background grid with major grid lines labeled with position values"""
         if self.scene is None:
             return
-        pen = QPen(QColor(200, 200, 200), 0.5)
-        pen.setCosmetic(True)  # Ensure grid doesn't scale with zoom
+
+        # Minor grid lines (lighter color)
+        minor_pen = QPen(QColor(200, 200, 200), 0.5)
+        minor_pen.setCosmetic(True)  # Ensure grid doesn't scale with zoom
+
+        # Major grid lines (darker color, every 100 units)
+        major_pen = QPen(QColor(150, 150, 150), 1.0)
+        major_pen.setCosmetic(True)
+
+        # Draw vertical lines
         for x in range(-500, 501, GRID_SIZE):
+            is_major = (x % 100 == 0)
+            pen = major_pen if is_major else minor_pen
             self.scene.addLine(x, -500, x, 500, pen)
+
+            # Add label for major grid lines
+            if is_major:
+                label = QGraphicsTextItem(str(x))
+                label.setDefaultTextColor(QColor(100, 100, 100))
+                font = QFont()
+                font.setPointSize(8)
+                label.setFont(font)
+                label.setPos(x - 15, -500)  # Position at top
+                label.setZValue(-1)  # Draw behind components
+                self.scene.addItem(label)
+
+        # Draw horizontal lines
         for y in range(-500, 501, GRID_SIZE):
+            is_major = (y % 100 == 0)
+            pen = major_pen if is_major else minor_pen
             self.scene.addLine(-500, y, 500, y, pen)
+
+            # Add label for major grid lines
+            if is_major:
+                label = QGraphicsTextItem(str(y))
+                label.setDefaultTextColor(QColor(100, 100, 100))
+                font = QFont()
+                font.setPointSize(8)
+                label.setFont(font)
+                label.setPos(-500, y - 10)  # Position at left
+                label.setZValue(-1)  # Draw behind components
+                self.scene.addItem(label)
     
     def reroute_connected_wires(self, component):
         """Reroute all wires connected to a component"""
-        print(f"  Checking {len(self.wires)} wires for connections to {component.component_id}")
+        # print(f"  Checking {len(self.wires)} wires for connections to {component.component_id}")
         wire_count = 0
         for wire in self.wires:
             if wire.start_comp == component or wire.end_comp == component:
-                print(f"    Found wire: {wire.start_comp.component_id} -> {wire.end_comp.component_id}")
+                # print(f"    Found wire: {wire.start_comp.component_id} -> {wire.end_comp.component_id}")
                 wire.update_position()
                 wire_count += 1
 
-        print(f"  Rerouted {wire_count} wires")
+        # print(f"  Rerouted {wire_count} wires")
 
         # Force a full scene update to ensure wires are redrawn
         if wire_count > 0:
@@ -202,6 +247,7 @@ class CircuitCanvas(QGraphicsView):
                         # Accept event only when we successfully started wire drawing
                         event.accept()
                         return
+                    pass
                 else:
                     # Complete the wire
                     if clicked_component != self.wire_start_comp:
@@ -213,15 +259,42 @@ class CircuitCanvas(QGraphicsView):
                             target_term = clicked_term_index
                         
                         if can_connect:
-                            # Create wire with path finding
-                            wire = WireItem(self.wire_start_comp, self.wire_start_term, 
-                                          clicked_component, target_term, canvas=self)
-                            self.scene.addItem(wire)
-                            self.wires.append(wire)
-                            
-                            # UPDATE NODE CONNECTIVITY
-                            self.update_nodes_for_wire(wire)
-                            
+                            # Create wire(s) with multi-algorithm routing
+                            if self.multi_algorithm_mode:
+                                # Create a wire for each active algorithm
+                                for algorithm in self.layer_manager.active_algorithms:
+                                    layer = self.layer_manager.get_layer(algorithm)
+                                    wire = WireItem(
+                                        self.wire_start_comp, self.wire_start_term,
+                                        clicked_component, target_term,
+                                        canvas=self,
+                                        algorithm=algorithm,
+                                        layer_color=layer.color
+                                    )
+                                    self.scene.addItem(wire)
+                                    self.wires.append(wire)
+
+                                    # Add wire to layer and track performance
+                                    self.layer_manager.add_wire_to_layer(
+                                        wire, algorithm, wire.runtime, wire.iterations
+                                    )
+
+                                    # UPDATE NODE CONNECTIVITY (only for first wire to avoid duplicates)
+                                    if algorithm == self.layer_manager.active_algorithms[0]:
+                                        self.update_nodes_for_wire(wire)
+                                pass
+                            else:
+                                # Single algorithm mode - use IDA*
+                                wire = WireItem(
+                                    self.wire_start_comp, self.wire_start_term,
+                                    clicked_component, target_term,
+                                    canvas=self,
+                                    algorithm='idastar'
+                                )
+                                self.scene.addItem(wire)
+                                self.wires.append(wire)
+                                self.update_nodes_for_wire(wire)
+
                             self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
                     
                     # Clean up temporary wire line
@@ -286,6 +359,7 @@ class CircuitCanvas(QGraphicsView):
         elif event.key() == Qt.Key.Key_R and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             # Rotate selected components counter-clockwise
             self.rotate_selected(clockwise=False)
+            pass
         else:
             super().keyPressEvent(event)
     
@@ -321,6 +395,7 @@ class CircuitCanvas(QGraphicsView):
                 label_action = QAction(f"Label Node ({item.node.get_label()})", self)
                 label_action.triggered.connect(lambda: self.label_node(item.node))
                 menu.addAction(label_action)
+            pass
         else:
             # Check if we clicked near a terminal to label its node
             clicked_node = self.find_node_at_position(scene_pos)
@@ -511,6 +586,7 @@ class CircuitCanvas(QGraphicsView):
             viewPort = self.viewport()
             if viewPort is None:
                 print("viewPort is None. Can't update")
+                pass
             else:
                 viewPort.update()
     
@@ -646,6 +722,217 @@ class CircuitCanvas(QGraphicsView):
         self.terminal_to_node = {}
         self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
         Node._node_counter = 0
+        self.layer_manager.clear_all_wires()
+
+    def toggle_multi_algorithm_mode(self, enabled=None):
+        """
+        Toggle or set multi-algorithm routing mode
+
+        Args:
+            enabled: If None, toggle; if bool, set to that value
+
+        Returns:
+            bool: New state of multi-algorithm mode
+        """
+        if enabled is None:
+            self.multi_algorithm_mode = not self.multi_algorithm_mode
+            pass
+        else:
+            self.multi_algorithm_mode = enabled
+        return self.multi_algorithm_mode
+
+    def set_active_algorithms(self, algorithm_list):
+        """
+        Set which algorithms should be used for routing
+
+        Args:
+            algorithm_list: List of algorithm names ('astar', 'idastar', 'dijkstra')
+        """
+        self.layer_manager.set_active_algorithms(algorithm_list)
+
+    def get_performance_report(self):
+        """Get performance comparison report for all algorithms"""
+        return self.layer_manager.get_performance_report()
+
+    def toggle_obstacle_boundaries(self, show=None):
+        """
+        Toggle or set obstacle boundary visualization
+
+        Args:
+            show: If None, toggle; if bool, set to that value
+
+        Returns:
+            bool: New state of obstacle boundary display
+        """
+        if show is None:
+            self.show_obstacle_boundaries = not self.show_obstacle_boundaries
+            pass
+        else:
+            self.show_obstacle_boundaries = show
+
+        if self.show_obstacle_boundaries:
+            self.draw_obstacle_boundaries()
+            pass
+        else:
+            self.clear_obstacle_boundaries()
+
+        return self.show_obstacle_boundaries
+
+    def clear_obstacle_boundaries(self):
+        """Remove all obstacle boundary visualization items"""
+        for item in self.obstacle_boundary_items:
+            if item.scene() == self.scene:
+                self.scene.removeItem(item)
+        self.obstacle_boundary_items.clear()
+
+    def draw_obstacle_boundaries(self):
+        """Draw obstacle boundaries for all components"""
+        from .path_finding import get_component_obstacles
+
+        # Clear existing boundary items
+        self.clear_obstacle_boundaries()
+
+        if not self.components:
+            return
+
+        # Draw custom polygon boundaries for each component
+        # Shows the actual obstacle boundary matching component visual shape
+        import math
+        for comp in self.components.values():
+            pos = comp.pos()
+
+            # Get custom obstacle shape from component
+            if hasattr(comp, 'get_obstacle_shape'):
+                polygon_points = comp.get_obstacle_shape()
+                pass
+            else:
+                # Fallback to bounding rect
+                rect = comp.boundingRect()
+                polygon_points = [
+                    (rect.left(), rect.top()),
+                    (rect.right(), rect.top()),
+                    (rect.right(), rect.bottom()),
+                    (rect.left(), rect.bottom())
+                ]
+
+            # Helper function to transform polygon points
+            def transform_polygon(points, inset_distance=0):
+                """Transform polygon points: apply inset, rotation, translation"""
+                rad = math.radians(comp.rotation_angle)
+                cos_a = math.cos(rad)
+                sin_a = math.sin(rad)
+
+                transformed = []
+                for x, y in points:
+                    # Apply inset (move toward center)
+                    if inset_distance > 0:
+                        center_x = sum(p[0] for p in points) / len(points)
+                        center_y = sum(p[1] for p in points) / len(points)
+                        dx = center_x - x
+                        dy = center_y - y
+                        dist = math.sqrt(dx*dx + dy*dy)
+                        if dist > 0:
+                            x += (dx / dist) * inset_distance
+                            y += (dy / dist) * inset_distance
+
+                    # Rotate
+                    rotated_x = x * cos_a - y * sin_a
+                    rotated_y = x * sin_a + y * cos_a
+
+                    # Translate
+                    world_x = pos.x() + rotated_x
+                    world_y = pos.y() + rotated_y
+
+                    transformed.append((world_x, world_y))
+                return transformed
+
+            # Draw full shape (red - connected components)
+            full_points = transform_polygon(polygon_points, inset_distance=0)
+            for i in range(len(full_points)):
+                p1 = full_points[i]
+                p2 = full_points[(i + 1) % len(full_points)]
+                line = self.scene.addLine(
+                    p1[0], p1[1], p2[0], p2[1],
+                    QPen(QColor(255, 100, 100, 200), 3, Qt.PenStyle.SolidLine)
+                )
+                line.setZValue(50)
+                self.obstacle_boundary_items.append(line)
+
+            # Draw inset shape (blue - non-connected components)
+            inset_pixels = 1.5 * GRID_SIZE
+            inset_points = transform_polygon(polygon_points, inset_distance=inset_pixels)
+            for i in range(len(inset_points)):
+                p1 = inset_points[i]
+                p2 = inset_points[(i + 1) % len(inset_points)]
+                line = self.scene.addLine(
+                    p1[0], p1[1], p2[0], p2[1],
+                    QPen(QColor(100, 150, 255, 200), 2, Qt.PenStyle.DotLine)
+                )
+                line.setZValue(50)
+                self.obstacle_boundary_items.append(line)
+
+            # Draw terminal markers
+            for i in range(len(comp.terminals)):
+                term_pos = comp.get_terminal_pos(i)
+                # Show all terminals with green outline
+                # Active terminals = clear corridors
+                # Non-active terminals = obstacles (infinite cost)
+                terminal_circle = self.scene.addEllipse(
+                    term_pos.x() - 5, term_pos.y() - 5, 10, 10,
+                    QPen(QColor(0, 200, 0, 200), 3),
+                    QBrush(QColor(0, 255, 0, 100))
+                )
+                terminal_circle.setZValue(100)  # Draw on top
+                self.obstacle_boundary_items.append(terminal_circle)
+
+        # Add legend
+        legend_y = -480
+        legend_x = -480
+
+        # Full boundary legend (red solid frame)
+        full_legend_rect = self.scene.addRect(
+            legend_x, legend_y, 30, 15,
+            QPen(QColor(255, 100, 100, 200), 3, Qt.PenStyle.SolidLine),
+            QBrush(Qt.BrushStyle.NoBrush)
+        )
+        full_legend_rect.setZValue(1000)
+        self.obstacle_boundary_items.append(full_legend_rect)
+
+        full_legend_text = self.scene.addText("Custom Shape (Connected)")
+        full_legend_text.setPos(legend_x + 35, legend_y - 5)
+        full_legend_text.setDefaultTextColor(QColor(255, 100, 100))
+        full_legend_text.setZValue(1000)
+        self.obstacle_boundary_items.append(full_legend_text)
+
+        # Inset boundary legend (blue dotted frame)
+        inset_legend_rect = self.scene.addRect(
+            legend_x, legend_y + 25, 30, 15,
+            QPen(QColor(100, 150, 255, 200), 2, Qt.PenStyle.DotLine),
+            QBrush(Qt.BrushStyle.NoBrush)
+        )
+        inset_legend_rect.setZValue(1000)
+        self.obstacle_boundary_items.append(inset_legend_rect)
+
+        inset_legend_text = self.scene.addText("Custom Shape (Inset)")
+        inset_legend_text.setPos(legend_x + 35, legend_y + 20)
+        inset_legend_text.setDefaultTextColor(QColor(100, 150, 255))
+        inset_legend_text.setZValue(1000)
+        self.obstacle_boundary_items.append(inset_legend_text)
+
+        # Terminal legend
+        terminal_legend_circle = self.scene.addEllipse(
+            legend_x + 7.5, legend_y + 52.5, 10, 10,
+            QPen(QColor(0, 200, 0, 200), 2),
+            QBrush(QColor(0, 255, 0, 100))
+        )
+        terminal_legend_circle.setZValue(1000)
+        self.obstacle_boundary_items.append(terminal_legend_circle)
+
+        terminal_legend_text = self.scene.addText("Terminals (Active=Clear, Inactive=Obstacle)")
+        terminal_legend_text.setPos(legend_x + 35, legend_y + 45)
+        terminal_legend_text.setDefaultTextColor(QColor(0, 200, 0))
+        terminal_legend_text.setZValue(1000)
+        self.obstacle_boundary_items.append(terminal_legend_text)
     
     def to_dict(self):
         """Serialize circuit to dictionary"""

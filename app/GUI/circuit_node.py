@@ -25,6 +25,7 @@ class Node:
             self.auto_label = "0"
         elif custom_label:
             self.auto_label = custom_label
+            pass
         else:
             # Generate auto label: nodeA, nodeB, nodeC...
             Node._node_counter += 1
@@ -37,6 +38,7 @@ class Node:
         label = "node"
         if index < 26:
             label += chr(ord('A') + index)
+            pass
         else:
             # For more than 26 nodes, use AA, AB, AC...
             first = (index // 26) - 1
@@ -82,6 +84,7 @@ class Node:
             self.is_ground = True
             if self.custom_label:
                 self.custom_label = f"{self.custom_label}"
+                pass
             else:
                 self.auto_label = "0"
     
@@ -99,6 +102,7 @@ class Node:
         if was_ground:
             if self.custom_label:
                 self.custom_label = self.custom_label.replace(" (ground)", "")
+                pass
             else:
                 Node._node_counter += 1
                 label_index = Node._node_counter - 1
