@@ -30,6 +30,7 @@ class NgspiceRunner:
                 r'C:\Program Files (x86)\ngspice\bin\ngspice.exe',
                 r'C:\ngspice\bin\ngspice.exe',
                 r'C:\ngspice-42\Spice64\bin\ngspice.exe',
+                r"C:\Program Files\Spice64\bin\ngspice.exe",
             ]
         elif system == "Linux":
             possible_paths = [
@@ -104,7 +105,7 @@ class NgspiceRunner:
                 [self.ngspice_cmd, '-b', netlist_filename, '-o', output_filename],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=60
             )
             
             # Check if output file was created

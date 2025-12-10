@@ -1,13 +1,16 @@
 from simulation import NetlistGenerator, NgspiceRunner, ResultParser
 import json
+import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
-                             QSplitter, QLabel, QDialog)
+                             QSplitter, QLabel, QDialog, QStackedWidget, QSizePolicy)
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtCore import Qt
 from .component_palette import ComponentPalette
 from .circuit_canvas import CircuitCanvas
 from .analysis_dialog import AnalysisDialog
+from .properties_panel import PropertiesPanel
+from .waveform_dialog import WaveformDialog
 
 # Component definitions
 COMPONENTS = {
@@ -16,8 +19,12 @@ COMPONENTS = {
     'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
     'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
     'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
+    'Waveform Source': {'symbol': 'VW', 'terminals': 2, 'color': '#E91E63'},
     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
 }
+
+# Define the session file path
+SESSION_FILE = "last_session.txt"
 
 GRID_SIZE = 10
 
@@ -40,6 +47,33 @@ class CircuitDesignGUI(QMainWindow):
 
         self.init_ui()
         self.create_menu_bar()
+        
+        # ADD THIS LINE to load the last session when the app starts
+        self._load_last_session()
+
+    def _save_session(self, file_path):
+        """Saves the absolute path of the current file to disk."""
+        try:
+            # Use abspath to ensure the path is valid after an application restart
+            with open(SESSION_FILE, 'w') as f:
+                f.write(os.path.abspath(file_path))
+        except Exception as e:
+            print(f"Error saving session: {e}")
+
+    def _load_last_session(self):
+        """Loads the last saved file path and tries to open the circuit."""
+        if os.path.exists(SESSION_FILE):
+            try:
+                with open(SESSION_FILE, 'r') as f:
+                    file_path = f.read().strip()
+
+                # Check if the path is valid and the file still exists
+                if file_path and os.path.exists(file_path):
+                    print(f"Hot-reload: Attempting to reload last file: {file_path}")
+                    # Call the existing load method to restore state
+                    self.load_circuit(file_path, is_reload=True) 
+            except Exception as e:
+                print(f"Error loading last session: {e}")
 
     def init_ui(self):
         """Initialize user interface"""
@@ -50,12 +84,7 @@ class CircuitDesignGUI(QMainWindow):
         # Left panel - Component palette
         left_panel = QVBoxLayout()
         left_panel.addWidget(QLabel("Component Palette"))
-        # our palette is not an actual Qt palette item
-        # self.palette = ComponentPalette()
-        # left_panel.addWidget(self.palette)
         left_panel.addWidget(ComponentPalette())
-
-        # Instructions
         instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
@@ -70,22 +99,18 @@ class CircuitDesignGUI(QMainWindow):
         instructions.setStyleSheet(
             "QLabel { background-color: #f0f0f0; padding: 10px; border-radius: 5px; }")
         left_panel.addWidget(instructions)
-
         main_layout.addLayout(left_panel, 1)
 
         # Center - Canvas and results
         center_splitter = QSplitter(Qt.Orientation.Vertical)
-
-        # Canvas
         canvas_widget = QWidget()
         canvas_layout = QVBoxLayout(canvas_widget)
-        canvas_layout.addWidget(
-            QLabel("Circuit Canvas (Grid-Aligned Routing)"))
+        canvas_layout.addWidget(QLabel("Circuit Canvas (Grid-Aligned Routing)"))
         self.canvas = CircuitCanvas()
+        self.canvas.componentRightClicked.connect(self.on_component_right_clicked)
+        self.canvas.canvasClicked.connect(self.on_canvas_clicked)
         canvas_layout.addWidget(self.canvas)
         center_splitter.addWidget(canvas_widget)
-
-        # Results display
         results_widget = QWidget()
         results_layout = QVBoxLayout(results_widget)
         results_layout.addWidget(QLabel("Simulation Results"))
@@ -93,40 +118,44 @@ class CircuitDesignGUI(QMainWindow):
         self.results_text.setReadOnly(True)
         results_layout.addWidget(self.results_text)
         center_splitter.addWidget(results_widget)
-
         center_splitter.setSizes([500, 300])
         main_layout.addWidget(center_splitter, 3)
 
-        # Right panel - Controls
-        right_panel = QVBoxLayout()
-        right_panel.addWidget(QLabel("Actions"))
+        # Right panel - Properties and Controls
+        right_panel_layout = QVBoxLayout()
 
-        # File operations
+        # A stack to show either the properties panel or a blank widget
+        self.properties_stack = QStackedWidget()
+        self.properties_panel = PropertiesPanel()
+        self.properties_panel.property_changed.connect(self.on_property_changed)
+        
+        blank_widget = QWidget() # A blank placeholder
+        
+        self.properties_stack.addWidget(blank_widget)       # Index 0
+        self.properties_stack.addWidget(self.properties_panel) # Index 1
+        
+        right_panel_layout.addWidget(self.properties_stack)
+        
+        right_panel_layout.addStretch() # Pushes buttons to the bottom
+        right_panel_layout.addWidget(QLabel("Actions"))
         self.btn_save = QPushButton("Save Circuit")
         self.btn_save.clicked.connect(self.save_circuit)
-        right_panel.addWidget(self.btn_save)
-
+        right_panel_layout.addWidget(self.btn_save)
         self.btn_load = QPushButton("Load Circuit")
         self.btn_load.clicked.connect(self.load_circuit)
-        right_panel.addWidget(self.btn_load)
-
+        right_panel_layout.addWidget(self.btn_load)
         self.btn_clear = QPushButton("Clear Canvas")
         self.btn_clear.clicked.connect(self.clear_canvas)
-        right_panel.addWidget(self.btn_clear)
-
-        right_panel.addWidget(QLabel(""))  # Spacer
-
-        # Simulation operations
+        right_panel_layout.addWidget(self.btn_clear)
+        right_panel_layout.addWidget(QLabel(""))  # Spacer
         self.btn_netlist = QPushButton("Generate Netlist")
         self.btn_netlist.clicked.connect(self.generate_netlist)
-        right_panel.addWidget(self.btn_netlist)
-
+        right_panel_layout.addWidget(self.btn_netlist)
         self.btn_simulate = QPushButton("Run Simulation")
         self.btn_simulate.clicked.connect(self.run_simulation)
-        right_panel.addWidget(self.btn_simulate)
-
-        right_panel.addStretch()
-        main_layout.addLayout(right_panel, 1)
+        right_panel_layout.addWidget(self.btn_simulate)
+        
+        main_layout.addLayout(right_panel_layout, 1)
 
     def create_menu_bar(self):
         """Create menu bar with File and Edit menus"""
@@ -389,26 +418,35 @@ class CircuitDesignGUI(QMainWindow):
                     json.dump(data, f, indent=2)
                 self.current_file = filename
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
+                self._save_session(filename)  # Save session on successful save
                 QMessageBox.information(
                     self, "Success", "Circuit saved successfully!")
             except Exception as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to save: {str(e)}")
 
-    def load_circuit(self):
+    def load_circuit(self, filename=None, is_reload=False):
         """Load circuit from JSON file"""
-        filename, _ = QFileDialog.getOpenFileName(
-            self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)"
-        )
+        if not filename:
+            filename, _ = QFileDialog.getOpenFileName(
+                self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)"
+            )
+        
         if filename:
             try:
                 with open(filename, 'r') as f:
                     data = json.load(f)
+                
                 self.canvas.from_dict(data)
                 self.current_file = filename
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
-                QMessageBox.information(
-                    self, "Success", "Circuit loaded successfully!")
+                
+                # Save the successfully loaded file path
+                self._save_session(filename)
+
+                if not is_reload:
+                    QMessageBox.information(
+                        self, "Success", "Circuit loaded successfully!")
             except Exception as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to load: {str(e)}")
@@ -475,10 +513,15 @@ class CircuitDesignGUI(QMainWindow):
                     self.results_text.append(f"Output: {stdout}")
                 return
 
-            output = self.ngspice_runner.read_output(output_file)
-
-            # Display formatted results based on analysis type
-            self._display_formatted_results(output, output_file)
+            # For transient analysis, the `wrdata` command in the netlist creates
+            # a clean data file. We parse that directly for reliability.
+            if self.analysis_type == "Transient":
+                wrdata_filepath = "transient_data.txt"
+                self._display_formatted_results(None, wrdata_filepath, is_wrdata=True)
+            else:
+                # For other analysis types, parse the stdout dump.
+                output = self.ngspice_runner.read_output(output_file)
+                self._display_formatted_results(output, output_file, is_wrdata=False)
 
         except Exception as e:
             from PyQt6.QtWidgets import QMessageBox
@@ -487,11 +530,8 @@ class CircuitDesignGUI(QMainWindow):
             self.results_text.append(
                 f"\n\nError details:\n{traceback.format_exc()}")
 
-    def _display_formatted_results(self, output, output_file):
+    def _display_formatted_results(self, output, filepath, is_wrdata=False):
         """Format and display simulation results based on analysis type"""
-        # Filter out verbose ngspice output for cleaner display
-        filtered_output = self._filter_raw_output(output)
-
         self.results_text.setPlainText("\n" + "=" * 70 + "")
         self.results_text.append(f"SIMULATION COMPLETE - {self.analysis_type}")
         self.results_text.append("=" * 70 + "")
@@ -540,19 +580,31 @@ class CircuitDesignGUI(QMainWindow):
 
         elif self.analysis_type == "Transient":
             # Parse and display transient results
-            tran_data = ResultParser.parse_transient_results(output)
+            if is_wrdata:
+                tran_data = ResultParser.parse_transient_results(filepath)
+            else:
+                tran_data = ResultParser.parse_transient_results(output)
+
             if tran_data:
                 self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
-                self.results_text.append("-" * 40 + "")
-                self.results_text.append(str(tran_data) + "")
-                pass
+                
+                # Format and display the table in the text area
+                table_string = ResultParser.format_results_as_table(tran_data)
+                self.results_text.append(table_string)
+
+                self.results_text.append("\n" + "-" * 40 + "")
+                self.results_text.append("Waveform plot has also been generated in a new window.")
+
+                # Show waveform plot
+                self.waveform_dialog = WaveformDialog(tran_data, self)
+                self.waveform_dialog.show()
             else:
-                self.results_text.append("\nTransient data - see raw output below")
+                self.results_text.append("\nNo transient data found in output.")
             self.canvas.clear_node_voltages()
 
         # Show output file location
         # self.results_text.append("\n" + "=" * 70 + "")
-        # self.results_text.append(f"Output file: {output_file}")
+        # self.results_text.append(f"Output file: {filepath}")
 
         # # Show filtered raw output
         # if filtered_output.strip():
@@ -609,3 +661,48 @@ class CircuitDesignGUI(QMainWindow):
             filtered_lines.append(line)
 
         return '\n'.join(filtered_lines)
+
+    def on_component_right_clicked(self, component, event_pos):
+        """Handle right-click on a component."""
+        if component:
+            self.properties_panel.show_component(component)
+            self.properties_stack.setCurrentIndex(1)  # Show properties
+        else:
+            self.properties_stack.setCurrentIndex(0)  # Show blank
+
+    def on_canvas_clicked(self):
+        """Handle click on an empty canvas area."""
+        self.properties_stack.setCurrentIndex(0)  # Show blank
+        self.properties_panel.show_no_selection()
+
+    def on_property_changed(self, component_id, property_name, new_value):
+        """Handle property changes from properties panel"""
+        # Find the component
+        component = self.canvas.components.get(component_id)
+        if not component:
+            return
+
+        if property_name == 'value':
+            # Update component value
+            component.value = new_value
+            component.update()
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
+
+        elif property_name == 'rotation':
+            # Update component rotation
+            old_rotation = component.rotation_angle
+            component.rotation_angle = new_value
+            component.update_terminals()
+            component.update()
+
+            # Reroute connected wires
+            self.canvas.reroute_connected_wires(component)
+
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
+
+            # Update the properties panel to reflect the change
+            self.properties_panel.show_component(component)

@@ -18,8 +18,18 @@ class NetlistGenerator:
     
     def generate(self):
         """Generate complete SPICE netlist"""
-        lines = ["Circuit Design GUI Netlist", "* Generated netlist", ""]
+        lines = ["My Test Circuit", "* Generated netlist", ""]
         
+        # Check for op-amps to add subcircuit
+        has_opamp = any(c.component_type == 'Op-Amp' for c in self.components.values())
+        if has_opamp:
+            lines.append("* Ideal Op-Amp Subcircuit")
+            lines.append(".subckt OPAMP_IDEAL inp inn out")
+            lines.append("E_amp out 0 inp inn 1e6")
+            lines.append("R_out out 0 1e-3")
+            lines.append(".ends")
+            lines.append("")
+
         # Build node connectivity map
         node_map = {}  # (comp_id, term_index) -> node_number
         next_node = 1
@@ -93,6 +103,18 @@ class NetlistGenerator:
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
             elif comp.component_type == 'Current Source':
                 lines.append(f"{comp_id} {' '.join(nodes)} AC {comp.value}")
+            elif comp.component_type == 'Waveform Source':
+                # Use get_spice_value() method if available, otherwise use value
+                if hasattr(comp, 'get_spice_value'):
+                    spice_value = comp.get_spice_value()
+                else:
+                    spice_value = comp.value
+                lines.append(f"{comp_id} {' '.join(nodes)} {spice_value}")
+            elif comp.component_type == 'Op-Amp':
+                # Map terminals to subcircuit nodes: inp, inn, out
+                # Terminal 1 is non-inverting (inp), 0 is inverting (inn), 2 is output (out)
+                opamp_nodes = [nodes[1], nodes[0], nodes[2]]
+                lines.append(f"X{comp_id} {' '.join(opamp_nodes)} OPAMP_IDEAL")
         
         # Add comments about labeled nodes
         if node_labels:
@@ -108,14 +130,14 @@ class NetlistGenerator:
         lines.append(".option TNOM=27")
         
         # Add analysis command
-        lines.extend(self._generate_analysis_commands(node_labels))
+        lines.extend(self._generate_analysis_commands(node_labels, node_map))
         
         lines.append("")
         lines.append(".end")
         
         return "\n".join(lines)
     
-    def _generate_analysis_commands(self, node_labels):
+    def _generate_analysis_commands(self, node_labels, node_map):
         """Generate analysis-specific SPICE commands"""
         lines = ["", "* Analysis Command"]
 
@@ -148,7 +170,9 @@ class NetlistGenerator:
         lines.append("")
         lines.append("* Control block for batch execution")
         lines.append(".control")
-        lines.append("run")
+        lines.append("run")  # Run first to populate vectors
+        lines.append("")
+        lines.append("* Calculate voltage drops for all resistors")
 
         # Generate appropriate print/plot commands based on analysis type
         if node_labels:
@@ -156,8 +180,68 @@ class NetlistGenerator:
             pass
         else:
             print_vars = "all"
+        # Define variables for voltages across resistors
+        resistor_voltages_let = []
+        resistor_voltages_print = []
+        resistors = [c for c in self.components.values() if c.component_type == 'Resistor']
+        for res in resistors:
+            try:
+                node1_num = node_map.get((res.component_id, 0))
+                node2_num = node_map.get((res.component_id, 1))
 
-        lines.append(f"print {print_vars}")
+                if node1_num is not None and node2_num is not None:
+                    node1_str = node_labels.get(node1_num, str(node1_num))
+                    node2_str = node_labels.get(node2_num, str(node2_num))
+                    
+                    # Standardize to lowercase for easier parsing, e.g., v_r1
+                    alias = f"v_{res.component_id.lower()}"
+                    
+                    if node1_num == 0:  # Connected to ground
+                        let_expression = f"-v({node2_str})"
+                    elif node2_num == 0:  # Connected to ground
+                        let_expression = f"v({node1_str})"
+                    else:
+                        let_expression = f"v({node1_str}) - v({node2_str})"
+                    
+                    resistor_voltages_let.append(f"let {alias} = {let_expression}")
+                    resistor_voltages_print.append(alias)
+            except Exception as e:
+                # This may be too noisy, but it's useful for debugging
+                print(f"Warning: Could not create voltage calculation for {res.component_id}: {e}")
+        
+        if resistor_voltages_let:
+            lines.extend(resistor_voltages_let)
+        
+        lines.append("")
+        lines.append("* Print to stdout (for parser)")
+        
+        # Generate appropriate print commands, excluding ground node 0.
+        nodes_to_print = set(node_map.values())
+        nodes_to_print.discard(0)
+        labeled_nodes_to_print = {num: label for num, label in node_labels.items() if num != 0}
+
+        all_print_vars = []
+        if labeled_nodes_to_print:
+            all_print_vars.extend([f"v({label})" for label in sorted(labeled_nodes_to_print.values())])
+        elif nodes_to_print:
+            all_print_vars.extend([f"v({node})" for node in sorted(list(nodes_to_print))])
+        
+        # Add resistor voltages to the print list
+        all_print_vars.extend(resistor_voltages_print)
+        
+        print_vars = " ".join(all_print_vars)
+        
+        if print_vars:
+            lines.append(f"print {print_vars}")
+        
+        lines.append("")
+        lines.append("* Save to file (for backup)")
+        lines.append("set wr_vecnames")
+        lines.append("set wr_singlescale")
+        
+        if print_vars:
+            lines.append(f"wrdata transient_data.txt {print_vars}")
+            
         lines.append(".endc")
 
         return lines

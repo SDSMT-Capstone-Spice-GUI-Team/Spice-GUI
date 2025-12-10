@@ -152,49 +152,86 @@ class ResultParser:
             return None
 
     @staticmethod
-    def parse_transient_results(output):
-        """Parse transient analysis results"""
+    def parse_transient_results(filepath):
+        """
+        Parses a wrdata output file from ngspice, which has a clean,
+        whitespace-delimited format.
+        """
         try:
-            lines = output.split('\n')
-            tran_data = {'time': [], 'voltages': {}}
-
-            # Look for transient data
-            # Format: "Index   time   v(node1)   v(node2) ..."
-            header_found = False
+            with open(filepath, 'r') as f:
+                lines = f.readlines()
+            
+            if not lines:
+                return None
+            
+            # First line contains whitespace-separated headers
+            raw_headers = lines[0].strip().split()
             headers = []
+            for h in raw_headers:
+                # Sanitize headers: v(node) -> node, i(branch) -> i_branch
+                sanitized_h = re.sub(r'^v\((.*?)\)$', r'\1', h, flags=re.IGNORECASE)
+                sanitized_h = re.sub(r'^i\((.*?)\)$', r'i_\1', sanitized_h, flags=re.IGNORECASE)
+                headers.append(sanitized_h)
 
-            for i, line in enumerate(lines):
-                # Look for time-based headers
-                if 'time' in line.lower() and ('v(' in line.lower() or 'index' in line.lower()):
-                    headers = line.split()
-                    header_found = True
-                    tran_data['headers'] = headers
-                    # Initialize voltage arrays for each node
-                    for header in headers[2:]:  # Skip index and time
-                        if 'v(' in header.lower():
-                            node = header.replace('v(', '').replace(')', '')
-                            tran_data['voltages'][node] = []
-                    continue
-
-                # Parse data rows
-                if header_found and line.strip():
-                    parts = line.strip().split()
-                    if len(parts) >= 2:
-                        try:
-                            # Second column is time (first is index)
-                            time = float(parts[1]) if len(parts) > 1 else float(parts[0])
-                            tran_data['time'].append(time)
-
-                            # Parse voltages for each node
-                            for j, header in enumerate(headers[2:], start=2):
-                                if j < len(parts) and 'v(' in header.lower():
-                                    node = header.replace('v(', '').replace(')', '')
-                                    tran_data['voltages'][node].append(float(parts[j]))
-                        except (ValueError, IndexError):
-                            continue
-
-            return tran_data if tran_data['time'] else None
-
-        except Exception as e:
-            # print(f"Error parsing transient results: {e}")
+            results = []
+            # Data starts from the second line
+            for line in lines[1:]:
+                parts = line.strip().split()
+                if len(parts) == len(headers):
+                    try:
+                        row_data = {headers[i]: float(parts[i]) for i in range(len(parts))}
+                        results.append(row_data)
+                    except (ValueError, IndexError):
+                        continue
+            
+            return results if results else None
+        except FileNotFoundError:
+            print(f"Error: wrdata file not found at {filepath}")
             return None
+        except Exception as e:
+            print(f"Error parsing wrdata file: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    @staticmethod
+    def format_results_as_table(results):
+        """
+        Format a list of dictionaries into a string table.
+
+        Args:
+            results (list of dict): The parsed data from parse_transient_results.
+
+        Returns:
+            str: A formatted string representing the data in a table.
+        """
+        if not results:
+            return "No data to display."
+
+        headers = list(results[0].keys())
+        
+        # Define column widths, with a minimum
+        col_widths = {h: max(len(h), 12) for h in headers}
+        for row in results:
+            for h in headers:
+                # Pad for floating point representation
+                col_widths[h] = max(col_widths[h], len(f"{row[h]:<12.5e}"))
+
+        # Header string
+        header_str_list = []
+        for h in headers:
+            header_str_list.append(f"{h:<{col_widths[h]}}")
+        header_str = " | ".join(header_str_list)
+
+        # Separator
+        separator = "-" * len(header_str)
+
+        # Data rows
+        data_rows = []
+        for row in results:
+            row_list = []
+            for h in headers:
+                row_list.append(f"{row[h]:<{col_widths[h]}.5e}")
+            data_rows.append(" | ".join(row_list))
+        
+        return f"{header_str}\n{separator}\n" + "\n".join(data_rows)

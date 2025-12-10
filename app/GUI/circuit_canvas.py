@@ -15,7 +15,9 @@ COMPONENTS = {
     'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
     'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
     'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
+    'Waveform Source': {'symbol': 'VW', 'terminals': 2, 'color': '#E91E63'},
     'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
+    'Op-Amp': {'symbol': 'OA', 'terminals': 5, 'color': '#FFC107'},
 }
 
 GRID_SIZE = 10
@@ -26,6 +28,11 @@ class CircuitCanvas(QGraphicsView):
     # Signals for component and wire operations
     componentAdded = pyqtSignal(str)  # component_id
     wireAdded = pyqtSignal(str, str)  # start_comp_id, end_comp_id
+    selectionChanged = pyqtSignal(object)  # selected component (or None)
+    componentRightClicked = pyqtSignal(object, object)  # component, global position
+    canvasClicked = pyqtSignal()
+    
+    
     
     def __init__(self):
         super().__init__()
@@ -46,7 +53,7 @@ class CircuitCanvas(QGraphicsView):
         self.wires = []  # All wires (for backward compatibility)
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
+        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'VW': 0, 'GND': 0, 'OA': 0}
 
         # Multi-algorithm layer management
         self.layer_manager = AlgorithmLayerManager()
@@ -72,6 +79,9 @@ class CircuitCanvas(QGraphicsView):
         self.setMouseTracking(True)  # Enable mouse tracking for wire preview
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+
+        # Connect scene selection changes to our signal
+        self.scene.selectionChanged.connect(self.on_selection_changed)
 
     # unsuccessful attempt to get rid of red squiggles
     # def views(self) -> list | None:
@@ -204,12 +214,13 @@ class CircuitCanvas(QGraphicsView):
         if event is None:
             return
         
+        clicked_terminal = None  # Initialize here
+        
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.position().toPoint()
             scene_pos = self.mapToScene(pos)
             
             # Check all components for terminal proximity
-            clicked_terminal = None
             clicked_component = None
             clicked_term_index = None
             
@@ -309,15 +320,21 @@ class CircuitCanvas(QGraphicsView):
                     # Don't accept - let event propagate for other handling
             
             # If we're in wire drawing mode but clicked elsewhere, cancel it
-            if self.wire_start_comp is not None:
+            elif self.wire_start_comp is not None:
                 if self.temp_wire_line:
                     self.scene.removeItem(self.temp_wire_line)
                     self.temp_wire_line = None
                 self.wire_start_comp = None
                 self.wire_start_term = None
-                # Wire canceled, allow normal behavior
-                # Don't accept - let event propagate
-        
+
+            # If we didn't click a terminal, check if we clicked an empty area
+            else:
+                item = self.itemAt(event.position().toPoint())
+                if item is None:
+                    self.canvasClicked.emit()
+                    # Clear scene selection when clicking on background
+                    self.scene.clearSelection()
+
         # Normal selection/movement behavior
         super().mousePressEvent(event)
     
@@ -364,8 +381,13 @@ class CircuitCanvas(QGraphicsView):
             super().keyPressEvent(event)
     
     def show_context_menu(self, position):
-        """Show context menu for delete operations"""
+        """Show context menu for delete operations and component properties"""
         item = self.itemAt(position)
+        
+        # If a component is right-clicked, emit a signal to show properties
+        if isinstance(item, ComponentItem):
+            self.componentRightClicked.emit(item, self.mapToGlobal(position))
+        
         scene_pos = self.mapToScene(position)
         
         menu = QMenu()
@@ -384,6 +406,24 @@ class CircuitCanvas(QGraphicsView):
             rotate_ccw_action = QAction("Rotate Counter-Clockwise (Shift+R)", self)
             rotate_ccw_action.triggered.connect(lambda: self.rotate_component(item, False))
             menu.addAction(rotate_ccw_action)
+            
+    def edit_component_value(self, item):
+        """Open a dialog to edit a component's value."""
+        if not isinstance(item, ComponentItem):
+            return
+
+        current_value = item.value
+        text, ok = QInputDialog.getText(
+            self,
+            f"Edit Value for {item.component_id}",
+            "Enter new value (e.g., 10k, 1u, 5V):",
+            QLineEdit.EchoMode.Normal,
+            current_value
+        )
+
+        if ok and text:
+            item.value = text
+            item.update()
             
         elif isinstance(item, WireItem):
             delete_action = QAction("Delete Wire", self)
@@ -487,9 +527,22 @@ class CircuitCanvas(QGraphicsView):
         """Rotate all selected components"""
         selected_items = self.scene.selectedItems()
         components = [item for item in selected_items if isinstance(item, ComponentItem)]
-        
+
         for comp in components:
             self.rotate_component(comp, clockwise)
+
+    def on_selection_changed(self):
+        """Handle selection changes in the scene"""
+        selected_items = self.scene.selectedItems()
+
+        # Filter for component items only
+        components = [item for item in selected_items if isinstance(item, ComponentItem)]
+
+        # Emit signal with the first selected component (or None if no selection)
+        if components:
+            self.selectionChanged.emit(components[0])
+        else:
+            self.selectionChanged.emit(None)
     
     def drawForeground(self, painter, rect):
         """Draw node labels and voltages on top of everything"""
@@ -592,16 +645,7 @@ class CircuitCanvas(QGraphicsView):
     
     def is_terminal_available(self, component, terminal_index):
         """Check if a component's terminal is available for connection"""
-        if component.component_type == 'Ground':
-            return True
-        
-        connection_count = 0
-        for wire in self.wires:
-            if (wire.start_comp == component and wire.start_term == terminal_index) or \
-               (wire.end_comp == component and wire.end_term == terminal_index):
-                connection_count += 1
-        
-        return connection_count == 0
+        return True
     
     def handle_ground_added(self, ground_comp):
         """Handle adding a ground component"""
@@ -720,7 +764,7 @@ class CircuitCanvas(QGraphicsView):
         self.wires = []
         self.nodes = []
         self.terminal_to_node = {}
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0}
+        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0, 'OA': 0}
         Node._node_counter = 0
         self.layer_manager.clear_all_wires()
 

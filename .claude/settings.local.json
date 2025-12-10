@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Spice_GUI_envScriptspython.exe app/main.py)",
+      "Bash(dir:*)",
+      "Bash(./Spice_GUI_env/Scripts/python.exe:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
