@@ -1,0 +1,33 @@
+My Test Circuit
+* Generated netlist
+
+R1 nodeA nodeB 1k
+R2 nodeB 0 1k
+V1 0 nodeA DC 1u
+R3 nodeC 0 1k
+R4 nodeD nodeC 1k
+V2 nodeD 0 DC 1u
+
+* Labeled Nodes:
+* Node 0 = 0
+* Node 1 = nodeA
+* Node 2 = nodeB
+* Node 4 = nodeC
+* Node 5 = nodeD
+
+* Simulation Options
+.option TEMP=27
+.option TNOM=27
+
+* Analysis Command
+.op
+
+* Control block for batch execution
+.control
+set wr_vecnames  * Ensure header is printed for table
+run
+print v(nodeA) v(nodeB) v(nodeC) v(nodeD)
+wrdata transient_data.txt v(nodeA) v(nodeB) v(nodeC) v(nodeD)
+.endc
+
+.end
