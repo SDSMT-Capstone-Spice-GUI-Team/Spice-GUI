@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
-                             QFormLayout, QGroupBox, QPushButton, QComboBox)
+                             QFormLayout, QGroupBox, QPushButton)
+# from PyQt6.QtWidgets import QComboBox  # TODO: cleanup - unused
 from PyQt6.QtCore import Qt, pyqtSignal
 from .waveform_dialog import WaveformDialog
 from .styles import theme_manager

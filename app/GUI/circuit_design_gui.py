@@ -3,7 +3,8 @@ import json
 import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
-                             QSplitter, QLabel, QDialog, QStackedWidget, QSizePolicy)
+                             QSplitter, QLabel, QDialog, QStackedWidget)
+# from PyQt6.QtWidgets import QSizePolicy  # TODO: cleanup - unused
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtCore import Qt
 from .component_palette import ComponentPalette
@@ -679,7 +680,7 @@ class CircuitDesignGUI(QMainWindow):
 
         elif property_name == 'rotation':
             # Update component rotation
-            old_rotation = component.rotation_angle
+            # old_rotation = component.rotation_angle  # TODO: cleanup - unused
             component.rotation_angle = new_value
             component.update_terminals()
             component.update()

@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit
 from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer
-from PyQt6.QtGui import QPen, QBrush, QColor, QPainterPath
+from PyQt6.QtGui import QPen, QBrush, QColor  # QPainterPath imported locally where needed
 import math
 from .styles import GRID_SIZE, theme_manager
 

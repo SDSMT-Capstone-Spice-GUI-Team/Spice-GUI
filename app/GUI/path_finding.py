@@ -10,7 +10,7 @@ Multiple pathfinding algorithms for grid-aligned wire routing in circuit schemat
 import heapq
 import time
 from abc import ABC, abstractmethod
-from typing import Set, Tuple
+from typing import Dict, List, Set, Tuple
 from PyQt6.QtCore import QPointF
 import numpy as np
 
@@ -53,7 +53,7 @@ class WeightedPathfinder(ABC):
 
     @abstractmethod
     def find_path(self, start_pos, end_pos, obstacles, bounds=(-500, -500, 1000, 1000),
-                  algorithm='astar', existing_wires=None, current_net=None):
+                  algorithm='astar', existing_wires=None, current_net=None) -> Tuple[List[Tuple[int,int]], float, int]:
         """
         Find path from start_pos to end_pos avoiding obstacles.
 
@@ -76,7 +76,7 @@ class WeightedPathfinder(ABC):
 
     @abstractmethod
     def _calculate_edge_cost(self, current, neighbor, direction, bend_count,
-                            existing_wires=None, current_net=None):
+                            existing_wires=None, current_net=None) -> int:
         """
         Calculate the cost of traversing an edge in the grid.
 
@@ -105,7 +105,7 @@ class WeightedPathfinder(ABC):
         """
         return QPointF(grid_coord[0] * self.grid_size, grid_coord[1] * self.grid_size)
 
-    def _pos_to_grid(self, pos):
+    def _pos_to_grid(self, pos)-> Tuple[int,int]:
         """
         Convert scene position to grid coordinates.
 
@@ -271,7 +271,7 @@ class AStarPathfinder(WeightedPathfinder):
         came_from = {}
         g_score = {start_grid: 0}
         f_score = {start_grid: self._heuristic(start_grid, end_grid)}
-        direction_map = {start_grid: None}  # Track direction for bend penalty
+        direction_map: Dict[tuple[int, int], tuple[int, int]|None] = {start_grid: None}  # Track direction for bend penalty
         bend_count = {start_grid: 0}  # Track number of bends
 
         min_x, min_y, width, height = bounds
@@ -767,18 +767,16 @@ def polygon_to_grid_filled(polygon_points, position, rotation_angle, grid_size, 
                     obstacles.add((grid_x_start, grid_y))
                 if (grid_x_end, grid_y) not in active_terminal_positions:
                     obstacles.add((grid_x_end, grid_y))
-    # Debug: Print summary
-    if obstacles:
-        min_gx = min(x for x, _ in obstacles)
-        max_gx = max(x for x, _ in obstacles)
-        min_gy = min(y for _, y in obstacles)
-        max_gy = max(y for _, y in obstacles)
-        # print(f"polygon to grid filled obstacles: {obstacles}")
-        # print(f"  Grid range: X=[{min_gx}, {max_gx}], Y=[{min_gy}, {max_gy}], Total: {len(obstacles)} cells")
-        pass
-    else:
-        # print("polygon to grid filled obstacles: EMPTY!")
-        pass
+    # Debug: Print summary - TODO: cleanup - debug code commented out
+    # if obstacles:
+    #     min_gx = min(x for x, _ in obstacles)
+    #     max_gx = max(x for x, _ in obstacles)
+    #     min_gy = min(y for _, y in obstacles)
+    #     max_gy = max(y for _, y in obstacles)
+    #     print(f"polygon to grid filled obstacles: {obstacles}")
+    #     print(f"  Grid range: X=[{min_gx}, {max_gx}], Y=[{min_gy}, {max_gy}], Total: {len(obstacles)} cells")
+    # else:
+    #     print("polygon to grid filled obstacles: EMPTY!")
     return obstacles
 
 
@@ -800,8 +798,8 @@ def polygon_to_grid_frame(polygon_points, position, rotation_angle, grid_size, i
     """
     import math
 
-    # if active_terminal_positions is None:
-    #     active_terminal_positions = set()
+    if active_terminal_positions is None:
+        active_terminal_positions = set()
 
     obstacles: Set[Tuple[int,int]] = set()
 
@@ -972,7 +970,7 @@ def get_component_obstacles(components, grid_size=20, padding=2, exclude_ids=Non
         #     continue
 
         # Get component bounding box
-        rect = comp.boundingRect()
+        # rect = comp.boundingRect()  # TODO: cleanup - unused
         pos = comp.pos()
 
         # Get all terminal positions and identify which are active

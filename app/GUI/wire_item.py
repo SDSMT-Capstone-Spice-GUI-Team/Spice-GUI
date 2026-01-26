@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import QGraphicsPathItem
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPen, QPainterPath, QColor
-from .path_finding import AStarPathfinder, IDAStarPathfinder, get_component_obstacles
+from .path_finding import IDAStarPathfinder, get_component_obstacles
+# from .path_finding import AStarPathfinder  # TODO: cleanup - unused
 from .styles import GRID_SIZE, theme_manager
 
 class WireItem(QGraphicsPathItem):

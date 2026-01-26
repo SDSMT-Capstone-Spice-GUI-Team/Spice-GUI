@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QFormLayout, QLineEdit, 
     QDialogButtonBox, QComboBox, QLabel
 )
-from PyQt6.QtCore import Qt
+# from PyQt6.QtCore import Qt  # TODO: cleanup - unused
 from .format_utils import parse_value
 
 
@@ -134,7 +134,7 @@ class AnalysisDialog(QDialog):
 
             return params
 
-        except ValueError as e:
+        except ValueError:  # TODO: cleanup - 'as e' removed, exception unused
             return None
     
     def get_ngspice_command(self):

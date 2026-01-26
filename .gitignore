@@ -222,4 +222,4 @@ simulation_output/
 
 # python virtual environment
 Spice_GUI_env/
-.claude/
+.claude/*

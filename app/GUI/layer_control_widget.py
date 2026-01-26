@@ -7,7 +7,7 @@ Widget for controlling algorithm layer visibility and displaying performance met
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QCheckBox,
                               QLabel, QPushButton, QGroupBox, QTextEdit)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPalette
+from PyQt6.QtGui import QPalette  # QColor unused, removed  # TODO: cleanup - verify
 from .styles import theme_manager
 
 
@@ -206,9 +206,10 @@ class CompactLayerControlWidget(QWidget):
 
     def _show_metrics(self):
         """Display performance metrics in a message box or console"""
-        report = self.layer_manager.get_performance_report()
+        # report = self.layer_manager.get_performance_report()  # TODO: cleanup - unused
         # print("\n" + report + "\n")
         # Could also show in a dialog if preferred
+        pass
 
     def set_layer_visibility(self, algorithm_type, visible):
         """Programmatically set layer visibility"""
