@@ -12,7 +12,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Dict, List, Set, Tuple
 from PyQt6.QtCore import QPointF
-import numpy as np
+# import numpy as np  # Removed - only used for float('inf'), replaced with float('inf')
 
 
 class WeightedPathfinder(ABC):
@@ -43,8 +43,8 @@ class WeightedPathfinder(ABC):
         self.bend_penalty_base = 2  # Exponential base for bend penalties (2^n)
         self.crossing_penalty = 20  # Penalty for crossing different nets
         self.same_net_cost = 0.1  # Low cost for same-net bundling
-        self.body_crossing_penalty = np.inf  # Component body crossing (blocked)
-        self.non_net_crossing_penalty = np.inf  # Non-net terminal crossing (blocked)
+        self.body_crossing_penalty = float('inf')  # Component body crossing (blocked)
+        self.non_net_crossing_penalty = float('inf')  # Non-net terminal crossing (blocked)
 
         # Performance tracking
         self.last_runtime = 0

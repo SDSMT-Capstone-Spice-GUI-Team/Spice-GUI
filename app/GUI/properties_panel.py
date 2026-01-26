@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
                              QFormLayout, QGroupBox, QPushButton)
 # from PyQt6.QtWidgets import QComboBox  # TODO: cleanup - unused
 from PyQt6.QtCore import Qt, pyqtSignal
-from .waveform_dialog import WaveformDialog
+# waveform_dialog imported lazily in configure_waveform() for faster startup
 from .styles import theme_manager
 
 
@@ -140,6 +140,7 @@ class PropertiesPanel(QWidget):
         if self.current_component.component_type != 'Waveform Source':
             return
 
+        from .waveform_dialog import WaveformDialog
         dialog = WaveformDialog(self.current_component, self)
         if dialog.exec():
             # Get configured parameters

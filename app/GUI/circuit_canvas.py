@@ -52,9 +52,9 @@ class CircuitCanvas(QGraphicsView):
         # Debug visualization
         self.show_obstacle_boundaries = False  # Toggle for showing obstacle boundaries
         self.obstacle_boundary_items = []  # Store obstacle boundary graphics items
-        
-        # Drawing grid
-        self.draw_grid()
+
+        # Grid drawing deferred to first show for faster startup
+        self._grid_drawn = False
         
         # Wire drawing mode
         self.wire_start_comp = None
@@ -68,6 +68,13 @@ class CircuitCanvas(QGraphicsView):
 
         # Connect scene selection changes to our signal
         self.scene.selectionChanged.connect(self.on_selection_changed)
+
+    def showEvent(self, event):
+        """Draw grid on first show for faster startup"""
+        super().showEvent(event)
+        if not self._grid_drawn:
+            self.draw_grid()
+            self._grid_drawn = True
 
     # unsuccessful attempt to get rid of red squiggles
     # def views(self) -> list | None:

@@ -1,8 +1,7 @@
 from PyQt6.QtWidgets import QGraphicsPathItem
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPen, QPainterPath, QColor
-from .path_finding import IDAStarPathfinder, get_component_obstacles
-# from .path_finding import AStarPathfinder  # TODO: cleanup - unused
+# path_finding imported lazily in update_position() for faster startup
 from .styles import GRID_SIZE, theme_manager
 
 class WireItem(QGraphicsPathItem):
@@ -31,6 +30,9 @@ class WireItem(QGraphicsPathItem):
     
     def update_position(self):
         """Update wire path using selected algorithm"""
+        # Lazy import for faster startup - only loaded when wires are created
+        from .path_finding import IDAStarPathfinder, get_component_obstacles
+
         # Get old bounding rect for invalidation
         old_rect = self.boundingRect()
 

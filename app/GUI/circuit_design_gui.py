@@ -1,4 +1,4 @@
-from simulation import NetlistGenerator, NgspiceRunner, ResultParser
+# simulation module imported lazily in methods that need it for faster startup
 import json
 import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -31,14 +31,22 @@ class CircuitDesignGUI(QMainWindow):
         self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
 
-        # Initialize ngspice runner
-        self.ngspice_runner = NgspiceRunner()
+        # NgspiceRunner initialized lazily on first use
+        self._ngspice_runner = None
 
         self.init_ui()
         self.create_menu_bar()
         
         # ADD THIS LINE to load the last session when the app starts
         self._load_last_session()
+
+    @property
+    def ngspice_runner(self):
+        """Lazy initialization of NgspiceRunner for faster startup"""
+        if self._ngspice_runner is None:
+            from simulation import NgspiceRunner
+            self._ngspice_runner = NgspiceRunner()
+        return self._ngspice_runner
 
     def _save_session(self, file_path):
         """Saves the absolute path of the current file to disk."""
@@ -460,6 +468,7 @@ class CircuitDesignGUI(QMainWindow):
 
     def create_netlist(self):
         '''Create SPICE netlist from circuit'''
+        from simulation import NetlistGenerator
         generator = NetlistGenerator(
             components=self.canvas.components,
             wires=self.canvas.wires,
@@ -520,6 +529,7 @@ class CircuitDesignGUI(QMainWindow):
 
     def _display_formatted_results(self, output, filepath, is_wrdata=False):
         """Format and display simulation results based on analysis type"""
+        from simulation import ResultParser
         self.results_text.setPlainText("\n" + "=" * 70 + "")
         self.results_text.append(f"SIMULATION COMPLETE - {self.analysis_type}")
         self.results_text.append("=" * 70 + "")
