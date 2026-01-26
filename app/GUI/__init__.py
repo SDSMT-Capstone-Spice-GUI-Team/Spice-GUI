@@ -8,17 +8,8 @@ from .component_palette import ComponentPalette
 from .path_finding import AStarPathfinder, IDAStarPathfinder, get_component_obstacles, get_wire_obstacles
 from .wire_item import WireItem
 
-# Component definitions
-COMPONENTS = {
-    'Resistor': {'symbol': 'R', 'terminals': 2, 'color': '#2196F3'},
-    'Capacitor': {'symbol': 'C', 'terminals': 2, 'color': '#4CAF50'},
-    'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
-    'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
-    'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
-    'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
-}
-
-GRID_SIZE = 10
+# Re-export from centralized styles module
+from .styles import GRID_SIZE, COMPONENTS, DEFAULT_COMPONENT_COUNTER, theme_manager
 
 __all__ = [
     'AnalysisDialog',
@@ -35,4 +26,6 @@ __all__ = [
     'WireItem',
     'GRID_SIZE',
     'COMPONENTS',
+    'DEFAULT_COMPONENT_COUNTER',
+    'theme_manager',
 ]

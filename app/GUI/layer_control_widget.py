@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QCheckBox,
                               QLabel, QPushButton, QGroupBox, QTextEdit)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPalette
+from .styles import theme_manager
 
 
 class LayerControlWidget(QWidget):
@@ -40,7 +41,7 @@ class LayerControlWidget(QWidget):
 
         # Title
         title = QLabel("Algorithm Layers")
-        title.setStyleSheet("font-weight: bold; font-size: 12pt;")
+        title.setStyleSheet(theme_manager.stylesheet('title_bold'))
         layout.addWidget(title)
 
         # Layer checkboxes group
@@ -94,7 +95,7 @@ class LayerControlWidget(QWidget):
         self.metrics_text = QTextEdit()
         self.metrics_text.setReadOnly(True)
         self.metrics_text.setMaximumHeight(150)
-        self.metrics_text.setStyleSheet("font-family: monospace; font-size: 9pt;")
+        self.metrics_text.setStyleSheet(theme_manager.stylesheet('metrics_text'))
         metrics_layout.addWidget(self.metrics_text)
 
         refresh_btn = QPushButton("Refresh Metrics")

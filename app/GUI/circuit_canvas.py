@@ -1,26 +1,12 @@
 from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsLineItem,
                              QMenu, QLineEdit, QInputDialog, QGraphicsTextItem)
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal
-from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QAction, QFont
+from PyQt6.QtGui import QBrush, QPainter, QAction
 from .component_item import ComponentItem, create_component
 from .wire_item import WireItem
 from .circuit_node import Node
 from .algorithm_layers import AlgorithmLayerManager
-
-# from . import GRID_SIZE, COMPONENTS
-# Component definitions
-COMPONENTS = {
-    'Resistor': {'symbol': 'R', 'terminals': 2, 'color': '#2196F3'},
-    'Capacitor': {'symbol': 'C', 'terminals': 2, 'color': '#4CAF50'},
-    'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
-    'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
-    'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
-    'Waveform Source': {'symbol': 'VW', 'terminals': 2, 'color': '#E91E63'},
-    'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
-    'Op-Amp': {'symbol': 'OA', 'terminals': 5, 'color': '#FFC107'},
-}
-
-GRID_SIZE = 10
+from .styles import GRID_SIZE, COMPONENTS, DEFAULT_COMPONENT_COUNTER, theme_manager
 
 class CircuitCanvas(QGraphicsView):
     """Main circuit drawing canvas"""
@@ -53,7 +39,7 @@ class CircuitCanvas(QGraphicsView):
         self.wires = []  # All wires (for backward compatibility)
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'VW': 0, 'GND': 0, 'OA': 0}
+        self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
 
         # Multi-algorithm layer management
         self.layer_manager = AlgorithmLayerManager()
@@ -93,13 +79,11 @@ class CircuitCanvas(QGraphicsView):
         if self.scene is None:
             return
 
-        # Minor grid lines (lighter color)
-        minor_pen = QPen(QColor(200, 200, 200), 0.5)
-        minor_pen.setCosmetic(True)  # Ensure grid doesn't scale with zoom
-
-        # Major grid lines (darker color, every 100 units)
-        major_pen = QPen(QColor(150, 150, 150), 1.0)
-        major_pen.setCosmetic(True)
+        # Grid pens from theme
+        minor_pen = theme_manager.pen('grid_minor')
+        major_pen = theme_manager.pen('grid_major')
+        grid_label_color = theme_manager.color('grid_label')
+        grid_label_font = theme_manager.font('grid_label')
 
         # Draw vertical lines
         for x in range(-500, 501, GRID_SIZE):
@@ -110,10 +94,8 @@ class CircuitCanvas(QGraphicsView):
             # Add label for major grid lines
             if is_major:
                 label = QGraphicsTextItem(str(x))
-                label.setDefaultTextColor(QColor(100, 100, 100))
-                font = QFont()
-                font.setPointSize(8)
-                label.setFont(font)
+                label.setDefaultTextColor(grid_label_color)
+                label.setFont(grid_label_font)
                 label.setPos(x - 15, -500)  # Position at top
                 label.setZValue(-1)  # Draw behind components
                 self.scene.addItem(label)
@@ -127,10 +109,8 @@ class CircuitCanvas(QGraphicsView):
             # Add label for major grid lines
             if is_major:
                 label = QGraphicsTextItem(str(y))
-                label.setDefaultTextColor(QColor(100, 100, 100))
-                font = QFont()
-                font.setPointSize(8)
-                label.setFont(font)
+                label.setDefaultTextColor(grid_label_color)
+                label.setFont(grid_label_font)
                 label.setPos(-500, y - 10)  # Position at left
                 label.setZValue(-1)  # Draw behind components
                 self.scene.addItem(label)
@@ -187,6 +167,8 @@ class CircuitCanvas(QGraphicsView):
         if component_type in COMPONENTS:
             # Create new component
             symbol = COMPONENTS[component_type]['symbol']
+            if symbol not in self.component_counter.keys():
+                self.component_counter[symbol] = 0
             self.component_counter[symbol] += 1
             comp_id = f"{symbol}{self.component_counter[symbol]}"
             
@@ -247,11 +229,9 @@ class CircuitCanvas(QGraphicsView):
                     if self.wire_start_comp:
                         # Create temporary wire line for visual feedback
                         start_pos = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
-                        self.temp_wire_line = QGraphicsLineItem(start_pos.x(), start_pos.y(), 
+                        self.temp_wire_line = QGraphicsLineItem(start_pos.x(), start_pos.y(),
                                                                  start_pos.x(), start_pos.y())
-                        pen = QPen(Qt.GlobalColor.blue, 3)
-                        pen.setStyle(Qt.PenStyle.DashLine)
-                        self.temp_wire_line.setPen(pen)
+                        self.temp_wire_line.setPen(theme_manager.pen('wire_preview'))
                         self.temp_wire_line.setZValue(100)  # Draw on top
                         self.scene.addItem(self.temp_wire_line)
                         
@@ -548,35 +528,31 @@ class CircuitCanvas(QGraphicsView):
         """Draw node labels and voltages on top of everything"""
         if painter is None:
             return
-        
-        painter.setPen(QPen(QColor(255, 0, 255), 1))
-        painter.setBrush(QBrush(QColor(255, 255, 255, 200)))
-        
-        font = painter.font()
-        font.setPointSize(10)
-        font.setBold(True)
-        painter.setFont(font)
-        
+
+        painter.setPen(theme_manager.pen('node_label_outline'))
+        painter.setBrush(theme_manager.brush('node_label_bg'))
+        painter.setFont(theme_manager.font('node_label'))
+
         for node in self.nodes:
             pos = node.get_position(self.components)
             if pos:
                 label = node.get_label()
-                
+
                 display_text = label
                 if self.show_node_voltages and label in self.node_voltages:
                     voltage = self.node_voltages[label]
                     display_text = f"{label}\n{voltage:.3f}V"
-                
+
                 metrics = painter.fontMetrics()
                 lines = display_text.split('\n')
                 max_width = max(metrics.horizontalAdvance(line) for line in lines)
                 text_height = metrics.height() * len(lines)
-                
+
                 label_rect = QRectF(pos.x() - max_width/2 - 2, pos.y() - text_height - 2,
                                    max_width + 4, text_height + 4)
                 painter.drawRect(label_rect)
-                
-                painter.setPen(QPen(QColor(255, 0, 255)))
+
+                painter.setPen(theme_manager.pen('node_label_outline'))
                 y_offset = int(pos.y() - 4)
                 for line in lines:
                     text_width = metrics.horizontalAdvance(line)
@@ -764,7 +740,7 @@ class CircuitCanvas(QGraphicsView):
         self.wires = []
         self.nodes = []
         self.terminal_to_node = {}
-        self.component_counter = {'R': 0, 'C': 0, 'L': 0, 'V': 0, 'I': 0, 'GND': 0, 'OA': 0}
+        self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
         Node._node_counter = 0
         self.layer_manager.clear_all_wires()
 
@@ -891,52 +867,49 @@ class CircuitCanvas(QGraphicsView):
                 return transformed
 
             # Draw full shape (red - connected components)
+            obstacle_full_pen = theme_manager.pen('obstacle_full')
             full_points = transform_polygon(polygon_points, inset_distance=0)
             for i in range(len(full_points)):
                 p1 = full_points[i]
                 p2 = full_points[(i + 1) % len(full_points)]
-                line = self.scene.addLine(
-                    p1[0], p1[1], p2[0], p2[1],
-                    QPen(QColor(255, 100, 100, 200), 3, Qt.PenStyle.SolidLine)
-                )
+                line = self.scene.addLine(p1[0], p1[1], p2[0], p2[1], obstacle_full_pen)
                 line.setZValue(50)
                 self.obstacle_boundary_items.append(line)
 
             # Draw inset shape (blue - non-connected components)
+            obstacle_inset_pen = theme_manager.pen('obstacle_inset')
             inset_pixels = 1.5 * GRID_SIZE
             inset_points = transform_polygon(polygon_points, inset_distance=inset_pixels)
             for i in range(len(inset_points)):
                 p1 = inset_points[i]
                 p2 = inset_points[(i + 1) % len(inset_points)]
-                line = self.scene.addLine(
-                    p1[0], p1[1], p2[0], p2[1],
-                    QPen(QColor(100, 150, 255, 200), 2, Qt.PenStyle.DotLine)
-                )
+                line = self.scene.addLine(p1[0], p1[1], p2[0], p2[1], obstacle_inset_pen)
                 line.setZValue(50)
                 self.obstacle_boundary_items.append(line)
 
             # Draw terminal markers
+            terminal_pen = theme_manager.pen('terminal_marker')
+            terminal_brush = theme_manager.brush('terminal_fill')
             for i in range(len(comp.terminals)):
                 term_pos = comp.get_terminal_pos(i)
-                # Show all terminals with green outline
-                # Active terminals = clear corridors
-                # Non-active terminals = obstacles (infinite cost)
                 terminal_circle = self.scene.addEllipse(
                     term_pos.x() - 5, term_pos.y() - 5, 10, 10,
-                    QPen(QColor(0, 200, 0, 200), 3),
-                    QBrush(QColor(0, 255, 0, 100))
+                    terminal_pen, terminal_brush
                 )
-                terminal_circle.setZValue(100)  # Draw on top
+                terminal_circle.setZValue(100)
                 self.obstacle_boundary_items.append(terminal_circle)
 
         # Add legend
         legend_y = -480
         legend_x = -480
+        obstacle_full_color = theme_manager.color('obstacle_full')
+        obstacle_inset_color = theme_manager.color('obstacle_inset')
+        terminal_color = theme_manager.color('terminal_highlight')
 
         # Full boundary legend (red solid frame)
         full_legend_rect = self.scene.addRect(
             legend_x, legend_y, 30, 15,
-            QPen(QColor(255, 100, 100, 200), 3, Qt.PenStyle.SolidLine),
+            theme_manager.pen('obstacle_full'),
             QBrush(Qt.BrushStyle.NoBrush)
         )
         full_legend_rect.setZValue(1000)
@@ -944,14 +917,14 @@ class CircuitCanvas(QGraphicsView):
 
         full_legend_text = self.scene.addText("Custom Shape (Connected)")
         full_legend_text.setPos(legend_x + 35, legend_y - 5)
-        full_legend_text.setDefaultTextColor(QColor(255, 100, 100))
+        full_legend_text.setDefaultTextColor(obstacle_full_color)
         full_legend_text.setZValue(1000)
         self.obstacle_boundary_items.append(full_legend_text)
 
         # Inset boundary legend (blue dotted frame)
         inset_legend_rect = self.scene.addRect(
             legend_x, legend_y + 25, 30, 15,
-            QPen(QColor(100, 150, 255, 200), 2, Qt.PenStyle.DotLine),
+            theme_manager.pen('obstacle_inset'),
             QBrush(Qt.BrushStyle.NoBrush)
         )
         inset_legend_rect.setZValue(1000)
@@ -959,22 +932,22 @@ class CircuitCanvas(QGraphicsView):
 
         inset_legend_text = self.scene.addText("Custom Shape (Inset)")
         inset_legend_text.setPos(legend_x + 35, legend_y + 20)
-        inset_legend_text.setDefaultTextColor(QColor(100, 150, 255))
+        inset_legend_text.setDefaultTextColor(obstacle_inset_color)
         inset_legend_text.setZValue(1000)
         self.obstacle_boundary_items.append(inset_legend_text)
 
         # Terminal legend
         terminal_legend_circle = self.scene.addEllipse(
             legend_x + 7.5, legend_y + 52.5, 10, 10,
-            QPen(QColor(0, 200, 0, 200), 2),
-            QBrush(QColor(0, 255, 0, 100))
+            theme_manager.pen('terminal_marker'),
+            theme_manager.brush('terminal_fill')
         )
         terminal_legend_circle.setZValue(1000)
         self.obstacle_boundary_items.append(terminal_legend_circle)
 
         terminal_legend_text = self.scene.addText("Terminals (Active=Clear, Inactive=Obstacle)")
         terminal_legend_text.setPos(legend_x + 35, legend_y + 45)
-        terminal_legend_text.setDefaultTextColor(QColor(0, 200, 0))
+        terminal_legend_text.setDefaultTextColor(terminal_color)
         terminal_legend_text.setZValue(1000)
         self.obstacle_boundary_items.append(terminal_legend_text)
     

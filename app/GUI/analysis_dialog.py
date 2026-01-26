@@ -112,12 +112,7 @@ class AnalysisDialog(QDialog):
                 widget.setCurrentText(default)
             else:  # (label, key, type, default)
                 label, key, field_type, default = field_config
-                widget.addItems(default)
-                if extra:
-                    widget.setCurrentText(extra[0])
-            # commented out orphaned code to test fix
-            # else:
-            #     widget = QLineEdit(str(default))
+                widget = QLineEdit(str(default))
 
             self.field_widgets[key] = (widget, field_type)
             self.form_layout.addRow(f"{label}:", widget)

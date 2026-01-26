@@ -31,6 +31,7 @@ class NgspiceRunner:
                 r'C:\ngspice\bin\ngspice.exe',
                 r'C:\ngspice-42\Spice64\bin\ngspice.exe',
                 r"C:\Program Files\Spice64\bin\ngspice.exe",
+                r"C:\Program Files\ngspice\bin\ngspice.exe"
             ]
         elif system == "Linux":
             possible_paths = [

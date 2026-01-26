@@ -2,8 +2,7 @@ from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit
 from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer
 from PyQt6.QtGui import QPen, QBrush, QColor, QPainterPath
 import math
-
-GRID_SIZE = 10
+from .styles import GRID_SIZE, theme_manager
 
 class ComponentItem(QGraphicsItem):
     """Base class for graphical components on the canvas"""
@@ -156,35 +155,36 @@ class ComponentItem(QGraphicsItem):
     def paint(self, painter, option=None, widget=None):
         if painter is None:
             return
-        
-        color = QColor(self.COLOR)
-        
+
+        # Get component color from theme
+        color = theme_manager.get_component_color(self.component_type)
+
         # Save painter state
         painter.save()
-        
+
         # Apply rotation
         painter.rotate(self.rotation_angle)
-        
+
         # Highlight if selected
         if self.isSelected():
-            painter.setPen(QPen(Qt.GlobalColor.yellow, 3))
+            painter.setPen(theme_manager.pen('component_selected'))
             painter.drawRect(QRectF(-40, -20, 80, 40))
-        
+
         # Draw component body
         painter.setPen(QPen(color, 2))
         painter.setBrush(QBrush(color.lighter(150)))
         self.draw_component_body(painter)
-        
+
         # Draw label
         painter.setPen(QPen(Qt.GlobalColor.black))
         label = f"{self.component_id}"
         painter.drawText(-20, -25, f"{label} ({self.value})")
-        
+
         # Restore painter state
         painter.restore()
-        
+
         # Draw terminals in scene coordinates (not rotated)
-        painter.setPen(QPen(Qt.GlobalColor.red, 4))
+        painter.setPen(theme_manager.pen('terminal'))
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)
     
@@ -548,34 +548,35 @@ class Ground(ComponentItem):
     def paint(self, painter, option=None, widget=None):
         if painter is None:
             return
-        
-        color = QColor(self.COLOR)
-        
+
+        # Get component color from theme
+        color = theme_manager.get_component_color(self.component_type)
+
         # Save painter state
         painter.save()
-        
+
         # Apply rotation
         painter.rotate(self.rotation_angle)
-        
+
         # Highlight if selected
         if self.isSelected():
-            painter.setPen(QPen(Qt.GlobalColor.yellow, 3))
+            painter.setPen(theme_manager.pen('component_selected'))
             painter.drawRect(QRectF(-40, -20, 80, 40))
-        
+
         # Draw component body
         painter.setPen(QPen(color, 2))
         painter.setBrush(QBrush(color.lighter(150)))
         self.draw_component_body(painter)
-        
+
         # Draw label
         painter.setPen(QPen(Qt.GlobalColor.black))
         painter.drawText(-20, -25, "GND (0V)")
-        
+
         # Restore painter state
         painter.restore()
-        
+
         # Draw terminals in scene coordinates (not rotated)
-        painter.setPen(QPen(Qt.GlobalColor.red, 4))
+        painter.setPen(theme_manager.pen('terminal'))
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)
 

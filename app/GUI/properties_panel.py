@@ -1,8 +1,8 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
                              QFormLayout, QGroupBox, QPushButton, QComboBox)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
 from .waveform_dialog import WaveformDialog
+from .styles import theme_manager
 
 
 class PropertiesPanel(QWidget):
@@ -23,10 +23,7 @@ class PropertiesPanel(QWidget):
 
         # Title
         title = QLabel("Properties")
-        title_font = QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(10)
-        title.setFont(title_font)
+        title.setFont(theme_manager.font('panel_title'))
         layout.addWidget(title)
 
         # Properties group box
@@ -36,12 +33,12 @@ class PropertiesPanel(QWidget):
 
         # Component ID field (read-only)
         self.id_label = QLabel("-")
-        self.id_label.setStyleSheet("QLabel { color: #666; }")
+        self.id_label.setStyleSheet(theme_manager.stylesheet('muted_label'))
         self.form_layout.addRow("ID:", self.id_label)
 
         # Component Type field (read-only)
         self.type_label = QLabel("-")
-        self.type_label.setStyleSheet("QLabel { color: #666; }")
+        self.type_label.setStyleSheet(theme_manager.stylesheet('muted_label'))
         self.form_layout.addRow("Type:", self.type_label)
 
         # Value field (editable)

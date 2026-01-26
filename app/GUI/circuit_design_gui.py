@@ -11,22 +11,10 @@ from .circuit_canvas import CircuitCanvas
 from .analysis_dialog import AnalysisDialog
 from .properties_panel import PropertiesPanel
 from .waveform_dialog import WaveformDialog
-
-# Component definitions
-COMPONENTS = {
-    'Resistor': {'symbol': 'R', 'terminals': 2, 'color': '#2196F3'},
-    'Capacitor': {'symbol': 'C', 'terminals': 2, 'color': '#4CAF50'},
-    'Inductor': {'symbol': 'L', 'terminals': 2, 'color': '#FF9800'},
-    'Voltage Source': {'symbol': 'V', 'terminals': 2, 'color': '#F44336'},
-    'Current Source': {'symbol': 'I', 'terminals': 2, 'color': '#9C27B0'},
-    'Waveform Source': {'symbol': 'VW', 'terminals': 2, 'color': '#E91E63'},
-    'Ground': {'symbol': 'GND', 'terminals': 1, 'color': '#000000'},
-}
+from .styles import theme_manager
 
 # Define the session file path
 SESSION_FILE = "last_session.txt"
-
-GRID_SIZE = 10
 
 
 class CircuitDesignGUI(QMainWindow):
@@ -96,8 +84,7 @@ class CircuitDesignGUI(QMainWindow):
             "Wires auto-route using IDA* path finding!"
         )
         instructions.setWordWrap(True)
-        instructions.setStyleSheet(
-            "QLabel { background-color: #f0f0f0; padding: 10px; border-radius: 5px; }")
+        instructions.setStyleSheet(theme_manager.stylesheet('instructions_panel'))
         left_panel.addWidget(instructions)
         main_layout.addLayout(left_panel, 1)
 

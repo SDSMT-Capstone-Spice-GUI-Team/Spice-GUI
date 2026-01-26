@@ -6,6 +6,7 @@ Each algorithm gets its own layer with distinct visual appearance.
 """
 
 from PyQt6.QtGui import QColor
+from .styles import theme_manager
 
 
 class AlgorithmLayer:
@@ -102,7 +103,7 @@ class AlgorithmLayerManager:
         self.layers['astar'] = AlgorithmLayer(
             name="A*",
             algorithm_type='astar',
-            color=QColor(33, 150, 243),  # Blue
+            color=theme_manager.get_algorithm_color('astar'),
             z_value=10,
             visible=True
         )
@@ -111,7 +112,7 @@ class AlgorithmLayerManager:
         self.layers['idastar'] = AlgorithmLayer(
             name="IDA*",
             algorithm_type='idastar',
-            color=QColor(76, 175, 80),  # Green
+            color=theme_manager.get_algorithm_color('idastar'),
             z_value=9,
             visible=True
         )
@@ -120,7 +121,7 @@ class AlgorithmLayerManager:
         self.layers['dijkstra'] = AlgorithmLayer(
             name="Dijkstra",
             algorithm_type='dijkstra',
-            color=QColor(255, 152, 0),  # Orange
+            color=theme_manager.get_algorithm_color('dijkstra'),
             z_value=8,
             visible=True
         )

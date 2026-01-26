@@ -1,11 +1,8 @@
 from PyQt6.QtWidgets import QGraphicsPathItem
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPen, QPainterPath, QColor
-# from .path_finding import GridPathfinder, get_component_obstacles
 from .path_finding import AStarPathfinder, IDAStarPathfinder, get_component_obstacles
-
-# from . import GRID_SIZE
-GRID_SIZE = 10
+from .styles import GRID_SIZE, theme_manager
 
 class WireItem(QGraphicsPathItem):
     """Wire connecting components with multi-algorithm pathfinding support"""
@@ -108,8 +105,7 @@ class WireItem(QGraphicsPathItem):
 
         # Draw wire with layer color
         if self.isSelected():
-            painter.setPen(QPen(Qt.GlobalColor.yellow, 4))
-            pass
+            painter.setPen(theme_manager.pen('wire_selected'))
         else:
             painter.setPen(QPen(self.layer_color, 2))
 
