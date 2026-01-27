@@ -440,9 +440,6 @@ class CurrentSource(ComponentItem):
     def draw_component_body(self, painter):
         # Draw circle for source
         painter.drawEllipse(-15, -15, 30, 30)
-        painter.drawLine(-20, 5, -20, -5)
-        painter.drawLine(-25, 0, -15, 0)
-        painter.drawLine(15, 0, 25, 0)
         painter.drawText(-5, 5, 'I')
 
     def get_obstacle_shape(self):
