@@ -19,6 +19,9 @@ Technical architecture and design patterns used in SDM Spice.
 │  │  │   Circuit   │ │   Waveform  │ │    Analysis     ││   │
 │  │  │   Canvas    │ │    Viewer   │ │     Dialog      ││   │
 │  │  └─────────────┘ └─────────────┘ └─────────────────┘│   │
+│  │  ┌──────────────────────────────────────────────────┐│   │
+│  │  │         Styles (Theme Manager, Constants)        ││   │
+│  │  └──────────────────────────────────────────────────┘│   │
 │  └──────────────────────────────────────────────────────┘   │
 │                              │                               │
 │  ┌──────────────────────────────────────────────────────┐   │
@@ -140,6 +143,17 @@ Circuit Model (Data)          Canvas View (Presentation)
 | `waveform_dialog.py` | Result visualization |
 | `path_finding.py` | Wire routing algorithms |
 | `format_utils.py` | SI unit parsing and formatting |
+| `algorithm_layers.py` | Multi-algorithm layer management for wire comparison |
+| `layer_control_widget.py` | UI for algorithm layer visibility and metrics |
+
+### Styles Layer (`app/GUI/styles/`)
+
+| Module | Responsibility |
+|--------|----------------|
+| `__init__.py` | Exports `theme_manager`, `GRID_SIZE`, `CANVAS_SIZE` |
+| `theme_manager.py` | Singleton theme accessor with lazy initialization |
+| `light_theme.py` | Light theme colors, pens, brushes, fonts, stylesheets |
+| `constants.py` | Global constants (grid size, canvas dimensions) |
 
 ### Simulation Layer (`app/simulation/`)
 
@@ -255,6 +269,102 @@ class ComponentItem(QGraphicsItem):
         # Subclasses return SPICE netlist line
         pass
 ```
+
+## Theme Management System
+
+Centralized theming through a singleton manager:
+
+```python
+# Accessing theme resources
+from .styles import theme_manager, GRID_SIZE, CANVAS_SIZE
+
+# Get colors, pens, brushes
+color = theme_manager.color('component_body')
+pen = theme_manager.pen('wire_default')
+brush = theme_manager.brush('terminal_fill')
+
+# Get fonts and stylesheets
+font = theme_manager.font('panel_title')
+stylesheet = theme_manager.stylesheet('muted_label')
+
+# Algorithm-specific colors for wire layers
+wire_color = theme_manager.get_algorithm_color('astar')
+```
+
+### Theme Structure
+
+```
+styles/
+├── __init__.py           # Public API exports
+├── theme_manager.py      # Singleton accessor
+├── light_theme.py        # LightTheme class with all resources
+└── constants.py          # GRID_SIZE, CANVAS_SIZE
+```
+
+### Supported Resource Types
+
+| Type | Method | Example Keys |
+|------|--------|--------------|
+| Colors | `color(key)` | `component_body`, `wire_default`, `terminal` |
+| Pens | `pen(key)` | `component_outline`, `wire_selected`, `grid` |
+| Brushes | `brush(key)` | `terminal_fill`, `component_body` |
+| Fonts | `font(key)` | `panel_title`, `component_label` |
+| Stylesheets | `stylesheet(key)` | `muted_label`, `title_bold`, `metrics_text` |
+
+## Algorithm Layer System
+
+Multi-algorithm wire routing comparison:
+
+```python
+class AlgorithmLayerManager:
+    """Manages multiple algorithm layers for performance comparison"""
+
+    def __init__(self):
+        self.layers = {
+            'astar': AlgorithmLayer("A*", color=blue, z_value=10),
+            'idastar': AlgorithmLayer("IDA*", color=green, z_value=9),
+            'dijkstra': AlgorithmLayer("Dijkstra", color=orange, z_value=8),
+        }
+
+    def get_performance_report(self):
+        """Compare algorithm performance metrics"""
+        # Returns avg runtime, iterations per algorithm
+```
+
+Each layer tracks:
+- Wire count and visibility
+- Total/average runtime
+- Total/average iterations
+- Z-order for rendering
+
+## Performance Optimizations
+
+### Lazy Loading Strategy
+
+Heavy modules are loaded on first use rather than at startup:
+
+| Module | Load Trigger | Savings |
+|--------|--------------|---------|
+| `path_finding` | First wire creation | ~0.2-0.4s |
+| `simulation` | Run simulation clicked | ~0.1-0.3s |
+| `waveform_dialog` | Configure waveform clicked | ~0.05-0.1s |
+
+```python
+# Example: Lazy import in wire_item.py
+def update_position(self):
+    # Lazy import - only loaded when wires are created
+    from .path_finding import IDAStarPathfinder, get_component_obstacles
+    # ... routing logic
+```
+
+### Deferred Initialization
+
+- Grid drawing deferred to `showEvent` (first window display)
+- NgspiceRunner created on first simulation run via property accessor
+
+### Dependency Optimization
+
+- Removed NumPy dependency (was only used for `np.inf`, replaced with `float('inf')`)
 
 ## Wire Routing
 

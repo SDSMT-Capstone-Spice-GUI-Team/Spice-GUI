@@ -61,12 +61,14 @@ SDM Spice is built with modern, well-supported technologies.
 
 ### numpy (2.3.3)
 
-**Role:** Numerical computing
+**Role:** Numerical computing (via matplotlib/scipy)
 
 **Use Cases:**
 - Array operations for simulation data
 - Mathematical calculations
 - Data manipulation
+
+**Note:** Application code avoids direct NumPy imports for faster startup; NumPy features are accessed through matplotlib and scipy where needed.
 
 ### scipy (1.16.2)
 
@@ -171,7 +173,14 @@ app/
 │   ├── analysis_dialog.py      # Analysis config
 │   ├── waveform_dialog.py      # Waveform viewer
 │   ├── path_finding.py         # Wire routing
-│   └── format_utils.py         # SI units
+│   ├── format_utils.py         # SI units
+│   ├── algorithm_layers.py     # Multi-algorithm layer management
+│   ├── layer_control_widget.py # Layer visibility UI
+│   └── styles/                 # Theming system
+│       ├── __init__.py         # Public API
+│       ├── theme_manager.py    # Singleton accessor
+│       ├── light_theme.py      # Theme implementation
+│       └── constants.py        # Grid/canvas constants
 └── simulation/             # SPICE integration
     ├── netlist_generator.py    # Netlist creation
     ├── ngspice_runner.py       # Simulation exec
@@ -203,6 +212,15 @@ SDM Spice runs as a desktop application installed locally.
 - Platform-specific installers
 
 ## Performance Considerations
+
+### Startup Optimization
+
+Heavy modules use lazy loading for faster startup:
+- `path_finding` - Loaded on first wire creation
+- `simulation` - Loaded when simulation is run
+- `waveform_dialog` - Loaded when waveform config is opened
+
+Grid drawing is deferred until the window is first shown.
 
 ### Memory Usage
 - Typical: 100-200 MB
