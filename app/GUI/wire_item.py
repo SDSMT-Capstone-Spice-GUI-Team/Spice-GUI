@@ -1,8 +1,8 @@
 from PyQt6.QtWidgets import QGraphicsPathItem
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPen, QPainterPath, QColor
+from PyQt6.QtGui import QPen, QPainterPath, QPainterPathStroker, QColor
 # path_finding imported lazily in update_position() for faster startup
-from .styles import GRID_SIZE, theme_manager
+from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, theme_manager
 
 class WireItem(QGraphicsPathItem):
     """Wire connecting components with multi-algorithm pathfinding support"""
@@ -113,7 +113,15 @@ class WireItem(QGraphicsPathItem):
             painter.setPen(QPen(self.layer_color, 2))
 
         painter.drawPath(self.path())
-    
+
+    def shape(self):
+        """Return a wider path for easier click detection"""
+        stroker = QPainterPathStroker()
+        stroker.setWidth(WIRE_CLICK_WIDTH)
+        stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        return stroker.createStroke(self.path())
+
     def get_terminals(self):
         """Get both terminal identifiers for this wire"""
         return [

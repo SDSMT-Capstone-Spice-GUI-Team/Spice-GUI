@@ -31,6 +31,9 @@ from .constants import (
     GRID_EXTENT,
     COMPONENTS,
     DEFAULT_COMPONENT_COUNTER,
+    TERMINAL_CLICK_RADIUS,
+    TERMINAL_HOVER_RADIUS,
+    WIRE_CLICK_WIDTH,
 )
 
 # Theme system
@@ -44,6 +47,9 @@ __all__ = [
     'GRID_EXTENT',
     'COMPONENTS',
     'DEFAULT_COMPONENT_COUNTER',
+    'TERMINAL_CLICK_RADIUS',
+    'TERMINAL_HOVER_RADIUS',
+    'WIRE_CLICK_WIDTH',
 
     # Theme system
     'ThemeProtocol',

@@ -11,6 +11,11 @@ This file is the SINGLE SOURCE OF TRUTH for:
 GRID_SIZE = 10
 GRID_EXTENT = 500  # Half the grid size (-500 to 500)
 
+# Click/selection radius settings (in pixels)
+TERMINAL_CLICK_RADIUS = 10  # Radius for clicking terminals to route wires
+TERMINAL_HOVER_RADIUS = 15  # Radius for hover detection on terminals
+WIRE_CLICK_WIDTH = 10       # Width of clickable area around wires
+
 # Component definitions - SINGLE SOURCE OF TRUTH
 # color_key references semantic color names in the theme
 COMPONENTS = {

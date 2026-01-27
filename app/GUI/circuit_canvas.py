@@ -6,7 +6,8 @@ from .component_item import ComponentItem, create_component
 from .wire_item import WireItem
 from .circuit_node import Node
 from .algorithm_layers import AlgorithmLayerManager
-from .styles import GRID_SIZE, COMPONENTS, DEFAULT_COMPONENT_COUNTER, theme_manager
+from .styles import (GRID_SIZE, COMPONENTS, DEFAULT_COMPONENT_COUNTER,
+                     TERMINAL_CLICK_RADIUS, theme_manager)
 
 class CircuitCanvas(QGraphicsView):
     """Main circuit drawing canvas"""
@@ -217,7 +218,7 @@ class CircuitCanvas(QGraphicsView):
                 terminals = [comp.get_terminal_pos(i) for i in range(len(comp.terminals))]
                 for i, term_pos in enumerate(terminals):
                     distance = (term_pos - scene_pos).manhattanLength()
-                    if distance < 20:  # Within 20 pixels of terminal
+                    if distance < TERMINAL_CLICK_RADIUS:
                         clicked_terminal = term_pos
                         clicked_component = comp
                         clicked_term_index = i

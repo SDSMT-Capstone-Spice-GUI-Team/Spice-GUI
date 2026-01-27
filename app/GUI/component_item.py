@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit
 from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer
 from PyQt6.QtGui import QPen, QBrush, QColor  # QPainterPath imported locally where needed
 import math
-from .styles import GRID_SIZE, theme_manager
+from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
 
 class ComponentItem(QGraphicsItem):
     """Base class for graphical components on the canvas"""
@@ -55,7 +55,7 @@ class ComponentItem(QGraphicsItem):
         # Check if hovering near a terminal
         for terminal in self.terminals:
             distance = (terminal - hover_pos).manhattanLength()
-            if distance < 15:
+            if distance < TERMINAL_HOVER_RADIUS:
                 near_terminal = True
                 break
 
