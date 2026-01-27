@@ -499,6 +499,7 @@ print(results.voltage("n2"))
 
 ## See Also
 
+- [[Class Diagram]] - UML class diagrams and relationships
 - [[Technology Stack]] - Dependencies and tools
 - [[Contributing]] - Development setup
 - [[File Formats]] - Data structures
