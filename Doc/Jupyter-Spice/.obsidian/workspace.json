@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Welcome.md",
+                "file": "Activity Log Spring 2026.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Welcome"
+              "title": "Activity Log Spring 2026"
             }
           }
         ]
@@ -171,8 +171,15 @@
   },
   "active": "bb4d3c849a4d7612",
   "lastOpenFiles": [
-    "Meeting with Mcgough 9_25_2025 (AI summary).md",
+    "UI_UX/Style Guide.md",
+    "Activity Log Spring 2026.md",
+    "UI_UX/Design Documentation.md",
+    "UI_UX/Design Workflow Prototype.md",
+    "UI_UX/Design Components.md",
+    "UI_UX/Design Bible.md",
     "Welcome.md",
+    "UI_UX",
+    "Meeting with Mcgough 9_25_2025 (AI summary).md",
     "Pictures/Pasted image 20251002123835.png",
     "Meeting Summary 9_18_2025 AI Summary.md",
     "Meeting Summary 10_2_2025 AI Summary.md",

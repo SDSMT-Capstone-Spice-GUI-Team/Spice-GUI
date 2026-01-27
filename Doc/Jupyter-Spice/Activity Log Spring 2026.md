@@ -1,0 +1,8 @@
+- January 13th, 2026
+	- Went to Senior Design Lecture, where Micah, Marc, Jeremy, and Jon reaffirmed 11am Tuesday meetup time
+- January 20th, 2026
+	- First Meetup occured with Micah, Jeremy, and Jon, where work was done on the CDR scheduled Jan 27th at 1pm. They also went to the career fair lecture that day.
+- January 22nd, 2026
+	- Jeremy and Micah worked further on the CDR project. Time was scheduled for weekly meetings with McGough at noon on Thursdays going forward
+- January 27th, 2026
+	- Micah, Marc, Jeremy, and Jon got together to work on the CDR before the presentation at 1pm that day

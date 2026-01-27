@@ -1,16 +1,82 @@
 import sys
 import random
-from PySide6 import QtCore, QtWidgets, QtGui
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
+    QCursor, QFont, QFontDatabase, QGradient,
+    QIcon, QImage, QKeySequence, QLinearGradient,
+    QPainter, QPalette, QPixmap, QRadialGradient,
+    QTransform)
+from PySide6 import QtWidgets, QtCore
+from PySide6.QtWidgets import (QApplication, QDockWidget, QMainWindow, QMenu,
+    QMenuBar, QSizePolicy, QStatusBar, QWidget)
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
+
+        #Set Window Title and start Maximized
         self.setWindowTitle("SDM-Spice")
-        self.setWindowState(QtCore.Qt.WindowMaximized)
+        self.showMaximized()
+
+        #Setup Menubar (TODO: MAKE OWN FUNCTION)
+        menu = self.menuBar()
+        file_menu = menu.addMenu("&File")
+        new_circuit_action = QAction("&New Circuit", self)
+        file_menu.addAction(new_circuit_action)
+        load_circuit_action = QAction("&Load Circuit", self)
+        file_menu.addAction(load_circuit_action)
+        save_circuit_action = QAction("&Save Circuit", self)
+        file_menu.addAction(save_circuit_action)
+        save_circuit_as_action = QAction("&Save Circuit As", self)
+        file_menu.addAction(save_circuit_as_action)
+        export_circuit_action = QAction("&Export Circuit", self)
+        file_menu.addAction(export_circuit_action)
+        file_menu.addSeparator()
+        quit_action = QAction("&Quit SDM-Spice", self)
+        file_menu.addAction(quit_action)
+
+        edit_menu = menu.addMenu("&Edit")
+        undo_action = QAction("&Undo", self)
+        edit_menu.addAction(undo_action)
+        redo_action = QAction("&Redo", self)
+        edit_menu.addAction(redo_action)
+        edit_menu.addSeparator()
+        cut_action = QAction("&Cut", self)
+        edit_menu.addAction(cut_action)
+        copy_action = QAction("&Copy", self)
+        edit_menu.addAction(copy_action)
+        paste_action = QAction("&Paste", self)
+        edit_menu.addAction(paste_action)
+        delete_action = QAction("&Delete", self)
+        edit_menu.addAction(delete_action)
+        edit_menu.addSeparator()
+        select_all_action = QAction("&Select All", self)
+        edit_menu.addAction(select_all_action)
+
+        sim_menu = menu.addMenu("&Simulation")
+        run_sim_action = QAction("&Run Simulation", self)
+        sim_menu.addAction(run_sim_action)
+        show_previous_sim_action = QAction("&Show Previous Simulation Results", self)
+        sim_menu.addAction(show_previous_sim_action)
+
+        help_menu = menu.addMenu("&Help")
+        show_documentation_action = QAction("&Show Documentation", self)
+        help_menu.addAction(show_documentation_action)
+        about_sdm_spice_action = QAction("&About SDM-Spice", self)
+        help_menu.addAction(about_sdm_spice_action)
+
+        #Set PLACEHOLDER button
+        button = QtWidgets.QPushButton("Press Me!")
+
+        self.setCentralWidget(button)
 
 class MyWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
+
+        self.setWindowTitle("Welcome to SDM-Spice!")
 
         self.newCircuitButton = QtWidgets.QPushButton("New Circuit")
         self.loadCircuitButton = QtWidgets.QPushButton("Load Circuit")

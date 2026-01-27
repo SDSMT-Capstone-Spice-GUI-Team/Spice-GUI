@@ -1,18 +1,23 @@
-QLabel {
-    background-color: #2f2f2f;
-    color: #ededed;
-    font-family: "JetBrains Mono";
-}
-
-QWidget {
-    background-color: #2f2f2f;
-}
-
 QMainWindow {
     background-color: #2f2f2f;
 }
 
-QPushButton {
-    font-family: "JetBrains Mono";
+QFrame, QLabel, QToolTip {
+    background-color: #4f4f4f;
     color: #ededed;
+    font-family: "JetBrains Mono";
+    border-radius: 6px;
+    padding: 5px;
+}
+
+QPushButton {
+    border: 0px;
+    border-radius: 6px;
+    font-family: "JetBrains Mono";
+    background-color: #2f2f2f;
+    color: #ededed;
+}
+
+QPushButton:hover {
+    background-color: #B3A369;
 }
