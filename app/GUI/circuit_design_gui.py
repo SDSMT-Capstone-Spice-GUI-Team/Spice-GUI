@@ -81,7 +81,8 @@ class CircuitDesignGUI(QMainWindow):
         # Left panel - Component palette
         left_panel = QVBoxLayout()
         left_panel.addWidget(QLabel("Component Palette"))
-        left_panel.addWidget(ComponentPalette())
+        self.palette = ComponentPalette()
+        left_panel.addWidget(self.palette)
         instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
@@ -105,6 +106,7 @@ class CircuitDesignGUI(QMainWindow):
         self.canvas = CircuitCanvas()
         self.canvas.componentRightClicked.connect(self.on_component_right_clicked)
         self.canvas.canvasClicked.connect(self.on_canvas_clicked)
+        self.palette.componentDoubleClicked.connect(self.canvas.add_component_at_center)
         canvas_layout.addWidget(self.canvas)
         center_splitter.addWidget(canvas_widget)
         results_widget = QWidget()

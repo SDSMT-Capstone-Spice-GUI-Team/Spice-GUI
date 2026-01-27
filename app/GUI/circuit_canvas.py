@@ -198,7 +198,38 @@ class CircuitCanvas(QGraphicsView):
                 self.handle_ground_added(component)
             
             event.acceptProposedAction()
-    
+
+    def add_component_at_center(self, component_type):
+        """Add a component at the center of the visible canvas area"""
+        if component_type not in COMPONENTS:
+            return
+
+        # Get viewport center in scene coordinates
+        viewport_center = self.viewport().rect().center()
+        scene_pos = self.mapToScene(viewport_center)
+
+        # Snap to grid
+        grid_x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
+        grid_y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
+
+        # Create component (same pattern as dropEvent)
+        symbol = COMPONENTS[component_type]['symbol']
+        if symbol not in self.component_counter.keys():
+            self.component_counter[symbol] = 0
+        self.component_counter[symbol] += 1
+        comp_id = f"{symbol}{self.component_counter[symbol]}"
+
+        component = create_component(component_type, comp_id)
+        component.setPos(grid_x, grid_y)
+
+        self.scene.addItem(component)
+        self.components[comp_id] = component
+        self.componentAdded.emit(comp_id)
+
+        # Handle ground component special case
+        if component_type == 'Ground':
+            self.handle_ground_added(component)
+
     def mousePressEvent(self, event):
         """Handle wire drawing and component selection"""
         if event is None:

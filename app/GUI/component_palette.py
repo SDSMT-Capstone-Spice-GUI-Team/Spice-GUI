@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QListWidget, QListWidgetItem
-from PyQt6.QtCore import Qt, QMimeData, QSize
+from PyQt6.QtCore import Qt, QMimeData, QSize, pyqtSignal
 from PyQt6.QtGui import QDrag, QIcon, QPixmap, QPainter, QPen, QBrush
 from .styles import COMPONENTS, theme_manager
 from .component_item import COMPONENT_CLASSES
@@ -39,7 +39,10 @@ def create_component_icon(component_type, size=48):
 
 class ComponentPalette(QListWidget):
     """Component palette with drag support"""
-    
+
+    # Signal emitted when component is double-clicked
+    componentDoubleClicked = pyqtSignal(str)  # component_type
+
     def __init__(self):
         super().__init__()
         self.setDragEnabled(True)
@@ -51,6 +54,13 @@ class ComponentPalette(QListWidget):
             item = QListWidgetItem(component_name)
             item.setIcon(create_component_icon(component_name))
             self.addItem(item)
+
+        # Connect double-click to emit signal
+        self.itemDoubleClicked.connect(self._on_item_double_clicked)
+
+    def _on_item_double_clicked(self, item):
+        """Handle double-click on palette item"""
+        self.componentDoubleClicked.emit(item.text())
     
     def startDrag(self, supportedActions):
         """Start drag operation"""
