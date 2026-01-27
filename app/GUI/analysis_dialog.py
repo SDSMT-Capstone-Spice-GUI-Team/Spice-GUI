@@ -35,9 +35,9 @@ class AnalysisDialog(QDialog):
         },
         "Transient": {
             "fields": [
-                ("Stop Time (s)", "duration", "float", "1"),
-                ("Time Step (s)", "step", "float", "0.001"),
-                ("Start Time (s)", "startTime", "float", "0")
+                ("Stop Time (e.g., 10m, 100u)", "duration", "float", "10m"),
+                ("Time Step (e.g., 1u, 10n)", "step", "float", "10u"),
+                ("Start Time", "startTime", "float", "0")
             ],
             "description": "Time domain analysis"
         }
