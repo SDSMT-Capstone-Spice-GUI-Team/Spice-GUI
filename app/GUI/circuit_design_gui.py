@@ -223,6 +223,29 @@ class CircuitDesignGUI(QMainWindow):
         clear_action.triggered.connect(self.clear_canvas)
         edit_menu.addAction(clear_action)
 
+        # View menu
+        view_menu = menubar.addMenu("&View")
+        if view_menu is None:
+            return
+
+        self.show_labels_action = QAction("Show Component &Labels", self)
+        self.show_labels_action.setCheckable(True)
+        self.show_labels_action.setChecked(True)
+        self.show_labels_action.triggered.connect(self.toggle_component_labels)
+        view_menu.addAction(self.show_labels_action)
+
+        self.show_values_action = QAction("Show Component &Values", self)
+        self.show_values_action.setCheckable(True)
+        self.show_values_action.setChecked(True)
+        self.show_values_action.triggered.connect(self.toggle_component_values)
+        view_menu.addAction(self.show_values_action)
+
+        self.show_nodes_action = QAction("Show &Node Labels", self)
+        self.show_nodes_action.setCheckable(True)
+        self.show_nodes_action.setChecked(True)
+        self.show_nodes_action.triggered.connect(self.toggle_node_labels)
+        view_menu.addAction(self.show_nodes_action)
+
         # Simulation menu
         sim_menu = menubar.addMenu("&Simulation")
         if sim_menu is None:
@@ -276,6 +299,21 @@ class CircuitDesignGUI(QMainWindow):
         self.dc_action = dc_action
         self.ac_action = ac_action
         self.tran_action = tran_action
+
+    def toggle_component_labels(self, checked):
+        """Toggle component label visibility"""
+        self.canvas.show_component_labels = checked
+        self.canvas.scene.update()
+
+    def toggle_component_values(self, checked):
+        """Toggle component value visibility"""
+        self.canvas.show_component_values = checked
+        self.canvas.scene.update()
+
+    def toggle_node_labels(self, checked):
+        """Toggle node label visibility"""
+        self.canvas.show_node_labels = checked
+        self.canvas.scene.update()
 
     def new_circuit(self):
         """Create a new circuit"""

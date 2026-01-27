@@ -50,6 +50,11 @@ class CircuitCanvas(QGraphicsView):
         self.node_voltages = {}  # node_label -> voltage value
         self.show_node_voltages = False  # Toggle for showing voltage values
 
+        # Label visibility settings
+        self.show_component_labels = True  # Toggle for component IDs (R1, V1, etc.)
+        self.show_component_values = True  # Toggle for component values (1k, 5V, etc.)
+        self.show_node_labels = True       # Toggle for node labels (n1, n2, etc.)
+
         # Debug visualization
         self.show_obstacle_boundaries = False  # Toggle for showing obstacle boundaries
         self.obstacle_boundary_items = []  # Store obstacle boundary graphics items
@@ -550,6 +555,10 @@ class CircuitCanvas(QGraphicsView):
         if painter is None:
             return
 
+        # Early exit if nothing to draw
+        if not self.show_node_labels and not self.show_node_voltages:
+            return
+
         painter.setPen(theme_manager.pen('node_label_outline'))
         painter.setBrush(theme_manager.brush('node_label_bg'))
         painter.setFont(theme_manager.font('node_label'))
@@ -559,10 +568,18 @@ class CircuitCanvas(QGraphicsView):
             if pos:
                 label = node.get_label()
 
-                display_text = label
-                if self.show_node_voltages and label in self.node_voltages:
+                # Build display text based on visibility settings
+                if self.show_node_labels:
+                    display_text = label
+                    if self.show_node_voltages and label in self.node_voltages:
+                        voltage = self.node_voltages[label]
+                        display_text = f"{label}\n{voltage:.3f}V"
+                elif self.show_node_voltages and label in self.node_voltages:
+                    # Only show voltage, not label
                     voltage = self.node_voltages[label]
-                    display_text = f"{label}\n{voltage:.3f}V"
+                    display_text = f"{voltage:.3f}V"
+                else:
+                    continue  # Nothing to show for this node
 
                 metrics = painter.fontMetrics()
                 lines = display_text.split('\n')

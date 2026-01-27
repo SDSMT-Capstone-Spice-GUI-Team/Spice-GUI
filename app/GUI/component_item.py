@@ -175,10 +175,19 @@ class ComponentItem(QGraphicsItem):
         painter.setBrush(QBrush(color.lighter(150)))
         self.draw_component_body(painter)
 
-        # Draw label
-        painter.setPen(QPen(Qt.GlobalColor.black))
-        label = f"{self.component_id}"
-        painter.drawText(-20, -25, f"{label} ({self.value})")
+        # Draw label (check canvas visibility settings)
+        canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
+        show_label = canvas.show_component_labels if canvas and hasattr(canvas, 'show_component_labels') else True
+        show_value = canvas.show_component_values if canvas and hasattr(canvas, 'show_component_values') else True
+
+        if show_label or show_value:
+            painter.setPen(QPen(Qt.GlobalColor.black))
+            if show_label and show_value:
+                painter.drawText(-20, -25, f"{self.component_id} ({self.value})")
+            elif show_label:
+                painter.drawText(-20, -25, self.component_id)
+            elif show_value:
+                painter.drawText(-20, -25, f"({self.value})")
 
         # Restore painter state
         painter.restore()
@@ -568,9 +577,19 @@ class Ground(ComponentItem):
         painter.setBrush(QBrush(color.lighter(150)))
         self.draw_component_body(painter)
 
-        # Draw label
-        painter.setPen(QPen(Qt.GlobalColor.black))
-        painter.drawText(-20, -25, "GND (0V)")
+        # Draw label (check canvas visibility settings)
+        canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
+        show_label = canvas.show_component_labels if canvas and hasattr(canvas, 'show_component_labels') else True
+        show_value = canvas.show_component_values if canvas and hasattr(canvas, 'show_component_values') else True
+
+        if show_label or show_value:
+            painter.setPen(QPen(Qt.GlobalColor.black))
+            if show_label and show_value:
+                painter.drawText(-20, -25, "GND (0V)")
+            elif show_label:
+                painter.drawText(-20, -25, "GND")
+            elif show_value:
+                painter.drawText(-20, -25, "(0V)")
 
         # Restore painter state
         painter.restore()
