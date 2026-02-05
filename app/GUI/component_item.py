@@ -87,8 +87,9 @@ class ComponentItem(QGraphicsItem):
         if ok and new_value:
             self.value = new_value
             self.update()  # Redraw the item to show the new value
-            if self.scene():
-                self.scene().update()  # Redraw the scene
+            _scene = self.scene()
+            if _scene is not None:
+                _scene.update()  # Redraw the scene
     
     def boundingRect(self):
         return QRectF(-40, -30, 80, 60)
@@ -221,7 +222,6 @@ class ComponentItem(QGraphicsItem):
                 if views:
                     canvas = views[0]  # Get the first (and typically only) view
                     if hasattr(canvas, 'reroute_connected_wires'):
-
                         canvas.reroute_connected_wires(self)
         #             else:
         #                 # print(f"  ERROR: View doesn't have reroute_connected_wires!")
@@ -539,6 +539,8 @@ class WaveformVoltageSource(ComponentItem):
         if 'waveform_params' in data:
             component.waveform_params = data['waveform_params']
 
+    def get_obstacle_shape(self):
+        return super().get_obstacle_shape()
 
 class Ground(ComponentItem):
     """Ground component"""
@@ -620,12 +622,7 @@ class Ground(ComponentItem):
     def update_terminals(self):
         """Update terminal positions based on rotation"""
         # Base terminal positions (horizontal orientation)
-        if self.TERMINALS == 2:
-            base_terminals = [QPointF(-20, 0), QPointF(20, 0)]
-        elif self.TERMINALS == 1:
-            base_terminals = [QPointF(0, 0)]
-        else:
-            base_terminals = []
+        base_terminals = [QPointF(0, 0)]
         
         # Rotate terminals based on rotation_angle
         rad = math.radians(self.rotation_angle)
