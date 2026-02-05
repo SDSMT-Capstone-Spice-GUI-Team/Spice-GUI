@@ -224,3 +224,5 @@ simulation_output/
 Spice_GUI_env/
 .claude/*
 last_session.txt
+transient_data.txt
+nul
