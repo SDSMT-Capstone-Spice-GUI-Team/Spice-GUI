@@ -90,3 +90,35 @@ def format_value(value: float, unit: str = "") -> str:
 
     # If value is smaller than the smallest prefix, use scientific notation
     return f"{value:.2e} {unit}"
+
+
+# Component types that require positive values
+_POSITIVE_ONLY_TYPES = {'Resistor', 'Capacitor', 'Inductor'}
+
+# Component types that don't need value validation
+_SKIP_VALIDATION_TYPES = {'Ground', 'Op-Amp', 'Waveform Source'}
+
+
+def validate_component_value(value: str, component_type: str) -> tuple[bool, str]:
+    """
+    Validate a component value string for the given component type.
+
+    Returns:
+        (is_valid, error_message) — error_message is empty when valid.
+    """
+    if component_type in _SKIP_VALIDATION_TYPES:
+        return True, ""
+
+    value = value.strip()
+    if not value:
+        return False, "Value cannot be empty."
+
+    try:
+        numeric = parse_value(value)
+    except (ValueError, TypeError):
+        return False, f"Invalid value '{value}'. Use a number with optional suffix (e.g. 10k, 100n, 4.7M)."
+
+    if component_type in _POSITIVE_ONLY_TYPES and numeric <= 0:
+        return False, f"{component_type} value must be positive (got {value})."
+
+    return True, ""

@@ -527,6 +527,24 @@ class CircuitDesignGUI(QMainWindow):
     def run_simulation(self):
         '''Run SPICE simulation using ngspice'''
         try:
+            # Validate circuit before simulation
+            from simulation import validate_circuit
+            is_valid, errors, warnings = validate_circuit(
+                self.canvas.get_model_components(),
+                self.canvas.get_model_wires(),
+                self.analysis_type
+            )
+            if not is_valid:
+                self.results_text.setPlainText(
+                    "CIRCUIT VALIDATION FAILED\n" + "=" * 40 + "\n\n"
+                    + "\n".join(f"  - {e}" for e in errors)
+                )
+                if warnings:
+                    self.results_text.append(
+                        "\nWarnings:\n" + "\n".join(f"  - {w}" for w in warnings)
+                    )
+                return
+
             # Generate timestamped wrdata path for transient results
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             wrdata_filepath = os.path.join(

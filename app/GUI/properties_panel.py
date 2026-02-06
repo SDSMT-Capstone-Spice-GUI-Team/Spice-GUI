@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
 from PyQt6.QtCore import Qt, pyqtSignal
 # waveform_dialog imported lazily in configure_waveform() for faster startup
 from models.component import DEFAULT_VALUES
+from .format_utils import validate_component_value
 from .styles import theme_manager
 
 
@@ -49,6 +50,13 @@ class PropertiesPanel(QWidget):
         self.value_input.textChanged.connect(self.on_value_changed)
         self.form_layout.addRow("Value:", self.value_input)
 
+        # Validation error label
+        self.error_label = QLabel("")
+        self.error_label.setWordWrap(True)
+        self.error_label.setStyleSheet("QLabel { color: red; font-size: 9pt; }")
+        self.error_label.setVisible(False)
+        self.form_layout.addRow("", self.error_label)
+
         layout.addWidget(self.properties_group)
 
         # Apply button
@@ -77,6 +85,7 @@ class PropertiesPanel(QWidget):
         self.value_input.setReadOnly(False)
         self.value_input.setPlaceholderText("")
         self.apply_button.setEnabled(False)
+        self.error_label.setVisible(False)
         self.waveform_button.setVisible(False)
         self.current_component = None
 
@@ -88,7 +97,8 @@ class PropertiesPanel(QWidget):
         
         self.current_component = component
         self.properties_group.setEnabled(True)
-        self.apply_button.setEnabled(False) # Only enable on actual change
+        self.apply_button.setEnabled(False)
+        self.error_label.setVisible(False)
 
         # Update fields with component data
         self.id_label.setText(component.component_id)
@@ -123,10 +133,16 @@ class PropertiesPanel(QWidget):
         # Get the new value
         new_value = self.value_input.text().strip()
 
-        # Validate the value is not empty
-        if not new_value:
-            self.value_input.setText(self.current_component.value)
+        # Validate value format
+        is_valid, error_msg = validate_component_value(
+            new_value, self.current_component.component_type
+        )
+        if not is_valid:
+            self.error_label.setText(error_msg)
+            self.error_label.setVisible(True)
             return
+
+        self.error_label.setVisible(False)
 
         # Emit signal if value changed
         if new_value != self.current_component.value:

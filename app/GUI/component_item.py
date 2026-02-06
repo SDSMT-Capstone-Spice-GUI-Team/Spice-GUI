@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit
+from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer
 from PyQt6.QtGui import QPen, QBrush, QColor  # QPainterPath imported locally where needed
 import math
@@ -6,6 +6,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from models.component import ComponentData, DEFAULT_VALUES
+from .format_utils import validate_component_value
 from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
 
 class ComponentItem(QGraphicsItem):
@@ -117,24 +118,36 @@ class ComponentItem(QGraphicsItem):
 
     def mouseDoubleClickEvent(self, event):
         """Open a dialog to edit component value on double-click"""
-        if self.component_type == 'Ground':
-            return  # Don't allow editing ground value
+        if self.component_type in ('Ground', 'Op-Amp'):
+            return
+
+        if self.component_type == 'Waveform Source':
+            QMessageBox.information(
+                None, "Waveform Source",
+                "Use the 'Configure Waveform...' button in the Properties panel."
+            )
+            return
 
         current_value = self.value
         new_value, ok = QInputDialog.getText(
             None,
             f"Edit Value for {self.component_id}",
-            "Enter new value:",
+            "Enter new value (e.g. 10k, 100n, 4.7M):",
             QLineEdit.EchoMode.Normal,
             current_value
         )
 
         if ok and new_value:
+            is_valid, error_msg = validate_component_value(new_value, self.component_type)
+            if not is_valid:
+                QMessageBox.warning(None, "Invalid Value", error_msg)
+                return
+
             self.value = new_value
-            self.update()  # Redraw the item to show the new value
+            self.update()
             _scene = self.scene()
             if _scene is not None:
-                _scene.update()  # Redraw the scene
+                _scene.update()
 
     # --- Geometry ---
 
