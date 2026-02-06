@@ -3,9 +3,12 @@ theme_manager.py - Singleton theme manager.
 
 Provides global access to the current theme and enables runtime theme switching.
 """
+import logging
 from typing import Optional, Callable, List
 from .theme import ThemeProtocol
 from .light_theme import LightTheme
+
+logger = logging.getLogger(__name__)
 
 
 class ThemeManager:
@@ -73,7 +76,7 @@ class ThemeManager:
             try:
                 callback(self._theme)
             except Exception as e:
-                print(f"Error notifying theme listener: {e}")
+                logger.error("Error notifying theme listener: %s", e)
 
     # ===== Convenience methods for common operations =====
 

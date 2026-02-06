@@ -3,6 +3,9 @@ simulation/netlist_generator.py
 
 Handles SPICE netlist generation from circuit data
 """
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class NetlistGenerator:
@@ -240,8 +243,8 @@ class NetlistGenerator:
                     resistor_voltages_let.append(f"let {alias} = {let_expression}")
                     resistor_voltages_print.append(alias)
             except Exception as e:
-                # This may be too noisy, but it's useful for debugging
-                print(f"Warning: Could not create voltage calculation for {res.component_id}: {e}")
+                logger.warning("Could not create voltage calculation for %s: %s",
+                               res.component_id, e)
         
         if resistor_voltages_let:
             lines.extend(resistor_voltages_let)

@@ -1,8 +1,11 @@
+import logging
 from PyQt6.QtWidgets import QGraphicsPathItem
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPen, QPainterPath, QPainterPathStroker, QColor
 # path_finding imported lazily in update_position() for faster startup
 from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, theme_manager
+
+logger = logging.getLogger(__name__)
 
 class WireItem(QGraphicsPathItem):
     """Wire connecting components with multi-algorithm pathfinding support"""
@@ -54,7 +57,9 @@ class WireItem(QGraphicsPathItem):
                 (self.end_comp.component_id, self.end_term)
             ]
 
-            print(f"      Routing wire ({self.algorithm}) from {self.start_comp.component_id}[{self.start_term}] to {self.end_comp.component_id}[{self.end_term}]")
+            logger.debug("Routing wire (%s) from %s[%s] to %s[%s]",
+                         self.algorithm, self.start_comp.component_id,
+                         self.start_term, self.end_comp.component_id, self.end_term)
 
             # Get all existing wires in the circuit for wire-to-wire obstacle detection
             # Only consider wires from the SAME algorithm layer for fair comparison
@@ -98,8 +103,6 @@ class WireItem(QGraphicsPathItem):
             self.scene().update(self.boundingRect())
 
         self.update()  # Force item redraw
-        # print(f"      Wire ({self.algorithm}) updated: {len(self.waypoints)} waypoints, {self.runtime*1000:.2f}ms, {self.iterations} iterations")
-        # print(f"          Waypoints: {self.waypoints}")
     
     def paint(self, painter, option=None, widget=None):
         """Override paint to show selection highlight and layer color"""

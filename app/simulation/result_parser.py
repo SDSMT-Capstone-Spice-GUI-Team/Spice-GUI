@@ -3,6 +3,9 @@ simulation/result_parser.py
 
 Parses ngspice simulation output to extract results
 """
+import logging
+
+logger = logging.getLogger(__name__)
 
 import re
 
@@ -57,9 +60,7 @@ class ResultParser:
             return node_voltages
             
         except Exception as e:
-            # print(f"Error parsing OP results: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error("Error parsing OP results: %s", e, exc_info=True)
             return {}
     
     @staticmethod
@@ -96,7 +97,7 @@ class ResultParser:
             return sweep_data if sweep_data['data'] else None
 
         except Exception as e:
-            # print(f"Error parsing DC results: {e}")
+            logger.error("Error parsing DC results: %s", e)
             return None
 
     @staticmethod
@@ -148,7 +149,7 @@ class ResultParser:
             return ac_data if ac_data['frequencies'] else None
 
         except Exception as e:
-            # print(f"Error parsing AC results: {e}")
+            logger.error("Error parsing AC results: %s", e)
             return None
 
     @staticmethod
@@ -186,12 +187,10 @@ class ResultParser:
             
             return results if results else None
         except FileNotFoundError:
-            print(f"Error: wrdata file not found at {filepath}")
+            logger.error("wrdata file not found at %s", filepath)
             return None
         except Exception as e:
-            print(f"Error parsing wrdata file: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error("Error parsing wrdata file: %s", e, exc_info=True)
             return None
 
     @staticmethod

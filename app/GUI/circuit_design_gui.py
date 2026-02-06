@@ -1,5 +1,6 @@
 # simulation module imported lazily in methods that need it for faster startup
 import json
+import logging
 import os
 from datetime import datetime
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -14,6 +15,8 @@ from .analysis_dialog import AnalysisDialog
 from .properties_panel import PropertiesPanel
 from .waveform_dialog import WaveformDialog
 from .styles import theme_manager
+
+logger = logging.getLogger(__name__)
 
 # Define the session file path
 SESSION_FILE = "last_session.txt"
@@ -56,7 +59,7 @@ class CircuitDesignGUI(QMainWindow):
             with open(SESSION_FILE, 'w') as f:
                 f.write(os.path.abspath(file_path))
         except Exception as e:
-            print(f"Error saving session: {e}")
+            logger.error("Error saving session: %s", e)
 
     def _load_last_session(self):
         """Loads the last saved file path and tries to open the circuit."""
@@ -67,11 +70,11 @@ class CircuitDesignGUI(QMainWindow):
 
                 # Check if the path is valid and the file still exists
                 if file_path and os.path.exists(file_path):
-                    print(f"Hot-reload: Attempting to reload last file: {file_path}")
+                    logger.info("Hot-reload: reloading last file: %s", file_path)
                     # Call the existing load method to restore state
-                    self.load_circuit(file_path, is_reload=True) 
+                    self.load_circuit(file_path, is_reload=True)
             except Exception as e:
-                print(f"Error loading last session: {e}")
+                logger.error("Error loading last session: %s", e)
 
     def init_ui(self):
         """Initialize user interface"""
@@ -341,10 +344,7 @@ class CircuitDesignGUI(QMainWindow):
         self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
         statusbar = self.statusBar()
-        if statusbar is None:
-            # print("status bar is missing function showMessage()")
-            pass
-        else:
+        if statusbar is not None:
             statusbar.showMessage("Analysis: DC Operating Point (.op)", 3000)
 
     def set_analysis_dc(self):
@@ -356,20 +356,15 @@ class CircuitDesignGUI(QMainWindow):
                 self.analysis_type = "DC Sweep"
                 self.analysis_params = params
                 statusBar = self.statusBar()
-                if statusBar is None:
-                    # print("status bar is missing function showMessage()")
-                    pass
-                else:
+                if statusBar is not None:
                     statusBar.showMessage(
                         f"Analysis: DC Sweep (V: {params['min']}V to {params['max']}V, step {params['step']}V)",
                         3000
                     )
-                pass
             else:
                 QMessageBox.warning(self, "Invalid Parameters",
                                     "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
-            pass
         else:
             self.op_action.setChecked(True)
 
@@ -382,20 +377,15 @@ class CircuitDesignGUI(QMainWindow):
                 self.analysis_type = "AC Sweep"
                 self.analysis_params = params
                 statusBar = self.statusBar()
-                if statusBar is None:
-                    # print("status bar is missing function showMessage()")
-                    pass
-                else:
+                if statusBar is not None:
                     statusBar.showMessage(
                         f"Analysis: AC Sweep ({params['fStart']}Hz to {params['fStop']}Hz, {params['points']} pts/decade)",
                         3000
                     )
-                pass
             else:
                 QMessageBox.warning(self, "Invalid Parameters",
                                     "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
-            pass
         else:
             self.op_action.setChecked(True)
 
@@ -408,15 +398,11 @@ class CircuitDesignGUI(QMainWindow):
                 self.analysis_type = "Transient"
                 self.analysis_params = params
                 statusBar = self.statusBar()
-                if statusBar is None:
-                    # print("status bar is missing function showMessage()")
-                    pass
-                else:
+                if statusBar is not None:
                     statusBar.showMessage(
                         f"Analysis: Transient (duration: {params['duration']}s, step: {params['step']}s)",
                         3000
                     )
-                pass
             else:
                 QMessageBox.warning(self, "Invalid Parameters",
                                     "Please enter valid numeric values.")

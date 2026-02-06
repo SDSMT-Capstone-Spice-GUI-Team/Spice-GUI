@@ -1,7 +1,10 @@
+import logging
 from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsLineItem,
                              QMenu, QLineEdit, QInputDialog, QGraphicsTextItem)
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QAction
+
+logger = logging.getLogger(__name__)
 from .component_item import ComponentItem, create_component
 from .wire_item import WireItem
 from .circuit_node import Node
@@ -130,15 +133,11 @@ class CircuitCanvas(QGraphicsView):
     
     def reroute_connected_wires(self, component):
         """Reroute all wires connected to a component"""
-        # print(f"  Checking {len(self.wires)} wires for connections to {component.component_id}")
         wire_count = 0
         for wire in self.wires:
             if wire.start_comp == component or wire.end_comp == component:
-                # print(f"    Found wire: {wire.start_comp.component_id} -> {wire.end_comp.component_id}")
                 wire.update_position()
                 wire_count += 1
-
-        # print(f"  Rerouted {wire_count} wires")
 
         # Force a full scene update to ensure wires are redrawn
         if wire_count > 0:
@@ -652,8 +651,7 @@ class CircuitCanvas(QGraphicsView):
             self.scene.update()
             viewPort = self.viewport()
             if viewPort is None:
-                print("viewPort is None. Can't update")
-                pass
+                logger.warning("Viewport is None, cannot update after node label change")
             else:
                 viewPort.update()
     

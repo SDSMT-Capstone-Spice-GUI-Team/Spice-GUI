@@ -261,8 +261,6 @@ class AStarPathfinder(WeightedPathfinder):
             neighbor = (start_grid[0] + dx, start_grid[1] + dy)
             if neighbor in obstacles:
                 start_neighbors_blocked += 1
-        # if start_neighbors_blocked > 0:
-        #     print(f"        WARNING: {start_neighbors_blocked}/4 neighbors of start {start_grid} are blocked")
 
         # A* algorithm with edge weights
         open_set = []
@@ -295,7 +293,6 @@ class AStarPathfinder(WeightedPathfinder):
                 self.last_iterations = iterations
                 # Store g_score for cost map visualization
                 self.last_g_score = dict(g_score)
-                # print(f"        A* found path with {len(waypoints)} waypoints after {iterations} iterations")
                 return waypoints
 
             # Check all 4 neighbors (up, down, left, right)
@@ -337,8 +334,6 @@ class AStarPathfinder(WeightedPathfinder):
         self.last_iterations = iterations
         # Store g_score even on failure for visualization
         self.last_g_score = dict(g_score)
-        # print(f"        A* FAILED: No path found after {iterations} iterations. Using fallback direct line.")
-        # print(f"        Start: {start_grid}, End: {end_grid}")
         return [start_pos, end_pos]
 
 
@@ -406,7 +401,6 @@ class DijkstraPathfinder(WeightedPathfinder):
                 waypoints = [self._grid_to_pos(grid_pos) for grid_pos in path]
                 waypoints = self._simplify_path(waypoints)
                 self.last_iterations = iterations
-#                print(f"        Dijkstra found path with {len(waypoints)} waypoints after {iterations} iterations")
                 return waypoints
 
             for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
@@ -437,7 +431,6 @@ class DijkstraPathfinder(WeightedPathfinder):
                     heapq.heappush(open_set, (tentative_cost, neighbor, new_direction))
 
         self.last_iterations = iterations
-#        print(f"        Dijkstra FAILED: No path found after {iterations} iterations.")
         return [start_pos, end_pos]
 
 
@@ -496,7 +489,6 @@ class IDAStarPathfinder(WeightedPathfinder):
                 waypoints = [self._grid_to_pos(grid_pos) for grid_pos in result]
                 waypoints = self._simplify_path(waypoints)
                 self.last_iterations = iterations
-#                print(f"        IDA* found path with {len(waypoints)} waypoints after {iterations} iterations")
                 return waypoints
             elif result == float('inf'):
                 # No path exists
@@ -507,7 +499,6 @@ class IDAStarPathfinder(WeightedPathfinder):
                 threshold = result
 
         self.last_iterations = iterations
-#        print(f"        IDA* FAILED: No path found after {iterations} iterations.")
         return [start_pos, end_pos]
 
     def _idastar_search(self, current, goal, g_score, threshold, direction, bend_count,
@@ -682,20 +673,10 @@ def polygon_to_grid_filled(polygon_points, position, rotation_angle, grid_size, 
     min_y_world = min(p[1] for p in world_points)
     max_y_world = max(p[1] for p in world_points)
 
-    # Debug: Show polygon world coordinates for first component
-    if len(obstacles) == 0:
-        # print(f"    Polygon world points: {world_points}")
-        # print(f"    Y range: [{min_y_world}, {max_y_world}]")
-        pass
-
     # Convert bounding box to grid coordinates using round() to match _pos_to_grid()
     # Add margin to ensure we don't miss edge cells
     min_grid_y = round(min_y_world / grid_size) - 1
     max_grid_y = round(max_y_world / grid_size) + 1
-
-    if len(obstacles) == 0:
-        # print(f"    Grid Y range: [{min_grid_y}, {max_grid_y}]")
-        pass
 
     # Scanline fill algorithm in WORLD space
     # For each grid row, check which grid cells are inside the polygon
@@ -726,10 +707,8 @@ def polygon_to_grid_filled(polygon_points, position, rotation_angle, grid_size, 
                 x_intersect_world = p1[0] + (scan_y_world - p1[1]) * (p2[0] - p1[0]) / (p2[1] - p1[1])
                 intersections.append(x_intersect_world)
 
-        # Debug: Show first few scanlines
         if debug_first and len(obstacles) < 20:
             if intersections:
-                # print(f"    Scanline Y={grid_y} (world {scan_y_world}): {len(intersections)} intersections at X={intersections}")
                 pass
 
         # Sort intersections and fill between pairs
@@ -737,9 +716,6 @@ def polygon_to_grid_filled(polygon_points, position, rotation_angle, grid_size, 
 
         # DEBUG: Check for odd number of intersections (should never happen with correct polygon)
         if len(intersections) % 2 != 0:
-#            print(f"WARNING: Odd number of intersections ({len(intersections)}) at scanline y={scan_y_world}")
-#            print(f"  World points: {world_points}")
-#            print(f"  Intersections: {intersections}")
             # Skip this scanline to avoid errors
             continue
 
@@ -767,16 +743,6 @@ def polygon_to_grid_filled(polygon_points, position, rotation_angle, grid_size, 
                     obstacles.add((grid_x_start, grid_y))
                 if (grid_x_end, grid_y) not in active_terminal_positions:
                     obstacles.add((grid_x_end, grid_y))
-    # Debug: Print summary - TODO: cleanup - debug code commented out
-    # if obstacles:
-    #     min_gx = min(x for x, _ in obstacles)
-    #     max_gx = max(x for x, _ in obstacles)
-    #     min_gy = min(y for _, y in obstacles)
-    #     max_gy = max(y for _, y in obstacles)
-    #     print(f"polygon to grid filled obstacles: {obstacles}")
-    #     print(f"  Grid range: X=[{min_gx}, {max_gx}], Y=[{min_gy}, {max_gy}], Total: {len(obstacles)} cells")
-    # else:
-    #     print("polygon to grid filled obstacles: EMPTY!")
     return obstacles
 
 
@@ -867,7 +833,6 @@ def polygon_to_grid_frame(polygon_points, position, rotation_angle, grid_size, i
                 err += dx
                 y += sy
 
-    # print("polygon to grid frame obstacles:", obstacles)
     return obstacles
 
 

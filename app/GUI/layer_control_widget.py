@@ -206,9 +206,6 @@ class CompactLayerControlWidget(QWidget):
 
     def _show_metrics(self):
         """Display performance metrics in a message box or console"""
-        # report = self.layer_manager.get_performance_report()  # TODO: cleanup - unused
-        # print("\n" + report + "\n")
-        # Could also show in a dialog if preferred
         pass
 
     def set_layer_visibility(self, algorithm_type, visible):
