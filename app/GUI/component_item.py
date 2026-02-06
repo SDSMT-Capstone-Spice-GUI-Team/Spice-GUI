@@ -7,7 +7,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from models.component import ComponentData, DEFAULT_VALUES
 from .format_utils import validate_component_value
-from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
+from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, WIRE_UPDATE_DELAY_MS, theme_manager
 
 class ComponentItem(QGraphicsItem):
     """Base class for graphical components on the canvas.
@@ -254,7 +254,7 @@ class ComponentItem(QGraphicsItem):
         self.update_timer = QTimer()
         self.update_timer.setSingleShot(True)
         self.update_timer.timeout.connect(self.update_wires_after_drag)
-        self.update_timer.start(50)  # 50ms delay
+        self.update_timer.start(WIRE_UPDATE_DELAY_MS)
 
     def update_wires_after_drag(self):
         """Called after drag motion has stopped"""

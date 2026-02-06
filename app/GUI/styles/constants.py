@@ -11,15 +11,30 @@ from models.component import COMPONENT_TYPES, SPICE_SYMBOLS, TERMINAL_COUNTS
 
 # Grid settings
 GRID_SIZE = 10
-GRID_EXTENT = 500  # Half the grid size (-500 to 500)
+GRID_EXTENT = 500              # Half the grid size (-500 to 500)
+MAJOR_GRID_INTERVAL = 100      # Pixels between major grid lines
 
 # Click/selection radius settings (in pixels)
-TERMINAL_CLICK_RADIUS = 10  # Radius for clicking terminals to route wires
-TERMINAL_HOVER_RADIUS = 15  # Radius for hover detection on terminals
-WIRE_CLICK_WIDTH = 10       # Width of clickable area around wires
+TERMINAL_CLICK_RADIUS = 10     # Radius for clicking terminals to route wires
+TERMINAL_HOVER_RADIUS = 15     # Radius for hover detection on terminals
+WIRE_CLICK_WIDTH = 10          # Width of clickable area around wires
 
 # Terminal configuration defaults
 DEFAULT_TERMINAL_PADDING = 15  # Gap between body edge and terminal (grid-aligned)
+
+# Window layout
+DEFAULT_WINDOW_SIZE = (1200, 800)
+DEFAULT_SPLITTER_SIZES = [500, 300]  # Canvas height : results height
+
+# Simulation settings
+SIMULATION_TIMEOUT = 60        # Seconds before ngspice is killed
+
+# Component drag settings
+WIRE_UPDATE_DELAY_MS = 50      # Delay before rerouting wires after drag
+
+# Waveform viewer
+INITIAL_LOAD_COUNT = 50        # Rows loaded on first display
+SCROLL_LOAD_COUNT = 25         # Additional rows loaded on scroll
 
 # GUI-specific theme color keys per component type
 _COLOR_KEYS = {

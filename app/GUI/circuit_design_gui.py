@@ -14,7 +14,7 @@ from .circuit_canvas import CircuitCanvas
 from .analysis_dialog import AnalysisDialog
 from .properties_panel import PropertiesPanel
 from .waveform_dialog import WaveformDialog
-from .styles import theme_manager
+from .styles import theme_manager, DEFAULT_WINDOW_SIZE, DEFAULT_SPLITTER_SIZES
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class CircuitDesignGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, *DEFAULT_WINDOW_SIZE)
         self.current_file = None
 
         # Analysis settings
@@ -120,7 +120,7 @@ class CircuitDesignGUI(QMainWindow):
         self.results_text.setReadOnly(True)
         results_layout.addWidget(self.results_text)
         center_splitter.addWidget(results_widget)
-        center_splitter.setSizes([500, 300])
+        center_splitter.setSizes(DEFAULT_SPLITTER_SIZES)
         main_layout.addWidget(center_splitter, 3)
 
         # Right panel - Properties and Controls

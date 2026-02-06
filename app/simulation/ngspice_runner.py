@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import platform
+from GUI.styles import SIMULATION_TIMEOUT
 from datetime import datetime
 
 
@@ -89,7 +90,7 @@ class NgspiceRunner:
                 [self.ngspice_cmd, '-b', netlist_filename, '-o', output_filename],
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=SIMULATION_TIMEOUT
             )
             
             # Check if output file was created
@@ -99,7 +100,7 @@ class NgspiceRunner:
                 return False, None, result.stdout, result.stderr or "Output file not created"
                 
         except subprocess.TimeoutExpired:
-            return False, None, "", "Simulation timed out (>60 seconds)"
+            return False, None, "", f"Simulation timed out (>{SIMULATION_TIMEOUT} seconds)"
         except Exception as e:
             return False, None, "", f"Simulation error: {str(e)}"
     

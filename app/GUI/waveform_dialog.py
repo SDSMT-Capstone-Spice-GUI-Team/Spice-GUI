@@ -7,12 +7,9 @@ from PyQt6.QtGui import QColor
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from .format_utils import parse_value, format_value
+from .styles import INITIAL_LOAD_COUNT, SCROLL_LOAD_COUNT
 
 matplotlib.use('QtAgg')
-
-# Constants for infinite scroll
-INITIAL_LOAD_COUNT = 50
-SCROLL_LOAD_COUNT = 25
 
 # Get colors from the 'Paired' colormap for color-blind friendliness
 cmap = plt.get_cmap('Paired')

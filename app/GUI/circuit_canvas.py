@@ -9,7 +9,8 @@ from .component_item import ComponentItem, create_component
 from .wire_item import WireItem
 from .circuit_node import Node
 from .algorithm_layers import AlgorithmLayerManager
-from .styles import (GRID_SIZE, COMPONENTS, DEFAULT_COMPONENT_COUNTER,
+from .styles import (GRID_SIZE, GRID_EXTENT, MAJOR_GRID_INTERVAL,
+                     COMPONENTS, DEFAULT_COMPONENT_COUNTER,
                      TERMINAL_CLICK_RADIUS, theme_manager)
 
 class CircuitCanvas(QGraphicsView):
@@ -30,7 +31,7 @@ class CircuitCanvas(QGraphicsView):
         if self.scene is None:
             exit()
         self.setScene(self.scene)
-        self.setSceneRect(-500, -500, 1000, 1000)
+        self.setSceneRect(-GRID_EXTENT, -GRID_EXTENT, GRID_EXTENT * 2, GRID_EXTENT * 2)
 
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
@@ -102,32 +103,32 @@ class CircuitCanvas(QGraphicsView):
         grid_label_font = theme_manager.font('grid_label')
 
         # Draw vertical lines
-        for x in range(-500, 501, GRID_SIZE):
-            is_major = (x % 100 == 0)
+        for x in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
+            is_major = (x % MAJOR_GRID_INTERVAL == 0)
             pen = major_pen if is_major else minor_pen
-            self.scene.addLine(x, -500, x, 500, pen)
+            self.scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
 
             # Add label for major grid lines
             if is_major:
                 label = QGraphicsTextItem(str(x))
                 label.setDefaultTextColor(grid_label_color)
                 label.setFont(grid_label_font)
-                label.setPos(x - 15, -500)  # Position at top
+                label.setPos(x - 15, -GRID_EXTENT)  # Position at top
                 label.setZValue(-1)  # Draw behind components
                 self.scene.addItem(label)
 
         # Draw horizontal lines
-        for y in range(-500, 501, GRID_SIZE):
-            is_major = (y % 100 == 0)
+        for y in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
+            is_major = (y % MAJOR_GRID_INTERVAL == 0)
             pen = major_pen if is_major else minor_pen
-            self.scene.addLine(-500, y, 500, y, pen)
+            self.scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
 
             # Add label for major grid lines
             if is_major:
                 label = QGraphicsTextItem(str(y))
                 label.setDefaultTextColor(grid_label_color)
                 label.setFont(grid_label_font)
-                label.setPos(-500, y - 10)  # Position at left
+                label.setPos(-GRID_EXTENT, y - 10)  # Position at left
                 label.setZValue(-1)  # Draw behind components
                 self.scene.addItem(label)
     
