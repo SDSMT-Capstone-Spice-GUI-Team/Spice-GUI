@@ -509,11 +509,12 @@ class CircuitDesignGUI(QMainWindow):
     def create_netlist(self):
         '''Create SPICE netlist from circuit'''
         from simulation import NetlistGenerator
+        nodes, terminal_to_node = self.canvas.get_model_nodes_and_terminal_map()
         generator = NetlistGenerator(
-            components=self.canvas.components,
-            wires=self.canvas.wires,
-            nodes=self.canvas.nodes,
-            terminal_to_node=self.canvas.terminal_to_node,
+            components=self.canvas.get_model_components(),
+            wires=self.canvas.get_model_wires(),
+            nodes=nodes,
+            terminal_to_node=terminal_to_node,
             analysis_type=self.analysis_type,
             analysis_params=self.analysis_params
         )

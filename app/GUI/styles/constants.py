@@ -3,9 +3,11 @@ constants.py - Centralized constants for the application.
 
 This file is the SINGLE SOURCE OF TRUTH for:
 - GRID_SIZE: Used for snapping components and pathfinding
-- COMPONENTS: Component definitions with symbols, terminals, and color keys
+- COMPONENTS: Component definitions (sourced from models, plus GUI color keys)
 - DEFAULT_COMPONENT_COUNTER: Initial counters for component IDs
 """
+
+from models.component import COMPONENT_TYPES, SPICE_SYMBOLS, TERMINAL_COUNTS
 
 # Grid settings
 GRID_SIZE = 10
@@ -19,49 +21,26 @@ WIRE_CLICK_WIDTH = 10       # Width of clickable area around wires
 # Terminal configuration defaults
 DEFAULT_TERMINAL_PADDING = 15  # Gap between body edge and terminal (grid-aligned)
 
-# Component definitions - SINGLE SOURCE OF TRUTH
-# color_key references semantic color names in the theme
+# GUI-specific theme color keys per component type
+_COLOR_KEYS = {
+    'Resistor': 'component_resistor',
+    'Capacitor': 'component_capacitor',
+    'Inductor': 'component_inductor',
+    'Voltage Source': 'component_voltage_source',
+    'Current Source': 'component_current_source',
+    'Waveform Source': 'component_waveform_source',
+    'Ground': 'component_ground',
+    'Op-Amp': 'component_opamp',
+}
+
+# Component definitions - symbol and terminals sourced from models
 COMPONENTS = {
-    'Resistor': {
-        'symbol': 'R',
-        'terminals': 2,
-        'color_key': 'component_resistor',
-    },
-    'Capacitor': {
-        'symbol': 'C',
-        'terminals': 2,
-        'color_key': 'component_capacitor',
-    },
-    'Inductor': {
-        'symbol': 'L',
-        'terminals': 2,
-        'color_key': 'component_inductor',
-    },
-    'Voltage Source': {
-        'symbol': 'V',
-        'terminals': 2,
-        'color_key': 'component_voltage_source',
-    },
-    'Current Source': {
-        'symbol': 'I',
-        'terminals': 2,
-        'color_key': 'component_current_source',
-    },
-    'Waveform Source': {
-        'symbol': 'VW',
-        'terminals': 2,
-        'color_key': 'component_waveform_source',
-    },
-    'Ground': {
-        'symbol': 'GND',
-        'terminals': 1,
-        'color_key': 'component_ground',
-    },
-    'Op-Amp': {
-        'symbol': 'OA',
-        'terminals': 5,
-        'color_key': 'component_opamp',
-    },
+    comp_type: {
+        'symbol': SPICE_SYMBOLS[comp_type],
+        'terminals': TERMINAL_COUNTS.get(comp_type, 2),
+        'color_key': _COLOR_KEYS.get(comp_type, 'text_primary'),
+    }
+    for comp_type in COMPONENT_TYPES
 }
 
 # Default component counter for ID generation

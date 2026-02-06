@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
 # from PyQt6.QtWidgets import QComboBox  # TODO: cleanup - unused
 from PyQt6.QtCore import Qt, pyqtSignal
 # waveform_dialog imported lazily in configure_waveform() for faster startup
+from models.component import DEFAULT_VALUES
 from .styles import theme_manager
 
 
@@ -95,7 +96,7 @@ class PropertiesPanel(QWidget):
         # Block signals temporarily to avoid triggering change events
         self.value_input.blockSignals(True)
         self.value_input.setText(component.value)
-        self.value_input.setPlaceholderText(f"Default: {component.DEFAULT_VALUE}")
+        self.value_input.setPlaceholderText(f"Default: {DEFAULT_VALUES.get(component.component_type, '')}")
         self.value_input.blockSignals(False)
 
         # Show/hide waveform button for waveform sources

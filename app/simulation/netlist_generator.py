@@ -6,9 +6,22 @@ Handles SPICE netlist generation from circuit data
 
 
 class NetlistGenerator:
-    """Generates SPICE netlists from circuit components and nodes"""
-    
+    """Generates SPICE netlists from circuit components and nodes.
+
+    Accepts pure Python model objects (ComponentData, WireData, NodeData)
+    with no Qt dependencies.
+    """
+
     def __init__(self, components, wires, nodes, terminal_to_node, analysis_type, analysis_params):
+        """
+        Args:
+            components: Dict[str, ComponentData] - component models keyed by ID
+            wires: List[WireData] - wire connection models
+            nodes: List[NodeData] - electrical node models
+            terminal_to_node: Dict[tuple, NodeData] - (comp_id, term_idx) -> node
+            analysis_type: str
+            analysis_params: dict
+        """
         self.components = components
         self.wires = wires
         self.nodes = nodes
@@ -36,8 +49,8 @@ class NetlistGenerator:
         
         # Process wires to assign nodes
         for wire in self.wires:
-            start_key = (wire.start_comp.component_id, wire.start_term)
-            end_key = (wire.end_comp.component_id, wire.end_term)
+            start_key = (wire.start_component_id, wire.start_terminal)
+            end_key = (wire.end_component_id, wire.end_terminal)
             
             start_node = node_map.get(start_key)
             end_node = node_map.get(end_key)
@@ -87,7 +100,7 @@ class NetlistGenerator:
             
             comp_id = comp.component_id
             nodes = []
-            for i in range(len(comp.terminals)):
+            for i in range(comp.get_terminal_count()):
                 key = (comp_id, i)
                 node_num = node_map.get(key, 999)
                 node_str = node_labels.get(node_num, str(node_num))

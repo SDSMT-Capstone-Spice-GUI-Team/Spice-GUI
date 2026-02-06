@@ -989,6 +989,52 @@ class CircuitCanvas(QGraphicsView):
         terminal_legend_text.setZValue(1000)
         self.obstacle_boundary_items.append(terminal_legend_text)
     
+    def get_model_components(self):
+        """Return dict of component_id -> ComponentData for simulation use."""
+        for comp_item in self.components.values():
+            comp_item.model.position = (comp_item.pos().x(), comp_item.pos().y())
+        return {comp_id: comp_item.model for comp_id, comp_item in self.components.items()}
+
+    def get_model_wires(self):
+        """Return list of WireData for simulation use."""
+        from models.wire import WireData
+        return [
+            WireData(
+                start_component_id=wire.start_comp.component_id,
+                start_terminal=wire.start_term,
+                end_component_id=wire.end_comp.component_id,
+                end_terminal=wire.end_term,
+            )
+            for wire in self.wires
+        ]
+
+    def get_model_nodes_and_terminal_map(self):
+        """Return (list of NodeData, terminal_to_node dict) for simulation use.
+
+        The terminal_to_node dict maps (comp_id, term_idx) -> NodeData,
+        sharing the same NodeData objects as the returned list.
+        """
+        from models.node import NodeData
+        qt_to_model = {}  # id(Qt Node) -> NodeData
+        node_data_list = []
+        for node in self.nodes:
+            nd = NodeData(
+                terminals=set(node.terminals),
+                is_ground=node.is_ground,
+                custom_label=node.custom_label,
+                auto_label=node.auto_label,
+            )
+            qt_to_model[id(node)] = nd
+            node_data_list.append(nd)
+
+        terminal_to_node = {}
+        for key, qt_node in self.terminal_to_node.items():
+            nd = qt_to_model.get(id(qt_node))
+            if nd is not None:
+                terminal_to_node[key] = nd
+
+        return node_data_list, terminal_to_node
+
     def to_dict(self):
         """Serialize circuit to dictionary"""
         return {
