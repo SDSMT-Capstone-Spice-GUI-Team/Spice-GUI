@@ -459,18 +459,29 @@ class CircuitDesignGUI(QMainWindow):
             try:
                 with open(filename, 'r') as f:
                     data = json.load(f)
-                
+
                 self.canvas.from_dict(data)
                 self.current_file = filename
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
-                
+
                 # Save the successfully loaded file path
                 self._save_session(filename)
 
                 if not is_reload:
                     QMessageBox.information(
                         self, "Success", "Circuit loaded successfully!")
+            except json.JSONDecodeError:
+                QMessageBox.critical(
+                    self, "Invalid File",
+                    "This file is not valid JSON. It may be corrupted or "
+                    "is not a valid SDM Spice circuit file.")
+            except ValueError as e:
+                QMessageBox.critical(
+                    self, "Invalid Circuit File",
+                    f"This file appears to be corrupted or is not a valid "
+                    f"SDM Spice circuit file.\n\nDetails: {e}")
             except Exception as e:
+                logger.error("Failed to load circuit: %s", e, exc_info=True)
                 QMessageBox.critical(
                     self, "Error", f"Failed to load: {str(e)}")
 
