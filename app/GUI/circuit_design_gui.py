@@ -1,6 +1,7 @@
 # simulation module imported lazily in methods that need it for faster startup
 import json
 import os
+from datetime import datetime
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
                              QSplitter, QLabel, QDialog, QStackedWidget)
@@ -506,24 +507,33 @@ class CircuitDesignGUI(QMainWindow):
             QMessageBox.critical(
                 self, "Error", f"Failed to generate netlist: {str(e)}")
 
-    def create_netlist(self):
+    def create_netlist(self, wrdata_filepath=None):
         '''Create SPICE netlist from circuit'''
         from simulation import NetlistGenerator
         nodes, terminal_to_node = self.canvas.get_model_nodes_and_terminal_map()
-        generator = NetlistGenerator(
+        kwargs = dict(
             components=self.canvas.get_model_components(),
             wires=self.canvas.get_model_wires(),
             nodes=nodes,
             terminal_to_node=terminal_to_node,
             analysis_type=self.analysis_type,
-            analysis_params=self.analysis_params
+            analysis_params=self.analysis_params,
         )
+        if wrdata_filepath is not None:
+            kwargs['wrdata_filepath'] = wrdata_filepath
+        generator = NetlistGenerator(**kwargs)
         return generator.generate()
 
     def run_simulation(self):
         '''Run SPICE simulation using ngspice'''
         try:
-            netlist = self.create_netlist()
+            # Generate timestamped wrdata path for transient results
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            wrdata_filepath = os.path.join(
+                self.ngspice_runner.output_dir, f"wrdata_{timestamp}.txt"
+            )
+
+            netlist = self.create_netlist(wrdata_filepath=wrdata_filepath)
 
             self.results_text.setPlainText("Running ngspice simulation...")
 
@@ -554,7 +564,6 @@ class CircuitDesignGUI(QMainWindow):
             # For transient analysis, the `wrdata` command in the netlist creates
             # a clean data file. We parse that directly for reliability.
             if self.analysis_type == "Transient":
-                wrdata_filepath = "transient_data.txt"
                 self._display_formatted_results(None, wrdata_filepath, is_wrdata=True)
             else:
                 # For other analysis types, parse the stdout dump.

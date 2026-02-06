@@ -5,6 +5,7 @@ Handles execution of ngspice simulations
 """
 
 import os
+import shutil
 import subprocess
 import platform
 from datetime import datetime
@@ -20,59 +21,41 @@ class NgspiceRunner:
     
     def find_ngspice(self):
         """Find ngspice executable on the system"""
+        # Try PATH lookup first (works cross-platform)
+        which_result = shutil.which('ngspice')
+        if which_result:
+            self.ngspice_cmd = which_result
+            return which_result
+
         system = platform.system()
-        
+
+        # Fallback: check common installation paths
         if system == "Windows":
             possible_paths = [
-                'ngspice',
-                'ngspice.exe',
-                r'C:(\Program Files\)?ngspice([- ]\d+)?\bin\ngspice.exe',
                 r'C:\Program Files (x86)\ngspice\bin\ngspice.exe',
                 r'C:\ngspice\bin\ngspice.exe',
                 r'C:\ngspice-42\Spice64\bin\ngspice.exe',
                 r"C:\Program Files\Spice64\bin\ngspice.exe",
-                r"C:\Program Files\ngspice\bin\ngspice.exe"
+                r"C:\Program Files\ngspice\bin\ngspice.exe",
             ]
         elif system == "Linux":
             possible_paths = [
-                'ngspice',
                 '/usr/bin/ngspice',
                 '/usr/local/bin/ngspice',
             ]
         elif system == "Darwin":  # macOS
             possible_paths = [
-                'ngspice',
                 '/usr/local/bin/ngspice',
                 '/opt/homebrew/bin/ngspice',
             ]
-            pass
         else:
-            possible_paths = ['ngspice']
-        
-        # Try to find ngspice
+            possible_paths = []
+
         for cmd in possible_paths:
-            try:
-                # For full paths on Windows, check if file exists first
-                if system == "Windows" and '\\' in cmd:
-                    if not os.path.exists(cmd):
-                        continue
-                        pass
-                    else:
-                        self.ngspice_cmd = cmd
-                        return cmd
-                
-                # For commands in PATH, try running --version
-                result = subprocess.run([cmd, '--version'], 
-                                      capture_output=True, 
-                                      timeout=5,
-                                      text=True,
-                                      creationflags=subprocess.CREATE_NO_WINDOW if system == "Windows" else 0)
-                if result.returncode == 0:
-                    self.ngspice_cmd = cmd
-                    return cmd
-            except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError, Exception):
-                continue
-        
+            if os.path.exists(cmd):
+                self.ngspice_cmd = cmd
+                return cmd
+
         return None
     
     def run_simulation(self, netlist_content):
@@ -112,12 +95,11 @@ class NgspiceRunner:
             # Check if output file was created
             if os.path.exists(output_filename):
                 return True, output_filename, result.stdout, result.stderr
-                pass
             else:
                 return False, None, result.stdout, result.stderr or "Output file not created"
                 
         except subprocess.TimeoutExpired:
-            return False, None, "", "Simulation timed out (>30 seconds)"
+            return False, None, "", "Simulation timed out (>60 seconds)"
         except Exception as e:
             return False, None, "", f"Simulation error: {str(e)}"
     

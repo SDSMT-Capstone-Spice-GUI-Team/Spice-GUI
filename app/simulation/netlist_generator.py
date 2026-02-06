@@ -12,7 +12,7 @@ class NetlistGenerator:
     with no Qt dependencies.
     """
 
-    def __init__(self, components, wires, nodes, terminal_to_node, analysis_type, analysis_params):
+    def __init__(self, components, wires, nodes, terminal_to_node, analysis_type, analysis_params, wrdata_filepath="transient_data.txt"):
         """
         Args:
             components: Dict[str, ComponentData] - component models keyed by ID
@@ -21,6 +21,7 @@ class NetlistGenerator:
             terminal_to_node: Dict[tuple, NodeData] - (comp_id, term_idx) -> node
             analysis_type: str
             analysis_params: dict
+            wrdata_filepath: str - path for wrdata output file
         """
         self.components = components
         self.wires = wires
@@ -28,6 +29,7 @@ class NetlistGenerator:
         self.terminal_to_node = terminal_to_node
         self.analysis_type = analysis_type
         self.analysis_params = analysis_params
+        self.wrdata_filepath = wrdata_filepath
     
     def generate(self):
         """Generate complete SPICE netlist"""
@@ -63,7 +65,6 @@ class NetlistGenerator:
                 node_map[start_key] = end_node
             elif end_node is None:
                 node_map[end_key] = start_node
-                pass
             else:
                 merged_node = min(start_node, end_node)
                 for key, node in list(node_map.items()):
@@ -164,7 +165,6 @@ class NetlistGenerator:
             if voltage_sources:
                 source_name = voltage_sources[0].component_id
                 lines.append(f".dc {source_name} {params['min']} {params['max']} {params['step']}")
-                pass
             else:
                 lines.append("* Warning: DC Sweep requires a voltage source")
                 lines.append(".op")
@@ -190,7 +190,6 @@ class NetlistGenerator:
         # Generate appropriate print/plot commands based on analysis type
         if node_labels:
             print_vars = " ".join([f"v({label})" for label in node_labels.values()])
-            pass
         else:
             print_vars = "all"
         # Define variables for voltages across resistors
@@ -253,7 +252,7 @@ class NetlistGenerator:
         lines.append("set wr_singlescale")
         
         if print_vars:
-            lines.append(f"wrdata transient_data.txt {print_vars}")
+            lines.append(f"wrdata {self.wrdata_filepath} {print_vars}")
             
         lines.append(".endc")
 
