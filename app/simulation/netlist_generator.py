@@ -115,7 +115,7 @@ class NetlistGenerator:
             elif comp.component_type == 'Voltage Source':
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
             elif comp.component_type == 'Current Source':
-                lines.append(f"{comp_id} {' '.join(nodes)} AC {comp.value}")
+                lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
             elif comp.component_type == 'Waveform Source':
                 # Use get_spice_value() method if available, otherwise use value
                 if hasattr(comp, 'get_spice_value'):

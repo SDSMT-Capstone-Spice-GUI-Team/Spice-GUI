@@ -141,8 +141,8 @@ class PropertiesPanel(QWidget):
         if self.current_component.component_type != 'Waveform Source':
             return
 
-        from .waveform_dialog import WaveformDialog
-        dialog = WaveformDialog(self.current_component, self)
+        from .waveform_config_dialog import WaveformConfigDialog
+        dialog = WaveformConfigDialog(self.current_component, self)
         if dialog.exec():
             # Get configured parameters
             waveform_type, params = dialog.get_parameters()
