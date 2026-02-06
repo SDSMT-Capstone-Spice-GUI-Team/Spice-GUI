@@ -24,6 +24,10 @@ COMPONENT_TYPES = [
     'Waveform Source',
     'Ground',
     'Op-Amp',
+    'VCVS',
+    'CCVS',
+    'VCCS',
+    'CCCS',
 ]
 
 # Mapping of component types to SPICE symbols
@@ -36,12 +40,20 @@ SPICE_SYMBOLS = {
     'Waveform Source': 'VW',
     'Ground': 'GND',
     'Op-Amp': 'OA',
+    'VCVS': 'E',
+    'CCVS': 'H',
+    'VCCS': 'G',
+    'CCCS': 'F',
 }
 
 # Number of terminals per component type (default is 2)
 TERMINAL_COUNTS = {
     'Ground': 1,
     'Op-Amp': 3,
+    'VCVS': 4,
+    'CCVS': 4,
+    'VCCS': 4,
+    'CCCS': 4,
 }
 
 # Default values per component type
@@ -54,6 +66,10 @@ DEFAULT_VALUES = {
     'Waveform Source': 'SIN(0 5 1k)',
     'Ground': '0V',
     'Op-Amp': 'Ideal',
+    'VCVS': '1',
+    'CCVS': '1k',
+    'VCCS': '1m',
+    'CCCS': '1',
 }
 
 # Component colors (hex strings)
@@ -66,6 +82,10 @@ COMPONENT_COLORS = {
     'Waveform Source': '#E91E63',
     'Ground': '#000000',
     'Op-Amp': '#FFC107',
+    'VCVS': '#00897B',
+    'CCVS': '#00ACC1',
+    'VCCS': '#26A69A',
+    'CCCS': '#0097A7',
 }
 
 # Terminal geometry configuration per component type
@@ -81,6 +101,10 @@ TERMINAL_GEOMETRY = {
     'Waveform Source': (15, 15, None),
     'Ground': (15, 0, [(0, -10)]),
     'Op-Amp': (20, 10, [(-30, -10), (-30, 10), (30, 0)]),
+    'VCVS': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
+    'CCVS': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
+    'VCCS': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
+    'CCCS': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
 }
 
 # Mapping from serialized class names to canonical display names
@@ -90,6 +114,10 @@ _CLASS_TO_DISPLAY = {
     'CurrentSource': 'Current Source',
     'WaveformVoltageSource': 'Waveform Source',
     'OpAmp': 'Op-Amp',
+    'VoltageControlledVoltageSource': 'VCVS',
+    'CurrentControlledVoltageSource': 'CCVS',
+    'VoltageControlledCurrentSource': 'VCCS',
+    'CurrentControlledCurrentSource': 'CCCS',
 }
 
 # Mapping from display names to Python class names (for serialization)
@@ -98,6 +126,10 @@ _DISPLAY_TO_CLASS = {
     'Current Source': 'CurrentSource',
     'Waveform Source': 'WaveformVoltageSource',
     'Op-Amp': 'OpAmp',
+    'VCVS': 'VoltageControlledVoltageSource',
+    'CCVS': 'CurrentControlledVoltageSource',
+    'VCCS': 'VoltageControlledCurrentSource',
+    'CCCS': 'CurrentControlledCurrentSource',
 }
 
 

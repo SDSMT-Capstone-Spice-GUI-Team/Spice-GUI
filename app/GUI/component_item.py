@@ -571,6 +571,139 @@ class OpAmp(ComponentItem):
     def boundingRect(self):
         return QRectF(-30, -25, 60, 50)
 
+class VCVS(ComponentItem):
+    """Voltage-Controlled Voltage Source (E element)"""
+    type_name = 'VCVS'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+    def draw_component_body(self, painter):
+        # Control and output lines
+        if self.scene() is not None:
+            painter.drawLine(-30, -10, -15, -10)
+            painter.drawLine(-30, 10, -15, 10)
+            painter.drawLine(15, -10, 30, -10)
+            painter.drawLine(15, 10, 30, 10)
+        # Diamond shape (dependent source symbol)
+        painter.drawLine(-15, 0, 0, -15)
+        painter.drawLine(0, -15, 15, 0)
+        painter.drawLine(15, 0, 0, 15)
+        painter.drawLine(0, 15, -15, 0)
+        # +/- polarity markers on output side
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        painter.drawLine(5, -6, 9, -6)
+        painter.drawLine(7, -8, 7, -4)
+        painter.drawLine(5, 6, 9, 6)
+
+    def get_obstacle_shape(self):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
+class CCVS(ComponentItem):
+    """Current-Controlled Voltage Source (H element)"""
+    type_name = 'CCVS'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+    def draw_component_body(self, painter):
+        if self.scene() is not None:
+            painter.drawLine(-30, -10, -15, -10)
+            painter.drawLine(-30, 10, -15, 10)
+            painter.drawLine(15, -10, 30, -10)
+            painter.drawLine(15, 10, 30, 10)
+        # Diamond shape
+        painter.drawLine(-15, 0, 0, -15)
+        painter.drawLine(0, -15, 15, 0)
+        painter.drawLine(15, 0, 0, 15)
+        painter.drawLine(0, 15, -15, 0)
+        # +/- polarity markers on output side
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        painter.drawLine(5, -6, 9, -6)
+        painter.drawLine(7, -8, 7, -4)
+        painter.drawLine(5, 6, 9, 6)
+        # Arrow on control side to indicate current sensing
+        painter.drawLine(-12, -2, -8, -2)
+        painter.drawLine(-9, -4, -8, -2)
+        painter.drawLine(-9, 0, -8, -2)
+
+    def get_obstacle_shape(self):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
+class VCCS(ComponentItem):
+    """Voltage-Controlled Current Source (G element)"""
+    type_name = 'VCCS'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+    def draw_component_body(self, painter):
+        if self.scene() is not None:
+            painter.drawLine(-30, -10, -15, -10)
+            painter.drawLine(-30, 10, -15, 10)
+            painter.drawLine(15, -10, 30, -10)
+            painter.drawLine(15, 10, 30, 10)
+        # Diamond shape
+        painter.drawLine(-15, 0, 0, -15)
+        painter.drawLine(0, -15, 15, 0)
+        painter.drawLine(15, 0, 0, 15)
+        painter.drawLine(0, 15, -15, 0)
+        # Arrow inside diamond (current source indicator)
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        painter.drawLine(4, 6, 4, -6)
+        painter.drawLine(2, -4, 4, -6)
+        painter.drawLine(6, -4, 4, -6)
+
+    def get_obstacle_shape(self):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
+class CCCS(ComponentItem):
+    """Current-Controlled Current Source (F element)"""
+    type_name = 'CCCS'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+    def draw_component_body(self, painter):
+        if self.scene() is not None:
+            painter.drawLine(-30, -10, -15, -10)
+            painter.drawLine(-30, 10, -15, 10)
+            painter.drawLine(15, -10, 30, -10)
+            painter.drawLine(15, 10, 30, 10)
+        # Diamond shape
+        painter.drawLine(-15, 0, 0, -15)
+        painter.drawLine(0, -15, 15, 0)
+        painter.drawLine(15, 0, 0, 15)
+        painter.drawLine(0, 15, -15, 0)
+        # Arrow inside diamond (current source indicator)
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        painter.drawLine(4, 6, 4, -6)
+        painter.drawLine(2, -4, 4, -6)
+        painter.drawLine(6, -4, 4, -6)
+        # Arrow on control side to indicate current sensing
+        painter.drawLine(-12, -2, -8, -2)
+        painter.drawLine(-9, -4, -8, -2)
+        painter.drawLine(-9, 0, -8, -2)
+
+    def get_obstacle_shape(self):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
     'Resistor': Resistor,
@@ -584,7 +717,15 @@ COMPONENT_CLASSES = {
     'Waveform Source': WaveformVoltageSource,
     'Ground': Ground,
     'OpAmp': OpAmp,
-    'Op-Amp': OpAmp
+    'Op-Amp': OpAmp,
+    'VCVS': VCVS,
+    'VoltageControlledVoltageSource': VCVS,
+    'CCVS': CCVS,
+    'CurrentControlledVoltageSource': CCVS,
+    'VCCS': VCCS,
+    'VoltageControlledCurrentSource': VCCS,
+    'CCCS': CCCS,
+    'CurrentControlledCurrentSource': CCCS,
 }
 
 

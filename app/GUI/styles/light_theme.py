@@ -36,6 +36,10 @@ class LightTheme(BaseTheme):
             'component_waveform_source': '#E91E63', # Pink
             'component_ground': '#000000',         # Black
             'component_opamp': '#FFC107',          # Amber
+            'component_vcvs': '#00897B',           # Teal
+            'component_ccvs': '#00ACC1',           # Cyan
+            'component_vccs': '#26A69A',           # Teal variant
+            'component_cccs': '#0097A7',           # Dark cyan
 
             # ===== Algorithm Layer Colors =====
             'algorithm_astar': '#2196F3',          # Blue (33, 150, 243)

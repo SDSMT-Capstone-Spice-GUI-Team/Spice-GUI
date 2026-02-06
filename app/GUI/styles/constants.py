@@ -31,6 +31,10 @@ _COLOR_KEYS = {
     'Waveform Source': 'component_waveform_source',
     'Ground': 'component_ground',
     'Op-Amp': 'component_opamp',
+    'VCVS': 'component_vcvs',
+    'CCVS': 'component_ccvs',
+    'VCCS': 'component_vccs',
+    'CCCS': 'component_cccs',
 }
 
 # Component definitions - symbol and terminals sourced from models

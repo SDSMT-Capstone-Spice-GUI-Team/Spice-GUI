@@ -129,6 +129,28 @@ class NetlistGenerator:
                 # Terminal 1 is non-inverting (inp), 0 is inverting (inn), 2 is output (out)
                 opamp_nodes = [nodes[1], nodes[0], nodes[2]]
                 lines.append(f"X{comp_id} {' '.join(opamp_nodes)} OPAMP_IDEAL")
+            elif comp.component_type == 'VCVS':
+                # E<name> out+ out- ctrl+ ctrl- gain
+                # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}")
+            elif comp.component_type == 'VCCS':
+                # G<name> out+ out- ctrl+ ctrl- transconductance
+                # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}")
+            elif comp.component_type == 'CCVS':
+                # H<name> out+ out- Vname transresistance
+                # Insert hidden 0V voltage source for current sensing
+                # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+                sense_name = f"Vsense_{comp_id}"
+                lines.append(f"{sense_name} {nodes[0]} {nodes[1]} 0")
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}")
+            elif comp.component_type == 'CCCS':
+                # F<name> out+ out- Vname gain
+                # Insert hidden 0V voltage source for current sensing
+                # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+                sense_name = f"Vsense_{comp_id}"
+                lines.append(f"{sense_name} {nodes[0]} {nodes[1]} 0")
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}")
         
         # Add comments about labeled nodes
         if node_labels:
