@@ -74,6 +74,7 @@ class PropertiesPanel(QWidget):
         self.id_label.setText("-")
         self.type_label.setText("-")
         self.value_input.clear()
+        self.value_input.setReadOnly(False)
         self.value_input.setPlaceholderText("")
         self.apply_button.setEnabled(False)
         self.waveform_button.setVisible(False)
@@ -96,14 +97,18 @@ class PropertiesPanel(QWidget):
         # Block signals temporarily to avoid triggering change events
         self.value_input.blockSignals(True)
         self.value_input.setText(component.value)
-        self.value_input.setPlaceholderText(f"Default: {DEFAULT_VALUES.get(component.component_type, '')}")
-        self.value_input.blockSignals(False)
 
-        # Show/hide waveform button for waveform sources
+        # Waveform sources use the Configure Waveform dialog for editing
         if component.component_type == 'Waveform Source':
+            self.value_input.setReadOnly(True)
+            self.value_input.setPlaceholderText("Use 'Configure Waveform...' button")
             self.waveform_button.setVisible(True)
         else:
+            self.value_input.setReadOnly(False)
+            self.value_input.setPlaceholderText(f"Default: {DEFAULT_VALUES.get(component.component_type, '')}")
             self.waveform_button.setVisible(False)
+
+        self.value_input.blockSignals(False)
 
     def on_value_changed(self):
         """Handle value input changes"""

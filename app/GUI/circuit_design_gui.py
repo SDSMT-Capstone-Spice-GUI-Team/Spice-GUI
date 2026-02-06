@@ -643,6 +643,11 @@ class CircuitDesignGUI(QMainWindow):
                 self.results_text.append("\n" + "-" * 40 + "")
                 self.results_text.append("Waveform plot has also been generated in a new window.")
 
+                # Clean up previous waveform dialog if it exists
+                if hasattr(self, 'waveform_dialog') and self.waveform_dialog is not None:
+                    self.waveform_dialog.close()
+                    self.waveform_dialog.deleteLater()
+
                 # Show waveform plot
                 self.waveform_dialog = WaveformDialog(tran_data, self)
                 self.waveform_dialog.show()
@@ -754,3 +759,10 @@ class CircuitDesignGUI(QMainWindow):
 
             # Update the properties panel to reflect the change
             self.properties_panel.show_component(component)
+
+        elif property_name == 'waveform':
+            # Waveform changes are applied directly by PropertiesPanel
+            component.update()
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)

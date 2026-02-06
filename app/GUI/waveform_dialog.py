@@ -391,3 +391,8 @@ class WaveformDialog(QDialog):
         self.canvas.axes.grid(True)
         self.canvas.figure.tight_layout()
         self.canvas.draw()
+
+    def closeEvent(self, event):
+        """Clean up matplotlib figure to prevent memory leaks."""
+        plt.close(self.canvas.figure)
+        super().closeEvent(event)
