@@ -6,12 +6,18 @@ from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
 
 class ComponentItem(QGraphicsItem):
     """Base class for graphical components on the canvas"""
-    
+
     # Class attributes to be overridden by child classes
     SYMBOL = ''
     TERMINALS = 2
     COLOR = '#000000'
     DEFAULT_VALUE = '1u'
+
+    # Terminal position configuration
+    BODY_EXTENT_X = 15        # Body extent from center on X-axis
+    BODY_EXTENT_Y = 10        # Body extent from center on Y-axis
+    TERMINAL_PADDING = 15     # Gap between body edge and terminal (grid-aligned)
+    BASE_TERMINALS = None     # Override for custom terminal positions [(x,y), ...]
     
     def __init__(self, component_id, component_type = 'Unknown'):
         super().__init__()
@@ -119,18 +125,20 @@ class ComponentItem(QGraphicsItem):
 
     def update_terminals(self):
         """Update terminal positions based on rotation"""
-        # Base terminal positions (horizontal orientation)
-        if self.TERMINALS == 2:
-            base_terminals = [QPointF(-20, 0), QPointF(20, 0)]
-            pass
+        # Use custom terminal positions if defined, otherwise calculate from extents
+        if self.BASE_TERMINALS is not None:
+            base_terminals = [QPointF(x, y) for x, y in self.BASE_TERMINALS]
+        elif self.TERMINALS == 2:
+            terminal_x = self.BODY_EXTENT_X + self.TERMINAL_PADDING
+            base_terminals = [QPointF(-terminal_x, 0), QPointF(terminal_x, 0)]
         else:
             base_terminals = []
-        
+
         # Rotate terminals based on rotation_angle
         rad = math.radians(self.rotation_angle)
         cos_a = math.cos(rad)
         sin_a = math.sin(rad)
-        
+
         self.terminals = []
         for term in base_terminals:
             # Rotate point around origin
@@ -298,20 +306,24 @@ class Resistor(ComponentItem):
     COLOR = '#2196F3'
     DEFAULT_VALUE = '1k'
     type_name = 'Resistor'
+    BODY_EXTENT_X = 15  # Zigzag extends -15 to 15
+    TERMINAL_PADDING = 15  # Grid-aligned (15 + 15 = 30)
     
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
     
     def draw_component_body(self, painter):
+        # Draw lead lines only on canvas (not in palette icons)
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -15, 0)  # Left lead
+            painter.drawLine(15, 0, 30, 0)    # Right lead
         # Draw resistor zigzag
-        painter.drawLine(-20, 0, -15, 0)
         painter.drawLine(-15, 0, -10, -8)
         painter.drawLine(-10, -8, -5, 8)
         painter.drawLine(-5, 8, 0, -8)
         painter.drawLine(0, -8, 5, 8)
         painter.drawLine(5, 8, 10, -8)
         painter.drawLine(10, -8, 15, 0)
-        painter.drawLine(15, 0, 20, 0)
 
     def get_obstacle_shape(self):
         """
@@ -334,16 +346,20 @@ class Capacitor(ComponentItem):
     COLOR = '#4CAF50'
     DEFAULT_VALUE = '1u'
     type_name = 'Capacitor'
+    BODY_EXTENT_X = 5   # Plates at ±5
+    TERMINAL_PADDING = 25  # Grid-aligned (5 + 25 = 30)
     
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
     
     def draw_component_body(self, painter):
+        # Draw lead lines only on canvas (not in palette icons)
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -5, 0)   # Left lead
+            painter.drawLine(5, 0, 30, 0)     # Right lead
         # Draw capacitor plates
-        painter.drawLine(-20, 0, -5, 0)
         painter.drawLine(-5, -12, -5, 12)
         painter.drawLine(5, -12, 5, 12)
-        painter.drawLine(5, 0, 20, 0)
 
     def get_obstacle_shape(self):
         """
@@ -366,17 +382,21 @@ class Inductor(ComponentItem):
     COLOR = '#FF9800'
     DEFAULT_VALUE = '1m'
     type_name = 'Inductor'
+    BODY_EXTENT_X = 20  # Coils extend to ±20
+    TERMINAL_PADDING = 10  # Grid-aligned (20 + 10 = 30)
     
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
 
     
     def draw_component_body(self, painter):
+        # Draw lead lines only on canvas (not in palette icons)
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -20, 0)  # Left lead
+            painter.drawLine(20, 0, 30, 0)    # Right lead
         # Draw inductor coils
-        painter.drawLine(-20, 0, -20, 0)
         for i in range(-20, 20, 8):
             painter.drawArc(i, -5, 8, 10, 0, 180*16)
-        painter.drawLine(20, 0, 20, 0)
 
     def get_obstacle_shape(self):
         """
@@ -399,17 +419,23 @@ class VoltageSource(ComponentItem):
     COLOR = '#F44336'
     DEFAULT_VALUE = '5V'
     type_name = 'Voltage Source'
+    BODY_EXTENT_X = 15  # Circle radius 15
+    TERMINAL_PADDING = 15  # Grid-aligned (15 + 15 = 30)
     
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
     
     def draw_component_body(self, painter):
+        # Draw lead lines only on canvas (not in palette icons)
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -15, 0)  # Left lead
+            painter.drawLine(15, 0, 30, 0)    # Right lead
         # Draw circle for source
         painter.drawEllipse(-15, -15, 30, 30)
-        painter.drawLine(-10, 2, -10, -2)
-        painter.drawLine(-12, 0, -8, 0)
-        painter.drawLine(12, 0, 8, 0)
-        # painter.drawText(-5, 5, 'V')
+        # Draw +/- symbols inside
+        painter.drawLine(-10, 2, -10, -2)   # Minus vertical
+        painter.drawLine(-12, 0, -8, 0)     # Minus horizontal
+        painter.drawLine(12, 0, 8, 0)       # Plus horizontal
 
     def get_obstacle_shape(self):
         """
@@ -431,13 +457,18 @@ class CurrentSource(ComponentItem):
     TERMINALS = 2
     COLOR = '#9C27B0'
     DEFAULT_VALUE = '1A'
-
     type_name = 'Current Source'
+    BODY_EXTENT_X = 15  # Circle radius 15
+    TERMINAL_PADDING = 15  # Grid-aligned (15 + 15 = 30)
     
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
 
     def draw_component_body(self, painter):
+        # Draw lead lines only on canvas (not in palette icons)
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -15, 0)  # Left lead
+            painter.drawLine(15, 0, 30, 0)    # Right lead
         # Draw circle for source
         painter.drawEllipse(-15, -15, 30, 30)
         painter.drawText(-5, 5, 'I')
@@ -462,6 +493,8 @@ class WaveformVoltageSource(ComponentItem):
     COLOR = '#E91E63'  # Pink color to distinguish from regular voltage source
     DEFAULT_VALUE = 'SIN(0 5 1k)'
     type_name = 'Waveform Source'
+    BODY_EXTENT_X = 15  # Circle radius 15
+    TERMINAL_PADDING = 15  # Grid-aligned (15 + 15 = 30)
 
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
@@ -496,6 +529,10 @@ class WaveformVoltageSource(ComponentItem):
         }
 
     def draw_component_body(self, painter):
+        # Draw lead lines only on canvas (not in palette icons)
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -15, 0)  # Left lead
+            painter.drawLine(15, 0, 30, 0)    # Right lead
         # Draw circle for source
         painter.drawEllipse(-15, -15, 30, 30)
         # Draw sine wave symbol
@@ -549,6 +586,9 @@ class Ground(ComponentItem):
     COLOR = '#000000'
     DEFAULT_VALUE = '0V'
     type_name = 'Ground'
+    BASE_TERMINALS = [(0, -10)]  # Terminal 10px above center (grid-aligned)
+    BODY_EXTENT_X = 15
+    BODY_EXTENT_Y = 20  # Extends downward
 
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
@@ -599,6 +639,9 @@ class Ground(ComponentItem):
             painter.drawEllipse(terminal, 3, 3)
 
     def draw_component_body(self, painter):
+        # Draw lead line only on canvas (from terminal at y=-10 to body at y=0)
+        if self.scene() is not None:
+            painter.drawLine(0, -10, 0, 0)  # Lead from terminal to body
         # Draw ground symbol
         painter.drawLine(0, 0, 0, 10)
         painter.drawLine(-15, 10, 15, 10)
@@ -619,23 +662,6 @@ class Ground(ComponentItem):
             (-17.0, 22.0)    # Bottom-left
         ]
 
-    def update_terminals(self):
-        """Update terminal positions based on rotation"""
-        # Base terminal positions (horizontal orientation)
-        base_terminals = [QPointF(0, 0)]
-        
-        # Rotate terminals based on rotation_angle
-        rad = math.radians(self.rotation_angle)
-        cos_a = math.cos(rad)
-        sin_a = math.sin(rad)
-        
-        self.terminals = []
-        for term in base_terminals:
-            # Rotate point around origin
-            new_x = term.x() * cos_a - term.y() * sin_a
-            new_y = term.x() * sin_a + term.y() * cos_a
-            self.terminals.append(QPointF(new_x, new_y))
-
 class OpAmp(ComponentItem):
     """Operational Amplifier component"""
     SYMBOL = 'OA'
@@ -643,11 +669,19 @@ class OpAmp(ComponentItem):
     COLOR = '#FFC107'
     DEFAULT_VALUE = 'Ideal'
     type_name = 'Op-Amp'
+    BASE_TERMINALS = [(-30, -10), (-30, 10), (30, 0)]  # Grid-aligned terminals
+    BODY_EXTENT_X = 20
+    BODY_EXTENT_Y = 15
 
     def __init__(self, component_id):
         super().__init__(component_id, self.type_name)
 
     def draw_component_body(self, painter):
+        # Draw lead lines only on canvas (not in palette icons)
+        if self.scene() is not None:
+            painter.drawLine(-30, -10, -20, -10)  # Inverting input lead
+            painter.drawLine(-30, 10, -20, 10)    # Non-inverting input lead
+            painter.drawLine(20, 0, 30, 0)        # Output lead
         # Draw the triangular body of the op-amp
         painter.drawLine(-20, -15, 20, 0)
         painter.drawLine(20, 0, -20, 15)
@@ -658,26 +692,6 @@ class OpAmp(ComponentItem):
         painter.drawLine(-17, -8, -13, -8) # Inverting (-)
         painter.drawLine(-17, 8, -13, 8)  # Non-inverting (+)
         painter.drawLine(-15, 6, -15, 10) # Non-inverting (+)
-
-    def update_terminals(self):
-        """Update terminal positions for the op-amp based on rotation"""
-        # Base terminal positions (inverting, non-inverting, output)
-        base_terminals = [
-            QPointF(-20, -10),  # Inverting input
-            QPointF(-20, 10),   # Non-inverting input
-            QPointF(20, 0),     # Output
-        ]
-
-        # Rotate terminals based on rotation_angle
-        rad = math.radians(self.rotation_angle)
-        cos_a = math.cos(rad)
-        sin_a = math.sin(rad)
-
-        self.terminals = []
-        for term in base_terminals:
-            new_x = term.x() * cos_a - term.y() * sin_a
-            new_y = term.x() * sin_a + term.y() * cos_a
-            self.terminals.append(QPointF(new_x, new_y))
 
     def boundingRect(self):
         return QRectF(-30, -25, 60, 50)

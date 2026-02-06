@@ -16,6 +16,9 @@ TERMINAL_CLICK_RADIUS = 10  # Radius for clicking terminals to route wires
 TERMINAL_HOVER_RADIUS = 15  # Radius for hover detection on terminals
 WIRE_CLICK_WIDTH = 10       # Width of clickable area around wires
 
+# Terminal configuration defaults
+DEFAULT_TERMINAL_PADDING = 15  # Gap between body edge and terminal (grid-aligned)
+
 # Component definitions - SINGLE SOURCE OF TRUTH
 # color_key references semantic color names in the theme
 COMPONENTS = {
