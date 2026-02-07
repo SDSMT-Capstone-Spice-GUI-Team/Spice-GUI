@@ -81,7 +81,7 @@ class NgspiceRunner:
         try:
             with open(netlist_filename, 'w') as f:
                 f.write(netlist_content)
-        except Exception as e:
+        except OSError as e:
             return False, None, "", f"Failed to write netlist: {str(e)}"
         
         # Run ngspice
@@ -101,7 +101,7 @@ class NgspiceRunner:
                 
         except subprocess.TimeoutExpired:
             return False, None, "", f"Simulation timed out (>{SIMULATION_TIMEOUT} seconds)"
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             return False, None, "", f"Simulation error: {str(e)}"
     
     def read_output(self, output_filename):
@@ -109,5 +109,5 @@ class NgspiceRunner:
         try:
             with open(output_filename, 'r') as f:
                 return f.read()
-        except Exception as e:
+        except OSError as e:
             return f"Error reading output: {str(e)}"

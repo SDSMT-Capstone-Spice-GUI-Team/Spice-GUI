@@ -59,7 +59,7 @@ class ResultParser:
             
             return node_voltages
             
-        except Exception as e:
+        except (ValueError, IndexError, AttributeError) as e:
             logger.error("Error parsing OP results: %s", e, exc_info=True)
             return {}
     
@@ -96,7 +96,7 @@ class ResultParser:
 
             return sweep_data if sweep_data['data'] else None
 
-        except Exception as e:
+        except (ValueError, IndexError, KeyError) as e:
             logger.error("Error parsing DC results: %s", e)
             return None
 
@@ -148,7 +148,7 @@ class ResultParser:
 
             return ac_data if ac_data['frequencies'] else None
 
-        except Exception as e:
+        except (ValueError, IndexError, KeyError) as e:
             logger.error("Error parsing AC results: %s", e)
             return None
 
@@ -189,7 +189,7 @@ class ResultParser:
         except FileNotFoundError:
             logger.error("wrdata file not found at %s", filepath)
             return None
-        except Exception as e:
+        except (OSError, ValueError, IndexError, KeyError) as e:
             logger.error("Error parsing wrdata file: %s", e, exc_info=True)
             return None
 

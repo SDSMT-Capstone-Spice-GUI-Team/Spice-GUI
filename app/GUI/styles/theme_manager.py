@@ -75,7 +75,7 @@ class ThemeManager:
         for callback in self._listeners:
             try:
                 callback(self._theme)
-            except Exception as e:
+            except (TypeError, AttributeError, RuntimeError) as e:
                 logger.error("Error notifying theme listener: %s", e)
 
     # ===== Convenience methods for common operations =====

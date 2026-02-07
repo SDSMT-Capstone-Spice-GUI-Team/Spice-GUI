@@ -58,7 +58,7 @@ class CircuitDesignGUI(QMainWindow):
             # Use abspath to ensure the path is valid after an application restart
             with open(SESSION_FILE, 'w') as f:
                 f.write(os.path.abspath(file_path))
-        except Exception as e:
+        except OSError as e:
             logger.error("Error saving session: %s", e)
 
     def _load_last_session(self):
@@ -73,7 +73,7 @@ class CircuitDesignGUI(QMainWindow):
                     logger.info("Hot-reload: reloading last file: %s", file_path)
                     # Call the existing load method to restore state
                     self.load_circuit(file_path, is_reload=True)
-            except Exception as e:
+            except (OSError, json.JSONDecodeError, ValueError) as e:
                 logger.error("Error loading last session: %s", e)
 
     def init_ui(self):
@@ -422,10 +422,9 @@ class CircuitDesignGUI(QMainWindow):
                 if statusBar is None:
                     return
                 statusBar.showMessage(f"Saved to {self.current_file}", 3000)
-            except Exception as e:
+            except (OSError, TypeError) as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to save: {str(e)}")
-            pass
         else:
             self.save_circuit()
 
@@ -444,7 +443,7 @@ class CircuitDesignGUI(QMainWindow):
                 self._save_session(filename)  # Save session on successful save
                 QMessageBox.information(
                     self, "Success", "Circuit saved successfully!")
-            except Exception as e:
+            except (OSError, TypeError) as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to save: {str(e)}")
 
@@ -480,7 +479,7 @@ class CircuitDesignGUI(QMainWindow):
                     self, "Invalid Circuit File",
                     f"This file appears to be corrupted or is not a valid "
                     f"SDM Spice circuit file.\n\nDetails: {e}")
-            except Exception as e:
+            except (OSError, KeyError, TypeError, AttributeError) as e:
                 logger.error("Failed to load circuit: %s", e, exc_info=True)
                 QMessageBox.critical(
                     self, "Error", f"Failed to load: {str(e)}")
@@ -500,7 +499,7 @@ class CircuitDesignGUI(QMainWindow):
         try:
             netlist = self.create_netlist()
             self.results_text.setPlainText("SPICE Netlist:\n\n" + netlist)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             QMessageBox.critical(
                 self, "Error", f"Failed to generate netlist: {str(e)}")
 
@@ -585,12 +584,9 @@ class CircuitDesignGUI(QMainWindow):
                 output = self.ngspice_runner.read_output(output_file)
                 self._display_formatted_results(output, output_file, is_wrdata=False)
 
-        except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
+            logger.error("Simulation failed: %s", e, exc_info=True)
             QMessageBox.critical(self, "Error", f"Simulation failed: {str(e)}")
-            import traceback
-            self.results_text.append(
-                f"\n\nError details:\n{traceback.format_exc()}")
 
     def _display_formatted_results(self, output, filepath, is_wrdata=False):
         """Format and display simulation results based on analysis type"""

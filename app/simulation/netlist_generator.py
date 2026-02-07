@@ -242,7 +242,7 @@ class NetlistGenerator:
                     
                     resistor_voltages_let.append(f"let {alias} = {let_expression}")
                     resistor_voltages_print.append(alias)
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning("Could not create voltage calculation for %s: %s",
                                res.component_id, e)
         
