@@ -7,7 +7,7 @@ Widget for controlling algorithm layer visibility and displaying performance met
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QCheckBox,
                               QLabel, QPushButton, QGroupBox, QTextEdit)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QPalette  # QColor unused, removed  # TODO: cleanup - verify
+from PyQt6.QtGui import QPalette
 from .styles import theme_manager
 
 

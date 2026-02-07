@@ -844,8 +844,6 @@ class CircuitCanvas(QGraphicsView):
 
     def draw_obstacle_boundaries(self):
         """Draw obstacle boundaries for all components"""
-        # from .path_finding import get_component_obstacles  # TODO: cleanup - unused local import
-
         # Clear existing boundary items
         self.clear_obstacle_boundaries()
 

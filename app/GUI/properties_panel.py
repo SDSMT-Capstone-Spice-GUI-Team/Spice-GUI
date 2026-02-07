@@ -1,6 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
                              QFormLayout, QGroupBox, QPushButton)
-# from PyQt6.QtWidgets import QComboBox  # TODO: cleanup - unused
 from PyQt6.QtCore import Qt, pyqtSignal
 # waveform_dialog imported lazily in configure_waveform() for faster startup
 from models.component import DEFAULT_VALUES

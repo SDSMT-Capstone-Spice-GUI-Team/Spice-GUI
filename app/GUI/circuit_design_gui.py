@@ -6,7 +6,6 @@ from datetime import datetime
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
                              QSplitter, QLabel, QDialog, QStackedWidget)
-# from PyQt6.QtWidgets import QSizePolicy  # TODO: cleanup - unused
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtCore import Qt
 from .component_palette import ComponentPalette
@@ -407,7 +406,6 @@ class CircuitDesignGUI(QMainWindow):
                 QMessageBox.warning(self, "Invalid Parameters",
                                     "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
-            pass
         else:
             self.op_action.setChecked(True)
 
@@ -607,8 +605,6 @@ class CircuitDesignGUI(QMainWindow):
 
                 self.canvas.set_node_voltages(node_voltages)
                 self.results_text.append("-" * 40 + "")
-                # self.results_text.append("Voltages displayed on canvas")
-                pass
             else:
                 self.results_text.append("\nNo node voltages found in output.")
                 self.canvas.clear_node_voltages()
@@ -620,7 +616,6 @@ class CircuitDesignGUI(QMainWindow):
                 self.results_text.append("\nDC SWEEP RESULTS:")
                 self.results_text.append("-" * 40 + "")
                 self.results_text.append(str(sweep_data) + "")
-                pass
             else:
                 self.results_text.append("\nDC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -632,7 +627,6 @@ class CircuitDesignGUI(QMainWindow):
                 self.results_text.append("\nAC SWEEP RESULTS:")
                 self.results_text.append("-" * 40 + "")
                 self.results_text.append(str(ac_data) + "")
-                pass
             else:
                 self.results_text.append("\nAC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -666,65 +660,7 @@ class CircuitDesignGUI(QMainWindow):
                 self.results_text.append("\nNo transient data found in output.")
             self.canvas.clear_node_voltages()
 
-        # Show output file location
-        # self.results_text.append("\n" + "=" * 70 + "")
-        # self.results_text.append(f"Output file: {filepath}")
-
-        # # Show filtered raw output
-        # if filtered_output.strip():
-        #     self.results_text.append("\nRAW NGSPICE OUTPUT:")
-        #     self.results_text.append("-" * 70 + "")
-        #     self.results_text.append(filtered_output)
-
         self.results_text.append("=" * 70 + "")
-
-    def _filter_raw_output(self, output):
-        """Filter out verbose/unnecessary lines from ngspice output"""
-        lines = output.split('\n')
-        filtered_lines = []
-
-        # Patterns to skip
-        skip_patterns = [
-            'Note: No compatibility mode',
-            'Doing analysis at TEMP',
-            'Using SPARSE',
-            'No. of Data Rows',
-            'Total analysis time',
-            'Total elapsed time',
-            'DRAM available',
-            'DRAM currently',
-            'Maximum ngspice program size',
-            'Current ngspice program size',
-            'Shared ngspice pages',
-            'Text (code) pages',
-            'Stack =',
-            'Library pages',
-            'Resistor models',
-            'Resistor: Simple',
-            'Vsource: Independent',
-        ]
-
-        skip_section = False
-        for line in lines:
-            # Skip model detail sections
-            if 'models (' in line.lower() or 'model' in line and 'rsh' in line.lower():
-                skip_section = True
-            elif skip_section and (line.strip().startswith('device') or line.strip() == ''):
-                continue
-            elif skip_section and not any(c.isspace() or c == '-' for c in line.strip()[:5] if line.strip()):
-                skip_section = False
-
-            # Check if line matches skip patterns
-            if any(pattern in line for pattern in skip_patterns):
-                continue
-
-            # Keep important lines
-            if skip_section:
-                continue
-
-            filtered_lines.append(line)
-
-        return '\n'.join(filtered_lines)
 
     def on_component_right_clicked(self, component, event_pos):
         """Handle right-click on a component."""
@@ -755,8 +691,6 @@ class CircuitDesignGUI(QMainWindow):
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
 
         elif property_name == 'rotation':
-            # Update component rotation
-            # old_rotation = component.rotation_angle  # TODO: cleanup - unused
             component.rotation_angle = new_value
             component.update_terminals()
             component.update()

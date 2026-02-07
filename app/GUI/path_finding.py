@@ -12,7 +12,6 @@ import time
 from abc import ABC, abstractmethod
 from typing import Dict, List, Set, Tuple
 from PyQt6.QtCore import QPointF
-# import numpy as np  # Removed - only used for float('inf'), replaced with float('inf')
 
 
 class WeightedPathfinder(ABC):
@@ -557,61 +556,6 @@ class IDAStarPathfinder(WeightedPathfinder):
         return min_threshold
 
 
-# class GridPathfinder(WeightedPathfinder):
-#     """
-#     Factory class for backwards compatibility.
-#     Routes to the appropriate algorithm based on the 'algorithm' parameter.
-#     """
-
-#     def __init__(self, grid_size=20):
-#         super().__init__(grid_size)
-#         # Create instances of each algorithm
-#         self._astar = AStarPathfinder(grid_size)
-#         self._dijkstra = DijkstraPathfinder(grid_size)
-#         self._idastar = IDAStarPathfinder(grid_size)
-
-#     def find_path(self, start_pos, end_pos, obstacles, bounds=(-500, -500, 1000, 1000),
-#                   algorithm='astar', existing_wires=None, current_net=None):
-#         """
-#         Find path using specified algorithm.
-
-#         Args:
-#             start_pos: QPointF - starting position
-#             end_pos: QPointF - ending position
-#             obstacles: set of (grid_x, grid_y) tuples representing blocked cells
-#             bounds: tuple (min_x, min_y, width, height) for valid area
-#             algorithm: str - 'astar', 'idastar', or 'dijkstra'
-#             existing_wires: list of wire paths (optional)
-#             current_net: identifier for current net (optional)
-
-#         Returns:
-#             tuple: (waypoints, runtime, iterations)
-#         """
-#         if algorithm == 'astar':
-#             pathfinder = self._astar
-#         elif algorithm == 'dijkstra':
-#             pathfinder = self._dijkstra
-#         elif algorithm == 'idastar':
-#             pathfinder = self._idastar
-#         else:
-#             raise ValueError(f"Unknown algorithm: {algorithm}. Use 'astar', 'dijkstra', or 'idastar'.")
-
-#         # Call the appropriate algorithm
-#         result = pathfinder.find_path(start_pos, end_pos, obstacles, bounds,
-#                                       algorithm, existing_wires, current_net)
-
-#         # Copy performance metrics back to this instance for compatibility
-#         self.last_runtime = pathfinder.last_runtime
-#         self.last_iterations = pathfinder.last_iterations
-#         self.last_nodes_explored = pathfinder.last_nodes_explored
-
-#         return result
-
-#     def _calculate_edge_cost(self, current, neighbor, direction, bend_count,
-#                             existing_wires=None, current_net=None):
-#         """Not used in factory - delegated to algorithm instances"""
-#         return 1
-
 
 # ============================================================================
 # Standalone Helper Functions
@@ -668,7 +612,7 @@ def polygon_to_grid_filled(polygon_points, position, rotation_angle, grid_size, 
         world_y = position.y() + rotated_y
 
         world_points.append((world_x, world_y))
-    # TODO: review this section for alignment of obstacles with grid.
+
     # Find bounding box in WORLD coordinates
     min_y_world = min(p[1] for p in world_points)
     max_y_world = max(p[1] for p in world_points)
@@ -894,7 +838,6 @@ def get_wire_obstacles(wires, current_node, grid_size=20):
                     if e2 < dx:
                         err += dx
                         y += sy
-    # print ("get wire obstacles:", obstacles)
     return obstacles
 
 
@@ -930,12 +873,6 @@ def get_component_obstacles(components, grid_size=20, padding=2, exclude_ids=Non
     active_terminals_set = set(active_terminals)
 
     for comp in components.values():
-        # Skip fully excluded components (legacy support)
-        # if comp.component_id in exclude_ids:
-        #     continue
-
-        # Get component bounding box
-        # rect = comp.boundingRect()  # TODO: cleanup - unused
         pos = comp.pos()
 
         # Get all terminal positions and identify which are active
@@ -974,54 +911,6 @@ def get_component_obstacles(components, grid_size=20, padding=2, exclude_ids=Non
             for t in terminal_info:
                 if not t['is_active']:
                     obstacles.add(t['grid'])
-
-        # else:
-        #     # Fallback: Use rectangular bounding box (legacy components)
-        #     print('# Fallback: Use rectangular bounding box (legacy components)')
-        #     comp_min_x = int((pos.x() + rect.left()) / grid_size)
-        #     comp_max_x = int((pos.x() + rect.right()) / grid_size)
-        #     comp_min_y = int((pos.y() + rect.top()) / grid_size)
-        #     comp_max_y = int((pos.y() + rect.bottom()) / grid_size)
-
-        #     if is_connected_component:
-        #         # Top and bottom edges
-        #         for gx in range(comp_min_x, comp_max_x + 1):
-        #             if (gx, comp_min_y) not in active_terminal_positions:
-        #                 obstacles.add((gx, comp_min_y))
-        #             if (gx, comp_max_y) not in active_terminal_positions:
-        #                 obstacles.add((gx, comp_max_y))
-
-        #         # Left and right edges
-        #         for gy in range(comp_min_y, comp_max_y + 1):
-        #             if (comp_min_x, gy) not in active_terminal_positions:
-        #                 obstacles.add((comp_min_x, gy))
-        #             if (comp_max_x, gy) not in active_terminal_positions:
-        #                 obstacles.add((comp_max_x, gy))
-        #     else:
-        #         # Inset frame
-        #         inset = 1.5
-        #         inset_min_x = int((pos.x() + rect.left() + inset * grid_size) / grid_size)
-        #         inset_max_x = int((pos.x() + rect.right() - inset * grid_size) / grid_size)
-        #         inset_min_y = int((pos.y() + rect.top() + inset * grid_size) / grid_size)
-        #         inset_max_y = int((pos.y() + rect.bottom() - inset * grid_size) / grid_size)
-
-        #         if inset_min_x <= inset_max_x and inset_min_y <= inset_max_y:
-        #             for gx in range(inset_min_x, inset_max_x + 1):
-        #                 if (gx, inset_min_y) not in active_terminal_positions:
-        #                     obstacles.add((gx, inset_min_y))
-        #                 if (gx, inset_max_y) not in active_terminal_positions:
-        #                     obstacles.add((gx, inset_max_y))
-
-        #             for gy in range(inset_min_y, inset_max_y + 1):
-        #                 if (inset_min_x, gy) not in active_terminal_positions:
-        #                     obstacles.add((inset_min_x, gy))
-        #                 if (inset_max_x, gy) not in active_terminal_positions:
-        #                     obstacles.add((inset_max_x, gy))
-
-        #         # Add non-active terminals as obstacles
-        #         for t in terminal_info:
-        #             if not t['is_active']:
-        #                 obstacles.add(t['grid'])
 
     # Add wire obstacles from OTHER nodes (different nets)
     # Wires from the same node are skipped to allow bundling

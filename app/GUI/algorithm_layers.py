@@ -4,8 +4,6 @@ algorithm_layers.py
 Layer management system for multi-algorithm wire routing visualization.
 Each algorithm gets its own layer with distinct visual appearance.
 """
-
-# from PyQt6.QtGui import QColor  # TODO: cleanup - unused
 from .styles import theme_manager
 
 
