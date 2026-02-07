@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                             QLineEdit, QComboBox, QFormLayout, QPushButton,
+                             QLineEdit, QComboBox, QFormLayout,
                              QGroupBox, QDialogButtonBox)
-from PyQt6.QtCore import Qt
 
 
 class WaveformConfigDialog(QDialog):

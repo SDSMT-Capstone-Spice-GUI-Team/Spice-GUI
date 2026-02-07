@@ -2,6 +2,7 @@
 
 **South Dakota Mines Spice** - An open-source circuit design and simulation platform for electrical engineering education.
 
+[![CI](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/actions/workflows/ci.yml/badge.svg)](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.9+-green.svg)](https://pypi.org/project/PyQt6/)
 [![License](https://img.shields.io/badge/License-Open%20Source-brightgreen.svg)](LICENSE)
