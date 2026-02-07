@@ -16,8 +16,10 @@ from .component import (
 )
 from .wire import WireData
 from .node import NodeData
+from .circuit import CircuitModel
 
 __all__ = [
+    'CircuitModel',
     'ComponentData',
     'COMPONENT_TYPES',
     'SPICE_SYMBOLS',
