@@ -779,6 +779,83 @@ class BJTPNP(ComponentItem):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
+class MOSFETNMOS(ComponentItem):
+    """N-Channel MOSFET (M element)"""
+    type_name = 'MOSFET NMOS'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def draw_component_body(self, painter):
+        # Terminal lines: Drain (top-right), Gate (left), Source (bottom-right)
+        if self.scene() is not None:
+            painter.drawLine(20, -20, 20, -10)   # Drain terminal line
+            painter.drawLine(-20, 0, -10, 0)     # Gate terminal line
+            painter.drawLine(20, 20, 20, 10)     # Source terminal line
+
+        # Gate vertical line
+        painter.drawLine(-10, -12, -10, 12)
+
+        # Channel line (vertical bar separated from gate)
+        painter.drawLine(-5, -12, -5, 12)
+
+        # Drain connection: horizontal from channel to drain terminal
+        painter.drawLine(-5, -10, 20, -10)
+
+        # Source connection: horizontal from channel to source terminal
+        painter.drawLine(-5, 10, 20, 10)
+
+        # Body connection (center of channel)
+        painter.drawLine(-5, 0, 5, 0)
+
+        # Arrow on source line pointing inward (NMOS indicator)
+        painter.drawLine(-5, 10, -1, 7)
+        painter.drawLine(-5, 10, -1, 13)
+
+    def get_obstacle_shape(self):
+        return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
+
+
+class MOSFETPMOS(ComponentItem):
+    """P-Channel MOSFET (M element)"""
+    type_name = 'MOSFET PMOS'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def draw_component_body(self, painter):
+        # Terminal lines: Drain (top-right), Gate (left), Source (bottom-right)
+        if self.scene() is not None:
+            painter.drawLine(20, -20, 20, -10)   # Drain terminal line
+            painter.drawLine(-20, 0, -10, 0)     # Gate terminal line
+            painter.drawLine(20, 20, 20, 10)     # Source terminal line
+
+        # Gate vertical line
+        painter.drawLine(-10, -12, -10, 12)
+
+        # Channel line (vertical bar separated from gate) — gap for PMOS
+        painter.drawLine(-5, -12, -5, 12)
+
+        # Drain connection
+        painter.drawLine(-5, -10, 20, -10)
+
+        # Source connection
+        painter.drawLine(-5, 10, 20, 10)
+
+        # Body connection
+        painter.drawLine(-5, 0, 5, 0)
+
+        # Arrow on source line pointing outward (PMOS indicator)
+        painter.drawLine(0, 10, -4, 7)
+        painter.drawLine(0, 10, -4, 13)
+
+        # Circle on gate to indicate PMOS (inversion bubble)
+        painter.drawEllipse(-8, -2, 4, 4)
+
+    def get_obstacle_shape(self):
+        return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
+
+
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
     'Resistor': Resistor,
@@ -803,6 +880,10 @@ COMPONENT_CLASSES = {
     'CurrentControlledCurrentSource': CCCS,
     'BJT NPN': BJTNPN,
     'BJT PNP': BJTPNP,
+    'MOSFET NMOS': MOSFETNMOS,
+    'MOSFETNMOS': MOSFETNMOS,
+    'MOSFET PMOS': MOSFETPMOS,
+    'MOSFETPMOS': MOSFETPMOS,
 }
 
 

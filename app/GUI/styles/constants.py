@@ -58,6 +58,8 @@ _COLOR_KEYS = {
     'CCCS': 'component_cccs',
     'BJT NPN': 'component_bjt_npn',
     'BJT PNP': 'component_bjt_pnp',
+    'MOSFET NMOS': 'component_mosfet_nmos',
+    'MOSFET PMOS': 'component_mosfet_pmos',
 }
 
 # Component definitions - symbol and terminals sourced from models

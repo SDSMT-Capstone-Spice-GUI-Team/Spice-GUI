@@ -30,6 +30,8 @@ COMPONENT_TYPES = [
     'CCCS',
     'BJT NPN',
     'BJT PNP',
+    'MOSFET NMOS',
+    'MOSFET PMOS',
 ]
 
 # Mapping of component types to SPICE symbols
@@ -48,6 +50,8 @@ SPICE_SYMBOLS = {
     'CCCS': 'F',
     'BJT NPN': 'Q',
     'BJT PNP': 'Q',
+    'MOSFET NMOS': 'M',
+    'MOSFET PMOS': 'M',
 }
 
 # Number of terminals per component type (default is 2)
@@ -60,6 +64,8 @@ TERMINAL_COUNTS = {
     'CCCS': 4,
     'BJT NPN': 3,
     'BJT PNP': 3,
+    'MOSFET NMOS': 3,
+    'MOSFET PMOS': 3,
 }
 
 # Default values per component type
@@ -78,6 +84,8 @@ DEFAULT_VALUES = {
     'CCCS': '1',
     'BJT NPN': '2N3904',
     'BJT PNP': '2N3906',
+    'MOSFET NMOS': 'NMOS1',
+    'MOSFET PMOS': 'PMOS1',
 }
 
 # Component colors (hex strings)
@@ -96,6 +104,8 @@ COMPONENT_COLORS = {
     'CCCS': '#0097A7',
     'BJT NPN': '#FF6B6B',
     'BJT PNP': '#4ECDC4',
+    'MOSFET NMOS': '#7B1FA2',
+    'MOSFET PMOS': '#512DA8',
 }
 
 # Terminal geometry configuration per component type
@@ -117,6 +127,8 @@ TERMINAL_GEOMETRY = {
     'CCCS': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
     'BJT NPN': (20, 10, [(20, -20), (-20, 0), (20, 20)]),   # Collector, Base, Emitter
     'BJT PNP': (20, 10, [(20, -20), (-20, 0), (20, 20)]),   # Collector, Base, Emitter
+    'MOSFET NMOS': (20, 10, [(20, -20), (-20, 0), (20, 20)]),
+    'MOSFET PMOS': (20, 10, [(20, -20), (-20, 0), (20, 20)]),
 }
 
 # Mapping from serialized class names to canonical display names
@@ -130,6 +142,10 @@ _CLASS_TO_DISPLAY = {
     'CurrentControlledVoltageSource': 'CCVS',
     'VoltageControlledCurrentSource': 'VCCS',
     'CurrentControlledCurrentSource': 'CCCS',
+    'BJTNPN': 'BJT NPN',
+    'BJTPNP': 'BJT PNP',
+    'MOSFETNMOS': 'MOSFET NMOS',
+    'MOSFETPMOS': 'MOSFET PMOS',
 }
 
 # Mapping from display names to Python class names (for serialization)
@@ -142,6 +158,10 @@ _DISPLAY_TO_CLASS = {
     'CCVS': 'CurrentControlledVoltageSource',
     'VCCS': 'VoltageControlledCurrentSource',
     'CCCS': 'CurrentControlledCurrentSource',
+    'BJT NPN': 'BJTNPN',
+    'BJT PNP': 'BJTPNP',
+    'MOSFET NMOS': 'MOSFETNMOS',
+    'MOSFET PMOS': 'MOSFETPMOS',
 }
 
 
