@@ -284,6 +284,12 @@ class CircuitDesignGUI(QMainWindow):
 
         file_menu.addSeparator()
 
+        export_img_action = QAction("Export &Image...", self)
+        export_img_action.triggered.connect(self.export_image)
+        file_menu.addAction(export_img_action)
+
+        file_menu.addSeparator()
+
         exit_action = QAction("E&xit", self)
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)
@@ -600,6 +606,70 @@ class CircuitDesignGUI(QMainWindow):
                 logger.error("Failed to load circuit: %s", e, exc_info=True)
                 QMessageBox.critical(
                     self, "Error", f"Failed to load: {str(e)}")
+
+    def export_image(self):
+        """Export the circuit diagram as a PNG or SVG image."""
+        filename, selected_filter = QFileDialog.getSaveFileName(
+            self, "Export Image", "",
+            "PNG Image (*.png);;SVG Image (*.svg)"
+        )
+        if not filename:
+            return
+
+        scene = self.canvas.scene
+
+        # Compute bounding rect of circuit items (excluding grid)
+        from .component_item import ComponentItem
+        from .wire_item import WireItem
+        from .annotation_item import AnnotationItem
+        circuit_items = [
+            item for item in scene.items()
+            if isinstance(item, (ComponentItem, WireItem, AnnotationItem))
+        ]
+        if not circuit_items:
+            QMessageBox.information(self, "Export Image", "Nothing to export — the canvas is empty.")
+            return
+
+        source_rect = circuit_items[0].sceneBoundingRect()
+        for item in circuit_items[1:]:
+            source_rect = source_rect.united(item.sceneBoundingRect())
+
+        # Add padding
+        padding = 40
+        source_rect.adjust(-padding, -padding, padding, padding)
+
+        if filename.lower().endswith('.svg'):
+            from PyQt6.QtSvg import QSvgGenerator
+            from PyQt6.QtCore import QSize
+            generator = QSvgGenerator()
+            generator.setFileName(filename)
+            generator.setSize(QSize(int(source_rect.width()), int(source_rect.height())))
+            generator.setViewBox(source_rect)
+            generator.setTitle("SDM Spice Circuit")
+
+            from PyQt6.QtGui import QPainter
+            painter = QPainter(generator)
+            scene.render(painter, source=source_rect)
+            painter.end()
+        else:
+            # PNG
+            from PyQt6.QtGui import QImage, QPainter
+            from PyQt6.QtCore import Qt
+            scale = 2  # 2x resolution for crisp output
+            width = int(source_rect.width() * scale)
+            height = int(source_rect.height() * scale)
+            image = QImage(width, height, QImage.Format.Format_ARGB32_Premultiplied)
+            image.fill(Qt.GlobalColor.white)
+
+            painter = QPainter(image)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            from PyQt6.QtCore import QRectF
+            target_rect = QRectF(0, 0, width, height)
+            scene.render(painter, target=target_rect, source=source_rect)
+            painter.end()
+            image.save(filename)
+
+        QMessageBox.information(self, "Export Image", f"Circuit exported to:\n{filename}")
 
     def clear_canvas(self):
         """Clear the canvas"""
