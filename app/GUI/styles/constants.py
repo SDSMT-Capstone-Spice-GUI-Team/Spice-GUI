@@ -32,6 +32,12 @@ SIMULATION_TIMEOUT = 60        # Seconds before ngspice is killed
 # Component drag settings
 WIRE_UPDATE_DELAY_MS = 50      # Delay before rerouting wires after drag
 
+# Zoom settings
+ZOOM_FACTOR = 1.15             # Multiplier per zoom step
+ZOOM_MIN = 0.1                 # Minimum zoom level (10%)
+ZOOM_MAX = 5.0                 # Maximum zoom level (500%)
+ZOOM_FIT_PADDING = 50          # Pixels of padding when fitting to circuit
+
 # Waveform viewer
 INITIAL_LOAD_COUNT = 50        # Rows loaded on first display
 SCROLL_LOAD_COUNT = 25         # Additional rows loaded on scroll

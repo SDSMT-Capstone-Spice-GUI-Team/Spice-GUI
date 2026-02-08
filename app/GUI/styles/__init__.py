@@ -41,6 +41,10 @@ from .constants import (
     WIRE_UPDATE_DELAY_MS,
     INITIAL_LOAD_COUNT,
     SCROLL_LOAD_COUNT,
+    ZOOM_FACTOR,
+    ZOOM_MIN,
+    ZOOM_MAX,
+    ZOOM_FIT_PADDING,
 )
 
 # Theme system
@@ -64,6 +68,10 @@ __all__ = [
     'WIRE_UPDATE_DELAY_MS',
     'INITIAL_LOAD_COUNT',
     'SCROLL_LOAD_COUNT',
+    'ZOOM_FACTOR',
+    'ZOOM_MIN',
+    'ZOOM_MAX',
+    'ZOOM_FIT_PADDING',
 
     # Theme system
     'ThemeProtocol',

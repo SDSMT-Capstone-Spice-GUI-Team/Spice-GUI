@@ -11,7 +11,8 @@ from .circuit_node import Node
 from .algorithm_layers import AlgorithmLayerManager
 from .styles import (GRID_SIZE, GRID_EXTENT, MAJOR_GRID_INTERVAL,
                      COMPONENTS, DEFAULT_COMPONENT_COUNTER,
-                     TERMINAL_CLICK_RADIUS, theme_manager)
+                     TERMINAL_CLICK_RADIUS, theme_manager,
+                     ZOOM_FACTOR, ZOOM_MIN, ZOOM_MAX, ZOOM_FIT_PADDING)
 
 class CircuitCanvas(QGraphicsView):
     """Main circuit drawing canvas"""
@@ -22,6 +23,7 @@ class CircuitCanvas(QGraphicsView):
     selectionChanged = pyqtSignal(object)  # selected component (or None)
     componentRightClicked = pyqtSignal(object, object)  # component, global position
     canvasClicked = pyqtSignal()
+    zoomChanged = pyqtSignal(float)  # current zoom level (1.0 = 100%)
     
     
     
@@ -403,7 +405,88 @@ class CircuitCanvas(QGraphicsView):
             pass
         else:
             super().keyPressEvent(event)
-    
+
+    def wheelEvent(self, event):
+        """Zoom with Ctrl+Scroll wheel, centered on cursor."""
+        if event is None:
+            return
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoom_in(event.position().toPoint())
+            elif delta < 0:
+                self.zoom_out(event.position().toPoint())
+            event.accept()
+        else:
+            super().wheelEvent(event)
+
+    def get_zoom_level(self):
+        """Return the current zoom level as a float (1.0 = 100%)."""
+        return self.transform().m11()
+
+    def zoom_in(self, center_point=None):
+        """Zoom in by one step, optionally centered on a point."""
+        self._apply_zoom(ZOOM_FACTOR, center_point)
+
+    def zoom_out(self, center_point=None):
+        """Zoom out by one step, optionally centered on a point."""
+        self._apply_zoom(1.0 / ZOOM_FACTOR, center_point)
+
+    def zoom_reset(self):
+        """Reset zoom to 100%."""
+        self.resetTransform()
+        self.zoomChanged.emit(1.0)
+
+    def zoom_fit(self):
+        """Fit all circuit components in view with padding."""
+        items = [item for item in self.scene.items()
+                 if isinstance(item, ComponentItem)]
+        if not items:
+            self.zoom_reset()
+            return
+
+        # Calculate bounding rect of all components
+        rect = items[0].sceneBoundingRect()
+        for item in items[1:]:
+            rect = rect.united(item.sceneBoundingRect())
+
+        # Add padding
+        rect.adjust(-ZOOM_FIT_PADDING, -ZOOM_FIT_PADDING,
+                     ZOOM_FIT_PADDING, ZOOM_FIT_PADDING)
+
+        self.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
+
+        # Clamp to min/max zoom
+        level = self.get_zoom_level()
+        if level < ZOOM_MIN:
+            self.resetTransform()
+            self.scale(ZOOM_MIN, ZOOM_MIN)
+        elif level > ZOOM_MAX:
+            self.resetTransform()
+            self.scale(ZOOM_MAX, ZOOM_MAX)
+
+        self.zoomChanged.emit(self.get_zoom_level())
+
+    def _apply_zoom(self, factor, center_point=None):
+        """Apply a zoom factor, clamping to min/max limits."""
+        current = self.get_zoom_level()
+        new_level = current * factor
+
+        if new_level < ZOOM_MIN or new_level > ZOOM_MAX:
+            return
+
+        if center_point is not None:
+            # Zoom centered on cursor
+            old_pos = self.mapToScene(center_point)
+            self.scale(factor, factor)
+            new_pos = self.mapToScene(center_point)
+            delta = new_pos - old_pos
+            self.translate(delta.x(), delta.y())
+        else:
+            self.scale(factor, factor)
+
+        self.zoomChanged.emit(self.get_zoom_level())
+
     def show_context_menu(self, position):
         """Show context menu for delete operations and component properties"""
         item = self.itemAt(position)
