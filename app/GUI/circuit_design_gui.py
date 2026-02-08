@@ -188,9 +188,9 @@ class CircuitDesignGUI(QMainWindow):
         canvas_layout.addLayout(canvas_toolbar)
 
         self.canvas = CircuitCanvas()
-        btn_zoom_in.clicked.connect(self.canvas.zoom_in)
-        btn_zoom_out.clicked.connect(self.canvas.zoom_out)
-        btn_zoom_fit.clicked.connect(self.canvas.zoom_fit)
+        btn_zoom_in.clicked.connect(lambda: self.canvas.zoom_in())
+        btn_zoom_out.clicked.connect(lambda: self.canvas.zoom_out())
+        btn_zoom_fit.clicked.connect(lambda: self.canvas.zoom_fit())
         self.canvas.zoomChanged.connect(self._on_zoom_changed)
         self.canvas.componentRightClicked.connect(self.on_component_right_clicked)
         self.canvas.canvasClicked.connect(self.on_canvas_clicked)
@@ -368,22 +368,22 @@ class CircuitDesignGUI(QMainWindow):
 
         zoom_in_action = QAction("Zoom &In", self)
         zoom_in_action.setShortcut("Ctrl+=")
-        zoom_in_action.triggered.connect(self.canvas.zoom_in)
+        zoom_in_action.triggered.connect(lambda: self.canvas.zoom_in())
         view_menu.addAction(zoom_in_action)
 
         zoom_out_action = QAction("Zoom &Out", self)
         zoom_out_action.setShortcut("Ctrl+-")
-        zoom_out_action.triggered.connect(self.canvas.zoom_out)
+        zoom_out_action.triggered.connect(lambda: self.canvas.zoom_out())
         view_menu.addAction(zoom_out_action)
 
         zoom_fit_action = QAction("&Fit to Circuit", self)
         zoom_fit_action.setShortcut("Ctrl+0")
-        zoom_fit_action.triggered.connect(self.canvas.zoom_fit)
+        zoom_fit_action.triggered.connect(lambda: self.canvas.zoom_fit())
         view_menu.addAction(zoom_fit_action)
 
         zoom_reset_action = QAction("&Reset Zoom", self)
         zoom_reset_action.setShortcut("Ctrl+1")
-        zoom_reset_action.triggered.connect(self.canvas.zoom_reset)
+        zoom_reset_action.triggered.connect(lambda: self.canvas.zoom_reset())
         view_menu.addAction(zoom_reset_action)
         view_menu.addAction(self.show_nodes_action)
 
