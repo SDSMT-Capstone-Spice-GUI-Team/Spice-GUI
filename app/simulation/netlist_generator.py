@@ -161,6 +161,11 @@ class NetlistGenerator:
             elif comp.component_type == 'BJT PNP':
                 # Q<name> collector base emitter model_name
                 lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {comp.value}")
+            elif comp.component_type in ('MOSFET NMOS', 'MOSFET PMOS'):
+                # M<name> drain gate source bulk model_name
+                # Terminals: 0=drain, 1=gate, 2=source
+                # Bulk (body) tied to source for simplicity
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {nodes[2]} {comp.value}")
 
         # Add BJT model directives
         bjt_models = set()
@@ -179,6 +184,22 @@ class NetlistGenerator:
                     lines.append(f".model {model_name} PNP(BF=200 IS=1e-14 VAF=100)")
                 else:
                     lines.append(f".model {model_name} {polarity}(BF=100 IS=1e-14)")
+
+        # Add MOSFET model directives
+        mosfet_models = set()
+        for comp in self.components.values():
+            if comp.component_type == 'MOSFET NMOS':
+                mosfet_models.add(('NMOS', comp.value))
+            elif comp.component_type == 'MOSFET PMOS':
+                mosfet_models.add(('PMOS', comp.value))
+        if mosfet_models:
+            lines.append("")
+            lines.append("* MOSFET Model Definitions")
+            for polarity, model_name in sorted(mosfet_models):
+                if polarity == 'NMOS':
+                    lines.append(f".model {model_name} NMOS(VTO=0.7 KP=110u)")
+                else:
+                    lines.append(f".model {model_name} PMOS(VTO=-0.7 KP=50u)")
 
         # Add comments about labeled nodes
         if node_labels:
