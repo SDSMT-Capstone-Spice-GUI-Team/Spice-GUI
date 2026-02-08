@@ -300,6 +300,23 @@ class CircuitDesignGUI(QMainWindow):
         if edit_menu is None:
             return
 
+        copy_action = QAction("&Copy", self)
+        copy_action.setShortcut(QKeySequence.StandardKey.Copy)
+        copy_action.triggered.connect(self.canvas.copy_selected)
+        edit_menu.addAction(copy_action)
+
+        paste_action = QAction("&Paste", self)
+        paste_action.setShortcut(QKeySequence.StandardKey.Paste)
+        paste_action.triggered.connect(self.canvas.paste_clipboard)
+        edit_menu.addAction(paste_action)
+
+        cut_action = QAction("Cu&t", self)
+        cut_action.setShortcut(QKeySequence.StandardKey.Cut)
+        cut_action.triggered.connect(self.canvas.cut_selected)
+        edit_menu.addAction(cut_action)
+
+        edit_menu.addSeparator()
+
         delete_action = QAction("&Delete Selected", self)
         delete_action.setShortcut(QKeySequence.StandardKey.Delete)
         delete_action.triggered.connect(self.delete_selected)
