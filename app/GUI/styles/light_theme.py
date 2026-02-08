@@ -44,6 +44,7 @@ class LightTheme(BaseTheme):
             'component_bjt_pnp': '#4ECDC4',        # Teal green
             'component_mosfet_nmos': '#7B1FA2',    # Deep purple
             'component_mosfet_pmos': '#512DA8',    # Indigo
+            'component_vc_switch': '#795548',       # Brown
 
             # ===== Algorithm Layer Colors =====
             'algorithm_astar': '#2196F3',          # Blue (33, 150, 243)

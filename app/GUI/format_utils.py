@@ -96,7 +96,7 @@ def format_value(value: float, unit: str = "") -> str:
 _POSITIVE_ONLY_TYPES = {'Resistor', 'Capacitor', 'Inductor'}
 
 # Component types that don't need value validation
-_SKIP_VALIDATION_TYPES = {'Ground', 'Op-Amp', 'Waveform Source', 'BJT NPN', 'BJT PNP', 'MOSFET NMOS', 'MOSFET PMOS'}
+_SKIP_VALIDATION_TYPES = {'Ground', 'Op-Amp', 'Waveform Source', 'BJT NPN', 'BJT PNP', 'MOSFET NMOS', 'MOSFET PMOS', 'VC Switch'}
 
 
 def validate_component_value(value: str, component_type: str) -> tuple[bool, str]:
