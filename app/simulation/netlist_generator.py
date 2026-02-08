@@ -154,7 +154,32 @@ class NetlistGenerator:
                 sense_name = f"Vsense_{comp_id}"
                 lines.append(f"{sense_name} {nodes[0]} {nodes[1]} 0")
                 lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}")
-        
+            elif comp.component_type == 'BJT NPN':
+                # Q<name> collector base emitter model_name
+                # Terminals: 0=collector, 1=base, 2=emitter
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {comp.value}")
+            elif comp.component_type == 'BJT PNP':
+                # Q<name> collector base emitter model_name
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {comp.value}")
+
+        # Add BJT model directives
+        bjt_models = set()
+        for comp in self.components.values():
+            if comp.component_type == 'BJT NPN':
+                bjt_models.add(('NPN', comp.value))
+            elif comp.component_type == 'BJT PNP':
+                bjt_models.add(('PNP', comp.value))
+        if bjt_models:
+            lines.append("")
+            lines.append("* BJT Model Definitions")
+            for polarity, model_name in sorted(bjt_models):
+                if model_name == '2N3904':
+                    lines.append(f".model {model_name} NPN(BF=300 IS=1e-14 VAF=100)")
+                elif model_name == '2N3906':
+                    lines.append(f".model {model_name} PNP(BF=200 IS=1e-14 VAF=100)")
+                else:
+                    lines.append(f".model {model_name} {polarity}(BF=100 IS=1e-14)")
+
         # Add comments about labeled nodes
         if node_labels:
             lines.append("")

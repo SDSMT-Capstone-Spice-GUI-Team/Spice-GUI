@@ -28,6 +28,8 @@ COMPONENT_TYPES = [
     'CCVS',
     'VCCS',
     'CCCS',
+    'BJT NPN',
+    'BJT PNP',
 ]
 
 # Mapping of component types to SPICE symbols
@@ -44,6 +46,8 @@ SPICE_SYMBOLS = {
     'CCVS': 'H',
     'VCCS': 'G',
     'CCCS': 'F',
+    'BJT NPN': 'Q',
+    'BJT PNP': 'Q',
 }
 
 # Number of terminals per component type (default is 2)
@@ -54,6 +58,8 @@ TERMINAL_COUNTS = {
     'CCVS': 4,
     'VCCS': 4,
     'CCCS': 4,
+    'BJT NPN': 3,
+    'BJT PNP': 3,
 }
 
 # Default values per component type
@@ -70,6 +76,8 @@ DEFAULT_VALUES = {
     'CCVS': '1k',
     'VCCS': '1m',
     'CCCS': '1',
+    'BJT NPN': '2N3904',
+    'BJT PNP': '2N3906',
 }
 
 # Component colors (hex strings)
@@ -86,6 +94,8 @@ COMPONENT_COLORS = {
     'CCVS': '#00ACC1',
     'VCCS': '#26A69A',
     'CCCS': '#0097A7',
+    'BJT NPN': '#FF6B6B',
+    'BJT PNP': '#4ECDC4',
 }
 
 # Terminal geometry configuration per component type
@@ -105,6 +115,8 @@ TERMINAL_GEOMETRY = {
     'CCVS': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
     'VCCS': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
     'CCCS': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
+    'BJT NPN': (20, 10, [(20, -20), (-20, 0), (20, 20)]),   # Collector, Base, Emitter
+    'BJT PNP': (20, 10, [(20, -20), (-20, 0), (20, 20)]),   # Collector, Base, Emitter
 }
 
 # Mapping from serialized class names to canonical display names
