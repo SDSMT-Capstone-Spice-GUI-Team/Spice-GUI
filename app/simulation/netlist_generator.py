@@ -166,6 +166,11 @@ class NetlistGenerator:
                 # Terminals: 0=drain, 1=gate, 2=source
                 # Bulk (body) tied to source for simplicity
                 lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {nodes[2]} {comp.value}")
+            elif comp.component_type == 'VC Switch':
+                # S<name> switch+ switch- ctrl+ ctrl- model_name
+                # Terminals: 0=ctrl+, 1=ctrl-, 2=switch+, 3=switch-
+                model_name = f"SW_{comp_id}"
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {model_name}")
 
         # Add BJT model directives
         bjt_models = set()
@@ -200,6 +205,16 @@ class NetlistGenerator:
                     lines.append(f".model {model_name} NMOS(VTO=0.7 KP=110u)")
                 else:
                     lines.append(f".model {model_name} PMOS(VTO=-0.7 KP=50u)")
+
+        # Add VC Switch model directives
+        vc_switches = [c for c in self.components.values()
+                       if c.component_type == 'VC Switch']
+        if vc_switches:
+            lines.append("")
+            lines.append("* Voltage-Controlled Switch Model Definitions")
+            for sw in vc_switches:
+                model_name = f"SW_{sw.component_id}"
+                lines.append(f".model {model_name} SW({sw.value})")
 
         # Add comments about labeled nodes
         if node_labels:

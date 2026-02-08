@@ -32,6 +32,7 @@ COMPONENT_TYPES = [
     'BJT PNP',
     'MOSFET NMOS',
     'MOSFET PMOS',
+    'VC Switch',
 ]
 
 # Mapping of component types to SPICE symbols
@@ -52,6 +53,7 @@ SPICE_SYMBOLS = {
     'BJT PNP': 'Q',
     'MOSFET NMOS': 'M',
     'MOSFET PMOS': 'M',
+    'VC Switch': 'S',
 }
 
 # Number of terminals per component type (default is 2)
@@ -66,6 +68,7 @@ TERMINAL_COUNTS = {
     'BJT PNP': 3,
     'MOSFET NMOS': 3,
     'MOSFET PMOS': 3,
+    'VC Switch': 4,
 }
 
 # Default values per component type
@@ -86,6 +89,7 @@ DEFAULT_VALUES = {
     'BJT PNP': '2N3906',
     'MOSFET NMOS': 'NMOS1',
     'MOSFET PMOS': 'PMOS1',
+    'VC Switch': 'VT=2.5 RON=1 ROFF=1e6',
 }
 
 # Component colors (hex strings)
@@ -106,6 +110,7 @@ COMPONENT_COLORS = {
     'BJT PNP': '#4ECDC4',
     'MOSFET NMOS': '#7B1FA2',
     'MOSFET PMOS': '#512DA8',
+    'VC Switch': '#795548',
 }
 
 # Terminal geometry configuration per component type
@@ -129,6 +134,7 @@ TERMINAL_GEOMETRY = {
     'BJT PNP': (20, 10, [(20, -20), (-20, 0), (20, 20)]),   # Collector, Base, Emitter
     'MOSFET NMOS': (20, 10, [(20, -20), (-20, 0), (20, 20)]),
     'MOSFET PMOS': (20, 10, [(20, -20), (-20, 0), (20, 20)]),
+    'VC Switch': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
 }
 
 # Mapping from serialized class names to canonical display names
@@ -146,6 +152,7 @@ _CLASS_TO_DISPLAY = {
     'BJTPNP': 'BJT PNP',
     'MOSFETNMOS': 'MOSFET NMOS',
     'MOSFETPMOS': 'MOSFET PMOS',
+    'VCSwitch': 'VC Switch',
 }
 
 # Mapping from display names to Python class names (for serialization)
@@ -162,6 +169,7 @@ _DISPLAY_TO_CLASS = {
     'BJT PNP': 'BJTPNP',
     'MOSFET NMOS': 'MOSFETNMOS',
     'MOSFET PMOS': 'MOSFETPMOS',
+    'VC Switch': 'VCSwitch',
 }
 
 

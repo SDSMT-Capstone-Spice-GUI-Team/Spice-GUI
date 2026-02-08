@@ -856,6 +856,43 @@ class MOSFETPMOS(ComponentItem):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
+class VCSwitch(ComponentItem):
+    """Voltage-Controlled Switch (S element)"""
+    type_name = 'VC Switch'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+    def draw_component_body(self, painter):
+        # Control and switch path terminal lines
+        if self.scene() is not None:
+            painter.drawLine(-30, -10, -15, -10)   # ctrl+ terminal
+            painter.drawLine(-30, 10, -15, 10)     # ctrl- terminal
+            painter.drawLine(15, -10, 30, -10)     # switch+ terminal
+            painter.drawLine(15, 10, 30, 10)       # switch- terminal
+
+        # Box outline for the switch body
+        painter.drawRect(-15, -15, 30, 30)
+
+        # Switch symbol inside: open switch (angled line)
+        painter.drawLine(-8, 8, 8, -4)
+        # Contact dots
+        painter.drawEllipse(-10, 6, 4, 4)
+        painter.drawEllipse(6, -4, 4, 4)
+
+        # Control arrow from left side
+        painter.setPen(QPen(Qt.GlobalColor.black, 1))
+        painter.drawLine(-12, 0, -5, 0)
+        painter.drawLine(-7, -2, -5, 0)
+        painter.drawLine(-7, 2, -5, 0)
+
+    def get_obstacle_shape(self):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
     'Resistor': Resistor,
@@ -884,6 +921,8 @@ COMPONENT_CLASSES = {
     'MOSFETNMOS': MOSFETNMOS,
     'MOSFET PMOS': MOSFETPMOS,
     'MOSFETPMOS': MOSFETPMOS,
+    'VC Switch': VCSwitch,
+    'VCSwitch': VCSwitch,
 }
 
 

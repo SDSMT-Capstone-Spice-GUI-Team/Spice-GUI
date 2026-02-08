@@ -60,6 +60,7 @@ _COLOR_KEYS = {
     'BJT PNP': 'component_bjt_pnp',
     'MOSFET NMOS': 'component_mosfet_nmos',
     'MOSFET PMOS': 'component_mosfet_pmos',
+    'VC Switch': 'component_vc_switch',
 }
 
 # Component definitions - symbol and terminals sourced from models
