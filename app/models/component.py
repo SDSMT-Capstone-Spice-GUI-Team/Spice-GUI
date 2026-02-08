@@ -33,6 +33,9 @@ COMPONENT_TYPES = [
     'MOSFET NMOS',
     'MOSFET PMOS',
     'VC Switch',
+    'Diode',
+    'LED',
+    'Zener Diode',
 ]
 
 # Mapping of component types to SPICE symbols
@@ -54,6 +57,9 @@ SPICE_SYMBOLS = {
     'MOSFET NMOS': 'M',
     'MOSFET PMOS': 'M',
     'VC Switch': 'S',
+    'Diode': 'D',
+    'LED': 'D',
+    'Zener Diode': 'D',
 }
 
 # Number of terminals per component type (default is 2)
@@ -90,6 +96,9 @@ DEFAULT_VALUES = {
     'MOSFET NMOS': 'NMOS1',
     'MOSFET PMOS': 'PMOS1',
     'VC Switch': 'VT=2.5 RON=1 ROFF=1e6',
+    'Diode': 'IS=1e-14 N=1',
+    'LED': 'IS=1e-20 N=1.8 EG=1.9',
+    'Zener Diode': 'IS=1e-14 N=1 BV=5.1 IBV=1e-3',
 }
 
 # Component colors (hex strings)
@@ -111,6 +120,9 @@ COMPONENT_COLORS = {
     'MOSFET NMOS': '#7B1FA2',
     'MOSFET PMOS': '#512DA8',
     'VC Switch': '#795548',
+    'Diode': '#607D8B',
+    'LED': '#FFEB3B',
+    'Zener Diode': '#8D6E63',
 }
 
 # Terminal geometry configuration per component type
@@ -135,6 +147,9 @@ TERMINAL_GEOMETRY = {
     'MOSFET NMOS': (20, 10, [(20, -20), (-20, 0), (20, 20)]),
     'MOSFET PMOS': (20, 10, [(20, -20), (-20, 0), (20, 20)]),
     'VC Switch': (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
+    'Diode': (10, 20, None),
+    'LED': (10, 20, None),
+    'Zener Diode': (10, 20, None),
 }
 
 # Mapping from serialized class names to canonical display names
@@ -153,6 +168,7 @@ _CLASS_TO_DISPLAY = {
     'MOSFETNMOS': 'MOSFET NMOS',
     'MOSFETPMOS': 'MOSFET PMOS',
     'VCSwitch': 'VC Switch',
+    'ZenerDiode': 'Zener Diode',
 }
 
 # Mapping from display names to Python class names (for serialization)
@@ -170,6 +186,7 @@ _DISPLAY_TO_CLASS = {
     'MOSFET NMOS': 'MOSFETNMOS',
     'MOSFET PMOS': 'MOSFETPMOS',
     'VC Switch': 'VCSwitch',
+    'Zener Diode': 'ZenerDiode',
 }
 
 
