@@ -37,6 +37,10 @@ class CircuitDesignGUI(QMainWindow):
         # NgspiceRunner initialized lazily on first use
         self._ngspice_runner = None
 
+        # Last simulation results for CSV export
+        self._last_results = None
+        self._last_results_type = None
+
         self.init_ui()
         self.create_menu_bar()
         
@@ -114,7 +118,14 @@ class CircuitDesignGUI(QMainWindow):
         center_splitter.addWidget(canvas_widget)
         results_widget = QWidget()
         results_layout = QVBoxLayout(results_widget)
-        results_layout.addWidget(QLabel("Simulation Results"))
+        results_header = QHBoxLayout()
+        results_header.addWidget(QLabel("Simulation Results"))
+        self.btn_export_csv = QPushButton("Export CSV")
+        self.btn_export_csv.setEnabled(False)
+        self.btn_export_csv.clicked.connect(self.export_results_csv)
+        results_header.addWidget(self.btn_export_csv)
+        results_header.addStretch()
+        results_layout.addLayout(results_header)
         self.results_text = QTextEdit()
         self.results_text.setReadOnly(True)
         results_layout.addWidget(self.results_text)
@@ -589,6 +600,10 @@ class CircuitDesignGUI(QMainWindow):
     def _display_formatted_results(self, output, filepath, is_wrdata=False):
         """Format and display simulation results based on analysis type"""
         from simulation import ResultParser
+        self._last_results = None
+        self._last_results_type = self.analysis_type
+        self.btn_export_csv.setEnabled(False)
+
         self.results_text.setPlainText("\n" + "=" * 70 + "")
         self.results_text.append(f"SIMULATION COMPLETE - {self.analysis_type}")
         self.results_text.append("=" * 70 + "")
@@ -598,6 +613,7 @@ class CircuitDesignGUI(QMainWindow):
             node_voltages = ResultParser.parse_op_results(output)
 
             if node_voltages:
+                self._last_results = node_voltages
                 self.results_text.append("\nNODE VOLTAGES:")
                 self.results_text.append("-" * 40 + "")
                 for node, voltage in sorted(node_voltages.items()):
@@ -613,6 +629,7 @@ class CircuitDesignGUI(QMainWindow):
             # Parse and display DC sweep results
             sweep_data = ResultParser.parse_dc_results(output)
             if sweep_data:
+                self._last_results = sweep_data
                 self.results_text.append("\nDC SWEEP RESULTS:")
                 self.results_text.append("-" * 40 + "")
                 self.results_text.append(str(sweep_data) + "")
@@ -624,6 +641,7 @@ class CircuitDesignGUI(QMainWindow):
             # Parse and display AC sweep results
             ac_data = ResultParser.parse_ac_results(output)
             if ac_data:
+                self._last_results = ac_data
                 self.results_text.append("\nAC SWEEP RESULTS:")
                 self.results_text.append("-" * 40 + "")
                 self.results_text.append(str(ac_data) + "")
@@ -639,8 +657,9 @@ class CircuitDesignGUI(QMainWindow):
                 tran_data = ResultParser.parse_transient_results(output)
 
             if tran_data:
+                self._last_results = tran_data
                 self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
-                
+
                 # Format and display the table in the text area
                 table_string = ResultParser.format_results_as_table(tran_data)
                 self.results_text.append(table_string)
@@ -661,6 +680,45 @@ class CircuitDesignGUI(QMainWindow):
             self.canvas.clear_node_voltages()
 
         self.results_text.append("=" * 70 + "")
+
+        if self._last_results is not None:
+            self.btn_export_csv.setEnabled(True)
+
+    def export_results_csv(self):
+        """Export the last simulation results to a CSV file."""
+        if self._last_results is None:
+            return
+
+        from simulation.csv_exporter import (
+            export_op_results, export_dc_sweep_results,
+            export_ac_results, export_transient_results, write_csv,
+        )
+
+        circuit_name = os.path.basename(self.current_file) if self.current_file else ""
+
+        if self._last_results_type == "DC Operating Point":
+            csv_content = export_op_results(self._last_results, circuit_name)
+        elif self._last_results_type == "DC Sweep":
+            csv_content = export_dc_sweep_results(self._last_results, circuit_name)
+        elif self._last_results_type == "AC Sweep":
+            csv_content = export_ac_results(self._last_results, circuit_name)
+        elif self._last_results_type == "Transient":
+            csv_content = export_transient_results(self._last_results, circuit_name)
+        else:
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export Results to CSV", "",
+            "CSV Files (*.csv);;All Files (*)"
+        )
+        if filename:
+            try:
+                write_csv(csv_content, filename)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(f"Results exported to {filename}", 3000)
+            except OSError as e:
+                QMessageBox.critical(self, "Error", f"Failed to export CSV: {e}")
 
     def on_component_right_clicked(self, component, event_pos):
         """Handle right-click on a component."""

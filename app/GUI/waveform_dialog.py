@@ -1,7 +1,8 @@
 import matplotlib
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QWidget, QHeaderView, QLabel,
-                             QPushButton, QGroupBox, QFormLayout, QLineEdit, QCheckBox, QScrollArea)
+                             QPushButton, QGroupBox, QFormLayout, QLineEdit,
+                             QCheckBox, QScrollArea, QFileDialog, QMessageBox)
 import matplotlib.pyplot as plt
 from PyQt6.QtGui import QColor
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -114,12 +115,17 @@ class WaveformDialog(QDialog):
         filter_group.setLayout(filter_layout)
         right_layout.addWidget(filter_group)
 
+        # Export button
+        export_button = QPushButton("Export CSV")
+        export_button.clicked.connect(self._export_csv)
+        right_layout.addWidget(export_button)
+
         # Data Table
         right_layout.addWidget(QLabel("Simulation Data"))
         self.table = QTableWidget()
         self.table.verticalScrollBar().valueChanged.connect(self._on_scroll)
         right_layout.addWidget(self.table)
-        
+
         # Initial population
         self.update_view()
 
@@ -388,6 +394,22 @@ class WaveformDialog(QDialog):
         self.canvas.axes.grid(True)
         self.canvas.figure.tight_layout()
         self.canvas.draw()
+
+    def _export_csv(self):
+        """Export current view data to CSV."""
+        from simulation.csv_exporter import export_transient_results, write_csv
+
+        csv_content = export_transient_results(self.view_data)
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export Results to CSV", "",
+            "CSV Files (*.csv);;All Files (*)"
+        )
+        if filename:
+            try:
+                write_csv(csv_content, filename)
+                QMessageBox.information(self, "Success", f"Exported to {filename}")
+            except OSError as e:
+                QMessageBox.critical(self, "Error", f"Failed to export: {e}")
 
     def closeEvent(self, event):
         """Clean up matplotlib figure to prevent memory leaks."""
