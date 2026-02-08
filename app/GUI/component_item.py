@@ -286,9 +286,16 @@ class ComponentItem(QGraphicsItem):
 
             return snapped_pos
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            # Force scene update to prevent dragging artifacts
+            # Update this item and connected wires to prevent dragging artifacts
+            self.update()
             if self.scene():
-                self.scene().update()
+                views = self.scene().views()
+                if views:
+                    canvas = views[0]
+                    if hasattr(canvas, 'wires'):
+                        for wire in canvas.wires:
+                            if wire.start_comp is self or wire.end_comp is self:
+                                wire.update()
 
         return super().itemChange(change, value)
 
