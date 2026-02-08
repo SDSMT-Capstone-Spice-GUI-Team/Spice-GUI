@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 from .component_item import ComponentItem, create_component
 from .wire_item import WireItem
 from .circuit_node import Node
+from .annotation_item import AnnotationItem
 from .algorithm_layers import AlgorithmLayerManager
 from .styles import (GRID_SIZE, GRID_EXTENT, MAJOR_GRID_INTERVAL,
                      COMPONENTS, DEFAULT_COMPONENT_COUNTER,
@@ -68,6 +69,9 @@ class CircuitCanvas(QGraphicsView):
 
         # Grid drawing deferred to first show for faster startup
         self._grid_drawn = False
+
+        # Text annotations on the canvas
+        self.annotations = []
 
         # Internal clipboard for copy/paste
         self._clipboard = None  # {'components': [...], 'wires': [...]}
@@ -523,11 +527,20 @@ class CircuitCanvas(QGraphicsView):
             rotate_ccw_action.triggered.connect(lambda: self.rotate_component(item, False))
             menu.addAction(rotate_ccw_action)
 
+        elif isinstance(item, AnnotationItem):
+            delete_action = QAction("Delete Annotation", self)
+            delete_action.triggered.connect(lambda: self._delete_annotation(item))
+            menu.addAction(delete_action)
+
+            edit_action = QAction("Edit Annotation", self)
+            edit_action.triggered.connect(lambda: item.mouseDoubleClickEvent(None))
+            menu.addAction(edit_action)
+
         elif isinstance(item, WireItem):
             delete_action = QAction("Delete Wire", self)
             delete_action.triggered.connect(lambda: self.delete_wire(item))
             menu.addAction(delete_action)
-            
+
             if item.node:
                 menu.addSeparator()
                 label_action = QAction(f"Label Node ({item.node.get_label()})", self)
@@ -561,7 +574,13 @@ class CircuitCanvas(QGraphicsView):
                     rotate_ccw_action = QAction("Rotate Selected Counter-Clockwise", self)
                     rotate_ccw_action.triggered.connect(lambda: self.rotate_selected(False))
                     menu.addAction(rotate_ccw_action)
-        
+
+            # Always offer "Add Annotation" on empty-area right-click
+            menu.addSeparator()
+            add_ann_action = QAction("Add Annotation", self)
+            add_ann_action.triggered.connect(lambda: self.add_annotation(scene_pos))
+            menu.addAction(add_ann_action)
+
         if not menu.isEmpty():
             menu.exec(self.mapToGlobal(position))
     
@@ -570,16 +589,22 @@ class CircuitCanvas(QGraphicsView):
         selected_items = self.scene.selectedItems()
         if not selected_items:
             return
-        
+
         components_to_delete = [item for item in selected_items if isinstance(item, ComponentItem)]
         wires_to_delete = [item for item in selected_items if isinstance(item, WireItem)]
-        
+        annotations_to_delete = [item for item in selected_items if isinstance(item, AnnotationItem)]
+
         for comp in components_to_delete:
             self.delete_component(comp)
-        
+
         for wire in wires_to_delete:
             if wire in self.wires:
                 self.delete_wire(wire)
+
+        for ann in annotations_to_delete:
+            self.scene.removeItem(ann)
+            if ann in self.annotations:
+                self.annotations.remove(ann)
     
     def delete_component(self, component):
         """Delete a component and all connected wires"""
@@ -714,6 +739,28 @@ class CircuitCanvas(QGraphicsView):
         """Cut selected components: copy to clipboard then delete."""
         self.copy_selected()
         self.delete_selected()
+
+    def add_annotation(self, scene_pos=None):
+        """Add a text annotation at the given scene position (or viewport center)."""
+        if scene_pos is None:
+            viewport_center = self.viewport().rect().center()
+            scene_pos = self.mapToScene(viewport_center)
+
+        # Snap to grid
+        x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
+        y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
+
+        text, ok = QInputDialog.getText(None, "Add Annotation", "Text:")
+        if ok and text:
+            ann = AnnotationItem(text=text, x=x, y=y)
+            self.scene.addItem(ann)
+            self.annotations.append(ann)
+
+    def _delete_annotation(self, ann):
+        """Remove an annotation from the canvas."""
+        self.scene.removeItem(ann)
+        if ann in self.annotations:
+            self.annotations.remove(ann)
 
     def on_selection_changed(self):
         """Handle selection changes in the scene"""
@@ -948,13 +995,14 @@ class CircuitCanvas(QGraphicsView):
             self.update_nodes_for_wire(wire)
     
     def clear_circuit(self):
-        """Clear all components and wires"""
+        """Clear all components, wires, and annotations"""
         self.scene.clear()
         self.draw_grid()
         self.components = {}
         self.wires = []
         self.nodes = []
         self.terminal_to_node = {}
+        self.annotations = []
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
         Node._node_counter = 0
         self.layer_manager.clear_all_wires()
@@ -1212,11 +1260,14 @@ class CircuitCanvas(QGraphicsView):
 
     def to_dict(self):
         """Serialize circuit to dictionary"""
-        return {
+        data = {
             'components': [comp.to_dict() for comp in self.components.values()],
             'wires': [wire.to_dict() for wire in self.wires],
-            'counters': self.component_counter.copy()
+            'counters': self.component_counter.copy(),
         }
+        if self.annotations:
+            data['annotations'] = [ann.to_dict() for ann in self.annotations]
+        return data
     
     @staticmethod
     def _validate_circuit_data(data):
@@ -1275,6 +1326,12 @@ class CircuitCanvas(QGraphicsView):
                           end_comp, wire_data['end_term'], canvas=self)
             self.scene.addItem(wire)
             self.wires.append(wire)
+
+        # Load annotations
+        for ann_data in data.get('annotations', []):
+            ann = AnnotationItem.from_dict(ann_data)
+            self.scene.addItem(ann)
+            self.annotations.append(ann)
 
         # Rebuild node connectivity
         self.rebuild_all_nodes()
