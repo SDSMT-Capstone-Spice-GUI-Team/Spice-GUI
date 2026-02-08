@@ -56,6 +56,8 @@ _COLOR_KEYS = {
     'CCVS': 'component_ccvs',
     'VCCS': 'component_vccs',
     'CCCS': 'component_cccs',
+    'BJT NPN': 'component_bjt_npn',
+    'BJT PNP': 'component_bjt_pnp',
 }
 
 # Component definitions - symbol and terminals sourced from models

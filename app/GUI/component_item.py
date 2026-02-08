@@ -711,6 +711,74 @@ class CCCS(ComponentItem):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
+class BJTNPN(ComponentItem):
+    """NPN Bipolar Junction Transistor"""
+    type_name = 'BJT NPN'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-30, -30, 60, 60)
+
+    def draw_component_body(self, painter):
+        # Terminal leads
+        if self.scene() is not None:
+            painter.drawLine(-20, 0, -8, 0)       # Base lead
+            painter.drawLine(8, -12, 20, -20)      # Collector lead
+            painter.drawLine(8, 12, 20, 20)        # Emitter lead
+
+        # Vertical base bar
+        painter.drawLine(-8, -12, -8, 12)
+
+        # Collector line (from bar to upper-right)
+        painter.drawLine(-8, -6, 8, -12)
+
+        # Emitter line (from bar to lower-right)
+        painter.drawLine(-8, 6, 8, 12)
+
+        # Arrow on emitter (pointing outward for NPN)
+        painter.drawLine(8, 12, 4, 7)
+        painter.drawLine(8, 12, 3, 12)
+
+    def get_obstacle_shape(self):
+        return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
+
+
+class BJTPNP(ComponentItem):
+    """PNP Bipolar Junction Transistor"""
+    type_name = 'BJT PNP'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-30, -30, 60, 60)
+
+    def draw_component_body(self, painter):
+        # Terminal leads
+        if self.scene() is not None:
+            painter.drawLine(-20, 0, -8, 0)       # Base lead
+            painter.drawLine(8, -12, 20, -20)      # Collector lead
+            painter.drawLine(8, 12, 20, 20)        # Emitter lead
+
+        # Vertical base bar
+        painter.drawLine(-8, -12, -8, 12)
+
+        # Collector line (from bar to upper-right)
+        painter.drawLine(-8, -6, 8, -12)
+
+        # Emitter line (from bar to lower-right)
+        painter.drawLine(-8, 6, 8, 12)
+
+        # Arrow on emitter (pointing inward for PNP)
+        painter.drawLine(-8, 6, -3, 2)
+        painter.drawLine(-8, 6, -3, 7)
+
+    def get_obstacle_shape(self):
+        return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
+
+
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
     'Resistor': Resistor,
@@ -733,6 +801,8 @@ COMPONENT_CLASSES = {
     'VoltageControlledCurrentSource': VCCS,
     'CCCS': CCCS,
     'CurrentControlledCurrentSource': CCCS,
+    'BJT NPN': BJTNPN,
+    'BJT PNP': BJTPNP,
 }
 
 
