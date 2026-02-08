@@ -171,6 +171,11 @@ class NetlistGenerator:
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=switch+, 3=switch-
                 model_name = f"SW_{comp_id}"
                 lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {model_name}")
+            elif comp.component_type in ('Diode', 'LED', 'Zener Diode'):
+                # D<name> anode cathode model_name
+                # Terminals: 0=anode, 1=cathode
+                model_name = f"D_{comp_id}"
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {model_name}")
 
         # Add BJT model directives
         bjt_models = set()
@@ -215,6 +220,16 @@ class NetlistGenerator:
             for sw in vc_switches:
                 model_name = f"SW_{sw.component_id}"
                 lines.append(f".model {model_name} SW({sw.value})")
+
+        # Add diode model directives
+        diode_comps = [c for c in self.components.values()
+                       if c.component_type in ('Diode', 'LED', 'Zener Diode')]
+        if diode_comps:
+            lines.append("")
+            lines.append("* Diode Model Definitions")
+            for diode in diode_comps:
+                model_name = f"D_{diode.component_id}"
+                lines.append(f".model {model_name} D({diode.value})")
 
         # Add comments about labeled nodes
         if node_labels:

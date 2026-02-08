@@ -893,6 +893,84 @@ class VCSwitch(ComponentItem):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
+class Diode(ComponentItem):
+    """Standard Diode (D element)"""
+    type_name = 'Diode'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def draw_component_body(self, painter):
+        # Terminal lines (anode left, cathode right)
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -10, 0)
+            painter.drawLine(10, 0, 30, 0)
+        # Triangle (anode side)
+        painter.drawLine(-10, -10, -10, 10)
+        painter.drawLine(-10, -10, 10, 0)
+        painter.drawLine(-10, 10, 10, 0)
+        # Cathode bar
+        painter.drawLine(10, -10, 10, 10)
+
+    def get_obstacle_shape(self):
+        return [(-12.0, -12.0), (12.0, -12.0), (12.0, 12.0), (-12.0, 12.0)]
+
+
+class LEDComponent(ComponentItem):
+    """Light Emitting Diode (D element with LED model)"""
+    type_name = 'LED'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def draw_component_body(self, painter):
+        # Terminal lines
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -10, 0)
+            painter.drawLine(10, 0, 30, 0)
+        # Triangle (anode side)
+        painter.drawLine(-10, -10, -10, 10)
+        painter.drawLine(-10, -10, 10, 0)
+        painter.drawLine(-10, 10, 10, 0)
+        # Cathode bar
+        painter.drawLine(10, -10, 10, 10)
+        # Light emission arrows (distinctive LED indicator)
+        painter.drawLine(2, -10, 6, -16)
+        painter.drawLine(4, -16, 6, -16)
+        painter.drawLine(6, -14, 6, -16)
+        painter.drawLine(7, -8, 11, -14)
+        painter.drawLine(9, -14, 11, -14)
+        painter.drawLine(11, -12, 11, -14)
+
+    def get_obstacle_shape(self):
+        return [(-12.0, -18.0), (14.0, -18.0), (14.0, 12.0), (-12.0, 12.0)]
+
+
+class ZenerDiode(ComponentItem):
+    """Zener Diode (D element with breakdown voltage)"""
+    type_name = 'Zener Diode'
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def draw_component_body(self, painter):
+        # Terminal lines
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -10, 0)
+            painter.drawLine(10, 0, 30, 0)
+        # Triangle (anode side)
+        painter.drawLine(-10, -10, -10, 10)
+        painter.drawLine(-10, -10, 10, 0)
+        painter.drawLine(-10, 10, 10, 0)
+        # Zener cathode bar (bent ends)
+        painter.drawLine(10, -10, 10, 10)
+        painter.drawLine(10, -10, 7, -13)
+        painter.drawLine(10, 10, 13, 13)
+
+    def get_obstacle_shape(self):
+        return [(-12.0, -15.0), (15.0, -15.0), (15.0, 15.0), (-12.0, 15.0)]
+
+
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
     'Resistor': Resistor,
@@ -923,6 +1001,10 @@ COMPONENT_CLASSES = {
     'MOSFETPMOS': MOSFETPMOS,
     'VC Switch': VCSwitch,
     'VCSwitch': VCSwitch,
+    'Diode': Diode,
+    'LED': LEDComponent,
+    'Zener Diode': ZenerDiode,
+    'ZenerDiode': ZenerDiode,
 }
 
 

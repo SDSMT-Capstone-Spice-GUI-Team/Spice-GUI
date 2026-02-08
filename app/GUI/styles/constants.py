@@ -61,6 +61,9 @@ _COLOR_KEYS = {
     'MOSFET NMOS': 'component_mosfet_nmos',
     'MOSFET PMOS': 'component_mosfet_pmos',
     'VC Switch': 'component_vc_switch',
+    'Diode': 'component_diode',
+    'LED': 'component_led',
+    'Zener Diode': 'component_zener',
 }
 
 # Component definitions - symbol and terminals sourced from models
