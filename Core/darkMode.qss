@@ -1,0 +1,18 @@
+QLabel {
+    background-color: #2f2f2f;
+    color: #ededed;
+    font-family: "JetBrains Mono";
+}
+
+QWidget {
+    background-color: #2f2f2f;
+}
+
+QMainWindow {
+    background-color: #2f2f2f;
+}
+
+QPushButton {
+    font-family: "JetBrains Mono";
+    color: #ededed;
+}
