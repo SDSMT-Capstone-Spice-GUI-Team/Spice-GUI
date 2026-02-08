@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
                              QSplitter, QLabel, QDialog, QStackedWidget)
 from PyQt6.QtGui import QAction, QKeySequence
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSettings
 from .component_palette import ComponentPalette
 from .circuit_canvas import CircuitCanvas
 from .analysis_dialog import AnalysisDialog
@@ -43,8 +43,11 @@ class CircuitDesignGUI(QMainWindow):
 
         self.init_ui()
         self.create_menu_bar()
-        
-        # ADD THIS LINE to load the last session when the app starts
+
+        # Restore user preferences
+        self._restore_settings()
+
+        # Load the last session when the app starts
         self._load_last_session()
 
     @property
@@ -63,6 +66,60 @@ class CircuitDesignGUI(QMainWindow):
                 f.write(os.path.abspath(file_path))
         except OSError as e:
             logger.error("Error saving session: %s", e)
+
+    def _save_settings(self):
+        """Save user preferences via QSettings."""
+        settings = QSettings("SDSMT", "SDM Spice")
+        settings.setValue("window/geometry", self.saveGeometry())
+        settings.setValue("window/state", self.saveState())
+        settings.setValue("splitter/sizes", self.center_splitter.sizes())
+        settings.setValue("analysis/type", self.analysis_type)
+        settings.setValue("view/show_labels", self.canvas.show_component_labels)
+        settings.setValue("view/show_values", self.canvas.show_component_values)
+        settings.setValue("view/show_nodes", self.canvas.show_node_labels)
+
+    def _restore_settings(self):
+        """Restore user preferences from QSettings."""
+        settings = QSettings("SDSMT", "SDM Spice")
+
+        geometry = settings.value("window/geometry")
+        if geometry:
+            self.restoreGeometry(geometry)
+
+        state = settings.value("window/state")
+        if state:
+            self.restoreState(state)
+
+        splitter_sizes = settings.value("splitter/sizes")
+        if splitter_sizes:
+            self.center_splitter.setSizes([int(s) for s in splitter_sizes])
+
+        analysis_type = settings.value("analysis/type")
+        if analysis_type:
+            self.analysis_type = analysis_type
+
+        show_labels = settings.value("view/show_labels")
+        if show_labels is not None:
+            checked = show_labels == "true" or show_labels is True
+            self.canvas.show_component_labels = checked
+            self.show_labels_action.setChecked(checked)
+
+        show_values = settings.value("view/show_values")
+        if show_values is not None:
+            checked = show_values == "true" or show_values is True
+            self.canvas.show_component_values = checked
+            self.show_values_action.setChecked(checked)
+
+        show_nodes = settings.value("view/show_nodes")
+        if show_nodes is not None:
+            checked = show_nodes == "true" or show_nodes is True
+            self.canvas.show_node_labels = checked
+            self.show_nodes_action.setChecked(checked)
+
+    def closeEvent(self, event):
+        """Save settings before closing."""
+        self._save_settings()
+        super().closeEvent(event)
 
     def _load_last_session(self):
         """Loads the last saved file path and tries to open the circuit."""
@@ -155,6 +212,7 @@ class CircuitDesignGUI(QMainWindow):
         results_layout.addWidget(self.results_text)
         center_splitter.addWidget(results_widget)
         center_splitter.setSizes(DEFAULT_SPLITTER_SIZES)
+        self.center_splitter = center_splitter
         main_layout.addWidget(center_splitter, 3)
 
         # Right panel - Properties and Controls
