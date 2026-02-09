@@ -146,12 +146,21 @@ SDM Spice is currently in **Phase 1 (Student MVP)** development as part of an SD
 
 ### Roadmap
 - **Phase 1:** Student-focused circuit design tool (Current)
-- **Phase 2:** User accounts and cloud storage
-- **Phase 3:** Instructor tools (assignments, grading)
+- **Phase 2:** Enhanced export/sharing and LMS integration
+- **Phase 3:** Instructor tools (templates, assignments)
 - **Phase 4:** Advanced instructor features (analytics)
 - **Phase 5:** TA role support
 - **Phase 6:** Researcher features (scripting API)
-- **Phase 7:** Administrator tools and polish
+- **Phase 7:** Advanced features and polish
+
+> **Note:** This project follows a **local-first architecture** without user accounts. See [ADR 001](Doc/decisions/001-local-first-no-user-accounts.md) for rationale.
+
+## Documentation
+
+- **[Architecture Decision Records](Doc/decisions/)** - Important architectural decisions and their rationale
+- **[Development Methodology](Doc/autonomous-workflow.md)** - AI-assisted development approach and autonomous workflow
+- **[Project Evolution](Doc/project-evolution.md)** - How the project evolved from discovery to implementation
+- **[Discovery Documentation](DiscoveryDocs/)** - Initial exploration and requirements gathering (academic assignment)
 
 ## Contributing
 
@@ -170,3 +179,4 @@ Open Source - See [LICENSE](LICENSE) for details.
 - South Dakota School of Mines and Technology
 - ngspice development team
 - PyQt and Qt communities
+- Developed with AI assistance from [Claude](https://claude.ai) (Anthropic) - Used for architecture design, code generation, testing, and documentation
