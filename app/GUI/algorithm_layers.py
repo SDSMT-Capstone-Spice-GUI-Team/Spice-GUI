@@ -26,7 +26,7 @@ class AlgorithmLayer:
         self.color = color
         self.z_value = z_value
         self.visible = visible
-        self.wires = []  # List of WireItem objects in this layer
+        self.wires = []  # List of WireGraphicsItem objects in this layer
 
         # Performance metrics for this layer
         self.total_runtime = 0.0
@@ -195,7 +195,7 @@ class AlgorithmLayerManager:
         Add a wire to the appropriate layer and update metrics
 
         Args:
-            wire: WireItem to add
+            wire: WireGraphicsItem to add
             algorithm_type: Algorithm that generated this wire
             runtime: Time taken to generate path (seconds)
             iterations: Number of iterations used

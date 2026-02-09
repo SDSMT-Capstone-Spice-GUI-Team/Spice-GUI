@@ -1,0 +1,228 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-glx libxkbcommon-x11-0 libxcb-icccm4 \
+          libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+          libxcb-xinerama0 libxcb-xfixes0 x11-utils libxcb-cursor0
+
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-qt
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+    - name: Lint with ruff (if available)
+      continue-on-error: true
+      run: |
+        pip install ruff
+        ruff check app/ --output-format=github
+
+    - name: Run non-GUI tests
+      run: |
+        # Run tests that don't require Qt GUI
+        python run_phase_tests.py
+
+    - name: Run pytest with coverage (unit tests)
+      run: |
+        # Set QT_QPA_PLATFORM for headless testing
+        export QT_QPA_PLATFORM=offscreen
+        pytest app/tests/unit/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term
+
+    - name: Run integration tests
+      run: |
+        export QT_QPA_PLATFORM=offscreen
+        pytest app/tests/integration/ -v --cov=app --cov-append --cov-report=xml --cov-report=html --cov-report=term
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Archive coverage reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report-${{ matrix.python-version }}
+        path: htmlcov/
+
+    - name: Archive test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.python-version }}
+        path: |
+          pytest-results.xml
+          htmlcov/
+
+  phase-validation:
+    runs-on: ubuntu-latest
+    name: Phase 3 & 4 Validation
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Validate Phase 3 - Backward Compatibility
+      run: |
+        python3 -c "
+        import sys
+        sys.path.insert(0, 'app')
+
+        # Test backward compatibility aliases
+        from models.wire import WireData
+        wire = WireData('R1', 0, 'R2', 0)
+        assert wire.start_component_id == 'R1'
+        print('✅ Phase 3: WireData model backing works')
+
+        from models.circuit import CircuitModel
+        model = CircuitModel()
+        assert hasattr(model, 'components')
+        print('✅ Phase 3: CircuitModel structure correct')
+        "
+
+    - name: Validate Phase 4 - MVC Architecture
+      run: |
+        python3 -c "
+        import sys
+        sys.path.insert(0, 'app')
+
+        # Test controller imports
+        from controllers.file_controller import FileController
+        from controllers.simulation_controller import SimulationController
+        from controllers.circuit_controller import CircuitController
+        print('✅ Phase 4: All controllers importable')
+
+        # Test model-controller integration
+        from models.circuit import CircuitModel
+        model = CircuitModel()
+        file_ctrl = FileController(model)
+        assert file_ctrl.model is model
+        print('✅ Phase 4: Controllers share model reference')
+
+        # Test MVC separation
+        import controllers.file_controller as fc
+        assert 'QtWidgets' not in dir(fc)
+        print('✅ Phase 4: Controllers don'\''t import Qt')
+        "
+
+    - name: Validate No Regressions
+      run: |
+        python3 run_phase_tests.py
+
+  lint:
+    runs-on: ubuntu-latest
+    name: Code Quality
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install ruff black isort mypy
+
+    - name: Check code formatting with black
+      continue-on-error: true
+      run: |
+        black --check app/
+
+    - name: Check import sorting with isort
+      continue-on-error: true
+      run: |
+        isort --check-only app/
+
+    - name: Lint with ruff
+      continue-on-error: true
+      run: |
+        ruff check app/
+
+    - name: Type check with mypy
+      continue-on-error: true
+      run: |
+        mypy app/ --ignore-missing-imports
+
+  security:
+    runs-on: ubuntu-latest
+    name: Security Scan
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+
+    - name: Run bandit security scan
+      continue-on-error: true
+      run: |
+        bandit -r app/ -f json -o bandit-report.json
+
+    - name: Check dependencies for vulnerabilities
+      continue-on-error: true
+      run: |
+        if [ -f requirements.txt ]; then
+          safety check -r requirements.txt --json --output safety-report.json || true
+        fi
+
+    - name: Upload security reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json

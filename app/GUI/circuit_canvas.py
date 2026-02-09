@@ -5,8 +5,8 @@ from PyQt6.QtCore import Qt, QRectF, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QAction
 
 logger = logging.getLogger(__name__)
-from .component_item import ComponentItem, create_component
-from .wire_item import WireItem
+from .component_item import ComponentGraphicsItem, create_component
+from .wire_item import WireGraphicsItem, WireItem
 from .circuit_node import Node
 from .annotation_item import AnnotationItem
 from .algorithm_layers import AlgorithmLayerManager
@@ -15,8 +15,8 @@ from .styles import (GRID_SIZE, GRID_EXTENT, MAJOR_GRID_INTERVAL,
                      TERMINAL_CLICK_RADIUS, theme_manager,
                      ZOOM_FACTOR, ZOOM_MIN, ZOOM_MAX, ZOOM_FIT_PADDING)
 
-class CircuitCanvas(QGraphicsView):
-    """Main circuit drawing canvas"""
+class CircuitCanvasView(QGraphicsView):
+    """Main circuit drawing canvas view"""
     
     # Signals for component and wire operations
     componentAdded = pyqtSignal(str)  # component_id
@@ -28,8 +28,9 @@ class CircuitCanvas(QGraphicsView):
     
     
     
-    def __init__(self):
+    def __init__(self, controller=None):
         super().__init__()
+        self.controller = controller  # CircuitController reference for observer pattern
         self.scene = QGraphicsScene()
         if self.scene is None:
             exit()
@@ -41,10 +42,10 @@ class CircuitCanvas(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
 
         # Use MinimalViewportUpdate for better performance; dragging artifacts
-        # are prevented by targeted update() calls in ComponentItem.itemChange
+        # are prevented by targeted update() calls in ComponentGraphicsItem.itemChange
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
 
-        self.components = {}  # id -> ComponentItem
+        self.components = {}  # id -> ComponentGraphicsItem
         self.wires = []  # All wires (for backward compatibility)
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
@@ -89,12 +90,203 @@ class CircuitCanvas(QGraphicsView):
         # Connect scene selection changes to our signal
         self.scene.selectionChanged.connect(self.on_selection_changed)
 
+        # Register as observer of controller events (Phase 5)
+        if self.controller:
+            self.controller.add_observer(self._on_model_changed)
+
     def showEvent(self, event):
         """Draw grid on first show for faster startup"""
         super().showEvent(event)
         if not self._grid_drawn:
             self.draw_grid()
             self._grid_drawn = True
+
+    # ===================================================================
+    # Observer Pattern (Phase 5)
+    # ===================================================================
+
+    def _on_model_changed(self, event: str, data) -> None:
+        """
+        Dispatch model change events to specific handlers.
+
+        This method is called by CircuitController when the model changes.
+        It routes events to appropriate handler methods for automatic canvas updates.
+        """
+        handlers = {
+            'component_added': self._handle_component_added,
+            'component_removed': self._handle_component_removed,
+            'component_moved': self._handle_component_moved,
+            'component_rotated': self._handle_component_rotated,
+            'component_value_changed': self._handle_component_value_changed,
+            'wire_added': self._handle_wire_added,
+            'wire_removed': self._handle_wire_removed,
+            'wire_routed': self._handle_wire_routed,
+            'circuit_cleared': self._handle_circuit_cleared,
+            'nodes_rebuilt': self._handle_nodes_rebuilt,
+            'model_loaded': self._handle_model_loaded,
+        }
+
+        handler = handlers.get(event)
+        if handler:
+            try:
+                handler(data)
+            except (AttributeError, KeyError, TypeError) as e:
+                logger.error(f"Error handling event '{event}': {e}")
+        else:
+            logger.debug(f"Unhandled observer event: {event}")
+
+    def _handle_component_added(self, component_data) -> None:
+        """Create graphics item when component added to model"""
+        from models.component import ComponentData
+        from PyQt6.QtWidgets import QGraphicsItem
+
+        comp = ComponentGraphicsItem.from_dict(component_data.to_dict())
+        self.scene.addItem(comp)
+        self.components[component_data.component_id] = comp
+
+        # Handle ground special case
+        if component_data.component_type == 'Ground':
+            self.handle_ground_added(comp)
+
+        self.scene.update()
+
+    def _handle_component_removed(self, component_id: str) -> None:
+        """Remove graphics item when component removed from model"""
+        comp = self.components.get(component_id)
+        if comp:
+            self.scene.removeItem(comp)
+            del self.components[component_id]
+            self.scene.update()
+
+    def _handle_component_moved(self, component_data) -> None:
+        """Update graphics item position - disable change flag to prevent recursion"""
+        from PyQt6.QtWidgets import QGraphicsItem
+
+        comp = self.components.get(component_data.component_id)
+        if comp:
+            # Disable ItemSendsGeometryChanges to prevent infinite recursion
+            comp.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, False)
+            comp.setPos(*component_data.position)
+            comp.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+
+            # Reroute connected wires
+            self.reroute_connected_wires(comp)
+
+    def _handle_component_rotated(self, component_data) -> None:
+        """Update graphics item rotation"""
+        comp = self.components.get(component_data.component_id)
+        if comp:
+            comp.rotation_angle = component_data.rotation
+            comp.update_terminals()
+            comp.update()
+            self.reroute_connected_wires(comp)
+
+    def _handle_component_value_changed(self, component_data) -> None:
+        """Update graphics item value display"""
+        comp = self.components.get(component_data.component_id)
+        if comp:
+            comp.value = component_data.value
+            comp.update()
+
+    def _handle_wire_added(self, wire_data) -> None:
+        """Create wire graphics item when wire added to model"""
+        start_comp = self.components.get(wire_data.start_component_id)
+        end_comp = self.components.get(wire_data.end_component_id)
+
+        if start_comp and end_comp:
+            wire = WireGraphicsItem(
+                start_comp, wire_data.start_terminal,
+                end_comp, wire_data.end_terminal,
+                canvas=self,
+                model=wire_data
+            )
+            self.scene.addItem(wire)
+            self.wires.append(wire)
+            # Note: Node updates handled by nodes_rebuilt event
+
+    def _handle_wire_removed(self, wire_index: int) -> None:
+        """Remove wire graphics item (wires removed in reverse order)"""
+        if 0 <= wire_index < len(self.wires):
+            wire = self.wires[wire_index]
+            self.scene.removeItem(wire)
+            del self.wires[wire_index]
+
+    def _handle_wire_routed(self, data) -> None:
+        """Update wire waypoints"""
+        from PyQt6.QtCore import QPointF
+
+        wire_index, wire_data = data
+        if 0 <= wire_index < len(self.wires):
+            wire = self.wires[wire_index]
+            # Convert waypoints to QPointF if they exist
+            if hasattr(wire_data, 'waypoints') and wire_data.waypoints:
+                wire.waypoints = [QPointF(x, y) for x, y in wire_data.waypoints]
+                if hasattr(wire, 'update_path'):
+                    wire.update_path()
+
+    def _handle_circuit_cleared(self, data: None) -> None:
+        """Clear all graphics items when circuit cleared"""
+        self.scene.clear()
+        self.draw_grid()
+        self.components = {}
+        self.wires = []
+        self.nodes = []
+        self.terminal_to_node = {}
+        self.annotations = []
+        Node._node_counter = 0
+        self.layer_manager.clear_all_wires()
+
+    def _handle_nodes_rebuilt(self, data: None) -> None:
+        """Rebuild node visualization from model"""
+        if not self.controller:
+            return
+
+        self.nodes = []
+        self.terminal_to_node = {}
+
+        # Convert NodeData to Node (Qt objects)
+        for node_data in self.controller.model.nodes:
+            node = Node.from_node_data(node_data)
+            self.nodes.append(node)
+
+        # Rebuild terminal mapping
+        for (comp_id, term_idx), node_data in self.controller.model.terminal_to_node.items():
+            # Find corresponding Qt Node
+            qt_node = next((n for n in self.nodes if n.matches_node_data(node_data)), None)
+            if qt_node:
+                self.terminal_to_node[(comp_id, term_idx)] = qt_node
+
+        self.scene.update()
+
+    def _handle_model_loaded(self, data: None) -> None:
+        """Rebuild entire canvas when model loaded from file"""
+        if not self.controller:
+            return
+
+        # Clear and rebuild everything
+        self.scene.clear()
+        self.draw_grid()
+        self.components = {}
+        self.wires = []
+        self.annotations = []
+
+        # Restore components
+        for comp_data in self.controller.model.components.values():
+            self._handle_component_added(comp_data)
+
+        # Restore wires
+        for wire_data in self.controller.model.wires:
+            self._handle_wire_added(wire_data)
+
+        # Rebuild nodes
+        self._handle_nodes_rebuilt(None)
+
+        # Restore component counter
+        self.component_counter = self.controller.model.component_counter.copy()
+
+    # ===================================================================
+    # End Observer Pattern Handlers
+    # ===================================================================
 
     # unsuccessful attempt to get rid of red squiggles
     # def views(self) -> list | None:
@@ -180,43 +372,36 @@ class CircuitCanvas(QGraphicsView):
         event.acceptProposedAction()
     
     def dropEvent(self, event):
-        """Handle component drop from palette"""
+        """Handle component drop from palette - Phase 5: uses controller"""
         if event is None:
             return
+        if not self.controller:
+            logger.warning("Cannot drop component: no controller available")
+            return
+
         mimeData = event.mimeData()
         if mimeData is None:
             return
         component_type = mimeData.text()
         if component_type in COMPONENTS:
-            # Create new component
-            symbol = COMPONENTS[component_type]['symbol']
-            if symbol not in self.component_counter.keys():
-                self.component_counter[symbol] = 0
-            self.component_counter[symbol] += 1
-            comp_id = f"{symbol}{self.component_counter[symbol]}"
-            
-            component = create_component(component_type, comp_id)
-            
             # Position at drop location (snapped to grid)
             pos = event.position().toPoint()
             scene_pos = self.mapToScene(pos)
             grid_x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
             grid_y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
-            component.setPos(grid_x, grid_y)
-            
-            self.scene.addItem(component)
-            self.components[comp_id] = component
-            self.componentAdded.emit(comp_id)
-            
-            # If this is a ground component, create/update node 0
-            if component_type == 'Ground':
-                self.handle_ground_added(component)
-            
+
+            # Controller handles component creation, observer creates graphics item
+            component_data = self.controller.add_component(component_type, (grid_x, grid_y))
+            self.componentAdded.emit(component_data.component_id)
+
             event.acceptProposedAction()
 
     def add_component_at_center(self, component_type):
-        """Add a component at the center of the visible canvas area"""
+        """Add a component at the center of the visible canvas area - Phase 5: uses controller"""
         if component_type not in COMPONENTS:
+            return
+        if not self.controller:
+            logger.warning("Cannot add component: no controller available")
             return
 
         # Get viewport center in scene coordinates
@@ -227,23 +412,9 @@ class CircuitCanvas(QGraphicsView):
         grid_x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
         grid_y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
 
-        # Create component (same pattern as dropEvent)
-        symbol = COMPONENTS[component_type]['symbol']
-        if symbol not in self.component_counter.keys():
-            self.component_counter[symbol] = 0
-        self.component_counter[symbol] += 1
-        comp_id = f"{symbol}{self.component_counter[symbol]}"
-
-        component = create_component(component_type, comp_id)
-        component.setPos(grid_x, grid_y)
-
-        self.scene.addItem(component)
-        self.components[comp_id] = component
-        self.componentAdded.emit(comp_id)
-
-        # Handle ground component special case
-        if component_type == 'Ground':
-            self.handle_ground_added(component)
+        # Controller handles component creation, observer creates graphics item
+        component_data = self.controller.add_component(component_type, (grid_x, grid_y))
+        self.componentAdded.emit(component_data.component_id)
 
     def mousePressEvent(self, event):
         """Handle wire drawing and component selection"""
@@ -329,18 +500,28 @@ class CircuitCanvas(QGraphicsView):
                                         self.update_nodes_for_wire(wire)
                                 pass
                             else:
-                                # Single algorithm mode - use IDA*
-                                wire = WireItem(
-                                    self.wire_start_comp, self.wire_start_term,
-                                    clicked_component, target_term,
-                                    canvas=self,
-                                    algorithm='idastar'
-                                )
-                                self.scene.addItem(wire)
-                                self.wires.append(wire)
-                                self.update_nodes_for_wire(wire)
-
-                            self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
+                                # Single algorithm mode - Phase 5: use controller
+                                if self.controller:
+                                    # Controller creates wire, observer creates graphics item
+                                    wire_data = self.controller.add_wire(
+                                        self.wire_start_comp.component_id,
+                                        self.wire_start_term,
+                                        clicked_component.component_id,
+                                        target_term
+                                    )
+                                    self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
+                                else:
+                                    # Fallback to old method if no controller (shouldn't happen)
+                                    wire = WireItem(
+                                        self.wire_start_comp, self.wire_start_term,
+                                        clicked_component, target_term,
+                                        canvas=self,
+                                        algorithm='idastar'
+                                    )
+                                    self.scene.addItem(wire)
+                                    self.wires.append(wire)
+                                    self.update_nodes_for_wire(wire)
+                                    self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
                     
                     # Clean up temporary wire line
                     if self.temp_wire_line:
@@ -453,7 +634,7 @@ class CircuitCanvas(QGraphicsView):
     def zoom_fit(self):
         """Fit all circuit components in view with padding."""
         items = [item for item in self.scene.items()
-                 if isinstance(item, ComponentItem)]
+                 if isinstance(item, ComponentGraphicsItem)]
         if not items:
             self.zoom_reset()
             return
@@ -505,14 +686,14 @@ class CircuitCanvas(QGraphicsView):
         item = self.itemAt(position)
         
         # If a component is right-clicked, emit a signal to show properties
-        if isinstance(item, ComponentItem):
+        if isinstance(item, ComponentGraphicsItem):
             self.componentRightClicked.emit(item, self.mapToGlobal(position))
         
         scene_pos = self.mapToScene(position)
         
         menu = QMenu()
         
-        if isinstance(item, ComponentItem):
+        if isinstance(item, ComponentGraphicsItem):
             delete_action = QAction(f"Delete {item.component_id}", self)
             delete_action.triggered.connect(lambda: self.delete_component(item))
             menu.addAction(delete_action)
@@ -564,7 +745,7 @@ class CircuitCanvas(QGraphicsView):
                 menu.addAction(delete_action)
                 
                 # Check if any components are selected
-                selected_components = [i for i in selected_items if isinstance(i, ComponentItem)]
+                selected_components = [i for i in selected_items if isinstance(i, ComponentGraphicsItem)]
                 if selected_components:
                     menu.addSeparator()
                     rotate_cw_action = QAction("Rotate Selected Clockwise", self)
@@ -590,7 +771,7 @@ class CircuitCanvas(QGraphicsView):
         if not selected_items:
             return
 
-        components_to_delete = [item for item in selected_items if isinstance(item, ComponentItem)]
+        components_to_delete = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
         wires_to_delete = [item for item in selected_items if isinstance(item, WireItem)]
         annotations_to_delete = [item for item in selected_items if isinstance(item, AnnotationItem)]
 
@@ -607,21 +788,15 @@ class CircuitCanvas(QGraphicsView):
                 self.annotations.remove(ann)
     
     def delete_component(self, component):
-        """Delete a component and all connected wires"""
+        """Delete a component and all connected wires - Phase 5: uses controller"""
         if component is None:
             return
-        
-        wires_to_delete = []
-        for wire in self.wires:
-            if wire.start_comp == component or wire.end_comp == component:
-                wires_to_delete.append(wire)
-        
-        for wire in wires_to_delete:
-            self.delete_wire(wire)
-        
-        self.scene.removeItem(component)
-        if component.component_id in self.components:
-            del self.components[component.component_id]
+        if not self.controller:
+            logger.warning("Cannot delete component: no controller available")
+            return
+
+        # Controller handles deletion, observers clean up graphics
+        self.controller.remove_component(component.component_id)
     
     def delete_wire(self, wire):
         """Delete a wire"""
@@ -635,21 +810,20 @@ class CircuitCanvas(QGraphicsView):
             self.wires.remove(wire)
     
     def rotate_component(self, component, clockwise=True):
-        """Rotate a single component"""
-        if component is None or not isinstance(component, ComponentItem):
+        """Rotate a single component - Phase 5: uses controller"""
+        if component is None or not isinstance(component, ComponentGraphicsItem):
             return
-        
-        component.rotate_component(clockwise)
-        
-        # Update all connected wires with path finding
-        for wire in self.wires:
-            if wire.start_comp == component or wire.end_comp == component:
-                wire.update_position()
+        if not self.controller:
+            logger.warning("Cannot rotate component: no controller available")
+            return
+
+        # Controller handles rotation, observer updates graphics and wires
+        self.controller.rotate_component(component.component_id, clockwise)
     
     def rotate_selected(self, clockwise=True):
         """Rotate all selected components"""
         selected_items = self.scene.selectedItems()
-        components = [item for item in selected_items if isinstance(item, ComponentItem)]
+        components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
 
         for comp in components:
             self.rotate_component(comp, clockwise)
@@ -657,7 +831,7 @@ class CircuitCanvas(QGraphicsView):
     def copy_selected(self):
         """Copy selected components and their internal wires to the clipboard."""
         selected_items = self.scene.selectedItems()
-        selected_comps = [item for item in selected_items if isinstance(item, ComponentItem)]
+        selected_comps = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
         if not selected_comps:
             return
 
@@ -704,7 +878,7 @@ class CircuitCanvas(QGraphicsView):
                 'y': comp_data['pos']['y'] + PASTE_OFFSET,
             }
 
-            comp = ComponentItem.from_dict(new_data)
+            comp = ComponentGraphicsItem.from_dict(new_data)
             self.scene.addItem(comp)
             self.components[new_id] = comp
             new_comps.append(comp)
@@ -767,7 +941,7 @@ class CircuitCanvas(QGraphicsView):
         selected_items = self.scene.selectedItems()
 
         # Filter for component items only
-        components = [item for item in selected_items if isinstance(item, ComponentItem)]
+        components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
 
         # Emit signal with the first selected component (or None if no selection)
         if components:
@@ -1315,7 +1489,7 @@ class CircuitCanvas(QGraphicsView):
         self.component_counter = data.get('counters', self.component_counter)
 
         for comp_data in data['components']:
-            comp = ComponentItem.from_dict(comp_data)
+            comp = ComponentGraphicsItem.from_dict(comp_data)
             self.scene.addItem(comp)
             self.components[comp.component_id] = comp
 
@@ -1335,3 +1509,10 @@ class CircuitCanvas(QGraphicsView):
 
         # Rebuild node connectivity
         self.rebuild_all_nodes()
+
+    # Phase 5: sync_to_model() and sync_from_model() methods DELETED
+    # Observer pattern handles all synchronization automatically
+
+
+# Backward compatibility alias
+CircuitCanvas = CircuitCanvasView

@@ -38,8 +38,9 @@ class SimulationController:
     Coordinates: validate -> generate netlist -> run ngspice -> parse results
     """
 
-    def __init__(self, model: Optional[CircuitModel] = None):
+    def __init__(self, model: Optional[CircuitModel] = None, circuit_ctrl=None):
         self.model = model or CircuitModel()
+        self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
         self._runner = None
 
     @property
@@ -96,9 +97,16 @@ class SimulationController:
 
         Steps: validate -> generate netlist -> find ngspice -> run -> parse
         """
+        # Phase 5: Notify simulation started
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify('simulation_started', None)
+
         # 1. Validate
         validation = self.validate_circuit()
         if not validation.success:
+            # Phase 5: Notify even on failure
+            if self.circuit_ctrl:
+                self.circuit_ctrl._notify('simulation_completed', validation)
             return validation
 
         # 2. Generate wrdata path for transient
@@ -111,38 +119,56 @@ class SimulationController:
         try:
             netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
         except (ValueError, KeyError, TypeError) as e:
-            return SimulationResult(
+            result = SimulationResult(
                 success=False,
                 error=f"Netlist generation failed: {e}",
             )
+            # Phase 5: Notify even on failure
+            if self.circuit_ctrl:
+                self.circuit_ctrl._notify('simulation_completed', result)
+            return result
 
         # 4. Find ngspice
         ngspice_path = self.runner.find_ngspice()
         if ngspice_path is None:
-            return SimulationResult(
+            result = SimulationResult(
                 success=False,
                 error="ngspice executable not found. Please install ngspice.",
                 netlist=netlist,
             )
+            # Phase 5: Notify even on failure
+            if self.circuit_ctrl:
+                self.circuit_ctrl._notify('simulation_completed', result)
+            return result
 
         # 5. Run simulation
         success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
         if not success:
-            return SimulationResult(
+            result = SimulationResult(
                 success=False,
                 error=stderr or "Simulation failed",
                 netlist=netlist,
                 raw_output=stdout,
             )
+            # Phase 5: Notify even on failure
+            if self.circuit_ctrl:
+                self.circuit_ctrl._notify('simulation_completed', result)
+            return result
 
         # 6. Parse results
-        return self._parse_results(
+        result = self._parse_results(
             output_file=output_file,
             wrdata_filepath=wrdata_filepath,
             netlist=netlist,
             raw_output=stdout,
             warnings=validation.warnings,
         )
+
+        # Phase 5: Notify simulation completed
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify('simulation_completed', result)
+
+        return result
 
     def _parse_results(self, output_file: str, wrdata_filepath: str,
                        netlist: str, raw_output: str,

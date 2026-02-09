@@ -9,10 +9,10 @@ from models.component import ComponentData, DEFAULT_VALUES
 from .format_utils import validate_component_value
 from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, WIRE_UPDATE_DELAY_MS, theme_manager
 
-class ComponentItem(QGraphicsItem):
+class ComponentGraphicsItem(QGraphicsItem):
     """Base class for graphical components on the canvas.
 
-    Each ComponentItem holds a reference to a ComponentData model object.
+    Each ComponentGraphicsItem holds a reference to a ComponentData model object.
     Data properties (component_id, component_type, value, rotation) are
     delegated to the model. Drawing and Qt interaction stay in this class.
     """
@@ -39,6 +39,10 @@ class ComponentItem(QGraphicsItem):
         self.is_being_dragged = False
         self.last_position = None
         self.update_timer = None
+
+        # Phase 5: Debounced position updates to controller
+        self._position_update_timer = None
+        self._pending_position = None
 
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
@@ -276,8 +280,9 @@ class ComponentItem(QGraphicsItem):
             grid_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
             snapped_pos = QPointF(grid_x, grid_y)
 
-            # Sync position to model
-            self.model.position = (grid_x, grid_y)
+            # Phase 5: Schedule debounced controller update instead of direct model write
+            self._pending_position = (grid_x, grid_y)
+            self._schedule_controller_update()
 
             # Track that we're moving and schedule an update
             if self.last_position is None:
@@ -298,6 +303,41 @@ class ComponentItem(QGraphicsItem):
                                 wire.update()
 
         return super().itemChange(change, value)
+
+    def _schedule_controller_update(self):
+        """Schedule debounced position update to controller (Phase 5)"""
+        if self._position_update_timer:
+            self._position_update_timer.stop()
+
+        # Get canvas controller
+        if not self.scene() or not self.scene().views():
+            return
+
+        canvas = self.scene().views()[0]
+        if not hasattr(canvas, 'controller') or not canvas.controller:
+            return
+
+        # Create single-shot timer for debouncing
+        self._position_update_timer = QTimer()
+        self._position_update_timer.setSingleShot(True)
+        self._position_update_timer.timeout.connect(self._notify_controller_position)
+        self._position_update_timer.start(50)  # 50ms debounce
+
+    def _notify_controller_position(self):
+        """Notify controller of final position after debounce (Phase 5)"""
+        if not self._pending_position:
+            return
+
+        if not self.scene() or not self.scene().views():
+            return
+
+        canvas = self.scene().views()[0]
+        if not hasattr(canvas, 'controller') or not canvas.controller:
+            return
+
+        # Notify controller - observer will update wires
+        canvas.controller.move_component(self.component_id, self._pending_position)
+        self._pending_position = None
 
     def get_terminal_pos(self, index):
         """Get global position of terminal"""
@@ -328,7 +368,7 @@ class ComponentItem(QGraphicsItem):
         return comp
 
 
-class Resistor(ComponentItem):
+class Resistor(ComponentGraphicsItem):
     """Resistor component"""
     type_name = 'Resistor'
 
@@ -355,7 +395,7 @@ class Resistor(ComponentItem):
         ]
 
 
-class Capacitor(ComponentItem):
+class Capacitor(ComponentGraphicsItem):
     """Capacitor component"""
     type_name = 'Capacitor'
 
@@ -378,7 +418,7 @@ class Capacitor(ComponentItem):
         ]
 
 
-class Inductor(ComponentItem):
+class Inductor(ComponentGraphicsItem):
     """Inductor component"""
     type_name = 'Inductor'
 
@@ -401,7 +441,7 @@ class Inductor(ComponentItem):
         ]
 
 
-class VoltageSource(ComponentItem):
+class VoltageSource(ComponentGraphicsItem):
     """Voltage source component"""
     type_name = 'Voltage Source'
 
@@ -426,7 +466,7 @@ class VoltageSource(ComponentItem):
         ]
 
 
-class CurrentSource(ComponentItem):
+class CurrentSource(ComponentGraphicsItem):
     """Current source component"""
     type_name = 'Current Source'
 
@@ -448,7 +488,7 @@ class CurrentSource(ComponentItem):
             (-18.0, 18.0)
         ]
 
-class WaveformVoltageSource(ComponentItem):
+class WaveformVoltageSource(ComponentGraphicsItem):
     """Waveform voltage source component (sine, pulse, PWL, etc.)"""
     type_name = 'Waveform Source'
 
@@ -495,7 +535,7 @@ class WaveformVoltageSource(ComponentItem):
     def get_obstacle_shape(self):
         return super().get_obstacle_shape()
 
-class Ground(ComponentItem):
+class Ground(ComponentGraphicsItem):
     """Ground component"""
     type_name = 'Ground'
 
@@ -554,7 +594,7 @@ class Ground(ComponentItem):
             (-17.0, 22.0)
         ]
 
-class OpAmp(ComponentItem):
+class OpAmp(ComponentGraphicsItem):
     """Operational Amplifier component"""
     type_name = 'Op-Amp'
 
@@ -578,7 +618,7 @@ class OpAmp(ComponentItem):
     def boundingRect(self):
         return QRectF(-30, -25, 60, 50)
 
-class VCVS(ComponentItem):
+class VCVS(ComponentGraphicsItem):
     """Voltage-Controlled Voltage Source (E element)"""
     type_name = 'VCVS'
 
@@ -610,7 +650,7 @@ class VCVS(ComponentItem):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
-class CCVS(ComponentItem):
+class CCVS(ComponentGraphicsItem):
     """Current-Controlled Voltage Source (H element)"""
     type_name = 'CCVS'
 
@@ -645,7 +685,7 @@ class CCVS(ComponentItem):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
-class VCCS(ComponentItem):
+class VCCS(ComponentGraphicsItem):
     """Voltage-Controlled Current Source (G element)"""
     type_name = 'VCCS'
 
@@ -676,7 +716,7 @@ class VCCS(ComponentItem):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
-class CCCS(ComponentItem):
+class CCCS(ComponentGraphicsItem):
     """Current-Controlled Current Source (F element)"""
     type_name = 'CCCS'
 
@@ -711,7 +751,7 @@ class CCCS(ComponentItem):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
-class BJTNPN(ComponentItem):
+class BJTNPN(ComponentGraphicsItem):
     """NPN Bipolar Junction Transistor"""
     type_name = 'BJT NPN'
 
@@ -745,7 +785,7 @@ class BJTNPN(ComponentItem):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
-class BJTPNP(ComponentItem):
+class BJTPNP(ComponentGraphicsItem):
     """PNP Bipolar Junction Transistor"""
     type_name = 'BJT PNP'
 
@@ -779,7 +819,7 @@ class BJTPNP(ComponentItem):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
-class MOSFETNMOS(ComponentItem):
+class MOSFETNMOS(ComponentGraphicsItem):
     """N-Channel MOSFET (M element)"""
     type_name = 'MOSFET NMOS'
 
@@ -816,7 +856,7 @@ class MOSFETNMOS(ComponentItem):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
-class MOSFETPMOS(ComponentItem):
+class MOSFETPMOS(ComponentGraphicsItem):
     """P-Channel MOSFET (M element)"""
     type_name = 'MOSFET PMOS'
 
@@ -856,7 +896,7 @@ class MOSFETPMOS(ComponentItem):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
-class VCSwitch(ComponentItem):
+class VCSwitch(ComponentGraphicsItem):
     """Voltage-Controlled Switch (S element)"""
     type_name = 'VC Switch'
 
@@ -893,7 +933,7 @@ class VCSwitch(ComponentItem):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
-class Diode(ComponentItem):
+class Diode(ComponentGraphicsItem):
     """Standard Diode (D element)"""
     type_name = 'Diode'
 
@@ -916,7 +956,7 @@ class Diode(ComponentItem):
         return [(-12.0, -12.0), (12.0, -12.0), (12.0, 12.0), (-12.0, 12.0)]
 
 
-class LEDComponent(ComponentItem):
+class LEDComponent(ComponentGraphicsItem):
     """Light Emitting Diode (D element with LED model)"""
     type_name = 'LED'
 
@@ -946,7 +986,7 @@ class LEDComponent(ComponentItem):
         return [(-12.0, -18.0), (14.0, -18.0), (14.0, 12.0), (-12.0, 12.0)]
 
 
-class ZenerDiode(ComponentItem):
+class ZenerDiode(ComponentGraphicsItem):
     """Zener Diode (D element with breakdown voltage)"""
     type_name = 'Zener Diode'
 

@@ -1,36 +1,78 @@
 import logging
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from PyQt6.QtWidgets import QGraphicsPathItem
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPen, QPainterPath, QPainterPathStroker, QColor
 # path_finding imported lazily in update_position() for faster startup
+from models.wire import WireData
 from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, theme_manager
 
 logger = logging.getLogger(__name__)
 
-class WireItem(QGraphicsPathItem):
-    """Wire connecting components with multi-algorithm pathfinding support"""
+class WireGraphicsItem(QGraphicsPathItem):
+    """Wire connecting components with multi-algorithm pathfinding support.
 
-    def __init__(self, start_comp, start_term, end_comp, end_term, canvas=None, algorithm='astar', layer_color=None):
+    Each WireGraphicsItem holds a reference to a WireData model object.
+    Data properties (start/end component IDs, terminals, waypoints) are
+    delegated to the model. Drawing and Qt interaction stay in this class.
+    """
+
+    def __init__(self, start_comp, start_term, end_comp, end_term, canvas=None, algorithm='astar', layer_color=None, model=None):
         super().__init__()
+
+        # Create or accept a WireData backing object
+        if model is not None:
+            self.model = model
+        else:
+            self.model = WireData(
+                start_component_id=start_comp.component_id if hasattr(start_comp, 'component_id') else str(start_comp),
+                start_terminal=start_term,
+                end_component_id=end_comp.component_id if hasattr(end_comp, 'component_id') else str(end_comp),
+                end_terminal=end_term,
+                algorithm=algorithm
+            )
+
+        # Store references to actual component objects for rendering
         self.start_comp = start_comp
         self.start_term = start_term
         self.end_comp = end_comp
         self.end_term = end_term
+
         self.node = None  # Reference to the Node this wire belongs to
         self.canvas = canvas  # Reference to canvas for pathfinding
 
         # Algorithm layer support
         self.algorithm = algorithm  # Which algorithm generated this wire
         self.layer_color = layer_color if layer_color else QColor(Qt.GlobalColor.black)
-        self.runtime = 0.0  # Time taken to route this wire
-        self.iterations = 0  # Iterations used by algorithm
 
-        self.waypoints = []  # List of QPointF waypoints
+        self.waypoints = []  # List of QPointF waypoints (computed during routing)
 
         self.setPen(QPen(self.layer_color, 2))
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable)
         self.update_position()
-    
+
+    # --- Data delegation properties ---
+
+    @property
+    def runtime(self):
+        return self.model.runtime
+
+    @runtime.setter
+    def runtime(self, value):
+        self.model.runtime = value
+
+    @property
+    def iterations(self):
+        return self.model.iterations
+
+    @iterations.setter
+    def iterations(self, value):
+        self.model.iterations = value
+
+    # --- Methods ---
+
     def update_position(self):
         """Update wire path using selected algorithm"""
         # Lazy import for faster startup - only loaded when wires are created
@@ -80,13 +122,19 @@ class WireItem(QGraphicsPathItem):
             result = pathfinder.find_path(start, end, obstacles, algorithm=self.algorithm)
 
             # Unpack result (waypoints, runtime, iterations)
-            self.waypoints, self.runtime, self.iterations = result
-            pass
+            self.waypoints, runtime, iterations = result
+
+            # Store in model
+            self.model.runtime = runtime
+            self.model.iterations = iterations
+            # Convert QPointF waypoints to tuples for model storage
+            self.model.waypoints = [(wp.x(), wp.y()) for wp in self.waypoints]
         else:
             # Fallback to direct line
             self.waypoints = [start, end]
-            self.runtime = 0.0
-            self.iterations = 0
+            self.model.runtime = 0.0
+            self.model.iterations = 0
+            self.model.waypoints = [(start.x(), start.y()), (end.x(), end.y())]
 
         # Create path from waypoints
         path = QPainterPath()
@@ -103,7 +151,7 @@ class WireItem(QGraphicsPathItem):
             self.scene().update(self.boundingRect())
 
         self.update()  # Force item redraw
-    
+
     def paint(self, painter, option=None, widget=None):
         """Override paint to show selection highlight and layer color"""
         if painter is None:
@@ -131,12 +179,43 @@ class WireItem(QGraphicsPathItem):
             (self.start_comp.component_id, self.start_term),
             (self.end_comp.component_id, self.end_term)
         ]
-    
+
     def to_dict(self):
-        """Serialize wire to dictionary"""
-        return {
-            'start_comp': self.start_comp.component_id,
-            'start_term': self.start_term,
-            'end_comp': self.end_comp.component_id,
-            'end_term': self.end_term
-        }
+        """Serialize wire to dictionary via the model"""
+        return self.model.to_dict()
+
+    @classmethod
+    def from_dict(cls, data_dict, components_dict, canvas=None):
+        """Deserialize wire from dictionary.
+
+        Args:
+            data_dict: Dictionary containing wire data
+            components_dict: Dictionary mapping component_id -> ComponentGraphicsItem
+            canvas: Canvas reference for pathfinding
+
+        Returns:
+            WireGraphicsItem instance
+        """
+        # Create model first
+        wire_data = WireData.from_dict(data_dict)
+
+        # Get component references
+        start_comp = components_dict[wire_data.start_component_id]
+        end_comp = components_dict[wire_data.end_component_id]
+
+        # Create wire with model
+        wire = cls(
+            start_comp=start_comp,
+            start_term=wire_data.start_terminal,
+            end_comp=end_comp,
+            end_term=wire_data.end_terminal,
+            canvas=canvas,
+            algorithm=wire_data.algorithm,
+            model=wire_data
+        )
+
+        return wire
+
+
+# Backward compatibility alias
+WireItem = WireGraphicsItem
