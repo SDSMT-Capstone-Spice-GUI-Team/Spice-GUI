@@ -126,6 +126,21 @@ class TestSaveLoad:
         ctrl.load_circuit(filepath)
         assert ctrl.model is model_ref
 
+    def test_load_restores_analysis_settings(self, tmp_path):
+        """Loading should restore analysis_type and analysis_params from JSON."""
+        model = _build_simple_circuit()
+        model.analysis_type = "Transient"
+        model.analysis_params = {"duration": 0.01, "step": 1e-5, "startTime": 0.0}
+        ctrl = FileController(model)
+        filepath = tmp_path / "test.json"
+        ctrl.save_circuit(filepath)
+
+        ctrl2 = FileController()
+        ctrl2.load_circuit(filepath)
+        assert ctrl2.model.analysis_type == "Transient"
+        assert ctrl2.model.analysis_params["duration"] == 0.01
+        assert ctrl2.model.analysis_params["step"] == 1e-5
+
 
 class TestLoadErrors:
     def test_load_invalid_json_raises(self, tmp_path):

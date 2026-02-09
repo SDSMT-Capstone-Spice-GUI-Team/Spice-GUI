@@ -132,6 +132,8 @@ class FileController:
         self.model.nodes = new_model.nodes
         self.model.terminal_to_node = new_model.terminal_to_node
         self.model.component_counter = new_model.component_counter
+        self.model.analysis_type = new_model.analysis_type
+        self.model.analysis_params = new_model.analysis_params
 
         self.current_file = filepath
         self._save_session()

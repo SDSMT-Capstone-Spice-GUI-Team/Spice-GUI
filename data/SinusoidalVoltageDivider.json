@@ -1,14 +1,42 @@
 {
   "components": [
     {
-      "type": "Waveform Source",
+      "type": "WaveformVoltageSource",
       "id": "VW1",
       "value": "SIN(0 5 1k)",
       "pos": {
         "x": -160.0,
         "y": -80.0
       },
-      "rotation": 0
+      "rotation": 0,
+      "waveform_type": "SIN",
+      "waveform_params": {
+        "SIN": {
+          "offset": "0",
+          "amplitude": "5",
+          "frequency": "1k",
+          "delay": "0",
+          "theta": "0",
+          "phase": "0"
+        },
+        "PULSE": {
+          "v1": "0",
+          "v2": "5",
+          "td": "0",
+          "tr": "1n",
+          "tf": "1n",
+          "pw": "500u",
+          "per": "1m"
+        },
+        "EXP": {
+          "v1": "0",
+          "v2": "5",
+          "td1": "0",
+          "tau1": "1u",
+          "td2": "2u",
+          "tau2": "2u"
+        }
+      }
     },
     {
       "type": "Resistor",
@@ -74,5 +102,12 @@
     "V": 1,
     "I": 1,
     "GND": 1
+  },
+  "analysis_type": "Transient",
+  "analysis_params": {
+    "analysis_type": "Transient",
+    "duration": 0.01,
+    "step": 9.999999999999999e-06,
+    "startTime": 0.0
   }
 }

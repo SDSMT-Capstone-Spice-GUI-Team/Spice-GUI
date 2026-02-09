@@ -160,16 +160,22 @@ class CircuitModel:
         self.nodes.clear()
         self.terminal_to_node.clear()
         self.component_counter.clear()
+        self.analysis_type = "DC Operating Point"
+        self.analysis_params = {}
 
     # --- Serialization ---
 
     def to_dict(self) -> dict:
         """Serialize circuit to dictionary (matches existing JSON format)."""
-        return {
+        data = {
             'components': [c.to_dict() for c in self.components.values()],
             'wires': [w.to_dict() for w in self.wires],
-            'counters': self.component_counter.copy()
+            'counters': self.component_counter.copy(),
         }
+        if self.analysis_type != "DC Operating Point" or self.analysis_params:
+            data['analysis_type'] = self.analysis_type
+            data['analysis_params'] = self.analysis_params.copy()
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> 'CircuitModel':
@@ -180,6 +186,8 @@ class CircuitModel:
         """
         model = cls()
         model.component_counter = data.get('counters', {}).copy()
+        model.analysis_type = data.get('analysis_type', 'DC Operating Point')
+        model.analysis_params = data.get('analysis_params', {}).copy()
 
         for comp_data in data.get('components', []):
             component = ComponentData.from_dict(comp_data)

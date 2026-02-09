@@ -91,20 +91,6 @@ class Node:
         if not self.custom_label:
             self.auto_label = "0"
     
-    def unset_ground(self):
-        """Remove ground designation from this node"""
-        was_ground = self.is_ground
-        self.is_ground = False
-        
-        if was_ground:
-            if self.custom_label:
-                self.custom_label = self.custom_label.replace(" (ground)", "")
-                pass
-            else:
-                Node._node_counter += 1
-                label_index = Node._node_counter - 1
-                self.auto_label = self._generate_label(label_index)
-    
     def get_position(self, components):
         """Get a representative position for label placement (near a junction)"""
         if not self.terminals:

@@ -98,10 +98,6 @@ class NodeData:
         """Remove a terminal from this node."""
         self.terminals.discard((component_id, terminal_index))
 
-    def has_terminal(self, component_id: str, terminal_index: int) -> bool:
-        """Check if this node contains the given terminal."""
-        return (component_id, terminal_index) in self.terminals
-
     def add_wire(self, wire_index: int) -> None:
         """Add a wire index to this node."""
         self.wire_indices.add(wire_index)
@@ -131,21 +127,6 @@ class NodeData:
         self.is_ground = True
         if not self.custom_label:
             self.auto_label = "0"
-
-    def unset_ground(self) -> None:
-        """Remove ground designation from this node."""
-        was_ground = self.is_ground
-        self.is_ground = False
-
-        if was_ground:
-            if self.custom_label:
-                # Remove "(ground)" suffix if present
-                self.custom_label = self.custom_label.replace(" (ground)", "")
-            else:
-                # Generate a new non-ground label
-                global _node_counter
-                self.auto_label = _generate_label(_node_counter)
-                _node_counter += 1
 
     def get_position(self, components: dict) -> Optional[tuple[float, float]]:
         """
