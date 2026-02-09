@@ -183,7 +183,7 @@ class TestCanvasSyncMethods:
             component_type='Resistor',
             value='1k',
             position=(100, 200),
-            rotation_angle=90
+            rotation=90
         )
 
         # Convert to dict and verify all properties preserved
@@ -192,7 +192,7 @@ class TestCanvasSyncMethods:
         assert comp_dict['type'] == 'Resistor'
         assert comp_dict['value'] == '1k'
         assert comp_dict['pos'] == {'x': 100, 'y': 200}
-        assert comp_dict.get('rotation_angle') == 90
+        assert comp_dict['rotation'] == 90
 
     def test_sync_preserves_wire_properties(self):
         """Test that sync preserves all wire properties"""
@@ -201,7 +201,6 @@ class TestCanvasSyncMethods:
             start_terminal=0,
             end_component_id='R2',
             end_terminal=1,
-            algorithm='astar'
         )
 
         # Convert to dict and verify all properties preserved
@@ -210,7 +209,9 @@ class TestCanvasSyncMethods:
         assert wire_dict['start_term'] == 0
         assert wire_dict['end_comp'] == 'R2'
         assert wire_dict['end_term'] == 1
-        assert wire_dict['algorithm'] == 'astar'
+
+        # Algorithm is stored on the dataclass, not serialized
+        assert wire.algorithm == 'idastar'
 
 
 class TestSyncMethodErrorHandling:

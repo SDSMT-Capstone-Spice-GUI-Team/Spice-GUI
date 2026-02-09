@@ -8,13 +8,12 @@ backward compatibility through aliases.
 import pytest
 
 
-def test_component_item_backward_compatibility():
-    """Test that ComponentItem is an alias for ComponentGraphicsItem"""
-    from GUI.component_item import ComponentGraphicsItem, ComponentItem
+def test_component_graphics_item_importable():
+    """Test that ComponentGraphicsItem can be imported from component_item"""
+    from GUI.component_item import ComponentGraphicsItem
 
-    # ComponentItem should be the same class as ComponentGraphicsItem
-    assert ComponentItem is ComponentGraphicsItem
-    assert ComponentItem.__name__ == 'ComponentGraphicsItem'
+    assert ComponentGraphicsItem is not None
+    assert ComponentGraphicsItem.__name__ == 'ComponentGraphicsItem'
 
 
 def test_wire_item_backward_compatibility():
@@ -88,7 +87,6 @@ def test_wire_data_integration():
         start_terminal=0,
         end_component_id='R2',
         end_terminal=0,
-        algorithm='astar'
     )
 
     # Verify it has the expected attributes
@@ -96,7 +94,7 @@ def test_wire_data_integration():
     assert wire_data.start_terminal == 0
     assert wire_data.end_component_id == 'R2'
     assert wire_data.end_terminal == 0
-    assert wire_data.algorithm == 'astar'
+    assert wire_data.algorithm == 'idastar'
 
     # WireGraphicsItem should accept a model parameter
     # (Can't instantiate without Qt, but we can check the signature)

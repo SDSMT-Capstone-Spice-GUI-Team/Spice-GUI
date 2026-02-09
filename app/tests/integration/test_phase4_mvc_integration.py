@@ -176,13 +176,12 @@ class TestMVCCircuitOperations:
         model = CircuitModel()
         circuit_ctrl = CircuitController(model)
 
-        # Add component
-        comp_data = ComponentData('R1', 'Resistor', '1k', (100, 200))
-        circuit_ctrl.add_component(comp_data)
+        # Add component (controller generates ID and creates ComponentData)
+        comp = circuit_ctrl.add_component('Resistor', (100, 200))
 
         # Verify component was added to model
-        assert 'R1' in model.components
-        assert model.components['R1'].value == '1k'
+        assert comp.component_id in model.components
+        assert model.components[comp.component_id].component_type == 'Resistor'
 
     def test_remove_component_through_controller(self):
         """Test removing component through CircuitController"""
@@ -243,9 +242,9 @@ class TestMVCDataFlow:
         assert circuit_ctrl.model is model
 
         # Changes through one controller affect others
-        circuit_ctrl.add_component(ComponentData('R1', 'Resistor', '1k', (0, 0)))
-        assert 'R1' in file_ctrl.model.components
-        assert 'R1' in sim_ctrl.model.components
+        comp = circuit_ctrl.add_component('Resistor', (0, 0))
+        assert comp.component_id in file_ctrl.model.components
+        assert comp.component_id in sim_ctrl.model.components
 
     def test_model_to_dict_preserves_all_data(self, resistor_divider_circuit):
         """Test that model serialization preserves all data"""
@@ -415,15 +414,14 @@ class TestMVCCompleteWorkflow:
         model = CircuitModel()
         circuit_ctrl = CircuitController(model)
 
-        comp1 = ComponentData('R1', 'Resistor', '1k', (0, 0))
-        circuit_ctrl.add_component(comp1)
+        comp1 = circuit_ctrl.add_component('Resistor', (0, 0))
 
         # 2. Edit component
-        model.components['R1'].value = '2k'
+        model.components[comp1.component_id].value = '2k'
 
         # 3. Add another component
-        comp2 = ComponentData('R2', 'Resistor', '3k', (100, 0))
-        circuit_ctrl.add_component(comp2)
+        comp2 = circuit_ctrl.add_component('Resistor', (100, 0))
+        model.components[comp2.component_id].value = '3k'
 
         # 4. Save
         file_ctrl = FileController(model)
@@ -439,8 +437,8 @@ class TestMVCCompleteWorkflow:
             new_file_ctrl.load_circuit(temp_path)
 
             assert len(new_model.components) == 2
-            assert new_model.components['R1'].value == '2k'
-            assert new_model.components['R2'].value == '3k'
+            assert new_model.components[comp1.component_id].value == '2k'
+            assert new_model.components[comp2.component_id].value == '3k'
 
         finally:
             if temp_path.exists():
