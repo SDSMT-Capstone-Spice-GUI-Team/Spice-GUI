@@ -1,34 +1,39 @@
 """Tests for SimulationController."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from controllers.simulation_controller import SimulationController, SimulationResult
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
 
+
 def _build_simple_circuit():
     """Build a simple V1-R1-GND circuit model."""
     model = CircuitModel()
     model.components["V1"] = ComponentData(
-        component_id="V1", component_type="Voltage Source",
-        value="5V", position=(0.0, 0.0),
+        component_id="V1",
+        component_type="Voltage Source",
+        value="5V",
+        position=(0.0, 0.0),
     )
     model.components["R1"] = ComponentData(
-        component_id="R1", component_type="Resistor",
-        value="1k", position=(100.0, 0.0),
+        component_id="R1",
+        component_type="Resistor",
+        value="1k",
+        position=(100.0, 0.0),
     )
     model.components["GND1"] = ComponentData(
-        component_id="GND1", component_type="Ground",
-        value="0V", position=(0.0, 100.0),
+        component_id="GND1",
+        component_type="Ground",
+        value="0V",
+        position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1,
-                 end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1,
-                 end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0,
-                 end_component_id="GND1", end_terminal=0),
+        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
+        WireData(start_component_id="R1", start_terminal=1, end_component_id="GND1", end_terminal=0),
+        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
     ]
     model.analysis_type = "DC Operating Point"
     model.rebuild_nodes()
@@ -67,16 +72,19 @@ class TestValidation:
     def test_no_ground_fails(self):
         model = CircuitModel()
         model.components["R1"] = ComponentData(
-            component_id="R1", component_type="Resistor",
-            value="1k", position=(0.0, 0.0),
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(0.0, 0.0),
         )
         model.components["V1"] = ComponentData(
-            component_id="V1", component_type="Voltage Source",
-            value="5V", position=(100.0, 0.0),
+            component_id="V1",
+            component_type="Voltage Source",
+            value="5V",
+            position=(100.0, 0.0),
         )
         model.wires = [
-            WireData(start_component_id="R1", start_terminal=1,
-                     end_component_id="V1", end_terminal=0),
+            WireData(start_component_id="R1", start_terminal=1, end_component_id="V1", end_terminal=0),
         ]
         model.analysis_type = "DC Operating Point"
         model.rebuild_nodes()
@@ -97,8 +105,7 @@ class TestGenerateNetlist:
 
 class TestSimulationResult:
     def test_success_result(self):
-        r = SimulationResult(success=True, analysis_type="DC Operating Point",
-                             data={"nodeA": 5.0})
+        r = SimulationResult(success=True, analysis_type="DC Operating Point", data={"nodeA": 5.0})
         assert r.success
         assert r.data["nodeA"] == 5.0
 
@@ -109,8 +116,10 @@ class TestSimulationResult:
 
 
 class TestRunSimulation:
-    @patch('controllers.simulation_controller.SimulationController.runner',
-           new_callable=lambda: property(lambda self: MagicMock()))
+    @patch(
+        "controllers.simulation_controller.SimulationController.runner",
+        new_callable=lambda: property(lambda self: MagicMock()),
+    )
     def test_run_fails_on_invalid_circuit(self, mock_runner):
         ctrl = SimulationController()
         ctrl.set_analysis("DC Operating Point")
@@ -144,7 +153,8 @@ class TestRunSimulation:
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.simulation_controller as mod
+
         source = open(mod.__file__).read()
-        assert 'PyQt' not in source
-        assert 'QtCore' not in source
-        assert 'QtWidgets' not in source
+        assert "PyQt" not in source
+        assert "QtCore" not in source
+        assert "QtWidgets" not in source

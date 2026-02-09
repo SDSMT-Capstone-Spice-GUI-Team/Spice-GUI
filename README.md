@@ -162,6 +162,72 @@ SDM Spice is currently in **Phase 1 (Student MVP)** development as part of an SD
 - **[Project Evolution](Doc/project-evolution.md)** - How the project evolved from discovery to implementation
 - **[Discovery Documentation](DiscoveryDocs/)** - Initial exploration and requirements gathering (academic assignment)
 
+## Development Setup
+
+For contributors setting up a development environment:
+
+### Install Development Dependencies
+
+```bash
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+.venv\Scripts\activate     # Windows
+
+# Install runtime and development dependencies
+make install-dev
+# OR manually:
+pip install -r app/requirements.txt -r app/requirements-dev.txt
+```
+
+### Install Pre-commit Hooks
+
+Pre-commit hooks automatically check code quality before each commit:
+
+```bash
+make install-hooks
+# OR manually:
+pip install pre-commit
+pre-commit install
+
+# Test hooks on all files
+pre-commit run --all-files
+```
+
+### Available Make Commands
+
+| Command | Description |
+|---------|-------------|
+| `make test` | Run pytest test suite |
+| `make lint` | Run linting checks (ruff + black + isort) |
+| `make format` | Auto-format code with black and isort |
+| `make check` | Run all checks (lint + test) |
+| `make install-dev` | Install development dependencies |
+| `make install-hooks` | Install pre-commit hooks |
+
+### Code Quality Tools
+
+The project uses several tools to maintain code quality:
+
+- **ruff** - Fast Python linter (configured via `ruff.toml`)
+- **black** - Code formatter (120 char line length)
+- **isort** - Import statement organizer
+- **pytest** - Test framework
+- **pre-commit** - Git hook manager
+
+### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run specific test file
+cd app && python -m pytest tests/unit/test_file_controller.py -v
+
+# Run with coverage
+cd app && python -m pytest tests/ --cov=. --cov-report=html
+```
+
 ## Contributing
 
 This is a Capstone project for South Dakota School of Mines and Technology. For contribution guidelines, please see the [Wiki](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/wiki).
