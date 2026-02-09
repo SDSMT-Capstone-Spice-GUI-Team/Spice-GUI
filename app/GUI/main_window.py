@@ -37,10 +37,10 @@ class MainWindow(QMainWindow):
         # Create model (single source of truth)
         self.model = CircuitModel()
 
-        # Create controllers
+        # Create controllers (Phase 5: wire them together)
         self.circuit_ctrl = CircuitController(self.model)
-        self.file_ctrl = FileController(self.model)
-        self.simulation_ctrl = SimulationController(self.model)
+        self.file_ctrl = FileController(self.model, self.circuit_ctrl)
+        self.simulation_ctrl = SimulationController(self.model, self.circuit_ctrl)
 
         # UI state
         self._last_results = None
@@ -117,7 +117,8 @@ class MainWindow(QMainWindow):
         canvas_toolbar.addWidget(btn_zoom_fit)
         canvas_layout.addLayout(canvas_toolbar)
 
-        self.canvas = CircuitCanvasView()
+        # Phase 5: Pass controller to canvas for observer pattern
+        self.canvas = CircuitCanvasView(self.circuit_ctrl)
         btn_zoom_in.clicked.connect(lambda: self.canvas.zoom_in())
         btn_zoom_out.clicked.connect(lambda: self.canvas.zoom_out())
         btn_zoom_fit.clicked.connect(lambda: self.canvas.zoom_fit())
@@ -382,7 +383,7 @@ class MainWindow(QMainWindow):
                 return
 
         self.file_ctrl.new_circuit()
-        self.canvas.sync_from_model(self.model)
+        # Phase 5: No sync needed - observer pattern handles canvas update
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.results_text.clear()
 
@@ -390,8 +391,7 @@ class MainWindow(QMainWindow):
         """Quick save to current file"""
         if self.file_ctrl.current_file:
             try:
-                # Sync canvas state to model before saving
-                self.canvas.sync_to_model(self.model)
+                # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(self.file_ctrl.current_file)
                 statusBar = self.statusBar()
                 if statusBar:
@@ -408,8 +408,7 @@ class MainWindow(QMainWindow):
         )
         if filename:
             try:
-                # Sync canvas state to model before saving
-                self.canvas.sync_to_model(self.model)
+                # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(filename)
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 QMessageBox.information(self, "Success", "Circuit saved successfully!")
@@ -424,7 +423,7 @@ class MainWindow(QMainWindow):
         if filename:
             try:
                 self.file_ctrl.load_circuit(filename)
-                self.canvas.sync_from_model(self.model)
+                # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 QMessageBox.information(self, "Success", "Circuit loaded successfully!")
             except (OSError, ValueError) as e:
@@ -436,7 +435,7 @@ class MainWindow(QMainWindow):
         if last_file and last_file.exists():
             try:
                 self.file_ctrl.load_circuit(last_file)
-                self.canvas.sync_from_model(self.model)
+                # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {last_file}")
             except Exception as e:
                 logger.error("Error loading last session: %s", e)
@@ -446,9 +445,7 @@ class MainWindow(QMainWindow):
     def generate_netlist(self):
         """Generate SPICE netlist"""
         try:
-            # Sync canvas state to model
-            self.canvas.sync_to_model(self.model)
-
+            # Phase 5: No sync needed - model always up to date
             netlist = self.simulation_ctrl.generate_netlist()
             self.results_text.setPlainText("SPICE Netlist:\n\n" + netlist)
         except (ValueError, KeyError, TypeError) as e:
@@ -457,9 +454,7 @@ class MainWindow(QMainWindow):
     def run_simulation(self):
         """Run SPICE simulation"""
         try:
-            # Sync canvas state to model
-            self.canvas.sync_to_model(self.model)
-
+            # Phase 5: No sync needed - model always up to date
             # Run simulation via controller
             result = self.simulation_ctrl.run_simulation()
 
@@ -772,7 +767,7 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             self.canvas.clear_circuit()
             self.file_ctrl.new_circuit()
-            self.canvas.sync_from_model(self.model)
+            # Phase 5: No sync needed - observer pattern handles canvas update
 
     # Properties Panel
 

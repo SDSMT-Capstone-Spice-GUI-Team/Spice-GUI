@@ -128,3 +128,33 @@ class Node:
         avg_x = sum(p.x() for p in positions) / len(positions)
         avg_y = sum(p.y() for p in positions) / len(positions)
         return QPointF(avg_x, avg_y)
+
+    # Phase 5: Helper methods for observer pattern
+    @staticmethod
+    def from_node_data(node_data):
+        """
+        Create Qt Node from NodeData (Phase 5).
+
+        Args:
+            node_data: NodeData from models.node
+
+        Returns:
+            Node: Qt-based Node object
+        """
+        node = Node(is_ground=node_data.is_ground, custom_label=node_data.custom_label)
+        for terminal in node_data.terminals:
+            node.add_terminal(*terminal)
+        node.auto_label = node_data.auto_label
+        return node
+
+    def matches_node_data(self, node_data) -> bool:
+        """
+        Check if this Node corresponds to NodeData (Phase 5).
+
+        Args:
+            node_data: NodeData from models.node
+
+        Returns:
+            bool: True if terminals match
+        """
+        return self.terminals == node_data.terminals
