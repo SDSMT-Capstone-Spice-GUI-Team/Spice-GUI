@@ -225,7 +225,8 @@ simulation_output/
 
 # python virtual environment
 Spice_GUI_env/
-.claude/*
+# Claude Code - track shared settings, ignore local
+.claude/settings.local.json
 last_session.txt
 transient_data.txt
 nul

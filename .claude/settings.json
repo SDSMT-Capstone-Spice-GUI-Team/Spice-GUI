@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python -c:*)",
+      "Bash(ruff check:*)",
+      "Bash(ruff format:*)",
+      "Bash(pip install:*)",
+      "Bash(pip show:*)",
+      "Bash(python -m pip:*)",
+      "Bash(gh project:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh api:*)",
+      "Bash(gh run:*)",
+      "Bash(gh label:*)",
+      "Bash(gh repo:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git branch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git remote:*)",
+      "Bash(git worktree:*)",
+      "Bash(git pull:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(wc:*)",
+      "Bash(mkdir:*)"
+    ]
+  }
+}
