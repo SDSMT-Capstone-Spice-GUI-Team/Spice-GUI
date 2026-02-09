@@ -7,11 +7,6 @@ from models.wire import WireData
 from models.node import reset_node_counter
 
 
-@pytest.fixture(autouse=True)
-def reset_nodes():
-    """Reset node counter before each test."""
-    reset_node_counter()
-
 
 def _resistor(comp_id="R1", pos=(0.0, 0.0)):
     return ComponentData(

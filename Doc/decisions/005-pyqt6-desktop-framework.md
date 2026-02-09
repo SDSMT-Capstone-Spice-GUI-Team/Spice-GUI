@@ -340,7 +340,7 @@ If web interface needed:
 - Qt6 documentation: https://doc.qt.io/qt-6/
 - Migration commit: [fd70174](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/commit/fd70174)
 - Circuit canvas: [circuit_canvas.py](../../app/GUI/circuit_canvas.py)
-- Main window: [circuit_design_gui.py](../../app/GUI/circuit_design_gui.py)
+- Main window: [main_window.py](../../app/GUI/main_window.py)
 
 ---
 

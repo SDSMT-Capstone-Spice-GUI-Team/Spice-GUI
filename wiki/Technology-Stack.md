@@ -163,7 +163,7 @@ app/
 ├── main.py                 # Entry point
 ├── requirements.txt        # Dependencies
 ├── GUI/                    # User interface
-│   ├── circuit_design_gui.py   # Main window
+│   ├── main_window.py              # Main window
 │   ├── circuit_canvas.py       # Drawing surface
 │   ├── component_item.py       # Component graphics
 │   ├── component_palette.py    # Drag source

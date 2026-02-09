@@ -74,4 +74,4 @@ jobs:
 
       - name: Verify application imports
         working-directory: app
-        run: xvfb-run python -c "from GUI.circuit_design_gui import CircuitDesignGUI; print('Import OK')"
+        run: xvfb-run python -c "from GUI.main_window import MainWindow; print('Import OK')"

@@ -1,7 +1,6 @@
 """Main application window with MVC architecture"""
 import logging
 import os
-from datetime import datetime
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
                              QSplitter, QLabel, QDialog, QStackedWidget)

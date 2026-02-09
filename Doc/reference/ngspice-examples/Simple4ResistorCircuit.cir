@@ -1,0 +1,29 @@
+Simple 4 Resistor Circuit
+
+*The purpose of this circuit was to analyze a steady state, purely resistive circuit using operating point analysis and printing all of the output values. Values were selected to make hand calculations for verification simple.
+
+Vin 1 0 DC 10
+*Voltage Source Vin has positive end connected to node 1 and negative end grounded with a DC voltage of 10v.
+
+R1 1 2 250
+*Resistor R1 is connected to nodes 1 and 2 with resistance 250ohm
+R2 2 3 250
+*Resistor R2 is connected to nodes 2 and 3 with resistance 250ohm
+R3 2 0 500
+*Resistor R3 is connected to node 2 and ground with resistance 500ohm
+R4 3 0 250
+*Resistor R4 is connected to nod 3 and ground with resistance 250ohm
+
+.op
+*Selects operating point analysis type
+
+.control
+run
+*Runs analysis
+
+print v(1) v(2) v(3)
+*prints the voltages at nodes 1, 2, and 3
+
+.endc
+.end
+*ends program
