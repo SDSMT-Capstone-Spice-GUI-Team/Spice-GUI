@@ -234,18 +234,18 @@ class MainWindow(QMainWindow):
 
         copy_action = QAction("&Copy", self)
         copy_action.setShortcut(QKeySequence.StandardKey.Copy)
-        copy_action.triggered.connect(self.canvas.copy_selected)
+        copy_action.triggered.connect(self.copy_selected)
         edit_menu.addAction(copy_action)
-
-        paste_action = QAction("&Paste", self)
-        paste_action.setShortcut(QKeySequence.StandardKey.Paste)
-        paste_action.triggered.connect(self.canvas.paste_clipboard)
-        edit_menu.addAction(paste_action)
 
         cut_action = QAction("Cu&t", self)
         cut_action.setShortcut(QKeySequence.StandardKey.Cut)
-        cut_action.triggered.connect(self.canvas.cut_selected)
+        cut_action.triggered.connect(self.cut_selected)
         edit_menu.addAction(cut_action)
+
+        paste_action = QAction("&Paste", self)
+        paste_action.setShortcut(QKeySequence.StandardKey.Paste)
+        paste_action.triggered.connect(self.paste_components)
+        edit_menu.addAction(paste_action)
 
         edit_menu.addSeparator()
 
@@ -387,6 +387,22 @@ class MainWindow(QMainWindow):
         # Phase 5: No sync needed - observer pattern handles canvas update
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.results_text.clear()
+
+    def copy_selected(self):
+        """Copy selected components to internal clipboard."""
+        ids = self.canvas.get_selected_component_ids()
+        if ids:
+            self.canvas.copy_selected_components(ids)
+
+    def cut_selected(self):
+        """Cut selected components to internal clipboard."""
+        ids = self.canvas.get_selected_component_ids()
+        if ids:
+            self.canvas.cut_selected_components(ids)
+
+    def paste_components(self):
+        """Paste components from internal clipboard."""
+        self.canvas.paste_components()
 
     def _on_save(self):
         """Quick save to current file"""

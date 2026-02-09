@@ -1,8 +1,8 @@
 """
-Tests for CircuitCanvasViewView._validate_circuit_data — JSON schema validation.
+Tests for CircuitCanvasView._validate_circuit_data — JSON schema validation.
 """
 import pytest
-from GUI.circuit_canvas import CircuitCanvasViewView
+from GUI.circuit_canvas import CircuitCanvasView
 
 
 def _valid_data():
