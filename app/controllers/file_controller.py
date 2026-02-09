@@ -68,8 +68,10 @@ class FileController:
     """
 
     def __init__(self, model: Optional[CircuitModel] = None,
+                 circuit_ctrl=None,
                  session_file: str = SESSION_FILE):
         self.model = model or CircuitModel()
+        self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
         self.current_file: Optional[Path] = None
         self._session_file = session_file
 
@@ -95,6 +97,10 @@ class FileController:
             json.dump(data, f, indent=2)
         self.current_file = filepath
         self._save_session()
+
+        # Phase 5: Notify observers of save
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify('model_saved', None)
 
     def load_circuit(self, filepath) -> None:
         """
@@ -129,6 +135,10 @@ class FileController:
 
         self.current_file = filepath
         self._save_session()
+
+        # Phase 5: Notify observers of load
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify('model_loaded', None)
 
     def has_file(self) -> bool:
         """Return whether a current file path is set (for quick-save)."""

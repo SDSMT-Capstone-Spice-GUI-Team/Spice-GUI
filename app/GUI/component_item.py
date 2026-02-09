@@ -40,6 +40,10 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.last_position = None
         self.update_timer = None
 
+        # Phase 5: Debounced position updates to controller
+        self._position_update_timer = None
+        self._pending_position = None
+
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
@@ -276,8 +280,9 @@ class ComponentGraphicsItem(QGraphicsItem):
             grid_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
             snapped_pos = QPointF(grid_x, grid_y)
 
-            # Sync position to model
-            self.model.position = (grid_x, grid_y)
+            # Phase 5: Schedule debounced controller update instead of direct model write
+            self._pending_position = (grid_x, grid_y)
+            self._schedule_controller_update()
 
             # Track that we're moving and schedule an update
             if self.last_position is None:
@@ -298,6 +303,41 @@ class ComponentGraphicsItem(QGraphicsItem):
                                 wire.update()
 
         return super().itemChange(change, value)
+
+    def _schedule_controller_update(self):
+        """Schedule debounced position update to controller (Phase 5)"""
+        if self._position_update_timer:
+            self._position_update_timer.stop()
+
+        # Get canvas controller
+        if not self.scene() or not self.scene().views():
+            return
+
+        canvas = self.scene().views()[0]
+        if not hasattr(canvas, 'controller') or not canvas.controller:
+            return
+
+        # Create single-shot timer for debouncing
+        self._position_update_timer = QTimer()
+        self._position_update_timer.setSingleShot(True)
+        self._position_update_timer.timeout.connect(self._notify_controller_position)
+        self._position_update_timer.start(50)  # 50ms debounce
+
+    def _notify_controller_position(self):
+        """Notify controller of final position after debounce (Phase 5)"""
+        if not self._pending_position:
+            return
+
+        if not self.scene() or not self.scene().views():
+            return
+
+        canvas = self.scene().views()[0]
+        if not hasattr(canvas, 'controller') or not canvas.controller:
+            return
+
+        # Notify controller - observer will update wires
+        canvas.controller.move_component(self.component_id, self._pending_position)
+        self._pending_position = None
 
     def get_terminal_pos(self, index):
         """Get global position of terminal"""

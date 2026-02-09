@@ -32,6 +32,10 @@ class CircuitController:
         wire_routed (tuple[int, WireData]) - A wire's waypoints were updated
         circuit_cleared (None) - The entire circuit was cleared
         nodes_rebuilt (None) - The node graph was rebuilt
+        model_loaded (None) - Circuit loaded from file
+        model_saved (None) - Circuit saved to file
+        simulation_started (None) - Simulation began
+        simulation_completed (SimulationResult) - Simulation finished
     """
 
     def __init__(self, model: Optional[CircuitModel] = None):
