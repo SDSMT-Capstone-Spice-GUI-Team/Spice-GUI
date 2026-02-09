@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt, QRectF, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QAction
 
 logger = logging.getLogger(__name__)
+from models.clipboard import ClipboardData
 from .component_item import ComponentItem, create_component
 from .wire_item import WireItem
 from .circuit_node import Node
@@ -74,6 +75,9 @@ class CircuitCanvas(QGraphicsView):
         self.wire_start_term = None
         self.temp_wire_line = None  # Temporary line while drawing wire
         
+        # Internal clipboard for copy/paste
+        self._clipboard = ClipboardData()
+
         self.setAcceptDrops(True)
         self.setMouseTracking(True)  # Enable mouse tracking for wire preview
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -394,16 +398,19 @@ class CircuitCanvas(QGraphicsView):
         """Handle keyboard shortcuts"""
         if event is None:
             return
-        
+
         if event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
             self.delete_selected()
-        elif event.key() == Qt.Key.Key_R:
-            # Rotate selected components clockwise
-            self.rotate_selected(clockwise=True)
+        elif event.key() == Qt.Key.Key_C and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.copy_selected_components(self.get_selected_component_ids())
+        elif event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.cut_selected_components(self.get_selected_component_ids())
+        elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.paste_components()
         elif event.key() == Qt.Key.Key_R and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-            # Rotate selected components counter-clockwise
             self.rotate_selected(clockwise=False)
-            pass
+        elif event.key() == Qt.Key.Key_R:
+            self.rotate_selected(clockwise=True)
         else:
             super().keyPressEvent(event)
 
@@ -549,11 +556,34 @@ class CircuitCanvas(QGraphicsView):
                     rotate_cw_action = QAction("Rotate Selected Clockwise", self)
                     rotate_cw_action.triggered.connect(lambda: self.rotate_selected(True))
                     menu.addAction(rotate_cw_action)
-                    
+
                     rotate_ccw_action = QAction("Rotate Selected Counter-Clockwise", self)
                     rotate_ccw_action.triggered.connect(lambda: self.rotate_selected(False))
                     menu.addAction(rotate_ccw_action)
-        
+
+                    menu.addSeparator()
+                    sel_ids = [c.component_id for c in selected_components]
+                    copy_action = QAction(
+                        f"Copy ({len(selected_components)} component"
+                        f"{'s' if len(selected_components) != 1 else ''})", self)
+                    copy_action.triggered.connect(
+                        lambda checked=False, ids=sel_ids:
+                            self.copy_selected_components(ids))
+                    menu.addAction(copy_action)
+
+                    cut_action = QAction(
+                        f"Cut ({len(selected_components)} component"
+                        f"{'s' if len(selected_components) != 1 else ''})", self)
+                    cut_action.triggered.connect(
+                        lambda checked=False, ids=sel_ids:
+                            self.cut_selected_components(ids))
+                    menu.addAction(cut_action)
+
+        if not self._clipboard.is_empty():
+            paste_action = QAction("Paste", self)
+            paste_action.triggered.connect(self.paste_components)
+            menu.addAction(paste_action)
+
         if not menu.isEmpty():
             menu.exec(self.mapToGlobal(position))
     
@@ -633,7 +663,150 @@ class CircuitCanvas(QGraphicsView):
             self.selectionChanged.emit(components[0])
         else:
             self.selectionChanged.emit(None)
-    
+
+    # --- Clipboard operations ---
+
+    def get_selected_component_ids(self) -> list[str]:
+        """Return component IDs for all selected ComponentItems."""
+        return [
+            item.component_id
+            for item in self.scene.selectedItems()
+            if isinstance(item, ComponentItem)
+        ]
+
+    def copy_selected_components(self, component_ids: list[str]) -> bool:
+        """Copy selected components and internal wires to internal clipboard."""
+        if not component_ids:
+            return False
+
+        selected_set = set(component_ids)
+
+        comp_dicts = []
+        for comp_id in component_ids:
+            comp_item = self.components.get(comp_id)
+            if comp_item is not None:
+                comp_dicts.append(comp_item.to_dict())
+
+        if not comp_dicts:
+            return False
+
+        wire_dicts = []
+        for wire in self.wires:
+            if (wire.start_comp.component_id in selected_set
+                    and wire.end_comp.component_id in selected_set):
+                wire_dicts.append(wire.to_dict())
+
+        self._clipboard = ClipboardData(
+            components=comp_dicts,
+            wires=wire_dicts,
+            paste_count=0,
+        )
+
+        main_window = self.window()
+        if main_window and hasattr(main_window, 'statusBar'):
+            status = main_window.statusBar()
+            if status:
+                n = len(comp_dicts)
+                w = len(wire_dicts)
+                status.showMessage(
+                    f"Copied {n} component{'s' if n != 1 else ''}"
+                    f" and {w} wire{'s' if w != 1 else ''}", 2000)
+        return True
+
+    def cut_selected_components(self, component_ids: list[str]) -> bool:
+        """Cut: copy to clipboard, then delete originals."""
+        copied = self.copy_selected_components(component_ids)
+        if copied:
+            for comp_id in list(component_ids):
+                comp_item = self.components.get(comp_id)
+                if comp_item is not None:
+                    self.delete_component(comp_item)
+        return copied
+
+    def paste_components(self) -> None:
+        """Paste clipboard contents with offset and new IDs."""
+        if self._clipboard.is_empty():
+            return
+
+        self._clipboard.paste_count += 1
+        multiplier = self._clipboard.paste_count
+        dx = 40.0 * multiplier
+        dy = 40.0 * multiplier
+
+        id_map: dict[str, str] = {}
+        new_comp_items: list[ComponentItem] = []
+
+        for comp_dict in self._clipboard.components:
+            # Create visual item from serialized data
+            comp_item = ComponentItem.from_dict(comp_dict)
+            component_type = comp_item.component_type
+
+            # Generate new unique ID (same pattern as dropEvent)
+            symbol = COMPONENTS[component_type]['symbol']
+            if symbol not in self.component_counter:
+                self.component_counter[symbol] = 0
+            self.component_counter[symbol] += 1
+            new_id = f"{symbol}{self.component_counter[symbol]}"
+
+            old_id = comp_dict['id']
+            id_map[old_id] = new_id
+
+            # Update the component with its new ID
+            comp_item.component_id = new_id
+            comp_item.model.component_id = new_id
+
+            # Offset position
+            old_x = comp_item.pos().x()
+            old_y = comp_item.pos().y()
+            comp_item.setPos(old_x + dx, old_y + dy)
+            comp_item.model.position = (old_x + dx, old_y + dy)
+
+            self.scene.addItem(comp_item)
+            self.components[new_id] = comp_item
+
+            if component_type == 'Ground':
+                self.handle_ground_added(comp_item)
+
+            new_comp_items.append(comp_item)
+
+        # Re-create internal wires with remapped component IDs
+        for wire_dict in self._clipboard.wires:
+            new_start = id_map.get(wire_dict['start_comp'])
+            new_end = id_map.get(wire_dict['end_comp'])
+
+            if new_start is None or new_end is None:
+                continue
+
+            start_comp = self.components.get(new_start)
+            end_comp = self.components.get(new_end)
+            if start_comp is None or end_comp is None:
+                continue
+
+            wire = WireItem(
+                start_comp, wire_dict['start_term'],
+                end_comp, wire_dict['end_term'],
+                canvas=self,
+            )
+            self.scene.addItem(wire)
+            self.wires.append(wire)
+            self.update_nodes_for_wire(wire)
+
+        # Select newly pasted items
+        self.scene.clearSelection()
+        for comp_item in new_comp_items:
+            comp_item.setSelected(True)
+
+        if new_comp_items:
+            self.componentAdded.emit(new_comp_items[0].component_id)
+
+        main_window = self.window()
+        if main_window and hasattr(main_window, 'statusBar'):
+            status = main_window.statusBar()
+            if status:
+                n = len(new_comp_items)
+                status.showMessage(
+                    f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
+
     def drawForeground(self, painter, rect):
         """Draw node labels and voltages on top of everything"""
         if painter is None:

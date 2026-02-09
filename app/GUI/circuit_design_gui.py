@@ -294,6 +294,23 @@ class CircuitDesignGUI(QMainWindow):
         if edit_menu is None:
             return
 
+        copy_action = QAction("&Copy", self)
+        copy_action.setShortcut("Ctrl+C")
+        copy_action.triggered.connect(self.copy_selected)
+        edit_menu.addAction(copy_action)
+
+        cut_action = QAction("Cu&t", self)
+        cut_action.setShortcut("Ctrl+X")
+        cut_action.triggered.connect(self.cut_selected)
+        edit_menu.addAction(cut_action)
+
+        paste_action = QAction("&Paste", self)
+        paste_action.setShortcut("Ctrl+V")
+        paste_action.triggered.connect(self.paste_components)
+        edit_menu.addAction(paste_action)
+
+        edit_menu.addSeparator()
+
         delete_action = QAction("&Delete Selected", self)
         delete_action.setShortcut(QKeySequence.StandardKey.Delete)
         delete_action.triggered.connect(self.delete_selected)
@@ -452,6 +469,22 @@ class CircuitDesignGUI(QMainWindow):
         self.current_file = None
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.results_text.clear()
+
+    def copy_selected(self):
+        """Copy selected components to internal clipboard."""
+        ids = self.canvas.get_selected_component_ids()
+        if ids:
+            self.canvas.copy_selected_components(ids)
+
+    def cut_selected(self):
+        """Cut selected components to internal clipboard."""
+        ids = self.canvas.get_selected_component_ids()
+        if ids:
+            self.canvas.cut_selected_components(ids)
+
+    def paste_components(self):
+        """Paste components from internal clipboard."""
+        self.canvas.paste_components()
 
     def delete_selected(self):
         """Delete selected items from canvas"""
