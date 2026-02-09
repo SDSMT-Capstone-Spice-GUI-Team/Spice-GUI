@@ -6,7 +6,7 @@ from PyQt6.QtGui import QBrush, QPainter, QAction
 
 logger = logging.getLogger(__name__)
 from models.clipboard import ClipboardData
-from .component_item import ComponentGraphicsItem, create_component
+from .component_item import ComponentGraphicsItem
 from .wire_item import WireGraphicsItem, WireItem
 from .circuit_node import Node
 from .annotation_item import AnnotationItem
@@ -139,9 +139,6 @@ class CircuitCanvasView(QGraphicsView):
 
     def _handle_component_added(self, component_data) -> None:
         """Create graphics item when component added to model"""
-        from models.component import ComponentData
-        from PyQt6.QtWidgets import QGraphicsItem
-
         comp = ComponentGraphicsItem.from_dict(component_data.to_dict())
         self.scene.addItem(comp)
         self.components[component_data.component_id] = comp
@@ -509,7 +506,7 @@ class CircuitCanvasView(QGraphicsView):
                                 # Single algorithm mode - Phase 5: use controller
                                 if self.controller:
                                     # Controller creates wire, observer creates graphics item
-                                    wire_data = self.controller.add_wire(
+                                    self.controller.add_wire(
                                         self.wire_start_comp.component_id,
                                         self.wire_start_term,
                                         clicked_component.component_id,

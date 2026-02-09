@@ -204,7 +204,7 @@ class TestMVCCircuitOperations:
         model.components = {
             'R1': ComponentData('R1', 'Resistor', '1k', (0, 0))
         }
-        circuit_ctrl = CircuitController(model)
+        CircuitController(model)
 
         # Update component
         model.components['R1'].value = '2k'
@@ -351,7 +351,6 @@ class TestMVCBackwardCompatibility:
     def test_phase3_models_work_with_phase4_controllers(self):
         """Test that Phase 3 models work with Phase 4 controllers"""
         from models.component import ComponentData
-        from models.wire import WireData
         from controllers.file_controller import FileController
 
         # Create Phase 3 style data
@@ -363,7 +362,7 @@ class TestMVCBackwardCompatibility:
         model.components = {'R1': comp}
         model.wires = [wire]
 
-        file_ctrl = FileController(model)
+        FileController(model)
 
         # Should be able to serialize
         data = model.to_dict()

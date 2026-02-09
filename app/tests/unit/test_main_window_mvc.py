@@ -233,9 +233,6 @@ class TestMainWindowSessionManagement:
         model = CircuitModel()
         file_ctrl = FileController(model)
 
-        # Save should trigger session save internally
-        test_path = Path('/tmp/test.json')
-
         # FileController._save_session() is called internally by save_circuit()
         # We verify the pattern exists
         assert hasattr(file_ctrl, '_save_session')
@@ -280,7 +277,7 @@ class TestMainWindowErrorHandling:
         from models.circuit import CircuitModel
 
         model = CircuitModel()
-        sim_ctrl = SimulationController(model)
+        SimulationController(model)
 
         # Mock simulation failure
         error_result = SimulationResult(
