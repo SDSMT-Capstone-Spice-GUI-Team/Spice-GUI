@@ -216,6 +216,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
 
         export_img_action = QAction("Export &Image...", self)
+        export_img_action.setShortcut("Ctrl+E")
         export_img_action.triggered.connect(self.export_image)
         file_menu.addAction(export_img_action)
 

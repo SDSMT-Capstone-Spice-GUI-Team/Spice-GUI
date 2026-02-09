@@ -15,6 +15,7 @@ pycparser==2.23
 pyparsing==3.2.5
 PyQt6==6.9.1
 PyQt6-Qt6==6.9.2
+PyQt6-QSvg==6.9.0
 PyQt6_sip==13.10.2
 PySpice==1.5
 python-dateutil==2.9.0.post0
