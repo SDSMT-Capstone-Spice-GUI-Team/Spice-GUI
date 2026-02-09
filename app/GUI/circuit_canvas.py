@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt, QRectF, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QAction
 
 logger = logging.getLogger(__name__)
-from .component_item import ComponentItem, create_component
+from .component_item import ComponentGraphicsItem, create_component
 from .wire_item import WireItem
 from .circuit_node import Node
 from .annotation_item import AnnotationItem
@@ -15,8 +15,8 @@ from .styles import (GRID_SIZE, GRID_EXTENT, MAJOR_GRID_INTERVAL,
                      TERMINAL_CLICK_RADIUS, theme_manager,
                      ZOOM_FACTOR, ZOOM_MIN, ZOOM_MAX, ZOOM_FIT_PADDING)
 
-class CircuitCanvas(QGraphicsView):
-    """Main circuit drawing canvas"""
+class CircuitCanvasView(QGraphicsView):
+    """Main circuit drawing canvas view"""
     
     # Signals for component and wire operations
     componentAdded = pyqtSignal(str)  # component_id
@@ -41,10 +41,10 @@ class CircuitCanvas(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
 
         # Use MinimalViewportUpdate for better performance; dragging artifacts
-        # are prevented by targeted update() calls in ComponentItem.itemChange
+        # are prevented by targeted update() calls in ComponentGraphicsItem.itemChange
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
 
-        self.components = {}  # id -> ComponentItem
+        self.components = {}  # id -> ComponentGraphicsItem
         self.wires = []  # All wires (for backward compatibility)
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
@@ -453,7 +453,7 @@ class CircuitCanvas(QGraphicsView):
     def zoom_fit(self):
         """Fit all circuit components in view with padding."""
         items = [item for item in self.scene.items()
-                 if isinstance(item, ComponentItem)]
+                 if isinstance(item, ComponentGraphicsItem)]
         if not items:
             self.zoom_reset()
             return
@@ -505,14 +505,14 @@ class CircuitCanvas(QGraphicsView):
         item = self.itemAt(position)
         
         # If a component is right-clicked, emit a signal to show properties
-        if isinstance(item, ComponentItem):
+        if isinstance(item, ComponentGraphicsItem):
             self.componentRightClicked.emit(item, self.mapToGlobal(position))
         
         scene_pos = self.mapToScene(position)
         
         menu = QMenu()
         
-        if isinstance(item, ComponentItem):
+        if isinstance(item, ComponentGraphicsItem):
             delete_action = QAction(f"Delete {item.component_id}", self)
             delete_action.triggered.connect(lambda: self.delete_component(item))
             menu.addAction(delete_action)
@@ -564,7 +564,7 @@ class CircuitCanvas(QGraphicsView):
                 menu.addAction(delete_action)
                 
                 # Check if any components are selected
-                selected_components = [i for i in selected_items if isinstance(i, ComponentItem)]
+                selected_components = [i for i in selected_items if isinstance(i, ComponentGraphicsItem)]
                 if selected_components:
                     menu.addSeparator()
                     rotate_cw_action = QAction("Rotate Selected Clockwise", self)
@@ -590,7 +590,7 @@ class CircuitCanvas(QGraphicsView):
         if not selected_items:
             return
 
-        components_to_delete = [item for item in selected_items if isinstance(item, ComponentItem)]
+        components_to_delete = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
         wires_to_delete = [item for item in selected_items if isinstance(item, WireItem)]
         annotations_to_delete = [item for item in selected_items if isinstance(item, AnnotationItem)]
 
@@ -636,7 +636,7 @@ class CircuitCanvas(QGraphicsView):
     
     def rotate_component(self, component, clockwise=True):
         """Rotate a single component"""
-        if component is None or not isinstance(component, ComponentItem):
+        if component is None or not isinstance(component, ComponentGraphicsItem):
             return
         
         component.rotate_component(clockwise)
@@ -649,7 +649,7 @@ class CircuitCanvas(QGraphicsView):
     def rotate_selected(self, clockwise=True):
         """Rotate all selected components"""
         selected_items = self.scene.selectedItems()
-        components = [item for item in selected_items if isinstance(item, ComponentItem)]
+        components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
 
         for comp in components:
             self.rotate_component(comp, clockwise)
@@ -657,7 +657,7 @@ class CircuitCanvas(QGraphicsView):
     def copy_selected(self):
         """Copy selected components and their internal wires to the clipboard."""
         selected_items = self.scene.selectedItems()
-        selected_comps = [item for item in selected_items if isinstance(item, ComponentItem)]
+        selected_comps = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
         if not selected_comps:
             return
 
@@ -704,7 +704,7 @@ class CircuitCanvas(QGraphicsView):
                 'y': comp_data['pos']['y'] + PASTE_OFFSET,
             }
 
-            comp = ComponentItem.from_dict(new_data)
+            comp = ComponentGraphicsItem.from_dict(new_data)
             self.scene.addItem(comp)
             self.components[new_id] = comp
             new_comps.append(comp)
@@ -767,7 +767,7 @@ class CircuitCanvas(QGraphicsView):
         selected_items = self.scene.selectedItems()
 
         # Filter for component items only
-        components = [item for item in selected_items if isinstance(item, ComponentItem)]
+        components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
 
         # Emit signal with the first selected component (or None if no selection)
         if components:
@@ -1315,7 +1315,7 @@ class CircuitCanvas(QGraphicsView):
         self.component_counter = data.get('counters', self.component_counter)
 
         for comp_data in data['components']:
-            comp = ComponentItem.from_dict(comp_data)
+            comp = ComponentGraphicsItem.from_dict(comp_data)
             self.scene.addItem(comp)
             self.components[comp.component_id] = comp
 
@@ -1335,3 +1335,7 @@ class CircuitCanvas(QGraphicsView):
 
         # Rebuild node connectivity
         self.rebuild_all_nodes()
+
+
+# Backward compatibility alias
+CircuitCanvas = CircuitCanvasView

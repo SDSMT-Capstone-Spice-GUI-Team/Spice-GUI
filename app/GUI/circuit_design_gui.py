@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtCore import Qt, QSettings
 from .component_palette import ComponentPalette
-from .circuit_canvas import CircuitCanvas
+from .circuit_canvas import CircuitCanvasView
 from .analysis_dialog import AnalysisDialog
 from .properties_panel import PropertiesPanel
 from .waveform_dialog import WaveformDialog
@@ -187,7 +187,7 @@ class CircuitDesignGUI(QMainWindow):
         canvas_toolbar.addWidget(btn_zoom_fit)
         canvas_layout.addLayout(canvas_toolbar)
 
-        self.canvas = CircuitCanvas()
+        self.canvas = CircuitCanvasView()
         btn_zoom_in.clicked.connect(lambda: self.canvas.zoom_in())
         btn_zoom_out.clicked.connect(lambda: self.canvas.zoom_out())
         btn_zoom_fit.clicked.connect(lambda: self.canvas.zoom_fit())

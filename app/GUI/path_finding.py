@@ -846,7 +846,7 @@ def get_component_obstacles(components, grid_size=20, padding=2, exclude_ids=Non
     Get set of grid cells blocked by components and wires from other nodes.
 
     Args:
-        components: dict of ComponentItem objects
+        components: dict of ComponentGraphicsItem objects
         grid_size: size of grid cells
         padding: extra grid cells around each component (negative values shrink boundary inward)
         exclude_ids: set of component IDs to exclude from obstacles (optional) - DEPRECATED

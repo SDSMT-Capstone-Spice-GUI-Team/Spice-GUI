@@ -1,16 +1,18 @@
-from .GUI import (AnalysisDialog, CircuitCanvas, CircuitDesignGUI, Node,
-                 ComponentItem, ComponentPalette, #GridPathfinder, 
-                 get_component_obstacles, WireItem)
+from .GUI import (AnalysisDialog, CircuitCanvasView, CircuitCanvas, CircuitDesignGUI, Node,
+                 ComponentGraphicsItem, ComponentPalette, #GridPathfinder,
+                 get_component_obstacles, WireGraphicsItem, WireItem)
 from .simulation import NetlistGenerator, NgspiceRunner, ResultParser
 
 __all__ = ['NetlistGenerator', 'NgspiceRunner', 'ResultParser',
     'AnalysisDialog',
-    'CircuitCanvas',
+    'CircuitCanvasView',
+    'CircuitCanvas',  # Backward compatibility
     'CircuitDesignGUI',
     'Node',
-    'ComponentItem',
+    'ComponentGraphicsItem',
     'ComponentPalette',
     # 'GridPathfinder',
     'get_component_obstacles',
-    'WireItem',
+    'WireGraphicsItem',
+    'WireItem',  # Backward compatibility
 ]

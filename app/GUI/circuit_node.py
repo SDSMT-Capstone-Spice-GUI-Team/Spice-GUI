@@ -17,7 +17,7 @@ class Node:
     
     def __init__(self, is_ground=False, custom_label=None):
         self.terminals = set()  # Set of (component_id, terminal_index) tuples
-        self.wires = set()  # Set of WireItem objects
+        self.wires = set()  # Set of WireGraphicsItem objects
         self.is_ground = is_ground
         self.custom_label = custom_label
         
