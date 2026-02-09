@@ -1,19 +1,22 @@
 """
 FileController - Handles circuit file I/O and session persistence.
 
-This module contains no Qt dependencies. File dialog interaction
-is the responsibility of the view layer.
+File dialog interaction is the responsibility of the view layer.
+Recent files tracking uses QSettings for cross-session persistence.
 """
 
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
+
+from PyQt6.QtCore import QSettings
 
 from models.circuit import CircuitModel
 
 
 SESSION_FILE = "last_session.txt"
+MAX_RECENT_FILES = 10
 
 
 def validate_circuit_data(data) -> None:
@@ -97,6 +100,7 @@ class FileController:
             json.dump(data, f, indent=2)
         self.current_file = filepath
         self._save_session()
+        self.add_recent_file(filepath)  # Track in recent files
 
         # Phase 5: Notify observers of save
         if self.circuit_ctrl:
@@ -137,6 +141,7 @@ class FileController:
 
         self.current_file = filepath
         self._save_session()
+        self.add_recent_file(filepath)  # Track in recent files
 
         # Phase 5: Notify observers of load
         if self.circuit_ctrl:
@@ -178,3 +183,55 @@ class FileController:
         except OSError:
             pass
         return None
+
+    def get_recent_files(self) -> List[str]:
+        """
+        Get list of recently opened files from QSettings.
+
+        Returns:
+            List of file paths (most recent first), with non-existent files removed.
+        """
+        settings = QSettings("SDSMT", "SDM Spice")
+        recent = settings.value("file/recent_files", [])
+
+        # Ensure it's a list
+        if not isinstance(recent, list):
+            recent = []
+
+        # Filter out files that no longer exist
+        existing = [f for f in recent if os.path.exists(f)]
+
+        # Update settings if we removed any
+        if len(existing) != len(recent):
+            settings.setValue("file/recent_files", existing)
+
+        return existing
+
+    def add_recent_file(self, filepath: Path) -> None:
+        """
+        Add a file to the recent files list.
+
+        Args:
+            filepath: Path to add to recent files.
+        """
+        filepath_str = str(filepath.absolute())
+        recent = self.get_recent_files()
+
+        # Remove if already in list (we'll add to front)
+        if filepath_str in recent:
+            recent.remove(filepath_str)
+
+        # Add to front
+        recent.insert(0, filepath_str)
+
+        # Keep only MAX_RECENT_FILES
+        recent = recent[:MAX_RECENT_FILES]
+
+        # Save to settings
+        settings = QSettings("SDSMT", "SDM Spice")
+        settings.setValue("file/recent_files", recent)
+
+    def clear_recent_files(self) -> None:
+        """Clear the recent files list."""
+        settings = QSettings("SDSMT", "SDM Spice")
+        settings.setValue("file/recent_files", [])
