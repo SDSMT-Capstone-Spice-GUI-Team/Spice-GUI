@@ -17,12 +17,12 @@ This prototype implements:
 
 import sys
 from PyQt6.QtWidgets import (QApplication)
-from GUI.circuit_design_gui import CircuitDesignGUI
+from GUI.main_window import MainWindow
 
 
 def main():
     app = QApplication(sys.argv)
-    window = CircuitDesignGUI()
+    window = MainWindow()
     window.show()
     sys.exit(app.exec())
 

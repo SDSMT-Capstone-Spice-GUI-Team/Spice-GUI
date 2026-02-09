@@ -6,7 +6,7 @@ from PyQt6.QtGui import QBrush, QPainter, QAction
 
 logger = logging.getLogger(__name__)
 from .component_item import ComponentGraphicsItem, create_component
-from .wire_item import WireItem
+from .wire_item import WireGraphicsItem, WireItem
 from .circuit_node import Node
 from .annotation_item import AnnotationItem
 from .algorithm_layers import AlgorithmLayerManager
@@ -1332,6 +1332,86 @@ class CircuitCanvasView(QGraphicsView):
             ann = AnnotationItem.from_dict(ann_data)
             self.scene.addItem(ann)
             self.annotations.append(ann)
+
+        # Rebuild node connectivity
+        self.rebuild_all_nodes()
+
+    def sync_to_model(self, model):
+        """
+        Synchronize canvas state to the CircuitModel.
+
+        Updates the model with current canvas components, wires, nodes, and counters.
+        Used before save/simulation operations.
+
+        Args:
+            model: CircuitModel instance to update
+        """
+        from models.circuit import CircuitModel
+
+        # Update component positions before syncing
+        for comp_item in self.components.values():
+            comp_item.model.position = (comp_item.pos().x(), comp_item.pos().y())
+
+        # Sync components
+        model.components = {comp_id: comp_item.model for comp_id, comp_item in self.components.items()}
+
+        # Sync wires
+        from models.wire import WireData
+        model.wires = [
+            WireData(
+                start_component_id=wire.start_comp.component_id,
+                start_terminal=wire.start_term,
+                end_component_id=wire.end_comp.component_id,
+                end_terminal=wire.end_term,
+            )
+            for wire in self.wires
+        ]
+
+        # Sync nodes
+        nodes, terminal_to_node = self.get_model_nodes_and_terminal_map()
+        model.nodes = nodes
+        model.terminal_to_node = terminal_to_node
+
+        # Sync counters
+        model.component_counter = self.component_counter.copy()
+
+    def sync_from_model(self, model):
+        """
+        Synchronize canvas state from the CircuitModel.
+
+        Clears canvas and rebuilds from model data.
+        Used after load operations.
+
+        Args:
+            model: CircuitModel instance to read from
+        """
+        from models.circuit import CircuitModel
+
+        # Clear canvas
+        self.clear_circuit()
+
+        # Restore counters
+        self.component_counter = model.component_counter.copy()
+
+        # Restore components
+        for comp_data in model.components.values():
+            comp = ComponentGraphicsItem.from_dict(comp_data.to_dict())
+            self.scene.addItem(comp)
+            self.components[comp.component_id] = comp
+
+        # Restore wires
+        for wire_data in model.wires:
+            start_comp = self.components.get(wire_data.start_component_id)
+            end_comp = self.components.get(wire_data.end_component_id)
+            if start_comp and end_comp:
+                wire = WireGraphicsItem(
+                    start_comp, wire_data.start_terminal,
+                    end_comp, wire_data.end_terminal,
+                    canvas=self,
+                    model=wire_data
+                )
+                self.scene.addItem(wire)
+                self.wires.append(wire)
 
         # Rebuild node connectivity
         self.rebuild_all_nodes()

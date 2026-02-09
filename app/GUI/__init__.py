@@ -1,6 +1,6 @@
 from .analysis_dialog import AnalysisDialog
 from .circuit_canvas import CircuitCanvasView, CircuitCanvas
-from .circuit_design_gui import CircuitDesignGUI
+from .main_window import MainWindow
 from .circuit_node import Node
 from .component_item import ComponentGraphicsItem
 from .component_palette import ComponentPalette
@@ -14,7 +14,7 @@ __all__ = [
     'AnalysisDialog',
     'CircuitCanvasView',
     'CircuitCanvas',  # Backward compatibility
-    'CircuitDesignGUI',
+    'MainWindow',
     'Node',
     'ComponentGraphicsItem',
     'ComponentPalette',
