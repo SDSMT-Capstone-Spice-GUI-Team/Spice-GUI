@@ -433,7 +433,7 @@ app/utils.py:2:43: F821 Undefined name `itmes`
 import logging
 logging.basicConfig(level=logging.INFO)
 
-from GUI.circuit_design_gui import CircuitDesignGUI  # Would trigger E402
+from GUI.main_window import MainWindow  # Would trigger E402
 ```
 
 **Ruff Output:** (None - E402 is ignored)

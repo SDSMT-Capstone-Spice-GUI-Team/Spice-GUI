@@ -132,7 +132,7 @@ Circuit Model (Data)          Canvas View (Presentation)
 
 | Module | Responsibility |
 |--------|----------------|
-| `circuit_design_gui.py` | Main window, menus, layout orchestration |
+| `main_window.py` | Main window, menus, layout orchestration |
 | `circuit_canvas.py` | Graphics scene, component/wire management |
 | `component_item.py` | Component visualization and interaction |
 | `component_palette.py` | Drag source for components |

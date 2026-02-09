@@ -1,0 +1,17 @@
+Pulse Test
+
+*This test is intended to discover whether the peak voltage of a pulse source is equal to the PulsedValue parameter or PulsedValue + InitialValue. In this example, an output of 5 is expected for the former, and an output of 3 is expected for the latter.
+
+Vpulse 1 0 PULSE(-2 5 1u 1n 1n 1u 2u 2)
+Rout 1 0 100
+
+.tran 1n 5u
+
+.control
+run
+plot v(1)
+
+.endc
+.end
+
+*Result was 5, therefore peak voltage is defined only by PulsedValue.

@@ -5,7 +5,8 @@ from PyQt6.QtCore import Qt, QRectF, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QAction
 
 logger = logging.getLogger(__name__)
-from .component_item import ComponentGraphicsItem, create_component
+from models.clipboard import ClipboardData
+from .component_item import ComponentGraphicsItem
 from .wire_item import WireGraphicsItem, WireItem
 from .circuit_node import Node
 from .annotation_item import AnnotationItem
@@ -70,18 +71,19 @@ class CircuitCanvasView(QGraphicsView):
 
         # Grid drawing deferred to first show for faster startup
         self._grid_drawn = False
+        self._grid_items = []  # Track grid lines/labels for export toggling
 
         # Text annotations on the canvas
         self.annotations = []
 
-        # Internal clipboard for copy/paste
-        self._clipboard = None  # {'components': [...], 'wires': [...]}
-        
         # Wire drawing mode
         self.wire_start_comp = None
         self.wire_start_term = None
         self.temp_wire_line = None  # Temporary line while drawing wire
         
+        # Internal clipboard for copy/paste
+        self._clipboard = ClipboardData()
+
         self.setAcceptDrops(True)
         self.setMouseTracking(True)  # Enable mouse tracking for wire preview
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -137,9 +139,6 @@ class CircuitCanvasView(QGraphicsView):
 
     def _handle_component_added(self, component_data) -> None:
         """Create graphics item when component added to model"""
-        from models.component import ComponentData
-        from PyQt6.QtWidgets import QGraphicsItem
-
         comp = ComponentGraphicsItem.from_dict(component_data.to_dict())
         self.scene.addItem(comp)
         self.components[component_data.component_id] = comp
@@ -308,7 +307,8 @@ class CircuitCanvasView(QGraphicsView):
         for x in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
             is_major = (x % MAJOR_GRID_INTERVAL == 0)
             pen = major_pen if is_major else minor_pen
-            self.scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
+            line = self.scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
+            self._grid_items.append(line)
 
             # Add label for major grid lines
             if is_major:
@@ -318,12 +318,14 @@ class CircuitCanvasView(QGraphicsView):
                 label.setPos(x - 15, -GRID_EXTENT)  # Position at top
                 label.setZValue(-1)  # Draw behind components
                 self.scene.addItem(label)
+                self._grid_items.append(label)
 
         # Draw horizontal lines
         for y in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
             is_major = (y % MAJOR_GRID_INTERVAL == 0)
             pen = major_pen if is_major else minor_pen
-            self.scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
+            line = self.scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
+            self._grid_items.append(line)
 
             # Add label for major grid lines
             if is_major:
@@ -333,6 +335,7 @@ class CircuitCanvasView(QGraphicsView):
                 label.setPos(-GRID_EXTENT, y - 10)  # Position at left
                 label.setZValue(-1)  # Draw behind components
                 self.scene.addItem(label)
+                self._grid_items.append(label)
     
     def reroute_connected_wires(self, component):
         """Reroute all wires connected to a component"""
@@ -503,7 +506,7 @@ class CircuitCanvasView(QGraphicsView):
                                 # Single algorithm mode - Phase 5: use controller
                                 if self.controller:
                                     # Controller creates wire, observer creates graphics item
-                                    wire_data = self.controller.add_wire(
+                                    self.controller.add_wire(
                                         self.wire_start_comp.component_id,
                                         self.wire_start_term,
                                         clicked_component.component_id,
@@ -586,11 +589,11 @@ class CircuitCanvasView(QGraphicsView):
         if event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
             self.delete_selected()
         elif event.key() == Qt.Key.Key_C and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            self.copy_selected()
-        elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            self.paste_clipboard()
+            self.copy_selected_components(self.get_selected_component_ids())
         elif event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            self.cut_selected()
+            self.cut_selected_components(self.get_selected_component_ids())
+        elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.paste_components()
         elif event.key() == Qt.Key.Key_R and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             # Rotate selected components counter-clockwise (check Shift+R before plain R)
             self.rotate_selected(clockwise=False)
@@ -751,16 +754,39 @@ class CircuitCanvasView(QGraphicsView):
                     rotate_cw_action = QAction("Rotate Selected Clockwise", self)
                     rotate_cw_action.triggered.connect(lambda: self.rotate_selected(True))
                     menu.addAction(rotate_cw_action)
-                    
+
                     rotate_ccw_action = QAction("Rotate Selected Counter-Clockwise", self)
                     rotate_ccw_action.triggered.connect(lambda: self.rotate_selected(False))
                     menu.addAction(rotate_ccw_action)
 
-            # Always offer "Add Annotation" on empty-area right-click
-            menu.addSeparator()
-            add_ann_action = QAction("Add Annotation", self)
-            add_ann_action.triggered.connect(lambda: self.add_annotation(scene_pos))
-            menu.addAction(add_ann_action)
+                    menu.addSeparator()
+                    sel_ids = [c.component_id for c in selected_components]
+                    copy_action = QAction(
+                        f"Copy ({len(selected_components)} component"
+                        f"{'s' if len(selected_components) != 1 else ''})", self)
+                    copy_action.triggered.connect(
+                        lambda checked=False, ids=sel_ids:
+                            self.copy_selected_components(ids))
+                    menu.addAction(copy_action)
+
+                    cut_action = QAction(
+                        f"Cut ({len(selected_components)} component"
+                        f"{'s' if len(selected_components) != 1 else ''})", self)
+                    cut_action.triggered.connect(
+                        lambda checked=False, ids=sel_ids:
+                            self.cut_selected_components(ids))
+                    menu.addAction(cut_action)
+
+        if not self._clipboard.is_empty():
+            paste_action = QAction("Paste", self)
+            paste_action.triggered.connect(self.paste_components)
+            menu.addAction(paste_action)
+
+        # Always offer "Add Annotation" on empty-area right-click
+        menu.addSeparator()
+        add_ann_action = QAction("Add Annotation", self)
+        add_ann_action.triggered.connect(lambda: self.add_annotation(scene_pos))
+        menu.addAction(add_ann_action)
 
         if not menu.isEmpty():
             menu.exec(self.mapToGlobal(position))
@@ -828,92 +854,6 @@ class CircuitCanvasView(QGraphicsView):
         for comp in components:
             self.rotate_component(comp, clockwise)
 
-    def copy_selected(self):
-        """Copy selected components and their internal wires to the clipboard."""
-        selected_items = self.scene.selectedItems()
-        selected_comps = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
-        if not selected_comps:
-            return
-
-        selected_ids = {comp.component_id for comp in selected_comps}
-
-        # Serialize components
-        comp_dicts = [comp.to_dict() for comp in selected_comps]
-
-        # Serialize only wires where BOTH endpoints are in the selection
-        wire_dicts = []
-        for wire in self.wires:
-            if wire.start_comp.component_id in selected_ids and wire.end_comp.component_id in selected_ids:
-                wire_dicts.append(wire.to_dict())
-
-        self._clipboard = {'components': comp_dicts, 'wires': wire_dicts}
-
-    def paste_clipboard(self):
-        """Paste clipboard contents onto the canvas with new IDs and offset position."""
-        if not self._clipboard:
-            return
-
-        PASTE_OFFSET = 4 * GRID_SIZE  # 40px offset
-
-        # Build old_id -> new_id mapping and create components
-        id_map = {}
-        new_comps = []
-        for comp_data in self._clipboard['components']:
-            old_id = comp_data['id']
-            comp_type = comp_data['type']
-
-            # Generate a new unique ID
-            symbol = COMPONENTS[comp_type]['symbol']
-            if symbol not in self.component_counter:
-                self.component_counter[symbol] = 0
-            self.component_counter[symbol] += 1
-            new_id = f"{symbol}{self.component_counter[symbol]}"
-            id_map[old_id] = new_id
-
-            # Clone the component data with new ID and offset position
-            new_data = dict(comp_data)
-            new_data['id'] = new_id
-            new_data['pos'] = {
-                'x': comp_data['pos']['x'] + PASTE_OFFSET,
-                'y': comp_data['pos']['y'] + PASTE_OFFSET,
-            }
-
-            comp = ComponentGraphicsItem.from_dict(new_data)
-            self.scene.addItem(comp)
-            self.components[new_id] = comp
-            new_comps.append(comp)
-
-            if comp_type == 'Ground':
-                self.handle_ground_added(comp)
-
-            self.componentAdded.emit(new_id)
-
-        # Recreate internal wires using the ID mapping
-        for wire_data in self._clipboard['wires']:
-            new_start = id_map.get(wire_data['start_comp'])
-            new_end = id_map.get(wire_data['end_comp'])
-            if new_start and new_end and new_start in self.components and new_end in self.components:
-                start_comp = self.components[new_start]
-                end_comp = self.components[new_end]
-                wire = WireItem(
-                    start_comp, wire_data['start_term'],
-                    end_comp, wire_data['end_term'],
-                    canvas=self, algorithm='idastar'
-                )
-                self.scene.addItem(wire)
-                self.wires.append(wire)
-                self.update_nodes_for_wire(wire)
-
-        # Select only the newly pasted components
-        self.scene.clearSelection()
-        for comp in new_comps:
-            comp.setSelected(True)
-
-    def cut_selected(self):
-        """Cut selected components: copy to clipboard then delete."""
-        self.copy_selected()
-        self.delete_selected()
-
     def add_annotation(self, scene_pos=None):
         """Add a text annotation at the given scene position (or viewport center)."""
         if scene_pos is None:
@@ -948,7 +888,150 @@ class CircuitCanvasView(QGraphicsView):
             self.selectionChanged.emit(components[0])
         else:
             self.selectionChanged.emit(None)
-    
+
+    # --- Clipboard operations ---
+
+    def get_selected_component_ids(self) -> list[str]:
+        """Return component IDs for all selected ComponentItems."""
+        return [
+            item.component_id
+            for item in self.scene.selectedItems()
+            if isinstance(item, ComponentGraphicsItem)
+        ]
+
+    def copy_selected_components(self, component_ids: list[str]) -> bool:
+        """Copy selected components and internal wires to internal clipboard."""
+        if not component_ids:
+            return False
+
+        selected_set = set(component_ids)
+
+        comp_dicts = []
+        for comp_id in component_ids:
+            comp_item = self.components.get(comp_id)
+            if comp_item is not None:
+                comp_dicts.append(comp_item.to_dict())
+
+        if not comp_dicts:
+            return False
+
+        wire_dicts = []
+        for wire in self.wires:
+            if (wire.start_comp.component_id in selected_set
+                    and wire.end_comp.component_id in selected_set):
+                wire_dicts.append(wire.to_dict())
+
+        self._clipboard = ClipboardData(
+            components=comp_dicts,
+            wires=wire_dicts,
+            paste_count=0,
+        )
+
+        main_window = self.window()
+        if main_window and hasattr(main_window, 'statusBar'):
+            status = main_window.statusBar()
+            if status:
+                n = len(comp_dicts)
+                w = len(wire_dicts)
+                status.showMessage(
+                    f"Copied {n} component{'s' if n != 1 else ''}"
+                    f" and {w} wire{'s' if w != 1 else ''}", 2000)
+        return True
+
+    def cut_selected_components(self, component_ids: list[str]) -> bool:
+        """Cut: copy to clipboard, then delete originals."""
+        copied = self.copy_selected_components(component_ids)
+        if copied:
+            for comp_id in list(component_ids):
+                comp_item = self.components.get(comp_id)
+                if comp_item is not None:
+                    self.delete_component(comp_item)
+        return copied
+
+    def paste_components(self) -> None:
+        """Paste clipboard contents with offset and new IDs."""
+        if self._clipboard.is_empty():
+            return
+
+        self._clipboard.paste_count += 1
+        multiplier = self._clipboard.paste_count
+        dx = 40.0 * multiplier
+        dy = 40.0 * multiplier
+
+        id_map: dict[str, str] = {}
+        new_comp_items: list[ComponentGraphicsItem] = []
+
+        for comp_dict in self._clipboard.components:
+            # Create visual item from serialized data
+            comp_item = ComponentGraphicsItem.from_dict(comp_dict)
+            component_type = comp_item.component_type
+
+            # Generate new unique ID (same pattern as dropEvent)
+            symbol = COMPONENTS[component_type]['symbol']
+            if symbol not in self.component_counter:
+                self.component_counter[symbol] = 0
+            self.component_counter[symbol] += 1
+            new_id = f"{symbol}{self.component_counter[symbol]}"
+
+            old_id = comp_dict['id']
+            id_map[old_id] = new_id
+
+            # Update the component with its new ID
+            comp_item.component_id = new_id
+            comp_item.model.component_id = new_id
+
+            # Offset position
+            old_x = comp_item.pos().x()
+            old_y = comp_item.pos().y()
+            comp_item.setPos(old_x + dx, old_y + dy)
+            comp_item.model.position = (old_x + dx, old_y + dy)
+
+            self.scene.addItem(comp_item)
+            self.components[new_id] = comp_item
+
+            if component_type == 'Ground':
+                self.handle_ground_added(comp_item)
+
+            new_comp_items.append(comp_item)
+
+        # Re-create internal wires with remapped component IDs
+        for wire_dict in self._clipboard.wires:
+            new_start = id_map.get(wire_dict['start_comp'])
+            new_end = id_map.get(wire_dict['end_comp'])
+
+            if new_start is None or new_end is None:
+                continue
+
+            start_comp = self.components.get(new_start)
+            end_comp = self.components.get(new_end)
+            if start_comp is None or end_comp is None:
+                continue
+
+            wire = WireItem(
+                start_comp, wire_dict['start_term'],
+                end_comp, wire_dict['end_term'],
+                canvas=self,
+            )
+            self.scene.addItem(wire)
+            self.wires.append(wire)
+            self.update_nodes_for_wire(wire)
+
+        # Select newly pasted items
+        self.scene.clearSelection()
+        for comp_item in new_comp_items:
+            comp_item.setSelected(True)
+
+        if new_comp_items:
+            self.componentAdded.emit(new_comp_items[0].component_id)
+
+        main_window = self.window()
+        if main_window and hasattr(main_window, 'statusBar'):
+            status = main_window.statusBar()
+            if status:
+                n = len(new_comp_items)
+                status.showMessage(
+                    f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
+
     def drawForeground(self, painter, rect):
         """Draw node labels and voltages on top of everything"""
         if painter is None:
@@ -1431,6 +1514,80 @@ class CircuitCanvasView(QGraphicsView):
                 terminal_to_node[key] = nd
 
         return node_data_list, terminal_to_node
+
+    def export_image(self, filepath, include_grid=True):
+        """Export the circuit scene to an image file (PNG or SVG).
+
+        Args:
+            filepath: Output file path. Extension determines format (.svg or .png).
+            include_grid: Whether to include grid lines in the export.
+        """
+        # Hide grid items if requested
+        if not include_grid:
+            for item in self._grid_items:
+                item.setVisible(False)
+
+        # Calculate bounding rect of circuit items (components + wires)
+        circuit_items = list(self.components.values()) + self.wires
+        if circuit_items:
+            rect = circuit_items[0].sceneBoundingRect()
+            for item in circuit_items[1:]:
+                rect = rect.united(item.sceneBoundingRect())
+            rect.adjust(-ZOOM_FIT_PADDING, -ZOOM_FIT_PADDING,
+                        ZOOM_FIT_PADDING, ZOOM_FIT_PADDING)
+        else:
+            rect = self.scene.sceneRect()
+
+        try:
+            if filepath.lower().endswith('.svg'):
+                self._export_svg(filepath, rect)
+            else:
+                self._export_png(filepath, rect)
+        finally:
+            # Restore grid visibility
+            if not include_grid:
+                for item in self._grid_items:
+                    item.setVisible(True)
+
+    def _export_png(self, filepath, source_rect):
+        """Render the scene to a PNG file at 2x resolution."""
+        from PyQt6.QtGui import QImage, QPainter
+
+        scale = 2
+        width = int(source_rect.width() * scale)
+        height = int(source_rect.height() * scale)
+
+        image = QImage(width, height, QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.white)
+
+        painter = QPainter(image)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.scene.render(painter, QRectF(0, 0, width, height), source_rect)
+        painter.end()
+
+        image.save(filepath)
+
+    def _export_svg(self, filepath, source_rect):
+        """Render the scene to an SVG file."""
+        from PyQt6.QtSvg import QSvgGenerator
+        from PyQt6.QtGui import QPainter
+        from PyQt6.QtCore import QSize, QRect
+
+        width = int(source_rect.width())
+        height = int(source_rect.height())
+
+        svg = QSvgGenerator()
+        svg.setFileName(filepath)
+        svg.setSize(QSize(width, height))
+        svg.setViewBox(QRect(0, 0, width, height))
+        svg.setTitle("Circuit Diagram")
+
+        painter = QPainter()
+        painter.begin(svg)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.scene.render(painter, QRectF(0, 0, width, height), source_rect)
+        painter.end()
 
     def to_dict(self):
         """Serialize circuit to dictionary"""

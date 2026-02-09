@@ -1,7 +1,6 @@
 """Main application window with MVC architecture"""
 import logging
 import os
-from datetime import datetime
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QFileDialog, QMessageBox, QTextEdit,
                              QSplitter, QLabel, QDialog, QStackedWidget)
@@ -216,6 +215,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
 
         export_img_action = QAction("Export &Image...", self)
+        export_img_action.setShortcut("Ctrl+E")
         export_img_action.triggered.connect(self.export_image)
         file_menu.addAction(export_img_action)
 
@@ -233,18 +233,18 @@ class MainWindow(QMainWindow):
 
         copy_action = QAction("&Copy", self)
         copy_action.setShortcut(QKeySequence.StandardKey.Copy)
-        copy_action.triggered.connect(self.canvas.copy_selected)
+        copy_action.triggered.connect(self.copy_selected)
         edit_menu.addAction(copy_action)
-
-        paste_action = QAction("&Paste", self)
-        paste_action.setShortcut(QKeySequence.StandardKey.Paste)
-        paste_action.triggered.connect(self.canvas.paste_clipboard)
-        edit_menu.addAction(paste_action)
 
         cut_action = QAction("Cu&t", self)
         cut_action.setShortcut(QKeySequence.StandardKey.Cut)
-        cut_action.triggered.connect(self.canvas.cut_selected)
+        cut_action.triggered.connect(self.cut_selected)
         edit_menu.addAction(cut_action)
+
+        paste_action = QAction("&Paste", self)
+        paste_action.setShortcut(QKeySequence.StandardKey.Paste)
+        paste_action.triggered.connect(self.paste_components)
+        edit_menu.addAction(paste_action)
 
         edit_menu.addSeparator()
 
@@ -387,6 +387,22 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.results_text.clear()
 
+    def copy_selected(self):
+        """Copy selected components to internal clipboard."""
+        ids = self.canvas.get_selected_component_ids()
+        if ids:
+            self.canvas.copy_selected_components(ids)
+
+    def cut_selected(self):
+        """Cut selected components to internal clipboard."""
+        ids = self.canvas.get_selected_component_ids()
+        if ids:
+            self.canvas.cut_selected_components(ids)
+
+    def paste_components(self):
+        """Paste components from internal clipboard."""
+        self.canvas.paste_components()
+
     def _on_save(self):
         """Quick save to current file"""
         if self.file_ctrl.current_file:
@@ -425,6 +441,7 @@ class MainWindow(QMainWindow):
                 self.file_ctrl.load_circuit(filename)
                 # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
+                self._sync_analysis_menu()
                 QMessageBox.information(self, "Success", "Circuit loaded successfully!")
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to load: {e}")
@@ -437,6 +454,7 @@ class MainWindow(QMainWindow):
                 self.file_ctrl.load_circuit(last_file)
                 # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {last_file}")
+                self._sync_analysis_menu()
             except Exception as e:
                 logger.error("Error loading last session: %s", e)
 
@@ -467,8 +485,6 @@ class MainWindow(QMainWindow):
 
     def _display_simulation_results(self, result):
         """Display simulation results based on analysis type"""
-        from simulation import ResultParser
-
         self._last_results = None
         self._last_results_type = self.model.analysis_type
         self.btn_export_csv.setEnabled(False)
@@ -499,7 +515,7 @@ class MainWindow(QMainWindow):
             return
 
         if self.model.analysis_type == "DC Operating Point":
-            node_voltages = ResultParser.parse_op_results(result.raw_output)
+            node_voltages = result.data if result.data else {}
             if node_voltages:
                 self._last_results = node_voltages
                 self.results_text.append("\nNODE VOLTAGES:")
@@ -513,7 +529,7 @@ class MainWindow(QMainWindow):
                 self.canvas.clear_node_voltages()
 
         elif self.model.analysis_type == "DC Sweep":
-            sweep_data = ResultParser.parse_dc_results(result.raw_output)
+            sweep_data = result.data if result.data else None
             if sweep_data:
                 self._last_results = sweep_data
                 self.results_text.append("\nDC SWEEP RESULTS:")
@@ -524,7 +540,7 @@ class MainWindow(QMainWindow):
             self.canvas.clear_node_voltages()
 
         elif self.model.analysis_type == "AC Sweep":
-            ac_data = ResultParser.parse_ac_results(result.raw_output)
+            ac_data = result.data if result.data else None
             if ac_data:
                 self._last_results = ac_data
                 self.results_text.append("\nAC SWEEP RESULTS:")
@@ -535,16 +551,13 @@ class MainWindow(QMainWindow):
             self.canvas.clear_node_voltages()
 
         elif self.model.analysis_type == "Transient":
-            # Use wrdata file if available, otherwise parse raw output
-            if result.wrdata_filepath and os.path.exists(result.wrdata_filepath):
-                tran_data = ResultParser.parse_transient_results(result.wrdata_filepath)
-            else:
-                tran_data = ResultParser.parse_transient_results(result.raw_output)
+            tran_data = result.data if result.data else None
 
             if tran_data:
                 self._last_results = tran_data
                 self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
 
+                from simulation import ResultParser
                 table_string = ResultParser.format_results_as_table(tran_data)
                 self.results_text.append(table_string)
 
@@ -672,6 +685,18 @@ class MainWindow(QMainWindow):
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
+
+    def _sync_analysis_menu(self):
+        """Update Analysis menu checkboxes to match model state."""
+        analysis_type = self.model.analysis_type
+        if analysis_type == "DC Operating Point":
+            self.op_action.setChecked(True)
+        elif analysis_type == "DC Sweep":
+            self.dc_action.setChecked(True)
+        elif analysis_type == "AC Sweep":
+            self.ac_action.setChecked(True)
+        elif analysis_type == "Transient":
+            self.tran_action.setChecked(True)
 
     # View Operations
 

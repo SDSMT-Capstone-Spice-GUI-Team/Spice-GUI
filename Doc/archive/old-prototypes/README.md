@@ -8,7 +8,7 @@ This directory contains code from early project exploration that is no longer us
 **Status:** Obsolete - Current implementation uses PyQt6
 **Why archived:** 
 - Uses PySide6, current app uses PyQt6 (ADR 005)
-- Replaced by circuit_design_gui.py
+- Replaced by main_window.py
 - Not referenced anywhere in current codebase
 
 **Contents:**

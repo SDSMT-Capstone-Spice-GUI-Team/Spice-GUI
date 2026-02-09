@@ -1,0 +1,27 @@
+RC Circuit Transient Response
+
+*This circuit was taken from https://www.youtube.com/watch?v=Y5erhRm8bis
+*The purpose of this circuit was to gain familiarity with how ngspice works using an example. It uses transient analysis to measure the output of an RC circuit with a piecewise linear input.
+
+r1 1 2 1k
+*Resistor r1 is connected to nodes 1 and 2 with 1kohm resistance
+
+c1 2 0 1u
+*Capacitor c1 is connected to nodes 2 and 0 (node 0 is ground) with 1uF capacitance
+
+vin 1 0 pwl (0 0 10ms 0 11ms 5v 20ms 5v)
+*Voltage Source vin has positive end connected to node 1 and negative end connected to ground with piecewise linear (pwl) voltage: v=0 from t=[0,10ms] and v=5 from t=[11ms,20ms]. The voltage rises linearly from 0 to 5v between t=(10ms,11ms).
+
+.tran 0.02ms 20ms
+*selects transient analysis with a timestep of 0.02ms for a length of 20ms
+
+.control
+run
+*runs analysis
+
+plot v(1) v(2)
+*plots voltages over time at nodes 1 and 2
+
+.endc
+.end
+*ends program

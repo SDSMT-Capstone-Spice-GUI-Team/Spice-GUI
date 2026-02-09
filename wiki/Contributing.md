@@ -172,7 +172,7 @@ Spice-GUI/
 │   ├── main.py              # Entry point
 │   ├── requirements.txt     # Dependencies
 │   ├── GUI/                  # UI components
-│   │   ├── circuit_design_gui.py
+│   │   ├── main_window.py
 │   │   ├── circuit_canvas.py
 │   │   ├── component_item.py
 │   │   └── ...

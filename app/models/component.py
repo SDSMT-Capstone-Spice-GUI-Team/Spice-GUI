@@ -295,27 +295,6 @@ class ComponentData:
 
         return rotated
 
-    def get_local_terminal_positions(self) -> list[tuple[float, float]]:
-        """
-        Return terminal positions in local coordinates (after rotation, before translation).
-
-        Returns:
-            List of (x, y) tuples representing terminal positions relative to component center.
-        """
-        base_terminals = self.get_base_terminal_positions()
-
-        rad = math.radians(self.rotation)
-        cos_a = math.cos(rad)
-        sin_a = math.sin(rad)
-
-        rotated = []
-        for tx, ty in base_terminals:
-            new_x = tx * cos_a - ty * sin_a
-            new_y = tx * sin_a + ty * cos_a
-            rotated.append((new_x, new_y))
-
-        return rotated
-
     def get_spice_symbol(self) -> str:
         """Return the SPICE symbol for this component type."""
         return SPICE_SYMBOLS.get(self.component_type, 'X')

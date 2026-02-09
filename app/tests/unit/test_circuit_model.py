@@ -7,11 +7,6 @@ from models.wire import WireData
 from models.node import reset_node_counter
 
 
-@pytest.fixture(autouse=True)
-def reset_nodes():
-    """Reset node counter before each test."""
-    reset_node_counter()
-
 
 def _resistor(comp_id="R1", pos=(0.0, 0.0)):
     return ComponentData(
@@ -169,12 +164,16 @@ class TestClear:
         model.add_component(_ground("GND1"))
         model.add_wire(_wire("R1", 0, "GND1", 0))
         model.component_counter = {"R": 1, "GND": 1}
+        model.analysis_type = "Transient"
+        model.analysis_params = {"step": "1m", "duration": "10m"}
         model.clear()
         assert len(model.components) == 0
         assert len(model.wires) == 0
         assert len(model.nodes) == 0
         assert len(model.terminal_to_node) == 0
         assert len(model.component_counter) == 0
+        assert model.analysis_type == "DC Operating Point"
+        assert model.analysis_params == {}
 
 
 class TestSerialization:
@@ -243,6 +242,40 @@ class TestSerialization:
         reset_node_counter()
         model2 = CircuitModel.from_dict(data)
         assert model2.to_dict() == data
+
+    def test_analysis_settings_persisted(self):
+        """Analysis type and params survive save/load round-trip."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(0.0, 0.0)))
+        model.analysis_type = "Transient"
+        model.analysis_params = {"step": "1m", "duration": "10m", "start": 0}
+
+        data = model.to_dict()
+        assert data['analysis_type'] == "Transient"
+        assert data['analysis_params'] == {"step": "1m", "duration": "10m", "start": 0}
+
+        reset_node_counter()
+        model2 = CircuitModel.from_dict(data)
+        assert model2.analysis_type == "Transient"
+        assert model2.analysis_params == {"step": "1m", "duration": "10m", "start": 0}
+
+    def test_default_analysis_omitted_from_dict(self):
+        """Default DC Operating Point should not bloat the JSON."""
+        model = CircuitModel()
+        data = model.to_dict()
+        assert 'analysis_type' not in data
+        assert 'analysis_params' not in data
+
+    def test_from_dict_without_analysis_uses_defaults(self):
+        """Loading old circuit files without analysis fields uses defaults."""
+        data = {
+            'components': [],
+            'wires': [],
+            'counters': {},
+        }
+        model = CircuitModel.from_dict(data)
+        assert model.analysis_type == "DC Operating Point"
+        assert model.analysis_params == {}
 
     def test_no_pyqt_imports(self):
         """Verify CircuitModel has no Qt dependencies."""

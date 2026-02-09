@@ -25,7 +25,6 @@ class Node:
             self.auto_label = "0"
         elif custom_label:
             self.auto_label = custom_label
-            pass
         else:
             # Generate auto label: nodeA, nodeB, nodeC...
             Node._node_counter += 1
@@ -38,7 +37,6 @@ class Node:
         label = "node"
         if index < 26:
             label += chr(ord('A') + index)
-            pass
         else:
             # For more than 26 nodes, use AA, AB, AC...
             first = (index // 26) - 1
@@ -83,7 +81,6 @@ class Node:
         if other_node.is_ground:
             self.is_ground = True
             if self.custom_label:
-                self.custom_label = f"{self.custom_label}"
                 pass
             else:
                 self.auto_label = "0"
@@ -93,20 +90,6 @@ class Node:
         self.is_ground = True
         if not self.custom_label:
             self.auto_label = "0"
-    
-    def unset_ground(self):
-        """Remove ground designation from this node"""
-        was_ground = self.is_ground
-        self.is_ground = False
-        
-        if was_ground:
-            if self.custom_label:
-                self.custom_label = self.custom_label.replace(" (ground)", "")
-                pass
-            else:
-                Node._node_counter += 1
-                label_index = Node._node_counter - 1
-                self.auto_label = self._generate_label(label_index)
     
     def get_position(self, components):
         """Get a representative position for label placement (near a junction)"""

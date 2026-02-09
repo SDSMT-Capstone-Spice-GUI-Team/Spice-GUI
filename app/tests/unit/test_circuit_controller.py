@@ -4,13 +4,6 @@ import pytest
 from controllers.circuit_controller import CircuitController
 from models.circuit import CircuitModel
 from models.component import ComponentData
-from models.node import reset_node_counter
-
-
-@pytest.fixture(autouse=True)
-def reset_nodes():
-    reset_node_counter()
-
 
 @pytest.fixture
 def controller():

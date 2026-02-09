@@ -4,10 +4,9 @@ simulation/result_parser.py
 Parses ngspice simulation output to extract results
 """
 import logging
+import re
 
 logger = logging.getLogger(__name__)
-
-import re
 
 
 class ResultParser:
