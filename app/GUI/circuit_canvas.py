@@ -68,6 +68,7 @@ class CircuitCanvas(QGraphicsView):
 
         # Grid drawing deferred to first show for faster startup
         self._grid_drawn = False
+        self._grid_items = []  # Track grid lines/labels for export toggling
         
         # Wire drawing mode
         self.wire_start_comp = None
@@ -109,7 +110,8 @@ class CircuitCanvas(QGraphicsView):
         for x in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
             is_major = (x % MAJOR_GRID_INTERVAL == 0)
             pen = major_pen if is_major else minor_pen
-            self.scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
+            line = self.scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
+            self._grid_items.append(line)
 
             # Add label for major grid lines
             if is_major:
@@ -119,12 +121,14 @@ class CircuitCanvas(QGraphicsView):
                 label.setPos(x - 15, -GRID_EXTENT)  # Position at top
                 label.setZValue(-1)  # Draw behind components
                 self.scene.addItem(label)
+                self._grid_items.append(label)
 
         # Draw horizontal lines
         for y in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
             is_major = (y % MAJOR_GRID_INTERVAL == 0)
             pen = major_pen if is_major else minor_pen
-            self.scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
+            line = self.scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
+            self._grid_items.append(line)
 
             # Add label for major grid lines
             if is_major:
@@ -134,6 +138,7 @@ class CircuitCanvas(QGraphicsView):
                 label.setPos(-GRID_EXTENT, y - 10)  # Position at left
                 label.setZValue(-1)  # Draw behind components
                 self.scene.addItem(label)
+                self._grid_items.append(label)
     
     def reroute_connected_wires(self, component):
         """Reroute all wires connected to a component"""
@@ -1115,6 +1120,80 @@ class CircuitCanvas(QGraphicsView):
                 terminal_to_node[key] = nd
 
         return node_data_list, terminal_to_node
+
+    def export_image(self, filepath, include_grid=True):
+        """Export the circuit scene to an image file (PNG or SVG).
+
+        Args:
+            filepath: Output file path. Extension determines format (.svg or .png).
+            include_grid: Whether to include grid lines in the export.
+        """
+        # Hide grid items if requested
+        if not include_grid:
+            for item in self._grid_items:
+                item.setVisible(False)
+
+        # Calculate bounding rect of circuit items (components + wires)
+        circuit_items = list(self.components.values()) + self.wires
+        if circuit_items:
+            rect = circuit_items[0].sceneBoundingRect()
+            for item in circuit_items[1:]:
+                rect = rect.united(item.sceneBoundingRect())
+            rect.adjust(-ZOOM_FIT_PADDING, -ZOOM_FIT_PADDING,
+                        ZOOM_FIT_PADDING, ZOOM_FIT_PADDING)
+        else:
+            rect = self.scene.sceneRect()
+
+        try:
+            if filepath.lower().endswith('.svg'):
+                self._export_svg(filepath, rect)
+            else:
+                self._export_png(filepath, rect)
+        finally:
+            # Restore grid visibility
+            if not include_grid:
+                for item in self._grid_items:
+                    item.setVisible(True)
+
+    def _export_png(self, filepath, source_rect):
+        """Render the scene to a PNG file at 2x resolution."""
+        from PyQt6.QtGui import QImage, QPainter
+
+        scale = 2
+        width = int(source_rect.width() * scale)
+        height = int(source_rect.height() * scale)
+
+        image = QImage(width, height, QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.white)
+
+        painter = QPainter(image)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.scene.render(painter, QRectF(0, 0, width, height), source_rect)
+        painter.end()
+
+        image.save(filepath)
+
+    def _export_svg(self, filepath, source_rect):
+        """Render the scene to an SVG file."""
+        from PyQt6.QtSvg import QSvgGenerator
+        from PyQt6.QtGui import QPainter
+        from PyQt6.QtCore import QSize, QRect
+
+        width = int(source_rect.width())
+        height = int(source_rect.height())
+
+        svg = QSvgGenerator()
+        svg.setFileName(filepath)
+        svg.setSize(QSize(width, height))
+        svg.setViewBox(QRect(0, 0, width, height))
+        svg.setTitle("Circuit Diagram")
+
+        painter = QPainter()
+        painter.begin(svg)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.scene.render(painter, QRectF(0, 0, width, height), source_rect)
+        painter.end()
 
     def to_dict(self):
         """Serialize circuit to dictionary"""

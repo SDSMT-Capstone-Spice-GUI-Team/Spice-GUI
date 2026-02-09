@@ -284,6 +284,13 @@ class CircuitDesignGUI(QMainWindow):
 
         file_menu.addSeparator()
 
+        export_image_action = QAction("Export &Image...", self)
+        export_image_action.setShortcut("Ctrl+E")
+        export_image_action.triggered.connect(self.export_canvas_image)
+        file_menu.addAction(export_image_action)
+
+        file_menu.addSeparator()
+
         exit_action = QAction("E&xit", self)
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)
@@ -563,6 +570,31 @@ class CircuitDesignGUI(QMainWindow):
             except (OSError, TypeError) as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to save: {str(e)}")
+
+    def export_canvas_image(self):
+        """Export the circuit canvas as a PNG or SVG image."""
+        include_grid = QMessageBox.question(
+            self, "Export Image",
+            "Include grid lines in the exported image?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        ) == QMessageBox.StandardButton.Yes
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export Image", "",
+            "PNG Images (*.png);;SVG Images (*.svg)"
+        )
+        if not filename:
+            return
+
+        try:
+            self.canvas.export_image(filename, include_grid)
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Image exported to {filename}", 3000)
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error", f"Failed to export image: {e}")
 
     def load_circuit(self, filename=None, is_reload=False):
         """Load circuit from JSON file"""
