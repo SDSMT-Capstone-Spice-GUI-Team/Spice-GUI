@@ -81,9 +81,83 @@ gh project item-add 2 --owner SDSMT-Capstone-Spice-GUI-Team --url <ISSUE_URL>
 gh issue view <N> --repo SDSMT-Capstone-Spice-GUI-Team/Spice-GUI --json title,body,labels,comments
 ```
 
+## Environment Setup
+
+### Virtual Environment
+
+**Activation**:
+```bash
+# From project root
+source .venv/bin/activate
+
+# From app/ directory
+source ../.venv/bin/activate
+
+# Verify activation
+which python  # Should show: /path/to/project/.venv/bin/python
+```
+
+**Common Issues**:
+
+| Issue | Symptom | Solution |
+|-------|---------|----------|
+| Wrong Python | `which python` shows system Python | Run `source .venv/bin/activate` |
+| Missing dependencies | `ModuleNotFoundError` on import | `pip install -r app/requirements.txt -r app/requirements-dev.txt` |
+| pytest not found | `pytest: command not found` | `pip install pytest` or use Makefile |
+| GUI tests skipped | Missing qtbot errors (pre-2026-02-09) | `pip install pytest-qt>=4.4.0` |
+
+**Installation**:
+```bash
+# Create venv (if doesn't exist)
+python3 -m venv .venv
+
+# Activate
+source .venv/bin/activate
+
+# Install all dependencies
+pip install -r app/requirements.txt -r app/requirements-dev.txt
+
+# Or use Makefile
+make install-dev
+```
+
 ## Autonomous Workflow
 
 Claude Code is authorized to work **fully autonomously** on Ready items.
+
+### Pre-flight Checklist
+
+Before starting implementation on any issue, verify:
+
+1. **Branch Verification**
+   ```bash
+   git branch  # Should show feature branch with *
+   ```
+   - ✅ On correct feature branch: `issue-<N>-description`
+   - ❌ On main/wrong branch: Create/switch to feature branch first
+
+2. **Virtual Environment**
+   ```bash
+   which python  # Should show .venv/bin/python
+   ```
+   - ✅ Venv activated: Proceed
+   - ❌ Venv not activated: Run `source .venv/bin/activate` (from project root)
+
+3. **Test Infrastructure**
+   ```bash
+   make test  # Or: cd app && python -m pytest tests/ --collect-only
+   ```
+   - ✅ Tests can be collected: Proceed
+   - ❌ Import errors/missing deps: Fix environment first
+
+4. **Clean Working Tree**
+   ```bash
+   git status
+   ```
+   - ✅ No uncommitted changes: Proceed
+   - ❌ Uncommitted changes: Stash or commit first
+
+**If any check fails**: Fix the issue before creating new files or writing code.
 
 ### Work Loop
 1. Discover board IDs (see above)
@@ -93,9 +167,31 @@ Claude Code is authorized to work **fully autonomously** on Ready items.
 5. Create branch `issue-<N>-short-description` from `main`
 6. Write a brief plan, assess complexity
 7. Implement the change
-8. Run `python -m pytest` — all tests must pass
-9. Run `ruff check app/` — fix any lint errors
-10. Commit with descriptive message, push branch to remote
+8. **Run tests and linting**
+   ```bash
+   # Option A: Use Makefile (recommended - handles venv automatically)
+   make test
+   make lint
+
+   # Option B: Manual (if Makefile unavailable)
+   source .venv/bin/activate  # From project root
+   cd app
+   python -m pytest tests/ -v --tb=short
+   ruff check .
+   ```
+
+   **Requirements**:
+   - ✅ All new tests pass
+   - ✅ All existing tests still pass (no regressions)
+   - ✅ Ruff linting passes (or use `make format` to auto-fix)
+   - ✅ Test count increased by ≥5 for new features
+
+   **Troubleshooting**:
+   - `ModuleNotFoundError`: Venv not activated or deps not installed
+   - `pytest: command not found`: Run `pip install -r app/requirements-dev.txt`
+   - Pre-2026-02-09: qtbot errors are known issue, ignore
+
+9. Commit with descriptive message, push branch to remote
 11. Create PR targeting `main` (or push directly for small fixes)
 12. Close the GitHub issue (reference the commit/PR)
 13. Move issue to **In Review** on the board
@@ -144,6 +240,64 @@ After reviewing a PR, post feedback on the PR:
 
 This feedback improves future issue quality and agent effectiveness over time.
 
+## Session Management
+
+### Checkpointing (for long autonomous sessions)
+
+For sessions working on >3 issues or >4 hours of work:
+
+**After each issue completion**:
+1. Post checkpoint comment on the completed issue:
+   ```markdown
+   ### 🏁 Checkpoint - Issue #{N} Complete
+
+   **Completed**: Issue #{N} - {title}
+   **PR**: #{PR_number}
+   **Status**: Tests passing, moved to In Review
+   **Next**: Issue #{next_number} - {next_title}
+   **Session time**: ~{hours}h elapsed, estimated {remaining}h remaining
+   ```
+
+2. Update session progress in MEMORY.md:
+   ```markdown
+   ## Current Session (YYYY-MM-DD)
+   - [x] Issue #X - {title} (PR #{PR}, {hours}h)
+   - [ ] Issue #Y - {title} (In Progress)
+   - [ ] Issue #Z - {title} (Next)
+
+   Total: {completed}/{planned} issues, {hours_spent}/{hours_estimated}h
+   ```
+
+**Benefits**:
+- Easy recovery if context window reached
+- Clear progress tracking for user
+- Helps prioritize if session must stop early
+
+**Recovery**: If session interrupted, read MEMORY.md → latest checkpoint comment → resume from "Next" issue.
+
 ## Platform Notes
 - **Windows**: Avoid piping `gh` output directly to `python` (fails with "pipe is being closed"). Write to a temp file first, then read it.
 - **Board field updates**: `updateProjectV2Field` with `singleSelectOptions` regenerates all option IDs. Always re-query IDs after modifying field options.
+
+### Legacy Branch Handling
+
+**Problem**: Feature branches created before Issue #106 (pre-commit hooks) lack `.pre-commit-config.yaml`.
+
+**Symptoms**:
+- `git commit` fails with "No .pre-commit-config.yaml file was found"
+- Hook suggests `PRE_COMMIT_ALLOW_NO_CONFIG=1` or `--allow-missing-config`
+
+**Solution A - Bypass hooks** (quick fix):
+```bash
+PRE_COMMIT_ALLOW_NO_CONFIG=1 git commit -m "message"
+```
+
+**Solution B - Add config** (proper fix):
+```bash
+# Copy pre-commit config from main
+git show main:.pre-commit-config.yaml > .pre-commit-config.yaml
+git add .pre-commit-config.yaml
+git commit -m "Add pre-commit config"
+```
+
+**Prevention**: Pre-flight checklist (above) ensures you're on a current feature branch.
