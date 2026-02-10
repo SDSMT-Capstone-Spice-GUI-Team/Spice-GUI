@@ -43,6 +43,8 @@ class MplCanvas(FigureCanvas):
 
 
 class WaveformDialog(QDialog):
+    analysis_type = "Transient"
+
     def __init__(self, data, parent=None):
         super().__init__(parent)
 
@@ -55,9 +57,15 @@ class WaveformDialog(QDialog):
         self.headers = []
         self.rows_loaded = 0
 
+        # Overlay datasets: list of (label, data) for previous runs
+        self._overlay_datasets = []
+
         # Visibility state for columns
         self.voltage_keys = sorted([k for k in data[0].keys() if k.lower() not in ["time", "index"]])
         self.column_visibility = {key: True for key in self.voltage_keys}
+
+        # Visibility for overlay traces (keyed by "label — signal")
+        self._overlay_visibility = {}
 
         # Assign persistent colors for each plot for color stability
         self.plot_colors = {}
@@ -90,8 +98,8 @@ class WaveformDialog(QDialog):
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_content = QWidget()
-        scroll_layout = QVBoxLayout(scroll_content)
+        self._toggle_scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(self._toggle_scroll_content)
 
         for key in self.voltage_keys:
             checkbox = QCheckBox(key)
@@ -99,7 +107,7 @@ class WaveformDialog(QDialog):
             checkbox.toggled.connect(lambda state, k=key: self._on_visibility_changed(k, state))
             scroll_layout.addWidget(checkbox)
 
-        scroll_area.setWidget(scroll_content)
+        scroll_area.setWidget(self._toggle_scroll_content)
         toggle_layout.addWidget(scroll_area)
         toggle_group.setLayout(toggle_layout)
         right_layout.addWidget(toggle_group)
@@ -156,6 +164,54 @@ class WaveformDialog(QDialog):
     def _on_visibility_changed(self, key, is_checked):
         """Updates the visibility state and refreshes the view."""
         self.column_visibility[key] = is_checked
+        self.update_view()
+
+    def _on_overlay_visibility_changed(self, overlay_key, is_checked):
+        """Updates overlay trace visibility and refreshes the view."""
+        self._overlay_visibility[overlay_key] = is_checked
+        self.update_view()
+
+    def add_dataset(self, data, label=None):
+        """Add an overlay dataset from a previous simulation run.
+
+        The overlay traces are plotted with dashed line styles to
+        distinguish them from the current (primary) dataset.
+        """
+        if label is None:
+            label = f"Run {len(self._overlay_datasets) + 1}"
+        self._overlay_datasets.append((label, data))
+
+        # Add toggle checkboxes for overlay signals
+        overlay_keys = sorted([k for k in data[0].keys() if k.lower() not in ["time", "index"]])
+        scroll_layout = self._toggle_scroll_content.layout()
+
+        separator = QLabel(f"── {label} ──")
+        separator.setStyleSheet("color: gray; font-style: italic;")
+        scroll_layout.addWidget(separator)
+
+        for key in overlay_keys:
+            overlay_key = f"{label} — {key}"
+            self._overlay_visibility[overlay_key] = True
+            checkbox = QCheckBox(f"{label} — {key}")
+            checkbox.setChecked(True)
+            checkbox.toggled.connect(lambda state, k=overlay_key: self._on_overlay_visibility_changed(k, state))
+            scroll_layout.addWidget(checkbox)
+
+        self.update_view()
+
+    def clear_overlays(self):
+        """Remove all overlay datasets."""
+        self._overlay_datasets.clear()
+        self._overlay_visibility.clear()
+        # Rebuild the toggle panel without overlay entries
+        scroll_layout = self._toggle_scroll_content.layout()
+        # Remove overlay widgets (everything after the base signal checkboxes)
+        base_count = len(self.voltage_keys)
+        while scroll_layout.count() > base_count:
+            item = scroll_layout.takeAt(base_count)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
         self.update_view()
 
     def _on_scroll(self, value):
@@ -427,10 +483,38 @@ class WaveformDialog(QDialog):
                         solid_capstyle="round",
                     )
 
+        # 3. Plot overlay datasets with distinct line styles
+        overlay_linestyles = ["--", "-.", ":"]
+        for ds_idx, (ds_label, overlay_data) in enumerate(self._overlay_datasets):
+            if not overlay_data:
+                continue
+            ov_time_key = "time"
+            if ov_time_key not in overlay_data[0]:
+                continue
+            ov_time = [row[ov_time_key] for row in overlay_data]
+            ov_keys = sorted([k for k in overlay_data[0].keys() if k.lower() not in ["time", "index"]])
+            ls = overlay_linestyles[ds_idx % len(overlay_linestyles)]
+
+            for key in ov_keys:
+                overlay_key = f"{ds_label} — {key}"
+                if not self._overlay_visibility.get(overlay_key, True):
+                    continue
+                ov_values = [row[key] for row in overlay_data]
+                if len(ov_time) == len(ov_values):
+                    color = self.plot_colors.get(key, "k")
+                    self.canvas.axes.plot(
+                        ov_time,
+                        ov_values,
+                        label=f"{ds_label} — V({key})",
+                        color=color,
+                        linestyle=ls,
+                        alpha=0.7,
+                    )
+
         self.canvas.axes.set_title("Transient Analysis")
         self.canvas.axes.set_xlabel("Time (s)")
         self.canvas.axes.set_ylabel("Voltage (V)")
-        self.canvas.axes.legend()
+        self.canvas.axes.legend(fontsize="small")
         self.canvas.axes.grid(True)
         self.canvas.figure.tight_layout()
         self.canvas.draw()
