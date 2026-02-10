@@ -311,7 +311,8 @@ class ComponentGraphicsItem(QGraphicsItem):
 
             return snapped_pos
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            # Update this item and connected wires to prevent dragging artifacts
+            # Show straight-line preview for connected wires during drag
+            # (full pathfinding runs after drag ends via debounced timer)
             self.update()
             if self.scene():
                 views = self.scene().views()
@@ -320,7 +321,7 @@ class ComponentGraphicsItem(QGraphicsItem):
                     if hasattr(canvas, "wires"):
                         for wire in canvas.wires:
                             if wire.start_comp is self or wire.end_comp is self:
-                                wire.update()
+                                wire.show_drag_preview()
 
         return super().itemChange(change, value)
 
