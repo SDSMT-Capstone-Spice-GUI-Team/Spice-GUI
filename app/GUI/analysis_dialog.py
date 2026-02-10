@@ -8,7 +8,10 @@ class AnalysisDialog(QDialog):
 
     # Analysis type configurations
     ANALYSIS_CONFIGS = {
-        "DC Operating Point": {"fields": [], "description": "Calculate DC operating point of the circuit"},
+        "DC Operating Point": {
+            "fields": [],
+            "description": "Calculate DC operating point of the circuit",
+        },
         "DC Sweep": {
             "fields": [
                 ("Source", "source", "text", "V1"),

@@ -141,7 +141,10 @@ def validate_component_value(value: str, component_type: str) -> tuple[bool, str
     try:
         numeric = parse_value(value)
     except (ValueError, TypeError):
-        return False, f"Invalid value '{value}'. Use a number with optional suffix (e.g. 10k, 100n, 4.7M)."
+        return (
+            False,
+            f"Invalid value '{value}'. Use a number with optional suffix (e.g. 10k, 100n, 4.7M).",
+        )
 
     if component_type in _POSITIVE_ONLY_TYPES and numeric <= 0:
         return False, f"{component_type} value must be positive (got {value})."

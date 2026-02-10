@@ -23,7 +23,15 @@ class WireGraphicsItem(QGraphicsPathItem):
     """
 
     def __init__(
-        self, start_comp, start_term, end_comp, end_term, canvas=None, algorithm="astar", layer_color=None, model=None
+        self,
+        start_comp,
+        start_term,
+        end_comp,
+        end_term,
+        canvas=None,
+        algorithm="astar",
+        layer_color=None,
+        model=None,
     ):
         super().__init__()
 
@@ -32,9 +40,11 @@ class WireGraphicsItem(QGraphicsPathItem):
             self.model = model
         else:
             self.model = WireData(
-                start_component_id=start_comp.component_id if hasattr(start_comp, "component_id") else str(start_comp),
+                start_component_id=(
+                    start_comp.component_id if hasattr(start_comp, "component_id") else str(start_comp)
+                ),
                 start_terminal=start_term,
-                end_component_id=end_comp.component_id if hasattr(end_comp, "component_id") else str(end_comp),
+                end_component_id=(end_comp.component_id if hasattr(end_comp, "component_id") else str(end_comp)),
                 end_terminal=end_term,
                 algorithm=algorithm,
             )
@@ -119,7 +129,10 @@ class WireGraphicsItem(QGraphicsPathItem):
         if self.canvas:
             # Don't exclude connected components entirely, but only clear their terminal areas
             # This prevents wires from crossing through component bodies
-            terminal_clearance = {self.start_comp.component_id, self.end_comp.component_id}
+            terminal_clearance = {
+                self.start_comp.component_id,
+                self.end_comp.component_id,
+            }
 
             # Specify the exact terminals this wire is using - these MUST be cleared for pathfinding
             active_terminals = [
@@ -208,7 +221,10 @@ class WireGraphicsItem(QGraphicsPathItem):
 
     def get_terminals(self):
         """Get both terminal identifiers for this wire"""
-        return [(self.start_comp.component_id, self.start_term), (self.end_comp.component_id, self.end_term)]
+        return [
+            (self.start_comp.component_id, self.start_term),
+            (self.end_comp.component_id, self.end_term),
+        ]
 
     def to_dict(self):
         """Serialize wire to dictionary via the model"""

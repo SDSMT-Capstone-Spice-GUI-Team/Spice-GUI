@@ -126,9 +126,7 @@ class DCSweepPlotDialog(QDialog):
             )
         else:
             first_headers = self._datasets[0][1].get("headers", [])
-            self._ax.set_xlabel(
-                first_headers[1] if len(first_headers) > 1 else "Sweep"
-            )
+            self._ax.set_xlabel(first_headers[1] if len(first_headers) > 1 else "Sweep")
 
         self._ax.set_ylabel("Voltage (V)")
         self._ax.set_title("DC Sweep")
@@ -143,9 +141,7 @@ class DCSweepPlotDialog(QDialog):
         # Update cursors
         if self._cursors is not None:
             self._cursors.remove()
-        self._cursors = MeasurementCursors(
-            self._ax, self._canvas, on_cursor_moved=self._on_cursor_moved
-        )
+        self._cursors = MeasurementCursors(self._ax, self._canvas, on_cursor_moved=self._on_cursor_moved)
         self._readout.set_cursors(self._cursors)
         if sweep_vals_first:
             self._cursors.set_data(sweep_vals_first)
@@ -155,9 +151,7 @@ class DCSweepPlotDialog(QDialog):
     def _setup_legend_toggle(self, legend):
         """Wire up click-to-toggle on legend entries."""
         self._legend_line_map = {}
-        for legend_line, legend_text in zip(
-            legend.get_lines(), legend.get_texts()
-        ):
+        for legend_line, legend_text in zip(legend.get_lines(), legend.get_texts()):
             legend_line.set_picker(5)
             label = legend_text.get_text()
             if label in self._lines:
@@ -357,9 +351,7 @@ class ACSweepPlotDialog(QDialog):
         # Update cursors on magnitude axes (shared x with phase)
         if self._cursors is not None:
             self._cursors.remove()
-        self._cursors = MeasurementCursors(
-            self._ax_mag, self._canvas, on_cursor_moved=self._on_cursor_moved
-        )
+        self._cursors = MeasurementCursors(self._ax_mag, self._canvas, on_cursor_moved=self._on_cursor_moved)
         self._readout.set_cursors(self._cursors)
         if frequencies_first:
             self._cursors.set_data(frequencies_first)
@@ -368,9 +360,7 @@ class ACSweepPlotDialog(QDialog):
 
     def _setup_legend_toggle(self, legend, ax):
         """Wire up click-to-toggle on legend entries for a given axes."""
-        for legend_line, legend_text in zip(
-            legend.get_lines(), legend.get_texts()
-        ):
+        for legend_line, legend_text in zip(legend.get_lines(), legend.get_texts()):
             legend_line.set_picker(5)
             label = legend_text.get_text()
             # Find the matching line on this axes

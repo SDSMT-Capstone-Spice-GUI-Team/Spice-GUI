@@ -57,7 +57,10 @@ class TestExportOpResults:
 
 class TestExportDcSweepResults:
     def test_basic_export(self):
-        data = {"headers": ["Index", "v-sweep", "v(1)"], "data": [[0, 0.0, 0.0], [1, 1.0, 0.5], [2, 2.0, 1.0]]}
+        data = {
+            "headers": ["Index", "v-sweep", "v(1)"],
+            "data": [[0, 0.0, 0.0], [1, 1.0, 0.5], [2, 2.0, 1.0]],
+        }
         result = export_dc_sweep_results(data)
         assert "DC Sweep" in result
         assert "v-sweep" in result
@@ -79,19 +82,31 @@ class TestExportDcSweepResults:
 
 class TestExportAcResults:
     def test_basic_export(self):
-        data = {"frequencies": [100.0, 1000.0], "magnitude": {"1": [0.5, 0.3]}, "phase": {"1": [-45.0, -90.0]}}
+        data = {
+            "frequencies": [100.0, 1000.0],
+            "magnitude": {"1": [0.5, 0.3]},
+            "phase": {"1": [-45.0, -90.0]},
+        }
         result = export_ac_results(data)
         assert "AC Sweep" in result
         assert "Frequency" in result
 
     def test_magnitude_and_phase_columns(self):
-        data = {"frequencies": [100.0], "magnitude": {"out": [0.5]}, "phase": {"out": [-45.0]}}
+        data = {
+            "frequencies": [100.0],
+            "magnitude": {"out": [0.5]},
+            "phase": {"out": [-45.0]},
+        }
         result = export_ac_results(data)
         assert "|V(out)|" in result
         assert "phase(V(out))" in result
 
     def test_multiple_nodes(self):
-        data = {"frequencies": [100.0], "magnitude": {"1": [0.5], "2": [0.3]}, "phase": {"1": [-45.0], "2": [-90.0]}}
+        data = {
+            "frequencies": [100.0],
+            "magnitude": {"1": [0.5], "2": [0.3]},
+            "phase": {"1": [-45.0], "2": [-90.0]},
+        }
         result = export_ac_results(data)
         assert "|V(1)|" in result
         assert "|V(2)|" in result

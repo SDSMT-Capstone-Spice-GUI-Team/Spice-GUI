@@ -62,7 +62,12 @@ class FileController:
     the current file path for quick-save and session restore.
     """
 
-    def __init__(self, model: Optional[CircuitModel] = None, circuit_ctrl=None, session_file: str = SESSION_FILE):
+    def __init__(
+        self,
+        model: Optional[CircuitModel] = None,
+        circuit_ctrl=None,
+        session_file: str = SESSION_FILE,
+    ):
         self.model = model or CircuitModel()
         self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
         self.current_file: Optional[Path] = None

@@ -220,7 +220,12 @@ class CircuitCanvasView(QGraphicsView):
 
         if start_comp and end_comp:
             wire = WireGraphicsItem(
-                start_comp, wire_data.start_terminal, end_comp, wire_data.end_terminal, canvas=self, model=wire_data
+                start_comp,
+                wire_data.start_terminal,
+                end_comp,
+                wire_data.end_terminal,
+                canvas=self,
+                model=wire_data,
             )
             self.scene.addItem(wire)
             self.wires.append(wire)
@@ -271,7 +276,10 @@ class CircuitCanvasView(QGraphicsView):
             self.nodes.append(node)
 
         # Rebuild terminal mapping
-        for (comp_id, term_idx), node_data in self.controller.model.terminal_to_node.items():
+        for (
+            comp_id,
+            term_idx,
+        ), node_data in self.controller.model.terminal_to_node.items():
             # Find corresponding Qt Node
             qt_node = next((n for n in self.nodes if n.matches_node_data(node_data)), None)
             if qt_node:
@@ -512,7 +520,10 @@ class CircuitCanvasView(QGraphicsView):
                                     clicked_component.component_id,
                                     target_term,
                                 )
-                                self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
+                                self.wireAdded.emit(
+                                    self.wire_start_comp.component_id,
+                                    clicked_component.component_id,
+                                )
                             else:
                                 # Fallback to old method if no controller (shouldn't happen)
                                 wire = WireItem(
@@ -526,7 +537,10 @@ class CircuitCanvasView(QGraphicsView):
                                 self.scene.addItem(wire)
                                 self.wires.append(wire)
                                 self.update_nodes_for_wire(wire)
-                                self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
+                                self.wireAdded.emit(
+                                    self.wire_start_comp.component_id,
+                                    clicked_component.component_id,
+                                )
 
                     # Clean up temporary wire line
                     if self.temp_wire_line:
@@ -598,7 +612,10 @@ class CircuitCanvasView(QGraphicsView):
             self._rubber_band.hide()
             # Map rubber band rect to scene coordinates and select enclosed items
             rb_rect = self._rubber_band.geometry()
-            scene_rect = QRectF(self.mapToScene(rb_rect.topLeft()), self.mapToScene(rb_rect.bottomRight()))
+            scene_rect = QRectF(
+                self.mapToScene(rb_rect.topLeft()),
+                self.mapToScene(rb_rect.bottomRight()),
+            )
             for item in self.scene.items(scene_rect, Qt.ItemSelectionMode.IntersectsItemShape):
                 if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem)):
                     item.setSelected(True)
@@ -982,7 +999,8 @@ class CircuitCanvasView(QGraphicsView):
                 n = len(comp_dicts)
                 w = len(wire_dicts)
                 status.showMessage(
-                    f"Copied {n} component{'s' if n != 1 else ''} and {w} wire{'s' if w != 1 else ''}", 2000
+                    f"Copied {n} component{'s' if n != 1 else ''} and {w} wire{'s' if w != 1 else ''}",
+                    2000,
                 )
         return True
 
@@ -1118,7 +1136,10 @@ class CircuitCanvasView(QGraphicsView):
                 text_height = metrics.height() * len(lines)
 
                 label_rect = QRectF(
-                    pos.x() - max_width / 2 - 2, pos.y() - text_height - 2, max_width + 4, text_height + 4
+                    pos.x() - max_width / 2 - 2,
+                    pos.y() - text_height - 2,
+                    max_width + 4,
+                    text_height + 4,
                 )
                 painter.drawRect(label_rect)
 
@@ -1431,7 +1452,12 @@ class CircuitCanvasView(QGraphicsView):
             for i in range(len(comp.terminals)):
                 term_pos = comp.get_terminal_pos(i)
                 terminal_circle = self.scene.addEllipse(
-                    term_pos.x() - 5, term_pos.y() - 5, 10, 10, terminal_pen, terminal_brush
+                    term_pos.x() - 5,
+                    term_pos.y() - 5,
+                    10,
+                    10,
+                    terminal_pen,
+                    terminal_brush,
                 )
                 terminal_circle.setZValue(100)
                 self.obstacle_boundary_items.append(terminal_circle)
@@ -1445,7 +1471,12 @@ class CircuitCanvasView(QGraphicsView):
 
         # Full boundary legend (red solid frame)
         full_legend_rect = self.scene.addRect(
-            legend_x, legend_y, 30, 15, theme_manager.pen("obstacle_full"), QBrush(Qt.BrushStyle.NoBrush)
+            legend_x,
+            legend_y,
+            30,
+            15,
+            theme_manager.pen("obstacle_full"),
+            QBrush(Qt.BrushStyle.NoBrush),
         )
         full_legend_rect.setZValue(1000)
         self.obstacle_boundary_items.append(full_legend_rect)
@@ -1458,7 +1489,12 @@ class CircuitCanvasView(QGraphicsView):
 
         # Inset boundary legend (blue dotted frame)
         inset_legend_rect = self.scene.addRect(
-            legend_x, legend_y + 25, 30, 15, theme_manager.pen("obstacle_inset"), QBrush(Qt.BrushStyle.NoBrush)
+            legend_x,
+            legend_y + 25,
+            30,
+            15,
+            theme_manager.pen("obstacle_inset"),
+            QBrush(Qt.BrushStyle.NoBrush),
         )
         inset_legend_rect.setZValue(1000)
         self.obstacle_boundary_items.append(inset_legend_rect)
@@ -1666,7 +1702,13 @@ class CircuitCanvasView(QGraphicsView):
         for wire_data in data["wires"]:
             start_comp = self.components[wire_data["start_comp"]]
             end_comp = self.components[wire_data["end_comp"]]
-            wire = WireItem(start_comp, wire_data["start_term"], end_comp, wire_data["end_term"], canvas=self)
+            wire = WireItem(
+                start_comp,
+                wire_data["start_term"],
+                end_comp,
+                wire_data["end_term"],
+                canvas=self,
+            )
             self.scene.addItem(wire)
             self.wires.append(wire)
 

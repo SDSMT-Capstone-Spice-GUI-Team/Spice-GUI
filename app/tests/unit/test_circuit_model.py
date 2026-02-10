@@ -194,8 +194,20 @@ class TestSerialization:
     def test_from_dict_restores_state(self):
         data = {
             "components": [
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 100.0, "y": 200.0}, "rotation": 0},
-                {"type": "VoltageSource", "id": "V1", "value": "5V", "pos": {"x": 50.0, "y": 50.0}, "rotation": 0},
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 100.0, "y": 200.0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "VoltageSource",
+                    "id": "V1",
+                    "value": "5V",
+                    "pos": {"x": 50.0, "y": 50.0},
+                    "rotation": 0,
+                },
             ],
             "wires": [
                 {"start_comp": "R1", "start_term": 1, "end_comp": "V1", "end_term": 0},

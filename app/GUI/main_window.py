@@ -944,7 +944,8 @@ class MainWindow(QMainWindow):
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(
-                        f"Analysis: DC Sweep (V: {params['min']}V to {params['max']}V, step {params['step']}V)", 3000
+                        f"Analysis: DC Sweep (V: {params['min']}V to {params['max']}V, step {params['step']}V)",
+                        3000,
                     )
             else:
                 QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
@@ -981,7 +982,8 @@ class MainWindow(QMainWindow):
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(
-                        f"Analysis: Transient (duration: {params['duration']}s, step: {params['step']}s)", 3000
+                        f"Analysis: Transient (duration: {params['duration']}s, step: {params['step']}s)",
+                        3000,
                     )
             else:
                 QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")

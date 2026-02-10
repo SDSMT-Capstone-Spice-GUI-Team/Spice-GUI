@@ -53,7 +53,10 @@ class TestGridConversion:
 
     def test_round_trip(self, pathfinder):
         for gx, gy in [(0, 0), (5, -3), (-10, 7)]:
-            assert pathfinder._pos_to_grid(pathfinder._grid_to_pos((gx, gy))) == (gx, gy)
+            assert pathfinder._pos_to_grid(pathfinder._grid_to_pos((gx, gy))) == (
+                gx,
+                gy,
+            )
 
     def test_pos_to_grid_rounds(self, pathfinder):
         """Positions that aren't exactly on grid should round to nearest cell."""

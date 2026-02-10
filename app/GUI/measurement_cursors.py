@@ -124,14 +124,22 @@ class MeasurementCursors:
         if self._line_a is not None:
             self._line_a.remove()
         self._line_a = self._ax.axvline(
-            self._a_x, color=self.CURSOR_A_COLOR, linewidth=1.5, linestyle="--", label="_cursor_a"
+            self._a_x,
+            color=self.CURSOR_A_COLOR,
+            linewidth=1.5,
+            linestyle="--",
+            label="_cursor_a",
         )
 
     def _draw_cursor_b(self):
         if self._line_b is not None:
             self._line_b.remove()
         self._line_b = self._ax.axvline(
-            self._b_x, color=self.CURSOR_B_COLOR, linewidth=1.5, linestyle="--", label="_cursor_b"
+            self._b_x,
+            color=self.CURSOR_B_COLOR,
+            linewidth=1.5,
+            linestyle="--",
+            label="_cursor_b",
         )
 
     def _notify(self):
