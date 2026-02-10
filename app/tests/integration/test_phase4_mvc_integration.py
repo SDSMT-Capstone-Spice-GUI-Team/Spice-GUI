@@ -4,15 +4,17 @@ Integration tests for Phase 4: Full MVC Flow
 Tests the complete flow from MainWindow through controllers to model,
 verifying that the MVC architecture works end-to-end.
 """
-import pytest
+
 import tempfile
 from pathlib import Path
+
+import pytest
+from controllers.circuit_controller import CircuitController
+from controllers.file_controller import FileController
+from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
-from controllers.file_controller import FileController
-from controllers.simulation_controller import SimulationController
-from controllers.circuit_controller import CircuitController
 
 
 class TestMVCFileOperations:
@@ -33,7 +35,7 @@ class TestMVCFileOperations:
         file_ctrl = FileController(model)
 
         # Save circuit
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = Path(f.name)
 
         try:
@@ -52,9 +54,9 @@ class TestMVCFileOperations:
             # Verify data was restored
             assert len(new_model.components) == len(model.components)
             assert len(new_model.wires) == len(model.wires)
-            assert 'V1' in new_model.components
-            assert 'R1' in new_model.components
-            assert 'GND1' in new_model.components
+            assert "V1" in new_model.components
+            assert "R1" in new_model.components
+            assert "GND1" in new_model.components
 
         finally:
             # Cleanup
@@ -65,9 +67,7 @@ class TestMVCFileOperations:
         """Test that new circuit operation clears model"""
         # Create model with data
         model = CircuitModel()
-        model.components = {
-            'R1': ComponentData('R1', 'Resistor', '1k', (0, 0))
-        }
+        model.components = {"R1": ComponentData("R1", "Resistor", "1k", (0, 0))}
 
         # Create FileController
         file_ctrl = FileController(model)
@@ -84,17 +84,17 @@ class TestMVCFileOperations:
         """Test that session file is saved and restored"""
         # Create model and controller
         model = CircuitModel()
-        file_ctrl = FileController(model, session_file='test_session.txt')
+        file_ctrl = FileController(model, session_file="test_session.txt")
 
         # Save circuit to trigger session save
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = Path(f.name)
 
         try:
             file_ctrl.save_circuit(temp_path)
 
             # Create new controller and check session
-            new_file_ctrl = FileController(CircuitModel(), session_file='test_session.txt')
+            new_file_ctrl = FileController(CircuitModel(), session_file="test_session.txt")
             last_file = new_file_ctrl.load_last_session()
 
             # Verify session file returns correct path
@@ -104,7 +104,7 @@ class TestMVCFileOperations:
             # Cleanup
             if temp_path.exists():
                 temp_path.unlink()
-            session_path = Path('test_session.txt')
+            session_path = Path("test_session.txt")
             if session_path.exists():
                 session_path.unlink()
 
@@ -122,7 +122,7 @@ class TestMVCSimulationFlow:
         model.wires = wires
         model.nodes = nodes
         model.terminal_to_node = terminal_to_node
-        model.analysis_type = 'DC Operating Point'
+        model.analysis_type = "DC Operating Point"
         model.analysis_params = {}
 
         # Create SimulationController
@@ -132,9 +132,9 @@ class TestMVCSimulationFlow:
         netlist = sim_ctrl.generate_netlist()
 
         # Verify netlist contains expected components
-        assert 'V1' in netlist
-        assert 'R1' in netlist
-        assert 'GND1' in netlist or '.op' in netlist
+        assert "V1" in netlist
+        assert "R1" in netlist
+        assert "GND1" in netlist or ".op" in netlist
 
     def test_analysis_type_update(self):
         """Test updating analysis type through controller"""
@@ -142,12 +142,12 @@ class TestMVCSimulationFlow:
         sim_ctrl = SimulationController(model)
 
         # Change analysis type
-        sim_ctrl.set_analysis('Transient', {'duration': '1ms', 'step': '1us'})
+        sim_ctrl.set_analysis("Transient", {"duration": "1ms", "step": "1us"})
 
         # Verify model was updated
-        assert model.analysis_type == 'Transient'
-        assert model.analysis_params['duration'] == '1ms'
-        assert model.analysis_params['step'] == '1us'
+        assert model.analysis_type == "Transient"
+        assert model.analysis_params["duration"] == "1ms"
+        assert model.analysis_params["step"] == "1us"
 
     def test_multiple_analysis_types(self):
         """Test switching between different analysis types"""
@@ -156,10 +156,10 @@ class TestMVCSimulationFlow:
 
         # Test each analysis type
         analyses = [
-            ('DC Operating Point', {}),
-            ('DC Sweep', {'min': 0, 'max': 10, 'step': 1}),
-            ('AC Sweep', {'fStart': 1, 'fStop': 1000, 'points': 10}),
-            ('Transient', {'duration': '10ms', 'step': '10us'})
+            ("DC Operating Point", {}),
+            ("DC Sweep", {"min": 0, "max": 10, "step": 1}),
+            ("AC Sweep", {"fStart": 1, "fStop": 1000, "points": 10}),
+            ("Transient", {"duration": "10ms", "step": "10us"}),
         ]
 
         for analysis_type, params in analyses:
@@ -177,39 +177,35 @@ class TestMVCCircuitOperations:
         circuit_ctrl = CircuitController(model)
 
         # Add component (controller generates ID and creates ComponentData)
-        comp = circuit_ctrl.add_component('Resistor', (100, 200))
+        comp = circuit_ctrl.add_component("Resistor", (100, 200))
 
         # Verify component was added to model
         assert comp.component_id in model.components
-        assert model.components[comp.component_id].component_type == 'Resistor'
+        assert model.components[comp.component_id].component_type == "Resistor"
 
     def test_remove_component_through_controller(self):
         """Test removing component through CircuitController"""
         model = CircuitModel()
-        model.components = {
-            'R1': ComponentData('R1', 'Resistor', '1k', (0, 0))
-        }
+        model.components = {"R1": ComponentData("R1", "Resistor", "1k", (0, 0))}
         circuit_ctrl = CircuitController(model)
 
         # Remove component
-        circuit_ctrl.remove_component('R1')
+        circuit_ctrl.remove_component("R1")
 
         # Verify component was removed
-        assert 'R1' not in model.components
+        assert "R1" not in model.components
 
     def test_update_component_through_controller(self):
         """Test updating component through CircuitController"""
         model = CircuitModel()
-        model.components = {
-            'R1': ComponentData('R1', 'Resistor', '1k', (0, 0))
-        }
+        model.components = {"R1": ComponentData("R1", "Resistor", "1k", (0, 0))}
         CircuitController(model)
 
         # Update component
-        model.components['R1'].value = '2k'
+        model.components["R1"].value = "2k"
 
         # Verify update
-        assert model.components['R1'].value == '2k'
+        assert model.components["R1"].value == "2k"
 
 
 class TestMVCDataFlow:
@@ -219,9 +215,7 @@ class TestMVCDataFlow:
         """Test that model can exist independently of controllers"""
         # Create model
         model = CircuitModel()
-        model.components = {
-            'R1': ComponentData('R1', 'Resistor', '1k', (0, 0))
-        }
+        model.components = {"R1": ComponentData("R1", "Resistor", "1k", (0, 0))}
 
         # Model should work without controllers
         assert len(model.components) == 1
@@ -242,7 +236,7 @@ class TestMVCDataFlow:
         assert circuit_ctrl.model is model
 
         # Changes through one controller affect others
-        comp = circuit_ctrl.add_component('Resistor', (0, 0))
+        comp = circuit_ctrl.add_component("Resistor", (0, 0))
         assert comp.component_id in file_ctrl.model.components
         assert comp.component_id in sim_ctrl.model.components
 
@@ -256,16 +250,16 @@ class TestMVCDataFlow:
         model.wires = wires
         model.nodes = nodes
         model.terminal_to_node = terminal_to_node
-        model.analysis_type = 'DC Operating Point'
+        model.analysis_type = "DC Operating Point"
 
         # Convert to dict
         data = model.to_dict()
 
         # Verify all data present
-        assert 'components' in data
-        assert 'wires' in data
-        assert len(data['components']) == 4  # V1, R1, R2, GND1
-        assert len(data['wires']) == 4
+        assert "components" in data
+        assert "wires" in data
+        assert len(data["components"]) == 4  # V1, R1, R2, GND1
+        assert len(data["wires"]) == 4
 
     def test_model_from_dict_restores_all_data(self, resistor_divider_circuit):
         """Test that model deserialization restores all data"""
@@ -295,7 +289,7 @@ class TestMVCErrorPropagation:
 
         # Attempt to load non-existent file
         with pytest.raises((OSError, FileNotFoundError)):
-            file_ctrl.load_circuit(Path('/nonexistent/file.json'))
+            file_ctrl.load_circuit(Path("/nonexistent/file.json"))
 
     def test_invalid_circuit_data_rejected(self):
         """Test that invalid circuit data is rejected"""
@@ -303,7 +297,7 @@ class TestMVCErrorPropagation:
         file_ctrl = FileController(model)
 
         # Create invalid data file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write('{"invalid": "data"}')
             temp_path = Path(f.name)
 
@@ -319,10 +313,8 @@ class TestMVCErrorPropagation:
         """Test that simulation validation errors are captured"""
         # Create invalid circuit (no ground)
         model = CircuitModel()
-        model.components = {
-            'R1': ComponentData('R1', 'Resistor', '1k', (0, 0))
-        }
-        model.analysis_type = 'DC Operating Point'
+        model.components = {"R1": ComponentData("R1", "Resistor", "1k", (0, 0))}
+        model.analysis_type = "DC Operating Point"
 
         sim_ctrl = SimulationController(model)
 
@@ -339,26 +331,24 @@ class TestMVCBackwardCompatibility:
     def test_old_imports_still_work(self):
         """Test that old import names still work after Phase 4"""
         # These should all work due to backward compatibility
-        from GUI import CircuitCanvas, WireItem
-
         # Old names should map to new classes
-        from GUI import CircuitCanvasView, WireGraphicsItem
+        from GUI import CircuitCanvas, CircuitCanvasView, WireGraphicsItem, WireItem
 
         assert CircuitCanvas is CircuitCanvasView
         assert WireItem is WireGraphicsItem
 
     def test_phase3_models_work_with_phase4_controllers(self):
         """Test that Phase 3 models work with Phase 4 controllers"""
-        from models.component import ComponentData
         from controllers.file_controller import FileController
+        from models.component import ComponentData
 
         # Create Phase 3 style data
-        comp = ComponentData('R1', 'Resistor', '1k', (0, 0))
-        wire = WireData('R1', 0, 'R2', 0)
+        comp = ComponentData("R1", "Resistor", "1k", (0, 0))
+        wire = WireData("R1", 0, "R2", 0)
 
         # Should work with Phase 4 controllers
         model = CircuitModel()
-        model.components = {'R1': comp}
+        model.components = {"R1": comp}
         model.wires = [wire]
 
         FileController(model)
@@ -384,7 +374,7 @@ class TestMVCCompleteWorkflow:
 
         # 2. Save through FileController
         file_ctrl = FileController(model)
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = Path(f.name)
 
         try:
@@ -401,8 +391,8 @@ class TestMVCCompleteWorkflow:
 
             # 5. Verify workflow succeeded
             assert len(new_model.components) == 3
-            assert 'V1' in netlist
-            assert 'R1' in netlist
+            assert "V1" in netlist
+            assert "R1" in netlist
 
         finally:
             if temp_path.exists():
@@ -414,18 +404,18 @@ class TestMVCCompleteWorkflow:
         model = CircuitModel()
         circuit_ctrl = CircuitController(model)
 
-        comp1 = circuit_ctrl.add_component('Resistor', (0, 0))
+        comp1 = circuit_ctrl.add_component("Resistor", (0, 0))
 
         # 2. Edit component
-        model.components[comp1.component_id].value = '2k'
+        model.components[comp1.component_id].value = "2k"
 
         # 3. Add another component
-        comp2 = circuit_ctrl.add_component('Resistor', (100, 0))
-        model.components[comp2.component_id].value = '3k'
+        comp2 = circuit_ctrl.add_component("Resistor", (100, 0))
+        model.components[comp2.component_id].value = "3k"
 
         # 4. Save
         file_ctrl = FileController(model)
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = Path(f.name)
 
         try:
@@ -437,8 +427,8 @@ class TestMVCCompleteWorkflow:
             new_file_ctrl.load_circuit(temp_path)
 
             assert len(new_model.components) == 2
-            assert new_model.components[comp1.component_id].value == '2k'
-            assert new_model.components[comp2.component_id].value == '3k'
+            assert new_model.components[comp1.component_id].value == "2k"
+            assert new_model.components[comp2.component_id].value == "3k"
 
         finally:
             if temp_path.exists():
