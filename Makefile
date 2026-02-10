@@ -1,4 +1,4 @@
-.PHONY: help test lint format check preflight install-dev install-hooks
+.PHONY: help test lint format format-check check preflight install-dev install-hooks
 
 help:  ## Show this help message
 	@echo 'Usage: make [target]'
@@ -9,15 +9,24 @@ help:  ## Show this help message
 test:  ## Run pytest test suite
 	cd app && python -m pytest tests/ -v --tb=short
 
-lint:  ## Run linting checks (ruff + black --check + isort --check)
+lint:  ## Run linting checks (ruff + isort + ruff-format + black)
 	ruff check app/
-	black --check --line-length=120 app/
 	isort --check-only --profile=black --line-length=120 app/
+	ruff format --check app/
+	black --check --line-length=120 app/
 
-format:  ## Auto-format code (black + isort + ruff --fix)
-	black --line-length=120 app/
-	isort --profile=black --line-length=120 app/
+format:  ## Auto-format code (ruff --fix + isort + ruff format + black)
 	ruff check --fix app/
+	isort --profile=black --line-length=120 app/
+	ruff format app/
+	black --line-length=120 app/
+
+format-check:  ## Check formatting without modifying files
+	@isort --check-only --profile=black --line-length=120 app/ && \
+		ruff format --check app/ && \
+		black --check --line-length=120 app/ && \
+		echo "✓ All files correctly formatted" || \
+		(echo "⚠️  Formatting issues found. Run 'make format' to fix." && false)
 
 check:  ## Run all checks (lint + test)
 	@echo "Running linting checks..."
