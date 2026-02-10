@@ -32,7 +32,7 @@ from .component_palette import ComponentPalette
 from .keybindings import KeybindingsRegistry
 from .properties_panel import PropertiesPanel
 from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
-from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
+from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, DarkTheme, LightTheme, theme_manager
 from .waveform_dialog import WaveformDialog
 
 logger = logging.getLogger(__name__)
@@ -358,6 +358,25 @@ class MainWindow(QMainWindow):
         self.show_nodes_action.setChecked(True)
         self.show_nodes_action.triggered.connect(self.toggle_node_labels)
         view_menu.addAction(self.show_nodes_action)
+
+        view_menu.addSeparator()
+
+        # Theme submenu
+        theme_menu = view_menu.addMenu("&Theme")
+        self.light_theme_action = QAction("&Light", self)
+        self.light_theme_action.setCheckable(True)
+        self.light_theme_action.setChecked(True)
+        self.light_theme_action.triggered.connect(lambda: self._set_theme("light"))
+        theme_menu.addAction(self.light_theme_action)
+
+        self.dark_theme_action = QAction("&Dark", self)
+        self.dark_theme_action.setCheckable(True)
+        self.dark_theme_action.triggered.connect(lambda: self._set_theme("dark"))
+        theme_menu.addAction(self.dark_theme_action)
+
+        self.theme_group = QActionGroup(self)
+        self.theme_group.addAction(self.light_theme_action)
+        self.theme_group.addAction(self.dark_theme_action)
 
         view_menu.addSeparator()
 
@@ -1037,6 +1056,52 @@ class MainWindow(QMainWindow):
 
     # View Operations
 
+    def _set_theme(self, theme_name: str):
+        """Switch the application theme."""
+        if theme_name == "dark":
+            theme_manager.set_theme(DarkTheme())
+            self.dark_theme_action.setChecked(True)
+        else:
+            theme_manager.set_theme(LightTheme())
+            self.light_theme_action.setChecked(True)
+        self._apply_theme()
+
+    def _apply_theme(self):
+        """Apply the current theme to all visual elements."""
+        is_dark = theme_manager.current_theme.name == "Dark Theme"
+
+        # Apply global widget stylesheet for dark mode
+        if is_dark:
+            self.setStyleSheet("""
+                QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }
+                QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }
+                QMenuBar::item:selected { background-color: #3D3D3D; }
+                QMenu { background-color: #2D2D2D; color: #D4D4D4; }
+                QMenu::item:selected { background-color: #3D3D3D; }
+                QLabel { color: #D4D4D4; }
+                QPushButton {
+                    background-color: #3D3D3D; color: #D4D4D4;
+                    border: 1px solid #555555; padding: 4px 12px; border-radius: 3px;
+                }
+                QPushButton:hover { background-color: #4D4D4D; }
+                QTextEdit, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+                    background-color: #2D2D2D; color: #D4D4D4;
+                    border: 1px solid #555555;
+                }
+                QSplitter::handle { background-color: #3D3D3D; }
+                QScrollBar { background-color: #2D2D2D; }
+                QScrollBar::handle { background-color: #555555; }
+                QGroupBox { color: #D4D4D4; border: 1px solid #555555; }
+                QTableWidget { background-color: #2D2D2D; color: #D4D4D4;
+                    gridline-color: #555555; }
+                QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }
+            """)
+        else:
+            self.setStyleSheet("")
+
+        # Refresh canvas (grid + components)
+        self.canvas.refresh_theme()
+
     def toggle_component_labels(self, checked):
         """Toggle component label visibility"""
         self.canvas.show_component_labels = checked
@@ -1226,6 +1291,7 @@ class MainWindow(QMainWindow):
             settings.setValue("autosave/interval", 60)
         if settings.value("autosave/enabled") is None:
             settings.setValue("autosave/enabled", True)
+        settings.setValue("view/theme", theme_manager.current_theme.name)
 
     def _restore_settings(self):
         """Restore user preferences from QSettings"""
@@ -1273,6 +1339,10 @@ class MainWindow(QMainWindow):
             checked = show_nodes == "true" or show_nodes is True
             self.canvas.show_node_labels = checked
             self.show_nodes_action.setChecked(checked)
+
+        saved_theme = settings.value("view/theme")
+        if saved_theme == "Dark Theme":
+            self._set_theme("dark")
 
     def closeEvent(self, event):
         """Save settings before closing"""

@@ -1,7 +1,7 @@
 import logging
 
 from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QAction, QBrush, QPainter
+from PyQt6.QtGui import QAction, QBrush, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsLineItem,
     QGraphicsScene,
@@ -321,6 +321,30 @@ class CircuitCanvasView(QGraphicsView):
     # def views(self) -> list | None:
     #     views = super().views() if super().views() else None
     #     return views
+
+    def refresh_theme(self):
+        """Redraw grid and repaint all items to reflect the current theme."""
+        if self.scene is None:
+            return
+        # Set scene background
+        bg = theme_manager.color("background_primary")
+        self.scene.setBackgroundBrush(QBrush(bg))
+
+        # Remove old grid items and redraw
+        for item in self._grid_items:
+            self.scene.removeItem(item)
+        self._grid_items.clear()
+        self.draw_grid()
+
+        # Update all wire pens with current theme color
+        default_wire_color = theme_manager.color("wire_default")
+        for wire in self.wires:
+            wire.layer_color = default_wire_color
+            if not wire.isSelected():
+                wire.setPen(QPen(default_wire_color, 2))
+
+        # Force full repaint of all items (components pick up theme in paint())
+        self.scene.update()
 
     def draw_grid(self):
         """Draw background grid with major grid lines labeled with position values"""

@@ -46,6 +46,7 @@ from .constants import (
     ZOOM_MAX,
     ZOOM_MIN,
 )
+from .dark_theme import DarkTheme
 from .light_theme import LightTheme
 
 # Theme system
@@ -78,4 +79,5 @@ __all__ = [
     "ThemeManager",
     "theme_manager",
     "LightTheme",
+    "DarkTheme",
 ]

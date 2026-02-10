@@ -27,7 +27,7 @@ from simulation.fft_analysis import analyze_signal_spectrum
 
 from .format_utils import format_value, parse_value
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
-from .styles import SCROLL_LOAD_COUNT
+from .styles import SCROLL_LOAD_COUNT, theme_manager
 
 matplotlib.use("QtAgg")
 
@@ -36,11 +36,29 @@ cmap = plt.get_cmap("Paired")
 HIGHLIGHT_COLORS = [QColor.fromRgbF(*cmap(i)) for i in range(12)]
 
 
+def _apply_mpl_theme(fig):
+    """Apply the current application theme colors to a matplotlib figure."""
+    is_dark = theme_manager.current_theme.name == "Dark Theme"
+    if is_dark:
+        bg = "#1E1E1E"
+        fg = "#D4D4D4"
+        fig.patch.set_facecolor(bg)
+        for ax in fig.axes:
+            ax.set_facecolor("#2D2D2D")
+            ax.tick_params(colors=fg)
+            ax.xaxis.label.set_color(fg)
+            ax.yaxis.label.set_color(fg)
+            ax.title.set_color(fg)
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#555555")
+
+
 class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         super(MplCanvas, self).__init__(fig)
+        _apply_mpl_theme(fig)
 
 
 class WaveformDialog(QDialog):
@@ -534,6 +552,7 @@ class WaveformDialog(QDialog):
         self.canvas.axes.set_ylabel("Voltage (V)")
         self.canvas.axes.legend(fontsize="small")
         self.canvas.axes.grid(True)
+        _apply_mpl_theme(self.canvas.figure)
         self.canvas.figure.tight_layout()
 
         # Set up measurement cursors (re-attach after axes clear)
@@ -674,6 +693,7 @@ class FFTAnalysisDialog(QDialog):
             self.mag_canvas.axes.set_xlabel("Frequency (Hz)")
             self.mag_canvas.axes.set_ylabel("Magnitude (dB)")
             self.mag_canvas.axes.grid(True, which="both", alpha=0.3)
+            _apply_mpl_theme(self.mag_canvas.figure)
             self.mag_canvas.figure.tight_layout()
             self.mag_canvas.draw()
 
@@ -684,6 +704,7 @@ class FFTAnalysisDialog(QDialog):
             self.phase_canvas.axes.set_xlabel("Frequency (Hz)")
             self.phase_canvas.axes.set_ylabel("Phase (degrees)")
             self.phase_canvas.axes.grid(True, which="both", alpha=0.3)
+            _apply_mpl_theme(self.phase_canvas.figure)
             self.phase_canvas.figure.tight_layout()
             self.phase_canvas.draw()
 

@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # path_finding imported lazily in update_position() for faster startup
 from models.wire import WireData
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QPainterPath, QPainterPathStroker, QPen
+from PyQt6.QtGui import QPainterPath, QPainterPathStroker, QPen
 from PyQt6.QtWidgets import QGraphicsPathItem
 
 from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, theme_manager
@@ -60,7 +60,7 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         # Algorithm layer support
         self.algorithm = algorithm  # Which algorithm generated this wire
-        self.layer_color = layer_color if layer_color else QColor(Qt.GlobalColor.black)
+        self.layer_color = layer_color if layer_color else theme_manager.color("wire_default")
 
         self.waypoints = []  # List of QPointF waypoints (computed during routing)
 
