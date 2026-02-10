@@ -3,7 +3,8 @@ import os
 import sys
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
-from PyQt6.QtGui import QBrush, QColor, QPen  # QPainterPath imported locally where needed
+from PyQt6.QtGui import QBrush  # QPainterPath imported locally where needed
+from PyQt6.QtGui import QColor, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

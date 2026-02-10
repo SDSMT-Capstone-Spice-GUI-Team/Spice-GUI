@@ -29,11 +29,11 @@ from PyQt6.QtWidgets import (
 )
 
 from .analysis_dialog import AnalysisDialog
-from .parameter_sweep_dialog import ParameterSweepDialog
-from .parameter_sweep_plot_dialog import ParameterSweepPlotDialog
 from .circuit_canvas import CircuitCanvasView
 from .component_palette import ComponentPalette
 from .keybindings import KeybindingsRegistry
+from .parameter_sweep_dialog import ParameterSweepDialog
+from .parameter_sweep_plot_dialog import ParameterSweepPlotDialog
 from .properties_panel import PropertiesPanel
 from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
 from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
@@ -430,8 +430,7 @@ class MainWindow(QMainWindow):
         sweep_action = QAction("&Parameter Sweep...", self)
         sweep_action.setCheckable(True)
         sweep_action.setToolTip(
-            "Sweep a component parameter across a range of values "
-            "and overlay results from each step"
+            "Sweep a component parameter across a range of values and overlay results from each step"
         )
         sweep_action.triggered.connect(self.set_analysis_parameter_sweep)
         analysis_menu.addAction(sweep_action)
@@ -719,7 +718,10 @@ class MainWindow(QMainWindow):
 
         progress = QProgressDialog(
             f"Running parameter sweep on {component_id}...",
-            "Cancel", 0, num_steps, self,
+            "Cancel",
+            0,
+            num_steps,
+            self,
         )
         progress.setWindowTitle("Parameter Sweep")
         progress.setWindowModality(Qt.WindowModality.WindowModal)
@@ -727,14 +729,13 @@ class MainWindow(QMainWindow):
 
         def on_progress(step, total):
             progress.setValue(step)
-            progress.setLabelText(
-                f"Running step {step + 1} of {total}..."
-            )
+            progress.setLabelText(f"Running step {step + 1} of {total}...")
             QApplication.processEvents()
             return not progress.wasCanceled()
 
         result = self.simulation_ctrl.run_parameter_sweep(
-            sweep_config, progress_callback=on_progress,
+            sweep_config,
+            progress_callback=on_progress,
         )
         progress.setValue(num_steps)
         progress.close()
@@ -743,9 +744,7 @@ class MainWindow(QMainWindow):
         if result.data:
             from .format_utils import format_value
 
-            result.data["sweep_labels"] = [
-                format_value(v).strip() for v in result.data.get("sweep_values", [])
-            ]
+            result.data["sweep_labels"] = [format_value(v).strip() for v in result.data.get("sweep_values", [])]
 
         return result
 
@@ -1105,7 +1104,8 @@ class MainWindow(QMainWindow):
         """Set analysis type to Parameter Sweep with configuration dialog"""
         if not self.model.components:
             QMessageBox.warning(
-                self, "No Components",
+                self,
+                "No Components",
                 "Add components to the circuit before configuring a parameter sweep.",
             )
             self.op_action.setChecked(True)
@@ -1125,9 +1125,9 @@ class MainWindow(QMainWindow):
                     )
             else:
                 QMessageBox.warning(
-                    self, "Invalid Parameters",
-                    "Please enter valid sweep parameters. "
-                    "Start and stop values must be different.",
+                    self,
+                    "Invalid Parameters",
+                    "Please enter valid sweep parameters. Start and stop values must be different.",
                 )
                 self.op_action.setChecked(True)
         else:

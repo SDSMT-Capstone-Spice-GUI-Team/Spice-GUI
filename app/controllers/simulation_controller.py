@@ -275,9 +275,7 @@ class SimulationController:
             )
 
         # Calculate sweep values (linear spacing)
-        sweep_values = [
-            start + (stop - start) * i / (num_steps - 1) for i in range(num_steps)
-        ]
+        sweep_values = [start + (stop - start) * i / (num_steps - 1) for i in range(num_steps)]
 
         # Run sweep
         step_results = []
@@ -295,16 +293,12 @@ class SimulationController:
 
                 # Generate netlist
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                wrdata_filepath = os.path.join(
-                    self.runner.output_dir, f"wrdata_sweep_{i}_{timestamp}.txt"
-                )
+                wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_sweep_{i}_{timestamp}.txt")
 
                 try:
                     netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
                 except (ValueError, KeyError, TypeError) as e:
-                    step_results.append(
-                        SimulationResult(success=False, error=f"Netlist generation failed: {e}")
-                    )
+                    step_results.append(SimulationResult(success=False, error=f"Netlist generation failed: {e}"))
                     errors.append(f"Step {i + 1} ({comp.value}): netlist failed: {e}")
                     continue
 
