@@ -191,12 +191,15 @@ Before starting implementation on any issue, verify:
    - `pytest: command not found`: Run `pip install -r app/requirements-dev.txt`
    - Pre-2026-02-09: qtbot errors are known issue, ignore
 
-9. Commit with descriptive message, push branch to remote
-11. Create PR targeting `main` (or push directly for small fixes)
-12. Close the GitHub issue (reference the commit/PR)
-13. Move issue to **In Review** on the board
-14. Log hours: comment `⏱️ Xh - description` on issue, update Hours field
-15. Pick next Ready item → repeat from step 2
+9. Commit changes
+10. Fetch and rebase on latest `origin/main` — resolves merge conflicts from PRs merged mid-session
+11. Re-run tests and linting after rebase to catch conflicts (e.g. duplicate imports from merged PRs)
+12. Push branch to remote
+13. Create PR targeting `main` (or push directly for small fixes)
+14. Close the GitHub issue (reference the commit/PR)
+15. Move issue to **In Review** on the board
+16. Log hours: comment `⏱️ Xh - description` on issue, update Hours field
+17. Pick next Ready item → repeat from step 2
 
 ### Hours Estimates
 - Small fix/tweak: **0.5h**
@@ -207,6 +210,14 @@ Before starting implementation on any issue, verify:
 - **Blocked**: Move issue to Blocked with explanatory comment. Pick next Ready item.
 - **Ready queue empty**: **Stop and notify user.** Do NOT pull from Backlog.
 
+### Session Limits
+- **Soft limit**: ~3–4 issues per session. Context accumulates (file reads, tool results, conversation history) and subagents inherit the full parent context, risking "prompt too long" errors.
+- **Mitigations for long sessions**:
+  - Use `limit`/`head_limit` on Read/Grep to keep tool results compact
+  - Pass specific file paths and facts to subagents rather than relying on inherited context
+  - Prefer `haiku` model for simple subagent tasks (search, small checks)
+  - If a subagent fails with "prompt too long", stop the work loop and notify the user
+
 ### Edge Cases
 | Scenario | Action |
 |----------|--------|
@@ -214,6 +225,7 @@ Before starting implementation on any issue, verify:
 | Vague requirements | Make judgment call, note assumptions in commit/issue comment |
 | Conflicting issues | Move to Blocked with explanation, pick next Ready item |
 | Stale Ready item (already fixed/closed) | Verify via issue comments/state, move to In Review/Done, pick next Ready item |
+| Context window full / subagent "prompt too long" | Stop work loop, notify user to start fresh session |
 
 ### Agent Feedback (required on every issue/PR)
 
