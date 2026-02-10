@@ -14,7 +14,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout
+from PyQt6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QPushButton, QTextEdit, QVBoxLayout
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .styles import theme_manager
@@ -238,6 +238,7 @@ class ACSweepPlotDialog(QDialog):
         self._datasets = []
         self._lines = {}
         self._legend_line_map = {}
+        self._marker_artists = []  # Matplotlib artists for marker overlays
 
         main_layout = QHBoxLayout(self)
 
@@ -245,10 +246,15 @@ class ACSweepPlotDialog(QDialog):
         plot_layout = QVBoxLayout()
 
         toolbar = QHBoxLayout()
+        self._markers_cb = QCheckBox("Show Markers")
+        self._markers_cb.setChecked(True)
+        self._markers_cb.setToolTip("Show -3dB cutoff, bandwidth, gain/phase margin markers")
+        self._markers_cb.toggled.connect(self._toggle_markers)
+        toolbar.addWidget(self._markers_cb)
+        toolbar.addStretch()
         clear_btn = QPushButton("Clear All")
         clear_btn.setToolTip("Remove all overlaid results and clear the plot")
         clear_btn.clicked.connect(self.clear_all)
-        toolbar.addStretch()
         toolbar.addWidget(clear_btn)
         plot_layout.addLayout(toolbar)
 
@@ -257,9 +263,20 @@ class ACSweepPlotDialog(QDialog):
         plot_layout.addWidget(self._canvas)
         main_layout.addLayout(plot_layout, 3)
 
-        # Right: cursor readout
+        # Right: cursor readout + marker summary
+        right_layout = QVBoxLayout()
         self._readout = CursorReadoutPanel()
-        main_layout.addWidget(self._readout, 1)
+        right_layout.addWidget(self._readout)
+
+        self._marker_summary = QTextEdit()
+        self._marker_summary.setReadOnly(True)
+        self._marker_summary.setMaximumHeight(200)
+        self._marker_summary.setPlaceholderText("Frequency response markers will appear here after simulation.")
+        right_layout.addWidget(self._marker_summary)
+
+        right_widget = QDialog()
+        right_widget.setLayout(right_layout)
+        main_layout.addWidget(right_widget, 1)
 
         self._ax_mag = self._fig.add_subplot(211)
         self._ax_phase = self._fig.add_subplot(212, sharex=self._ax_mag)
@@ -376,6 +393,120 @@ class ACSweepPlotDialog(QDialog):
         if frequencies_first:
             self._cursors.set_data(frequencies_first)
 
+        # Add frequency response markers
+        if self._markers_cb.isChecked():
+            self._draw_markers()
+
+        self._canvas.draw()
+
+    def _draw_markers(self):
+        """Compute and draw frequency response markers for the first signal."""
+        from simulation.freq_markers import compute_markers, format_frequency
+
+        self._clear_marker_artists()
+
+        if not self._datasets:
+            return
+
+        # Use first dataset, first signal
+        data = self._datasets[0][1]
+        frequencies = data.get("frequencies", [])
+        magnitude = data.get("magnitude", {})
+        phase = data.get("phase", {})
+
+        if not frequencies or not magnitude:
+            return
+
+        # Use first signal for marker computation
+        first_signal = sorted(magnitude.keys())[0]
+        mag_vals = magnitude[first_signal]
+        phase_vals = phase.get(first_signal)
+
+        markers = compute_markers(frequencies, mag_vals, phase_vals)
+
+        if markers["peak_gain_db"] is None:
+            self._marker_summary.setPlainText("No markers computed (insufficient data).")
+            return
+
+        # Draw -3dB reference line
+        ref_level = markers["ref_level_db"]
+        if ref_level is not None:
+            artist = self._ax_mag.axhline(
+                y=ref_level, color="#CC0066", linestyle="--", linewidth=1, alpha=0.7, label="-3dB level"
+            )
+            self._marker_artists.append(artist)
+
+        # Draw -3dB cutoff frequency markers
+        for fc in markers["cutoff_3db"]:
+            artist = self._ax_mag.axvline(x=fc, color="#CC0066", linestyle=":", linewidth=1, alpha=0.7)
+            self._marker_artists.append(artist)
+            artist = self._ax_mag.annotate(
+                f"fc={format_frequency(fc)}",
+                xy=(fc, ref_level),
+                xytext=(10, 15),
+                textcoords="offset points",
+                fontsize=8,
+                color="#CC0066",
+                arrowprops=dict(arrowstyle="->", color="#CC0066", lw=0.8),
+            )
+            self._marker_artists.append(artist)
+
+        # Draw unity gain frequency marker
+        if markers["unity_gain_freq"] is not None:
+            ugf = markers["unity_gain_freq"]
+            artist = self._ax_mag.axvline(x=ugf, color="#006633", linestyle=":", linewidth=1, alpha=0.7)
+            self._marker_artists.append(artist)
+            artist = self._ax_mag.annotate(
+                f"0dB @ {format_frequency(ugf)}",
+                xy=(ugf, 0),
+                xytext=(10, -20),
+                textcoords="offset points",
+                fontsize=8,
+                color="#006633",
+                arrowprops=dict(arrowstyle="->", color="#006633", lw=0.8),
+            )
+            self._marker_artists.append(artist)
+
+        # Build summary text
+        summary_lines = [f"Signal: {first_signal}", ""]
+        summary_lines.append(f"Peak gain: {markers['peak_gain_db']:.1f} dB @ {format_frequency(markers['peak_freq'])}")
+
+        if markers["cutoff_3db"]:
+            for i, fc in enumerate(markers["cutoff_3db"]):
+                summary_lines.append(f"-3dB cutoff #{i + 1}: {format_frequency(fc)}")
+        else:
+            summary_lines.append("-3dB cutoff: N/A")
+
+        if markers["bandwidth"] is not None:
+            summary_lines.append(f"Bandwidth: {format_frequency(markers['bandwidth'])}")
+
+        if markers["unity_gain_freq"] is not None:
+            summary_lines.append(f"Unity-gain freq: {format_frequency(markers['unity_gain_freq'])}")
+
+        if markers["gain_margin_db"] is not None:
+            summary_lines.append(f"Gain margin: {markers['gain_margin_db']:.1f} dB")
+
+        if markers["phase_margin_deg"] is not None:
+            summary_lines.append(f"Phase margin: {markers['phase_margin_deg']:.1f}\u00b0")
+
+        self._marker_summary.setPlainText("\n".join(summary_lines))
+
+    def _clear_marker_artists(self):
+        """Remove all marker overlay artists from the plot."""
+        for artist in self._marker_artists:
+            try:
+                artist.remove()
+            except (ValueError, NotImplementedError):
+                pass
+        self._marker_artists.clear()
+
+    def _toggle_markers(self, checked):
+        """Show or hide frequency response markers."""
+        if checked:
+            self._draw_markers()
+        else:
+            self._clear_marker_artists()
+            self._marker_summary.clear()
         self._canvas.draw()
 
     def _setup_legend_toggle(self, legend, ax):
