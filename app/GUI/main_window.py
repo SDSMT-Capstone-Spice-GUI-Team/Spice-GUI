@@ -30,6 +30,7 @@ from .analysis_dialog import AnalysisDialog
 from .circuit_canvas import CircuitCanvasView
 from .component_palette import ComponentPalette
 from .properties_panel import PropertiesPanel
+from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
 from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
 from .waveform_dialog import WaveformDialog
 
@@ -60,6 +61,7 @@ class MainWindow(QMainWindow):
         self._last_results = None
         self._last_results_type = None
         self._waveform_dialog = None
+        self._plot_dialog = None  # DC Sweep / AC Sweep plot dialog
 
         # Build UI
         self.init_ui()
@@ -77,6 +79,7 @@ class MainWindow(QMainWindow):
         self.canvas.zoomChanged.connect(self._on_zoom_changed)
         self.canvas.componentRightClicked.connect(self.on_component_right_clicked)
         self.canvas.canvasClicked.connect(self.on_canvas_clicked)
+        self.canvas.selectionChanged.connect(self._on_selection_changed)
         self.palette.componentDoubleClicked.connect(self.canvas.add_component_at_center)
         self.properties_panel.property_changed.connect(self.on_property_changed)
 
@@ -249,6 +252,21 @@ class MainWindow(QMainWindow):
         edit_menu = menubar.addMenu("&Edit")
         if edit_menu is None:
             return
+
+        # Undo/Redo actions
+        undo_action = QAction("&Undo", self)
+        undo_action.setShortcut(QKeySequence.StandardKey.Undo)
+        undo_action.triggered.connect(self._on_undo)
+        edit_menu.addAction(undo_action)
+        self.undo_action = undo_action  # Store reference to update enabled state
+
+        redo_action = QAction("&Redo", self)
+        redo_action.setShortcut(QKeySequence.StandardKey.Redo)
+        redo_action.triggered.connect(self._on_redo)
+        edit_menu.addAction(redo_action)
+        self.redo_action = redo_action  # Store reference to update enabled state
+
+        edit_menu.addSeparator()
 
         copy_action = QAction("&Copy", self)
         copy_action.setShortcut(QKeySequence.StandardKey.Copy)
@@ -441,6 +459,36 @@ class MainWindow(QMainWindow):
     def paste_components(self):
         """Paste components from internal clipboard."""
         self.canvas.paste_components()
+
+    def _on_undo(self):
+        """Undo the last action."""
+        if self.circuit_ctrl.undo():
+            self._update_undo_redo_actions()
+
+    def _on_redo(self):
+        """Redo the last undone action."""
+        if self.circuit_ctrl.redo():
+            self._update_undo_redo_actions()
+
+    def _update_undo_redo_actions(self):
+        """Update the enabled state and text of undo/redo actions."""
+        if hasattr(self, "undo_action"):
+            can_undo = self.circuit_ctrl.can_undo()
+            self.undo_action.setEnabled(can_undo)
+            if can_undo:
+                desc = self.circuit_ctrl.get_undo_description()
+                self.undo_action.setText(f"&Undo {desc}" if desc else "&Undo")
+            else:
+                self.undo_action.setText("&Undo")
+
+        if hasattr(self, "redo_action"):
+            can_redo = self.circuit_ctrl.can_redo()
+            self.redo_action.setEnabled(can_redo)
+            if can_redo:
+                desc = self.circuit_ctrl.get_redo_description()
+                self.redo_action.setText(f"&Redo {desc}" if desc else "&Redo")
+            else:
+                self.redo_action.setText("&Redo")
 
     def _on_save(self):
         """Quick save to current file"""
@@ -658,7 +706,16 @@ class MainWindow(QMainWindow):
                 self._last_results = sweep_data
                 self.results_text.append("\nDC SWEEP RESULTS:")
                 self.results_text.append("-" * 40)
-                self.results_text.append(str(sweep_data))
+                headers = sweep_data.get("headers", [])
+                rows = sweep_data.get("data", [])
+                if headers and rows:
+                    self.results_text.append("  ".join(f"{h:>12}" for h in headers))
+                    for row in rows[:20]:
+                        self.results_text.append("  ".join(f"{v:12.6g}" for v in row))
+                    if len(rows) > 20:
+                        self.results_text.append(f"  ... ({len(rows)} total rows)")
+                self.results_text.append("\nPlot opened in a new window.")
+                self._show_plot_dialog(DCSweepPlotDialog(sweep_data, self))
             else:
                 self.results_text.append("\nDC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -669,7 +726,14 @@ class MainWindow(QMainWindow):
                 self._last_results = ac_data
                 self.results_text.append("\nAC SWEEP RESULTS:")
                 self.results_text.append("-" * 40)
-                self.results_text.append(str(ac_data))
+                freqs = ac_data.get("frequencies", [])
+                mag = ac_data.get("magnitude", {})
+                self.results_text.append(f"  Frequency points: {len(freqs)}")
+                self.results_text.append(f"  Signals: {', '.join(sorted(mag.keys()))}")
+                if freqs:
+                    self.results_text.append(f"  Range: {freqs[0]:.4g} Hz — {freqs[-1]:.4g} Hz")
+                self.results_text.append("\nBode plot opened in a new window.")
+                self._show_plot_dialog(ACSweepPlotDialog(ac_data, self))
             else:
                 self.results_text.append("\nAC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -726,6 +790,14 @@ class MainWindow(QMainWindow):
 
         if self._last_results is not None:
             self.btn_export_csv.setEnabled(True)
+
+    def _show_plot_dialog(self, dialog):
+        """Show a plot dialog, closing any previous one."""
+        if self._plot_dialog is not None:
+            self._plot_dialog.close()
+            self._plot_dialog.deleteLater()
+        self._plot_dialog = dialog
+        self._plot_dialog.show()
 
     def export_results_csv(self):
         """Export the last simulation results to a CSV file"""
@@ -974,9 +1046,21 @@ class MainWindow(QMainWindow):
         else:
             self.properties_stack.setCurrentIndex(0)  # Show blank
 
+    def _on_selection_changed(self, selection):
+        """Handle canvas selection changes — single component, list, or None."""
+        if selection is None:
+            self.properties_stack.setCurrentIndex(0)
+            self.properties_panel.show_no_selection()
+        elif isinstance(selection, list):
+            self.properties_stack.setCurrentIndex(1)
+            self.properties_panel.show_multi_selection(len(selection))
+        else:
+            self.properties_stack.setCurrentIndex(1)
+            self.properties_panel.show_component(selection)
+
     def on_canvas_clicked(self):
         """Handle click on an empty canvas area"""
-        self.properties_stack.setCurrentIndex(0)  # Show blank
+        self.properties_stack.setCurrentIndex(0)
         self.properties_panel.show_no_selection()
 
     def on_property_changed(self, component_id, property_name, new_value):

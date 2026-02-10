@@ -92,6 +92,10 @@ class CircuitCanvasView(QGraphicsView):
         self.wire_start_comp = None
         self.wire_start_term = None
         self.temp_wire_line = None  # Temporary line while drawing wire
+        
+        # Rubber band selection
+        self._rubber_band = None
+        self._rubber_band_origin = QPoint()
 
         # Internal clipboard for copy/paste
         self._clipboard = ClipboardData()
@@ -547,14 +551,22 @@ class CircuitCanvasView(QGraphicsView):
                 item = self.itemAt(event.position().toPoint())
                 if item is None:
                     self.canvasClicked.emit()
-                    # Clear scene selection when clicking on background
-                    self.scene.clearSelection()
+                    # Start rubber band selection on empty space
+                    if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+                        self.scene.clearSelection()
+                    self._rubber_band_origin = event.position().toPoint()
+                    if self._rubber_band is None:
+                        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self)
+                    self._rubber_band.setGeometry(QRect(self._rubber_band_origin, self._rubber_band_origin))
+                    self._rubber_band.show()
+                    event.accept()
+                    return
 
         # Normal selection/movement behavior
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        """Update temporary wire line while drawing"""
+        """Update temporary wire line or rubber band while drawing"""
         if event is None:
             return
 
@@ -568,11 +580,28 @@ class CircuitCanvasView(QGraphicsView):
             event.accept()
             return
 
+        # Update rubber band rectangle
+        if self._rubber_band is not None and self._rubber_band.isVisible():
+            self._rubber_band.setGeometry(QRect(self._rubber_band_origin, event.position().toPoint()).normalized())
+            event.accept()
+            return
+
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        """Handle mouse release"""
+        """Handle mouse release — finalize rubber band selection"""
         if event is None:
+            return
+
+        if self._rubber_band is not None and self._rubber_band.isVisible():
+            self._rubber_band.hide()
+            # Map rubber band rect to scene coordinates and select enclosed items
+            rb_rect = self._rubber_band.geometry()
+            scene_rect = QRectF(self.mapToScene(rb_rect.topLeft()), self.mapToScene(rb_rect.bottomRight()))
+            for item in self.scene.items(scene_rect, Qt.ItemSelectionMode.IntersectsItemShape):
+                if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem)):
+                    item.setSelected(True)
+            event.accept()
             return
 
         super().mouseReleaseEvent(event)
@@ -600,6 +629,8 @@ class CircuitCanvasView(QGraphicsView):
             self.flip_selected(horizontal=False)
         elif event.key() == Qt.Key.Key_F:
             self.flip_selected(horizontal=True)
+        elif event.key() == Qt.Key.Key_A and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.select_all()
         else:
             super().keyPressEvent(event)
 
@@ -908,15 +939,21 @@ class CircuitCanvasView(QGraphicsView):
         if ann in self.annotations:
             self.annotations.remove(ann)
 
+    def select_all(self):
+        """Select all components and wires on the canvas."""
+        for item in self.scene.items():
+            if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem)):
+                item.setSelected(True)
+
     def on_selection_changed(self):
         """Handle selection changes in the scene"""
         selected_items = self.scene.selectedItems()
-
-        # Filter for component items only
         components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
 
-        # Emit signal with the first selected component (or None if no selection)
-        if components:
+        if len(components) > 1:
+            # Multi-selection: emit the list
+            self.selectionChanged.emit(components)
+        elif len(components) == 1:
             self.selectionChanged.emit(components[0])
         else:
             self.selectionChanged.emit(None)

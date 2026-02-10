@@ -8,6 +8,7 @@ and notifies views of changes through an observer pattern.
 import logging
 from typing import Any, Callable, Optional
 
+from controllers.undo_manager import UndoManager
 from models.circuit import CircuitModel
 from models.clipboard import ClipboardData
 from models.component import DEFAULT_VALUES, SPICE_SYMBOLS, ComponentData
@@ -41,10 +42,11 @@ class CircuitController:
         simulation_completed (SimulationResult) - Simulation finished
     """
 
-    def __init__(self, model: Optional[CircuitModel] = None):
+    def __init__(self, model: Optional[CircuitModel] = None, max_undo_depth: int = 100):
         self.model = model or CircuitModel()
         self._observers: list[Callable[[str, Any], None]] = []
         self._clipboard = ClipboardData()
+        self.undo_manager = UndoManager(max_depth=max_undo_depth)
 
     def add_observer(self, callback: Callable[[str, Any], None]) -> None:
         """Register a callback for model change events."""
@@ -305,3 +307,55 @@ class CircuitController:
     def has_clipboard_content(self) -> bool:
         """Return whether the clipboard has content to paste."""
         return not self._clipboard.is_empty()
+
+    # --- Undo/Redo operations ---
+
+    def execute_command(self, command) -> None:
+        """
+        Execute a command through the undo manager.
+
+        This makes the command undoable. Commands executed this way
+        are added to the undo stack.
+
+        Args:
+            command: A Command instance to execute
+        """
+        self.undo_manager.execute(command)
+
+    def undo(self) -> bool:
+        """
+        Undo the last command.
+
+        Returns:
+            True if an action was undone, False otherwise
+        """
+        return self.undo_manager.undo()
+
+    def redo(self) -> bool:
+        """
+        Redo the last undone command.
+
+        Returns:
+            True if an action was redone, False otherwise
+        """
+        return self.undo_manager.redo()
+
+    def can_undo(self) -> bool:
+        """Return whether there are commands to undo."""
+        return self.undo_manager.can_undo()
+
+    def can_redo(self) -> bool:
+        """Return whether there are commands to redo."""
+        return self.undo_manager.can_redo()
+
+    def get_undo_description(self) -> Optional[str]:
+        """Get description of the command that would be undone."""
+        return self.undo_manager.get_undo_description()
+
+    def get_redo_description(self) -> Optional[str]:
+        """Get description of the command that would be redone."""
+        return self.undo_manager.get_redo_description()
+
+    def clear_undo_history(self) -> None:
+        """Clear the undo/redo history."""
+        self.undo_manager.clear()

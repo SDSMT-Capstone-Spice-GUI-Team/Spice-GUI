@@ -1,10 +1,12 @@
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QFileDialog,
     QFormLayout,
@@ -21,6 +23,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from simulation.fft_analysis import analyze_signal_spectrum
 
 from .format_utils import format_value, parse_value
 from .styles import SCROLL_LOAD_COUNT
@@ -132,10 +136,14 @@ class WaveformDialog(QDialog):
         filter_group.setLayout(filter_layout)
         right_layout.addWidget(filter_group)
 
-        # Export button
+        # Export and FFT buttons
         export_button = QPushButton("Export CSV")
         export_button.clicked.connect(self._export_csv)
         right_layout.addWidget(export_button)
+
+        fft_button = QPushButton("Analyze FFT")
+        fft_button.clicked.connect(self._show_fft_analysis)
+        right_layout.addWidget(fft_button)
 
         # Data Table
         right_layout.addWidget(QLabel("Simulation Data"))
@@ -441,7 +449,130 @@ class WaveformDialog(QDialog):
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export: {e}")
 
+    def _show_fft_analysis(self):
+        """Show FFT analysis dialog for transient results."""
+        if not self.full_data or len(self.full_data) < 4:
+            QMessageBox.warning(self, "Insufficient Data", "Need at least 4 data points for FFT analysis.")
+            return
+
+        # Extract time array
+        time = np.array([row.get("time", 0) for row in self.full_data])
+
+        # Get list of available signals (exclude time)
+        signal_names = [k for k in self.voltage_keys if self.column_visibility.get(k, True)]
+
+        if not signal_names:
+            QMessageBox.warning(self, "No Signals", "No visible signals to analyze. Enable at least one signal.")
+            return
+
+        # Show FFT dialog with signal selection
+        dialog = FFTAnalysisDialog(time, self.full_data, signal_names, self)
+        dialog.exec()
+
     def closeEvent(self, event):
         """Clean up matplotlib figure to prevent memory leaks."""
         plt.close(self.canvas.figure)
+        super().closeEvent(event)
+
+class FFTAnalysisDialog(QDialog):
+    """Dialog for displaying FFT analysis of transient simulation signals."""
+
+    def __init__(self, time: np.ndarray, data: list, signal_names: list, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("FFT Analysis")
+        self.setMinimumSize(1000, 700)
+
+        self.time = time
+        self.data = data
+        self.signal_names = signal_names
+
+        # Main layout
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        # Controls
+        controls_layout = QHBoxLayout()
+
+        controls_layout.addWidget(QLabel("Signal:"))
+        self.signal_combo = QComboBox()
+        self.signal_combo.addItems(signal_names)
+        self.signal_combo.currentTextChanged.connect(self._update_fft)
+        controls_layout.addWidget(self.signal_combo)
+
+        controls_layout.addWidget(QLabel("Window:"))
+        self.window_combo = QComboBox()
+        self.window_combo.addItems(["Hanning", "Hamming", "Blackman", "None"])
+        self.window_combo.currentTextChanged.connect(self._update_fft)
+        controls_layout.addWidget(self.window_combo)
+
+        controls_layout.addStretch()
+        layout.addLayout(controls_layout)
+
+        # Info label for fundamental frequency and THD
+        self.info_label = QLabel("")
+        layout.addWidget(self.info_label)
+
+        # Magnitude plot
+        self.mag_canvas = MplCanvas(self, width=8, height=4, dpi=100)
+        layout.addWidget(self.mag_canvas)
+
+        # Phase plot
+        self.phase_canvas = MplCanvas(self, width=8, height=3, dpi=100)
+        layout.addWidget(self.phase_canvas)
+
+        # Close button
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(self.close)
+        layout.addWidget(close_button)
+
+        # Initial plot
+        self._update_fft()
+
+    def _update_fft(self):
+        """Compute and display FFT for selected signal."""
+        signal_name = self.signal_combo.currentText()
+        window_type = self.window_combo.currentText().lower()
+
+        # Extract signal data
+        signal = np.array([row.get(signal_name, 0) for row in self.data])
+
+        try:
+            # Compute FFT
+            fft_result = analyze_signal_spectrum(self.time, signal, signal_name, window_type)
+
+            # Update info label
+            info_text = f"<b>Signal:</b> {signal_name} | <b>Window:</b> {window_type.title()}"
+            if fft_result.fundamental_freq is not None and fft_result.fundamental_freq > 0:
+                info_text += f" | <b>Fundamental:</b> {fft_result.fundamental_freq:.2f} Hz"
+            if fft_result.thd_percent is not None:
+                info_text += f" | <b>THD:</b> {fft_result.thd_percent:.3f}%"
+            self.info_label.setText(info_text)
+
+            # Plot magnitude spectrum
+            self.mag_canvas.axes.clear()
+            self.mag_canvas.axes.semilogx(fft_result.frequencies, fft_result.magnitude_db, linewidth=1.5)
+            self.mag_canvas.axes.set_title(f"Magnitude Spectrum - {signal_name}")
+            self.mag_canvas.axes.set_xlabel("Frequency (Hz)")
+            self.mag_canvas.axes.set_ylabel("Magnitude (dB)")
+            self.mag_canvas.axes.grid(True, which="both", alpha=0.3)
+            self.mag_canvas.figure.tight_layout()
+            self.mag_canvas.draw()
+
+            # Plot phase spectrum
+            self.phase_canvas.axes.clear()
+            self.phase_canvas.axes.semilogx(fft_result.frequencies, fft_result.phase, linewidth=1.5, color="orange")
+            self.phase_canvas.axes.set_title("Phase Spectrum")
+            self.phase_canvas.axes.set_xlabel("Frequency (Hz)")
+            self.phase_canvas.axes.set_ylabel("Phase (degrees)")
+            self.phase_canvas.axes.grid(True, which="both", alpha=0.3)
+            self.phase_canvas.figure.tight_layout()
+            self.phase_canvas.draw()
+
+        except Exception as e:
+            QMessageBox.critical(self, "FFT Error", f"Failed to compute FFT: {e}")
+
+    def closeEvent(self, event):
+        """Clean up matplotlib figures."""
+        plt.close(self.mag_canvas.figure)
+        plt.close(self.phase_canvas.figure)
         super().closeEvent(event)

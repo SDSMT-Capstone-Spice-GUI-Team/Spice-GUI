@@ -43,6 +43,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.is_being_dragged = False
         self.last_position = None
         self.update_timer = None
+        self._group_moving = False  # Guard against recursive group moves
 
         # Phase 5: Debounced position updates to controller
         self._position_update_timer = None
@@ -300,6 +301,16 @@ class ComponentGraphicsItem(QGraphicsItem):
             grid_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
             snapped_pos = QPointF(grid_x, grid_y)
 
+            # Move other selected items by the same delta (group drag)
+            if not self._group_moving:
+                delta = snapped_pos - self.pos()
+                if delta.x() != 0 or delta.y() != 0:
+                    for item in self.scene().selectedItems():
+                        if item is not self and isinstance(item, ComponentGraphicsItem):
+                            item._group_moving = True
+                            item.setPos(item.pos() + delta)
+                            item._group_moving = False
+
             # Phase 5: Schedule debounced controller update instead of direct model write
             self._pending_position = (grid_x, grid_y)
             self._schedule_controller_update()
@@ -311,7 +322,8 @@ class ComponentGraphicsItem(QGraphicsItem):
 
             return snapped_pos
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            # Update this item and connected wires to prevent dragging artifacts
+            # Show straight-line preview for connected wires during drag
+            # (full pathfinding runs after drag ends via debounced timer)
             self.update()
             if self.scene():
                 views = self.scene().views()
@@ -320,7 +332,7 @@ class ComponentGraphicsItem(QGraphicsItem):
                     if hasattr(canvas, "wires"):
                         for wire in canvas.wires:
                             if wire.start_comp is self or wire.end_comp is self:
-                                wire.update()
+                                wire.show_drag_preview()
 
         return super().itemChange(change, value)
 

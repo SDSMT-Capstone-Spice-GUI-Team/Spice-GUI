@@ -1,0 +1,131 @@
+name: AI PR Review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  ai-review:
+    name: AI Review
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    outputs:
+      recommendation: ${{ steps.review.outputs.recommendation }}
+      has_new_deps: ${{ steps.review.outputs.has_new_deps }}
+      modifies_ci: ${{ steps.review.outputs.modifies_ci }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install anthropic
+
+      - name: Get PR diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} > pr_diff.patch
+
+      - name: Get PR metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr view ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --json title,body,files \
+            > pr_meta.json
+
+      - name: Run AI review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          DIFF_SIZE: ${{ github.event.pull_request.additions + github.event.pull_request.deletions }}
+        run: python scripts/ai-review.py
+
+  check-ci:
+    name: Wait for CI
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    outputs:
+      ci_passed: ${{ steps.poll.outputs.ci_passed }}
+
+    steps:
+      - name: Wait for CI workflow
+        id: poll
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          SHA="${{ github.event.pull_request.head.sha }}"
+          MAX_ATTEMPTS=40
+          SLEEP_SECONDS=30
+
+          echo "Waiting for CI workflow on commit $SHA..."
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            # Get CI workflow runs for this commit
+            STATUS=$(gh api \
+              "repos/$REPO/commits/$SHA/check-runs" \
+              --jq '
+                [.check_runs[] | select(.name != "AI Review" and .name != "Wait for CI" and .name != "Auto Merge")] |
+                if length == 0 then "pending"
+                elif all(.conclusion == "success") then "success"
+                elif any(.conclusion == "failure" or .conclusion == "cancelled") then "failure"
+                else "pending"
+                end
+              ' 2>/dev/null || echo "pending")
+
+            echo "Attempt $i/$MAX_ATTEMPTS: CI status = $STATUS"
+
+            if [ "$STATUS" = "success" ]; then
+              echo "ci_passed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [ "$STATUS" = "failure" ]; then
+              echo "ci_passed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            sleep $SLEEP_SECONDS
+          done
+
+          echo "Timed out waiting for CI"
+          echo "ci_passed=false" >> "$GITHUB_OUTPUT"
+
+  auto-merge:
+    name: Auto Merge
+    runs-on: ubuntu-latest
+    needs: [ai-review, check-ci]
+    if: |
+      github.event.pull_request.draft == false &&
+      needs.ai-review.outputs.recommendation == 'approve' &&
+      needs.ai-review.outputs.has_new_deps == 'false' &&
+      needs.ai-review.outputs.modifies_ci == 'false' &&
+      needs.check-ci.outputs.ci_passed == 'true'
+
+    steps:
+      - name: Merge PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "All gates passed — merging PR #${{ github.event.pull_request.number }}"
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --squash \
+            --delete-branch

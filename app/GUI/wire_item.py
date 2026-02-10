@@ -78,6 +78,29 @@ class WireGraphicsItem(QGraphicsPathItem):
 
     # --- Methods ---
 
+    def show_drag_preview(self):
+        """Show a straight-line preview during component drag.
+
+        Much cheaper than full pathfinding — gives immediate visual
+        feedback while the component is being moved.  The real route
+        is recalculated by update_position() after the drag ends.
+        """
+        old_rect = self.boundingRect()
+        self.prepareGeometryChange()
+
+        start = self.start_comp.get_terminal_pos(self.start_term)
+        end = self.end_comp.get_terminal_pos(self.end_term)
+
+        path = QPainterPath()
+        path.moveTo(start)
+        path.lineTo(end)
+        self.setPath(path)
+
+        if self.scene():
+            self.scene().update(old_rect)
+            self.scene().update(self.boundingRect())
+        self.update()
+
     def update_position(self):
         """Update wire path using selected algorithm"""
         # Lazy import for faster startup - only loaded when wires are created
