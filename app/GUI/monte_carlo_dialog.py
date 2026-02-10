@@ -20,8 +20,6 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
-from simulation.monte_carlo import DEFAULT_TOLERANCES, MC_ELIGIBLE_TYPES
-
 # Base analysis types available for Monte Carlo
 MC_BASE_ANALYSIS_TYPES = [
     "DC Operating Point",
@@ -39,6 +37,8 @@ class MonteCarloDialog(QDialog):
         self.setWindowTitle("Monte Carlo Analysis Configuration")
         self.setMinimumWidth(550)
         self.setMinimumHeight(400)
+
+        from simulation.monte_carlo import MC_ELIGIBLE_TYPES
 
         self._components = components
         self._eligible = {cid: comp for cid, comp in components.items() if comp.component_type in MC_ELIGIBLE_TYPES}
@@ -105,6 +105,8 @@ class MonteCarloDialog(QDialog):
 
                 # Tolerance spin
                 tol_spin = QDoubleSpinBox()
+                from simulation.monte_carlo import DEFAULT_TOLERANCES
+
                 tol_spin.setRange(0.0, 50.0)
                 tol_spin.setSuffix("%")
                 tol_spin.setDecimals(1)

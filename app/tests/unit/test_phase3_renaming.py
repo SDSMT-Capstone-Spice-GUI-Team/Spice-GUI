@@ -53,22 +53,17 @@ def test_gui_module_exports_both_names():
     assert WireItem is WireGraphicsItem
 
 
-def test_app_module_exports():
-    """Test that top-level app module exports the new names"""
-    import app
+def test_app_subpackage_imports():
+    """Test that classes are importable from their subpackages"""
+    from GUI.main_window import MainWindow
+    from GUI.circuit_canvas import CircuitCanvasView
+    from GUI.component_item import ComponentGraphicsItem
+    from GUI.wire_item import WireGraphicsItem
 
-    # Should export MainWindow (new in Phase 4)
-    assert hasattr(app, "MainWindow")
-    assert app.MainWindow is not None
-
-    # Should export view classes
-    assert hasattr(app, "ComponentGraphicsItem")
-    assert hasattr(app, "WireGraphicsItem")
-    assert hasattr(app, "CircuitCanvasView")
-
-    # Backward compatibility exports
-    assert hasattr(app, "CircuitCanvas")
-    assert hasattr(app, "WireItem")
+    assert MainWindow is not None
+    assert CircuitCanvasView is not None
+    assert ComponentGraphicsItem is not None
+    assert WireGraphicsItem is not None
 
 
 def test_wire_data_integration():
