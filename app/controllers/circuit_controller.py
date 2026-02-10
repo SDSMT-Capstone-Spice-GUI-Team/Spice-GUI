@@ -26,6 +26,7 @@ class CircuitController:
         component_added (ComponentData) - A new component was added
         component_removed (str) - A component was removed (by ID)
         component_rotated (ComponentData) - A component was rotated
+        component_flipped (ComponentData) - A component was flipped/mirrored
         component_moved (ComponentData) - A component was moved
         component_value_changed (ComponentData) - A component's value changed
         wire_added (WireData) - A new wire was added
@@ -109,6 +110,17 @@ class CircuitController:
         delta = 90 if clockwise else -90
         component.rotation = (component.rotation + delta) % 360
         self._notify('component_rotated', component)
+
+    def flip_component(self, component_id: str, horizontal: bool = True) -> None:
+        """Flip (mirror) a component horizontally or vertically."""
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        if horizontal:
+            component.flip_h = not component.flip_h
+        else:
+            component.flip_v = not component.flip_v
+        self._notify('component_flipped', component)
 
     def update_component_value(self, component_id: str, value: str) -> None:
         """Update a component's value."""

@@ -117,6 +117,35 @@ class TestComponentOperations:
         assert recorded[-1][0] == 'component_moved'
 
 
+    def test_flip_component_horizontal(self, controller, events):
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_observer(callback)
+        controller.flip_component("R1", horizontal=True)
+        assert controller.model.components["R1"].flip_h is True
+        assert controller.model.components["R1"].flip_v is False
+        assert recorded[-1][0] == 'component_flipped'
+
+    def test_flip_component_vertical(self, controller, events):
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_observer(callback)
+        controller.flip_component("R1", horizontal=False)
+        assert controller.model.components["R1"].flip_v is True
+        assert controller.model.components["R1"].flip_h is False
+        assert recorded[-1][0] == 'component_flipped'
+
+    def test_flip_component_toggles(self, controller):
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.flip_component("R1", horizontal=True)
+        assert controller.model.components["R1"].flip_h is True
+        controller.flip_component("R1", horizontal=True)
+        assert controller.model.components["R1"].flip_h is False
+
+    def test_flip_nonexistent_component_safe(self, controller):
+        controller.flip_component("R999")  # Should not raise
+
+
 class TestWireOperations:
     def test_add_wire(self, controller, events):
         recorded, callback = events

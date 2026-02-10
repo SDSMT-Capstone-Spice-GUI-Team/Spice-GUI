@@ -203,6 +203,8 @@ class ComponentData:
     value: str
     position: tuple[float, float]  # (x, y) in scene coordinates
     rotation: int = 0  # degrees: 0, 90, 180, 270
+    flip_h: bool = False  # horizontal mirror (negate x before rotation)
+    flip_v: bool = False  # vertical mirror (negate y before rotation)
 
     # Waveform source parameters (only used for Waveform Source)
     waveform_type: Optional[str] = None
@@ -273,20 +275,24 @@ class ComponentData:
 
     def get_terminal_positions(self) -> list[tuple[float, float]]:
         """
-        Return terminal positions in world coordinates (after rotation and translation).
+        Return terminal positions in world coordinates (after flip, rotation, and translation).
 
         Returns:
             List of (x, y) tuples representing terminal positions in scene coordinates.
         """
         base_terminals = self.get_base_terminal_positions()
 
-        # Apply rotation
+        # Apply flip before rotation
         rad = math.radians(self.rotation)
         cos_a = math.cos(rad)
         sin_a = math.sin(rad)
 
         rotated = []
         for tx, ty in base_terminals:
+            if self.flip_h:
+                tx = -tx
+            if self.flip_v:
+                ty = -ty
             new_x = tx * cos_a - ty * sin_a
             new_y = tx * sin_a + ty * cos_a
             world_x = self.position[0] + new_x
@@ -343,7 +349,9 @@ class ComponentData:
             'id': self.component_id,
             'value': self.value,
             'pos': {'x': self.position[0], 'y': self.position[1]},
-            'rotation': self.rotation
+            'rotation': self.rotation,
+            'flip_h': self.flip_h,
+            'flip_v': self.flip_v,
         }
 
         # Add waveform parameters for waveform sources
@@ -371,6 +379,8 @@ class ComponentData:
             value=data['value'],
             position=(data['pos']['x'], data['pos']['y']),
             rotation=data.get('rotation', 0),
+            flip_h=data.get('flip_h', False),
+            flip_v=data.get('flip_v', False),
         )
 
         # Load waveform parameters if present
