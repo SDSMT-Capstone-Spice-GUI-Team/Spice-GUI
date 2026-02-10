@@ -285,6 +285,102 @@ class TestSerialization:
         assert model.analysis_type == "DC Operating Point"
         assert model.analysis_params == {}
 
+    def test_net_names_round_trip(self):
+        """Custom net names survive save/load round-trip."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(100.0, 200.0)))
+        model.add_component(_voltage_source("V1", pos=(50.0, 50.0)))
+        model.add_wire(_wire("R1", 1, "V1", 0))
+        model.component_counter = {"R": 1, "V": 1}
+
+        # Set a custom net name on the node
+        node = model.nodes[0]
+        node.set_custom_label("Vout")
+        assert node.get_label() == "Vout"
+
+        data = model.to_dict()
+        assert "net_names" in data
+        assert len(data["net_names"]) == 1
+
+        reset_node_counter()
+        model2 = CircuitModel.from_dict(data)
+        # The node should have the custom label restored
+        assert len(model2.nodes) == 1
+        assert model2.nodes[0].custom_label == "Vout"
+        assert model2.nodes[0].get_label() == "Vout"
+
+    def test_net_names_multiple_labels(self):
+        """Multiple net names are all persisted and restored."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(0.0, 0.0)))
+        model.add_component(_resistor("R2", pos=(100.0, 0.0)))
+        model.add_component(_voltage_source("V1", pos=(50.0, 50.0)))
+        model.add_wire(_wire("R1", 1, "R2", 0))  # node between R1 and R2
+        model.add_wire(_wire("V1", 0, "R1", 0))  # node between V1 and R1
+        model.component_counter = {"R": 2, "V": 1}
+
+        # Name both nodes
+        node_between_r1_r2 = model.terminal_to_node[("R1", 1)]
+        node_between_v1_r1 = model.terminal_to_node[("V1", 0)]
+        node_between_r1_r2.set_custom_label("Vmid")
+        node_between_v1_r1.set_custom_label("Vin")
+
+        data = model.to_dict()
+        assert len(data["net_names"]) == 2
+
+        reset_node_counter()
+        model2 = CircuitModel.from_dict(data)
+        restored_mid = model2.terminal_to_node[("R1", 1)]
+        restored_in = model2.terminal_to_node[("V1", 0)]
+        assert restored_mid.custom_label == "Vmid"
+        assert restored_in.custom_label == "Vin"
+
+    def test_net_names_omitted_when_none(self):
+        """net_names key is omitted from JSON when no custom labels exist."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(0.0, 0.0)))
+        model.add_component(_resistor("R2", pos=(100.0, 0.0)))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        model.component_counter = {"R": 2}
+
+        data = model.to_dict()
+        assert "net_names" not in data
+
+    def test_net_names_cleared_label_not_persisted(self):
+        """A label set then cleared (None) is not saved."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(0.0, 0.0)))
+        model.add_component(_resistor("R2", pos=(100.0, 0.0)))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+
+        node = model.nodes[0]
+        node.set_custom_label("Vout")
+        node.set_custom_label(None)  # Clear it
+
+        data = model.to_dict()
+        assert "net_names" not in data
+
+    def test_old_files_without_net_names_load_fine(self):
+        """Circuit files from before net names feature load without error."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0.0, "y": 0.0},
+                    "rotation": 0,
+                },
+            ],
+            "wires": [],
+            "counters": {"R": 1},
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.components) == 1
+        # No custom labels should be set
+        for node in model.nodes:
+            assert node.custom_label is None
+
     def test_no_pyqt_imports(self):
         """Verify CircuitModel has no Qt dependencies."""
         import models.circuit as mod

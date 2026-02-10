@@ -849,15 +849,17 @@ class CircuitCanvasView(QGraphicsView):
 
             if item.node:
                 menu.addSeparator()
-                label_action = QAction(f"Label Node ({item.node.get_label()})", self)
+                current = item.node.get_label()
+                label_action = QAction(f"Set Net Name ({current})...", self)
                 label_action.triggered.connect(lambda: self.label_node(item.node))
                 menu.addAction(label_action)
             pass
         else:
-            # Check if we clicked near a terminal to label its node
+            # Check if we clicked near a terminal to set its net name
             clicked_node = self.find_node_at_position(scene_pos)
             if clicked_node:
-                label_action = QAction(f"Label Node ({clicked_node.get_label()})", self)
+                current = clicked_node.get_label()
+                label_action = QAction(f"Set Net Name ({current})...", self)
                 label_action.triggered.connect(lambda: self.label_node(clicked_node))
                 menu.addAction(label_action)
                 menu.addSeparator()
@@ -1470,24 +1472,26 @@ class CircuitCanvasView(QGraphicsView):
         return None
 
     def label_node(self, node):
-        """Open dialog to label a node"""
+        """Open dialog to set a net name for a node."""
         if node is None:
             return
 
-        current_label = node.custom_label if node.custom_label else node.auto_label
-        if node.is_ground and " (ground)" in current_label:
-            current_label = current_label.replace(" (ground)", "")
+        current_label = node.custom_label if node.custom_label else ""
 
         text, ok = QInputDialog.getText(
             None,
-            "Label Node",
-            f"Enter label for node (currently: {node.get_label()}):",
+            "Set Net Name",
+            f"Enter a net name for this node (e.g. Vout, Vcc).\nCurrent: {node.get_label()}",
             QLineEdit.EchoMode.Normal,
             current_label,
         )
 
-        if ok and text:
-            node.set_custom_label(text.strip())
+        if ok:
+            new_label = text.strip() if text else None
+            node.set_custom_label(new_label)
+            # Notify controller so dirty flag is updated
+            if self.controller:
+                self.controller._notify("net_name_changed", node)
             self.scene.update()
             viewPort = self.viewport()
             if viewPort is None:

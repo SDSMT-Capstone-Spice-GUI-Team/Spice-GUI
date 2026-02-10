@@ -175,6 +175,17 @@ class CircuitModel:
         if self.analysis_type != "DC Operating Point" or self.analysis_params:
             data["analysis_type"] = self.analysis_type
             data["analysis_params"] = self.analysis_params.copy()
+
+        # Persist custom net names (keyed by a representative terminal)
+        net_names = {}
+        for node in self.nodes:
+            if node.custom_label and node.terminals:
+                # Use the first terminal as the key (sorted for determinism)
+                rep = sorted(node.terminals)[0]
+                net_names[f"{rep[0]}:{rep[1]}"] = node.custom_label
+        if net_names:
+            data["net_names"] = net_names
+
         return data
 
     @classmethod
@@ -198,4 +209,13 @@ class CircuitModel:
             model.wires.append(wire)
 
         model.rebuild_nodes()
+
+        # Restore custom net names
+        for key, label in data.get("net_names", {}).items():
+            comp_id, term_idx_str = key.split(":", 1)
+            terminal_key = (comp_id, int(term_idx_str))
+            node = model.terminal_to_node.get(terminal_key)
+            if node:
+                node.set_custom_label(label)
+
         return model
