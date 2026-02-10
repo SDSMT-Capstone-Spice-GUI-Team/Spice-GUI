@@ -9,7 +9,7 @@ from controllers.circuit_controller import CircuitController
 from controllers.file_controller import FileController
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
-from PyQt6.QtCore import QSettings, QTimer, Qt
+from PyQt6.QtCore import QSettings, Qt, QTimer
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
     QDialog,
