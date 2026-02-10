@@ -371,7 +371,9 @@ class NetlistGenerator:
         lines.append("set wr_singlescale")
 
         if print_vars:
-            lines.append(f"wrdata {self.wrdata_filepath} {print_vars}")
+            # Use forward slashes for ngspice compatibility on all platforms
+            wrdata_path = self.wrdata_filepath.replace("\\", "/")
+            lines.append(f"wrdata {wrdata_path} {print_vars}")
 
         lines.append(".endc")
 
