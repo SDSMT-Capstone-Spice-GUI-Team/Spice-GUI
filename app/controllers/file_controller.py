@@ -14,6 +14,7 @@ from models.circuit import CircuitModel
 from PyQt6.QtCore import QSettings
 
 SESSION_FILE = "last_session.txt"
+AUTOSAVE_FILE = ".autosave_recovery.json"
 MAX_RECENT_FILES = 10
 
 
@@ -62,11 +63,13 @@ class FileController:
     the current file path for quick-save and session restore.
     """
 
-    def __init__(self, model: Optional[CircuitModel] = None, circuit_ctrl=None, session_file: str = SESSION_FILE):
+    def __init__(self, model: Optional[CircuitModel] = None, circuit_ctrl=None, session_file: str = SESSION_FILE,
+                 autosave_file: str = AUTOSAVE_FILE):
         self.model = model or CircuitModel()
         self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
         self.current_file: Optional[Path] = None
         self._session_file = session_file
+        self._autosave_file = Path(__file__).resolve().parent.parent / autosave_file
 
     def new_circuit(self) -> None:
         """Clear the circuit and reset file state."""
@@ -224,3 +227,67 @@ class FileController:
         """Clear the recent files list."""
         settings = QSettings("SDSMT", "SDM Spice")
         settings.setValue("file/recent_files", [])
+
+    # ------------------------------------------------------------------
+    # Auto-save and crash recovery
+    # ------------------------------------------------------------------
+
+    def auto_save(self) -> None:
+        """Save circuit to the auto-save recovery file.
+
+        Unlike save_circuit(), this does NOT update current_file,
+        recent files, or session state.
+        """
+        try:
+            data = self.model.to_dict()
+            data["_autosave_source"] = str(self.current_file) if self.current_file else ""
+            with open(self._autosave_file, "w") as f:
+                json.dump(data, f, indent=2)
+        except (OSError, TypeError):
+            pass  # Auto-save is best-effort
+
+    def has_auto_save(self) -> bool:
+        """Return True if an auto-save recovery file exists."""
+        return self._autosave_file.exists()
+
+    def load_auto_save(self) -> Optional[str]:
+        """Load circuit from the auto-save recovery file.
+
+        Returns:
+            The original file path (str) the auto-save was based on,
+            or empty string if it was an unsaved circuit. Returns None
+            on failure.
+        """
+        try:
+            with open(self._autosave_file, "r") as f:
+                data = json.load(f)
+
+            source_path = data.pop("_autosave_source", "")
+            validate_circuit_data(data)
+
+            new_model = CircuitModel.from_dict(data)
+            self.model.clear()
+            self.model.components = new_model.components
+            self.model.wires = new_model.wires
+            self.model.nodes = new_model.nodes
+            self.model.terminal_to_node = new_model.terminal_to_node
+            self.model.component_counter = new_model.component_counter
+            self.model.analysis_type = new_model.analysis_type
+            self.model.analysis_params = new_model.analysis_params
+
+            if source_path:
+                self.current_file = Path(source_path)
+
+            if self.circuit_ctrl:
+                self.circuit_ctrl._notify("model_loaded", None)
+
+            return source_path
+        except (OSError, json.JSONDecodeError, ValueError):
+            return None
+
+    def clear_auto_save(self) -> None:
+        """Delete the auto-save recovery file if it exists."""
+        try:
+            self._autosave_file.unlink(missing_ok=True)
+        except OSError:
+            pass
