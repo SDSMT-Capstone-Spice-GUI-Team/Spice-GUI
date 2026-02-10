@@ -4,11 +4,11 @@ Unit tests for PropertiesPanel.
 Tests no-selection state, component display, value change handling,
 validation feedback, and property_changed signal emission.
 """
-import pytest
-from PyQt6.QtCore import Qt
 
-from models.component import ComponentData
+import pytest
 from GUI.properties_panel import PropertiesPanel
+from models.component import ComponentData
+from PyQt6.QtCore import Qt
 
 
 @pytest.fixture

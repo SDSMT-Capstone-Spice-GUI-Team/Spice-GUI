@@ -17,11 +17,36 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install ruff
-        run: pip install ruff
+      - name: Install lint tools
+        run: pip install -r app/requirements-dev.txt
 
       - name: Run ruff check
         run: ruff check app/ --output-format=github
+
+      - name: Run ruff format check
+        run: ruff format --check app/
+
+      - name: Run black check
+        run: black --check --line-length=120 app/
+
+      - name: Run isort check
+        run: isort --check-only --profile=black --line-length=120 app/
+
+  security:
+    name: Security Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install bandit
+        run: pip install bandit>=1.8.0
+
+      - name: Run bandit
+        run: bandit -r app/ -x app/tests --severity-level medium
 
   test:
     name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
@@ -44,19 +69,19 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libegl1 xvfb
 
       - name: Install dependencies
-        run: pip install -r app/requirements.txt pytest pytest-qt
+        run: pip install -r app/requirements.txt -r app/requirements-dev.txt
 
-      - name: Run tests (Linux)
+      - name: Run tests with coverage (Linux)
         if: runner.os == 'Linux'
         working-directory: app
         env:
           QT_QPA_PLATFORM: offscreen
-        run: xvfb-run python -m pytest tests/ -v --tb=short
+        run: xvfb-run python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
 
-      - name: Run tests (Windows)
+      - name: Run tests with coverage (Windows)
         if: runner.os == 'Windows'
         working-directory: app
-        run: python -m pytest tests/ -v --tb=short
+        run: python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
 
   import-check:
     name: Import Check

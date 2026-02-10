@@ -4,10 +4,10 @@ Unit tests for AnalysisDialog.
 Tests dialog creation, form building per analysis type,
 parameter extraction, validation, and ngspice command generation.
 """
-import pytest
-from PyQt6.QtWidgets import QComboBox, QLineEdit
 
+import pytest
 from GUI.analysis_dialog import AnalysisDialog
+from PyQt6.QtWidgets import QComboBox, QLineEdit
 
 
 class TestAnalysisDialogDefaults:
@@ -55,7 +55,10 @@ class TestAnalysisDialogFieldBuilding:
         dialog = AnalysisDialog(analysis_type="AC Sweep")
         qtbot.addWidget(dialog)
         assert set(dialog.field_widgets.keys()) == {
-            "fStart", "fStop", "points", "sweepType",
+            "fStart",
+            "fStop",
+            "points",
+            "sweepType",
         }
 
     def test_transient_has_three_fields(self, qtbot):

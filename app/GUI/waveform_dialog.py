@@ -23,7 +23,6 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
 from simulation.fft_analysis import analyze_signal_spectrum
 
 from .format_utils import format_value, parse_value
@@ -473,6 +472,7 @@ class WaveformDialog(QDialog):
         """Clean up matplotlib figure to prevent memory leaks."""
         plt.close(self.canvas.figure)
         super().closeEvent(event)
+
 
 class FFTAnalysisDialog(QDialog):
     """Dialog for displaying FFT analysis of transient simulation signals."""

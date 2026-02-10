@@ -26,7 +26,7 @@ def validate_circuit(components, wires, analysis_type):
     warnings = []
 
     # 1. Circuit must have components (beyond just Ground)
-    non_ground = [c for c in components.values() if c.component_type != 'Ground']
+    non_ground = [c for c in components.values() if c.component_type != "Ground"]
     if not non_ground:
         errors.append(
             "There are no components on the canvas. "
@@ -36,7 +36,7 @@ def validate_circuit(components, wires, analysis_type):
         return False, errors, warnings
 
     # 2. Must have a ground node
-    has_ground = any(c.component_type == 'Ground' for c in components.values())
+    has_ground = any(c.component_type == "Ground" for c in components.values())
     if not has_ground:
         errors.append(
             "Your circuit needs a ground connection. "
@@ -53,7 +53,7 @@ def validate_circuit(components, wires, analysis_type):
 
     # 4. Check for unconnected terminals
     for comp in components.values():
-        if comp.component_type == 'Ground':
+        if comp.component_type == "Ground":
             continue
         terminal_count = comp.get_terminal_count()
         comp_connected = []
@@ -78,14 +78,11 @@ def validate_circuit(components, wires, analysis_type):
             )
 
     # 5. Analysis-specific checks
-    voltage_sources = [c for c in components.values()
-                       if c.component_type in ('Voltage Source', 'Waveform Source')]
-    current_sources = [c for c in components.values()
-                       if c.component_type == 'Current Source']
+    voltage_sources = [c for c in components.values() if c.component_type in ("Voltage Source", "Waveform Source")]
+    current_sources = [c for c in components.values() if c.component_type == "Current Source"]
 
     if analysis_type == "DC Sweep":
-        dc_sources = [c for c in components.values()
-                      if c.component_type == 'Voltage Source']
+        dc_sources = [c for c in components.values() if c.component_type == "Voltage Source"]
         if not dc_sources:
             errors.append(
                 "DC Sweep analysis requires a Voltage Source to sweep. "

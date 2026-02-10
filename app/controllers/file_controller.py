@@ -8,11 +8,10 @@ Recent files tracking uses QSettings for cross-session persistence.
 import json
 import os
 from pathlib import Path
-from typing import Optional, List
-
-from PyQt6.QtCore import QSettings
+from typing import List, Optional
 
 from models.circuit import CircuitModel
+from PyQt6.QtCore import QSettings
 
 SESSION_FILE = "last_session.txt"
 MAX_RECENT_FILES = 10

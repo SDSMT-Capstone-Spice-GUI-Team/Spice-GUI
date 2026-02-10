@@ -4,11 +4,11 @@ Unit tests for ComponentPalette.
 Tests component listing, signal emission on double-click,
 and drag support configuration.
 """
-import pytest
-from PyQt6.QtCore import Qt
 
+import pytest
 from GUI.component_palette import ComponentPalette
 from GUI.styles import COMPONENTS
+from PyQt6.QtCore import Qt
 
 
 @pytest.fixture
@@ -39,9 +39,7 @@ class TestComponentPaletteSignals:
 
     def test_double_click_emits_component_type(self, palette, qtbot):
         first_item = palette.item(0)
-        with qtbot.waitSignal(
-            palette.componentDoubleClicked, timeout=1000
-        ) as blocker:
+        with qtbot.waitSignal(palette.componentDoubleClicked, timeout=1000) as blocker:
             palette.itemDoubleClicked.emit(first_item)
         assert blocker.args == [first_item.text()]
 

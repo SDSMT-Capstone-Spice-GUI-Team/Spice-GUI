@@ -4,10 +4,10 @@ Unit tests for WaveformConfigDialog.
 Tests dialog creation with waveform component data,
 type switching, parameter population, and parameter retrieval.
 """
-import pytest
 
-from models.component import ComponentData
+import pytest
 from GUI.waveform_config_dialog import WaveformConfigDialog
+from models.component import ComponentData
 
 
 @pytest.fixture

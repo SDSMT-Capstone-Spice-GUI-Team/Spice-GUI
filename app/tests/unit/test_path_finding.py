@@ -1,9 +1,8 @@
 """Tests for path_finding.py — IDA* wire routing algorithm."""
 
 import pytest
-from PyQt6.QtCore import QPointF
-
 from GUI.path_finding import IDAStarPathfinder
+from PyQt6.QtCore import QPointF
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -26,6 +25,7 @@ BOUNDS = (-200, -200, 400, 400)
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _grid(gx, gy):
     """Shorthand: grid coords -> QPointF in scene coordinates."""
     return QPointF(gx * GRID, gy * GRID)
@@ -39,6 +39,7 @@ def _to_grid_tuples(waypoints):
 # ===========================================================================
 # 1. Grid conversion helpers
 # ===========================================================================
+
 
 class TestGridConversion:
     def test_pos_to_grid(self, pathfinder):
@@ -64,6 +65,7 @@ class TestGridConversion:
 # 2. Heuristic
 # ===========================================================================
 
+
 class TestHeuristic:
     def test_same_point(self, pathfinder):
         assert pathfinder._heuristic((0, 0), (0, 0)) == 0
@@ -76,6 +78,7 @@ class TestHeuristic:
 # ===========================================================================
 # 3. Path simplification
 # ===========================================================================
+
 
 class TestSimplifyPath:
     def test_two_points_unchanged(self, pathfinder):
@@ -101,6 +104,7 @@ class TestSimplifyPath:
 # 4. Same-direction helper
 # ===========================================================================
 
+
 class TestSameDirection:
     def test_same(self, pathfinder):
         assert pathfinder._same_direction(1, 0, 1, 0) is True
@@ -116,12 +120,12 @@ class TestSameDirection:
 # 5. Basic routing
 # ===========================================================================
 
+
 class TestBasicRouting:
     def test_same_start_and_end(self, pathfinder):
         """Same point should return a trivial path."""
         start = end = _grid(0, 0)
-        waypoints, runtime, iters = pathfinder.find_path(
-            start, end, set(), bounds=BOUNDS)
+        waypoints, runtime, iters = pathfinder.find_path(start, end, set(), bounds=BOUNDS)
         grid_pts = _to_grid_tuples(waypoints)
         assert grid_pts[0] == (0, 0)
         assert grid_pts[-1] == (0, 0)
@@ -165,6 +169,7 @@ class TestBasicRouting:
 # 6. Obstacle avoidance
 # ===========================================================================
 
+
 class TestObstacleAvoidance:
     def test_routes_around_single_obstacle(self, pathfinder):
         """A wall of obstacles should force a detour."""
@@ -193,6 +198,7 @@ class TestObstacleAvoidance:
 # 7. Orthogonal paths (no diagonals)
 # ===========================================================================
 
+
 class TestOrthogonalPaths:
     def test_path_is_orthogonal(self, pathfinder):
         """All segments should be horizontal or vertical (no diagonals)."""
@@ -208,6 +214,7 @@ class TestOrthogonalPaths:
 # ===========================================================================
 # 8. Performance
 # ===========================================================================
+
 
 class TestPerformance:
     def test_completes_within_time_limit(self, pathfinder):
@@ -227,6 +234,7 @@ class TestPerformance:
 # ===========================================================================
 # 9. Reconstruct path helper
 # ===========================================================================
+
 
 class TestReconstructPath:
     def test_single_node(self, pathfinder):
