@@ -18,13 +18,23 @@ make install-hooks  # Install pre-commit hooks (black, isort, ruff)
 Or run `scripts/setup.sh` (Linux/Mac) or `scripts/setup.ps1` (Windows).
 
 ## Testing & Linting
+
+**Formatters**: black + isort (canonical). Do NOT use `ruff format` — it conflicts with black.
+
 ```bash
 python -m pytest              # run all tests (works from repo root)
 python -m pytest -v           # verbose
 python -m pytest app/tests/unit/test_foo.py  # single file
-make lint                     # full lint: ruff + black --check + isort --check
 make format                   # auto-format: black + isort + ruff --fix
+make lint                     # full lint: ruff + black --check + isort --check
+make format-check             # verify formatting without modifying files
 ```
+
+### Testing Conventions
+- Use `tmp_path` (pytest fixture) for all file path tests — never hardcode paths like `/some/path` (Windows uses backslash separators)
+- Use `qtbot` fixture for Qt widget tests
+- Test count should increase by ≥5 for new features
+- Run tests from repo root: `python -m pytest` or `make test`
 
 ## Project Structure
 ```
@@ -170,6 +180,8 @@ Before starting implementation on any issue, verify:
 
 **If any check fails**: Fix the issue before creating new files or writing code.
 
+**Shortcut**: After creating your feature branch, run `make preflight` to verify all checks at once.
+
 ### Work Loop
 1. Discover board IDs (see above)
 2. Query board for next **Ready** item (prefer higher priority, lower issue number)
@@ -193,6 +205,7 @@ Before starting implementation on any issue, verify:
    - ✅ All new tests pass
    - ✅ All existing tests still pass (no regressions)
    - ✅ Full lint passes: ruff + black --check + isort --check (`make lint`)
+   - ✅ Formatting verified: `make format-check` (optional — `make lint` also checks)
    - ✅ Test count increased by ≥5 for new features
 
    **Troubleshooting**:
@@ -210,6 +223,13 @@ Before starting implementation on any issue, verify:
 15. Move issue to **In Review** on the board
 16. Log hours: comment `⏱️ Xh - description` on issue, update Hours field
 17. Pick next Ready item → repeat from step 2
+
+**Post-issue checklist** (verify before picking next item):
+- [ ] PR created and linked to issue
+- [ ] Issue closed (`gh issue close <N>`)
+- [ ] Board status updated to In Review
+- [ ] Hours logged (comment + field)
+- [ ] MEMORY.md updated with issue/PR number
 
 ### Hours Estimates
 - Small fix/tweak: **0.5h**
@@ -302,6 +322,8 @@ For sessions working on >3 issues or >4 hours of work:
 - **Board field updates**: `updateProjectV2Field` with `singleSelectOptions` regenerates all option IDs. Always re-query IDs after modifying field options.
 
 ### Legacy Branch Handling
+
+> **Note**: This section applies to branches created before PR #138 (2026-02-09). New branches from main already include `.pre-commit-config.yaml`.
 
 **Problem**: Feature branches created before Issue #106 (pre-commit hooks) lack `.pre-commit-config.yaml`.
 

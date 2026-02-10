@@ -2,6 +2,12 @@
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
 # Update hooks: pre-commit autoupdate
+#
+# Hook order matters — formatters run in this sequence:
+#   1. ruff --fix        (lint auto-fixes: unused imports, etc.)
+#   2. isort             (import sorting)
+#   3. ruff-format       (stricter formatter: implicit string concat, etc.)
+#   4. black             (final authority — should be a no-op after ruff-format)
 
 repos:
   # General file hygiene
@@ -19,24 +25,27 @@ repos:
       - id: mixed-line-ending
         args: ['--fix=lf']
 
-  # Python linting with ruff (configured via ruff.toml)
+  # Step 1: Lint fixes (may remove unused imports, fix code issues)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.0
     hooks:
-      # Linter
       - id: ruff
         args: [--fix]
-      # Formatter
-      - id: ruff-format
 
-  # Import sorting
+  # Step 2: Import sorting (after ruff may have changed imports)
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
         args: [--profile=black, --line-length=120]
 
-  # Code formatting
+  # Step 3: ruff-format (stricter — handles implicit string concat, etc.)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      - id: ruff-format
+
+  # Step 4: black (final authority — output satisfies both formatters)
   - repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:
