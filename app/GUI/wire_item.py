@@ -1,15 +1,18 @@
 import logging
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from PyQt6.QtWidgets import QGraphicsPathItem
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPen, QPainterPath, QPainterPathStroker, QColor
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # path_finding imported lazily in update_position() for faster startup
 from models.wire import WireData
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QPainterPath, QPainterPathStroker, QPen
+from PyQt6.QtWidgets import QGraphicsPathItem
+
 from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, theme_manager
 
 logger = logging.getLogger(__name__)
+
 
 class WireGraphicsItem(QGraphicsPathItem):
     """Wire connecting components with multi-algorithm pathfinding support.
@@ -19,7 +22,9 @@ class WireGraphicsItem(QGraphicsPathItem):
     delegated to the model. Drawing and Qt interaction stay in this class.
     """
 
-    def __init__(self, start_comp, start_term, end_comp, end_term, canvas=None, algorithm='astar', layer_color=None, model=None):
+    def __init__(
+        self, start_comp, start_term, end_comp, end_term, canvas=None, algorithm="astar", layer_color=None, model=None
+    ):
         super().__init__()
 
         # Create or accept a WireData backing object
@@ -27,11 +32,11 @@ class WireGraphicsItem(QGraphicsPathItem):
             self.model = model
         else:
             self.model = WireData(
-                start_component_id=start_comp.component_id if hasattr(start_comp, 'component_id') else str(start_comp),
+                start_component_id=start_comp.component_id if hasattr(start_comp, "component_id") else str(start_comp),
                 start_terminal=start_term,
-                end_component_id=end_comp.component_id if hasattr(end_comp, 'component_id') else str(end_comp),
+                end_component_id=end_comp.component_id if hasattr(end_comp, "component_id") else str(end_comp),
                 end_terminal=end_term,
-                algorithm=algorithm
+                algorithm=algorithm,
             )
 
         # Store references to actual component objects for rendering
@@ -96,17 +101,22 @@ class WireGraphicsItem(QGraphicsPathItem):
             # Specify the exact terminals this wire is using - these MUST be cleared for pathfinding
             active_terminals = [
                 (self.start_comp.component_id, self.start_term),
-                (self.end_comp.component_id, self.end_term)
+                (self.end_comp.component_id, self.end_term),
             ]
 
-            logger.debug("Routing wire (%s) from %s[%s] to %s[%s]",
-                         self.algorithm, self.start_comp.component_id,
-                         self.start_term, self.end_comp.component_id, self.end_term)
+            logger.debug(
+                "Routing wire (%s) from %s[%s] to %s[%s]",
+                self.algorithm,
+                self.start_comp.component_id,
+                self.start_term,
+                self.end_comp.component_id,
+                self.end_term,
+            )
 
             # Get all existing wires in the circuit for wire-to-wire obstacle detection
             # Only consider wires from the SAME algorithm layer for fair comparison
             # Wires from the same node won't be treated as obstacles (allows bundling)
-            all_wires = self.canvas.wires if hasattr(self.canvas, 'wires') else []
+            all_wires = self.canvas.wires if hasattr(self.canvas, "wires") else []
             existing_wires = [w for w in all_wires if w.algorithm == self.algorithm]
 
             obstacles = get_component_obstacles(
@@ -115,7 +125,7 @@ class WireGraphicsItem(QGraphicsPathItem):
                 terminal_clearance_only=terminal_clearance,
                 active_terminals=active_terminals,
                 existing_wires=existing_wires,
-                current_node=self.node
+                current_node=self.node,
             )
 
             pathfinder = IDAStarPathfinder(GRID_SIZE)
@@ -159,7 +169,7 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         # Draw wire with layer color
         if self.isSelected():
-            painter.setPen(theme_manager.pen('wire_selected'))
+            painter.setPen(theme_manager.pen("wire_selected"))
         else:
             painter.setPen(QPen(self.layer_color, 2))
 
@@ -175,10 +185,7 @@ class WireGraphicsItem(QGraphicsPathItem):
 
     def get_terminals(self):
         """Get both terminal identifiers for this wire"""
-        return [
-            (self.start_comp.component_id, self.start_term),
-            (self.end_comp.component_id, self.end_term)
-        ]
+        return [(self.start_comp.component_id, self.start_term), (self.end_comp.component_id, self.end_term)]
 
     def to_dict(self):
         """Serialize wire to dictionary via the model"""
@@ -211,7 +218,7 @@ class WireGraphicsItem(QGraphicsPathItem):
             end_term=wire_data.end_terminal,
             canvas=canvas,
             algorithm=wire_data.algorithm,
-            model=wire_data
+            model=wire_data,
         )
 
         return wire

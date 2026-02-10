@@ -1,7 +1,7 @@
 """Movable text annotation for the circuit canvas."""
 
-from PyQt6.QtWidgets import QGraphicsTextItem, QInputDialog, QGraphicsItem
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsTextItem, QInputDialog
 
 
 class AnnotationItem(QGraphicsTextItem):
@@ -33,9 +33,7 @@ class AnnotationItem(QGraphicsTextItem):
 
     def mouseDoubleClickEvent(self, event):
         """Open a dialog to edit the annotation text."""
-        text, ok = QInputDialog.getText(
-            None, "Edit Annotation", "Text:", text=self.toPlainText()
-        )
+        text, ok = QInputDialog.getText(None, "Edit Annotation", "Text:", text=self.toPlainText())
         if ok and text:
             self.setPlainText(text)
 
@@ -44,21 +42,21 @@ class AnnotationItem(QGraphicsTextItem):
     def to_dict(self):
         font = self.font()
         return {
-            'text': self.toPlainText(),
-            'x': self.pos().x(),
-            'y': self.pos().y(),
-            'font_size': font.pointSize(),
-            'bold': font.bold(),
-            'color': self._color_hex,
+            "text": self.toPlainText(),
+            "x": self.pos().x(),
+            "y": self.pos().y(),
+            "font_size": font.pointSize(),
+            "bold": font.bold(),
+            "color": self._color_hex,
         }
 
     @staticmethod
     def from_dict(data):
         return AnnotationItem(
-            text=data.get('text', 'Annotation'),
-            x=data.get('x', 0.0),
-            y=data.get('y', 0.0),
-            font_size=data.get('font_size', 10),
-            bold=data.get('bold', False),
-            color=data.get('color', '#FFFFFF'),
+            text=data.get("text", "Annotation"),
+            x=data.get("x", 0.0),
+            y=data.get("y", 0.0),
+            font_size=data.get("font_size", 10),
+            bold=data.get("bold", False),
+            color=data.get("color", "#FFFFFF"),
         )
