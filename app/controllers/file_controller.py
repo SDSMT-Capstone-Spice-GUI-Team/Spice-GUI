@@ -290,6 +290,45 @@ class FileController:
         except (OSError, json.JSONDecodeError, ValueError):
             return None
 
+    def import_netlist(self, filepath) -> None:
+        """Import a SPICE netlist file (.cir, .spice) into the current model.
+
+        Parses the netlist, creates components with auto-layout,
+        wires them according to node connectivity, and optionally
+        sets the analysis type.
+
+        Args:
+            filepath: Path or string to the netlist file.
+
+        Raises:
+            OSError: If the file cannot be read.
+            simulation.netlist_parser.NetlistParseError: If parsing fails.
+        """
+        from simulation.netlist_parser import import_netlist
+
+        filepath = Path(filepath)
+        with open(filepath, "r") as f:
+            text = f.read()
+
+        new_model, analysis = import_netlist(text)
+
+        self.model.clear()
+        self.model.components = new_model.components
+        self.model.wires = new_model.wires
+        self.model.nodes = new_model.nodes
+        self.model.terminal_to_node = new_model.terminal_to_node
+        self.model.component_counter = new_model.component_counter
+
+        if analysis:
+            self.model.analysis_type = analysis["type"]
+            self.model.analysis_params = analysis["params"]
+
+        self.current_file = None
+        self.add_recent_file(filepath)
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify("model_loaded", None)
+
     def clear_auto_save(self) -> None:
         """Delete the auto-save recovery file if it exists."""
         try:
