@@ -12,12 +12,14 @@ from models.circuit import CircuitModel
 from PyQt6.QtCore import QSettings, Qt, QTimer
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
+    QApplication,
     QDialog,
     QFileDialog,
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QMessageBox,
+    QProgressDialog,
     QPushButton,
     QSplitter,
     QStackedWidget,
@@ -30,6 +32,8 @@ from .analysis_dialog import AnalysisDialog
 from .circuit_canvas import CircuitCanvasView
 from .component_palette import ComponentPalette
 from .keybindings import KeybindingsRegistry
+from .parameter_sweep_dialog import ParameterSweepDialog
+from .parameter_sweep_plot_dialog import ParameterSweepPlotDialog
 from .properties_panel import PropertiesPanel
 from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
 from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
@@ -427,6 +431,16 @@ class MainWindow(QMainWindow):
         temp_action.triggered.connect(self.set_analysis_temp_sweep)
         analysis_menu.addAction(temp_action)
 
+        analysis_menu.addSeparator()
+
+        sweep_action = QAction("&Parameter Sweep...", self)
+        sweep_action.setCheckable(True)
+        sweep_action.setToolTip(
+            "Sweep a component parameter across a range of values and overlay results from each step"
+        )
+        sweep_action.triggered.connect(self.set_analysis_parameter_sweep)
+        analysis_menu.addAction(sweep_action)
+
         # Create action group for mutually exclusive analysis types
         self.analysis_group = QActionGroup(self)
         self.analysis_group.addAction(op_action)
@@ -434,12 +448,14 @@ class MainWindow(QMainWindow):
         self.analysis_group.addAction(ac_action)
         self.analysis_group.addAction(tran_action)
         self.analysis_group.addAction(temp_action)
+        self.analysis_group.addAction(sweep_action)
 
         self.op_action = op_action
         self.dc_action = dc_action
         self.ac_action = ac_action
         self.tran_action = tran_action
         self.temp_action = temp_action
+        self.sweep_action = sweep_action
 
         # Store action references for keybinding re-application
         self._bound_actions = {
@@ -689,9 +705,11 @@ class MainWindow(QMainWindow):
     def run_simulation(self):
         """Run SPICE simulation"""
         try:
-            # Phase 5: No sync needed - model always up to date
-            # Run simulation via controller
-            result = self.simulation_ctrl.run_simulation()
+            if self.model.analysis_type == "Parameter Sweep":
+                result = self._run_parameter_sweep()
+            else:
+                # Phase 5: No sync needed - model always up to date
+                result = self.simulation_ctrl.run_simulation()
 
             # Display results (view responsibility)
             self._display_simulation_results(result)
@@ -699,6 +717,44 @@ class MainWindow(QMainWindow):
         except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.error("Simulation failed: %s", e, exc_info=True)
             QMessageBox.critical(self, "Error", f"Simulation failed: {e}")
+
+    def _run_parameter_sweep(self):
+        """Run parameter sweep with a progress dialog."""
+        sweep_config = self.model.analysis_params
+        num_steps = sweep_config.get("num_steps", 10)
+        component_id = sweep_config.get("component_id", "?")
+
+        progress = QProgressDialog(
+            f"Running parameter sweep on {component_id}...",
+            "Cancel",
+            0,
+            num_steps,
+            self,
+        )
+        progress.setWindowTitle("Parameter Sweep")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+
+        def on_progress(step, total):
+            progress.setValue(step)
+            progress.setLabelText(f"Running step {step + 1} of {total}...")
+            QApplication.processEvents()
+            return not progress.wasCanceled()
+
+        result = self.simulation_ctrl.run_parameter_sweep(
+            sweep_config,
+            progress_callback=on_progress,
+        )
+        progress.setValue(num_steps)
+        progress.close()
+
+        # Add sweep_labels to the data for the plot dialog
+        if result.data:
+            from .format_utils import format_value
+
+            result.data["sweep_labels"] = [format_value(v).strip() for v in result.data.get("sweep_values", [])]
+
+        return result
 
     def _display_simulation_results(self, result):
         """Display simulation results based on analysis type"""
@@ -855,6 +911,39 @@ class MainWindow(QMainWindow):
                 self.results_text.append("Note: values shown are from the final temperature step.")
             else:
                 self.results_text.append("\nNo results found. Check raw output below.")
+            self.canvas.clear_node_voltages()
+
+        elif self.model.analysis_type == "Parameter Sweep":
+            sweep_data = result.data if result.data else None
+            if sweep_data:
+                self._last_results = sweep_data
+                comp_id = sweep_data.get("component_id", "?")
+                base_type = sweep_data.get("base_analysis_type", "?")
+                labels = sweep_data.get("sweep_labels", [])
+                step_results = sweep_data.get("results", [])
+                ok_count = sum(1 for r in step_results if r.success)
+
+                self.results_text.append("\nPARAMETER SWEEP RESULTS:")
+                self.results_text.append("-" * 40)
+                self.results_text.append(f"  Component:      {comp_id}")
+                self.results_text.append(f"  Base analysis:  {base_type}")
+                self.results_text.append(f"  Steps:          {ok_count}/{len(step_results)} succeeded")
+                if labels:
+                    self.results_text.append(f"  Range:          {labels[0]} to {labels[-1]}")
+                if sweep_data.get("cancelled"):
+                    self.results_text.append("  (sweep was cancelled)")
+                self.results_text.append("-" * 40)
+
+                if result.errors:
+                    self.results_text.append("\nStep errors:")
+                    for err in result.errors[:10]:
+                        self.results_text.append(f"  - {err}")
+
+                if ok_count > 0:
+                    self.results_text.append("\nPlot opened in a new window.")
+                    self._show_plot_dialog(ParameterSweepPlotDialog(sweep_data, self))
+            else:
+                self.results_text.append("\nNo parameter sweep data.")
             self.canvas.clear_node_voltages()
 
         self.results_text.append("=" * 70)
@@ -1021,6 +1110,39 @@ class MainWindow(QMainWindow):
         else:
             self.op_action.setChecked(True)
 
+    def set_analysis_parameter_sweep(self):
+        """Set analysis type to Parameter Sweep with configuration dialog"""
+        if not self.model.components:
+            QMessageBox.warning(
+                self,
+                "No Components",
+                "Add components to the circuit before configuring a parameter sweep.",
+            )
+            self.op_action.setChecked(True)
+            return
+
+        dialog = ParameterSweepDialog(self.model.components, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.simulation_ctrl.set_analysis("Parameter Sweep", params)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(
+                        f"Analysis: Parameter Sweep on {params['component_id']} "
+                        f"({params['num_steps']} steps, base: {params['base_analysis_type']})",
+                        3000,
+                    )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Parameters",
+                    "Please enter valid sweep parameters. Start and stop values must be different.",
+                )
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
+
     def _sync_analysis_menu(self):
         """Update Analysis menu checkboxes to match model state."""
         analysis_type = self.model.analysis_type
@@ -1034,6 +1156,8 @@ class MainWindow(QMainWindow):
             self.tran_action.setChecked(True)
         elif analysis_type == "Temperature Sweep":
             self.temp_action.setChecked(True)
+        elif analysis_type == "Parameter Sweep":
+            self.sweep_action.setChecked(True)
 
     # View Operations
 
@@ -1245,16 +1369,11 @@ class MainWindow(QMainWindow):
 
         analysis_type = settings.value("analysis/type")
         if analysis_type:
+            # Don't restore "Parameter Sweep" — it requires component selection
+            if analysis_type == "Parameter Sweep":
+                analysis_type = "DC Operating Point"
             self.simulation_ctrl.set_analysis(analysis_type, self.model.analysis_params)
-            # Update menu checkboxes
-            if analysis_type == "DC Operating Point":
-                self.op_action.setChecked(True)
-            elif analysis_type == "DC Sweep":
-                self.dc_action.setChecked(True)
-            elif analysis_type == "AC Sweep":
-                self.ac_action.setChecked(True)
-            elif analysis_type == "Transient":
-                self.tran_action.setChecked(True)
+            self._sync_analysis_menu()
 
         show_labels = settings.value("view/show_labels")
         if show_labels is not None:
