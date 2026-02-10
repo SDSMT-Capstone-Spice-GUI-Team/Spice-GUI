@@ -223,12 +223,16 @@ class IDAStarPathfinder(WeightedPathfinder):
         Find path using IDA* algorithm.
 
         Returns:
-            tuple: (waypoints, runtime, iterations)
+            tuple: (waypoints, runtime, iterations, routing_failed)
+                routing_failed is True when no valid path was found and
+                the result is a straight-line fallback.
         """
         start_time = time.time()
-        waypoints = self._find_path_impl(start_pos, end_pos, obstacles, bounds, existing_wires, current_net)
+        waypoints, routing_failed = self._find_path_impl(
+            start_pos, end_pos, obstacles, bounds, existing_wires, current_net
+        )
         self.last_runtime = time.time() - start_time
-        return waypoints, self.last_runtime, self.last_iterations
+        return waypoints, self.last_runtime, self.last_iterations, routing_failed
 
     def _calculate_edge_cost(
         self,
@@ -255,7 +259,9 @@ class IDAStarPathfinder(WeightedPathfinder):
         IDA* (Iterative Deepening A*) algorithm - memory-efficient A* variant
 
         Returns:
-            list of QPointF representing waypoints along the path
+            tuple: (waypoints, routing_failed)
+                - waypoints: list of QPointF representing the path
+                - routing_failed: True if no valid path was found
         """
         start_grid = self._pos_to_grid(start_pos)
         end_grid = self._pos_to_grid(end_pos)
@@ -292,17 +298,16 @@ class IDAStarPathfinder(WeightedPathfinder):
                 waypoints = [self._grid_to_pos(grid_pos) for grid_pos in result]
                 waypoints = self._simplify_path(waypoints)
                 self.last_iterations = iterations
-                return waypoints
+                return waypoints, False
             elif result == float("inf"):
                 # No path exists
                 break
-                pass
             else:
                 # Increase threshold and continue
                 threshold = result
 
         self.last_iterations = iterations
-        return [start_pos, end_pos]
+        return [start_pos, end_pos], True
 
     def _idastar_search(
         self,
