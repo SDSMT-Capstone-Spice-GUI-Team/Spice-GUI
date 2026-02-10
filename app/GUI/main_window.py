@@ -1,22 +1,35 @@
 """Main application window with MVC architecture"""
+
 import logging
 import os
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QFileDialog, QMessageBox, QTextEdit,
-                             QSplitter, QLabel, QDialog, QStackedWidget)
-from PyQt6.QtGui import QAction, QKeySequence, QActionGroup
-from PyQt6.QtCore import Qt, QSettings
 
-from models.circuit import CircuitModel
 from controllers.circuit_controller import CircuitController
 from controllers.file_controller import FileController
 from controllers.simulation_controller import SimulationController
-from .component_palette import ComponentPalette
-from .circuit_canvas import CircuitCanvasView
+from models.circuit import CircuitModel
+from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
+from PyQt6.QtWidgets import (
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QStackedWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
 from .analysis_dialog import AnalysisDialog
+from .circuit_canvas import CircuitCanvasView
+from .component_palette import ComponentPalette
 from .properties_panel import PropertiesPanel
+from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
 from .waveform_dialog import WaveformDialog
-from .styles import theme_manager, DEFAULT_WINDOW_SIZE, DEFAULT_SPLITTER_SIZES
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +100,7 @@ class MainWindow(QMainWindow):
             "Wires auto-route using IDA* path finding!"
         )
         instructions.setWordWrap(True)
-        instructions.setStyleSheet(theme_manager.stylesheet('instructions_panel'))
+        instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
         left_panel.addWidget(instructions)
         main_layout.addLayout(left_panel, 1)
 
@@ -151,8 +164,8 @@ class MainWindow(QMainWindow):
         self.properties_stack = QStackedWidget()
         self.properties_panel = PropertiesPanel()
         blank_widget = QWidget()
-        self.properties_stack.addWidget(blank_widget)       # Index 0
-        self.properties_stack.addWidget(self.properties_panel) # Index 1
+        self.properties_stack.addWidget(blank_widget)  # Index 0
+        self.properties_stack.addWidget(self.properties_panel)  # Index 1
         right_panel_layout.addWidget(self.properties_stack)
 
         right_panel_layout.addStretch()
@@ -407,9 +420,10 @@ class MainWindow(QMainWindow):
         """Create a new circuit"""
         if len(self.canvas.components) > 0:
             reply = QMessageBox.question(
-                self, "New Circuit",
+                self,
+                "New Circuit",
                 "Current circuit will be lost. Continue?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
                 return
@@ -451,9 +465,7 @@ class MainWindow(QMainWindow):
 
     def _on_save_as(self):
         """Save circuit to a new file"""
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Save Circuit", "", "JSON Files (*.json);;All Files (*)"
-        )
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Circuit", "", "JSON Files (*.json);;All Files (*)")
         if filename:
             try:
                 # Phase 5: No sync needed - model always up to date
@@ -465,9 +477,7 @@ class MainWindow(QMainWindow):
 
     def _on_load(self):
         """Load circuit from file"""
-        filename, _ = QFileDialog.getOpenFileName(
-            self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)"
-        )
+        filename, _ = QFileDialog.getOpenFileName(self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)")
         if filename:
             try:
                 self.file_ctrl.load_circuit(filename)
@@ -590,6 +600,7 @@ class MainWindow(QMainWindow):
                 self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
 
                 from simulation import ResultParser
+
                 table_string = ResultParser.format_results_as_table(tran_data)
                 self.results_text.append(table_string)
 
@@ -619,8 +630,11 @@ class MainWindow(QMainWindow):
             return
 
         from simulation.csv_exporter import (
-            export_op_results, export_dc_sweep_results,
-            export_ac_results, export_transient_results, write_csv,
+            export_ac_results,
+            export_dc_sweep_results,
+            export_op_results,
+            export_transient_results,
+            write_csv,
         )
 
         circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
@@ -636,10 +650,7 @@ class MainWindow(QMainWindow):
         else:
             return
 
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Export Results to CSV", "",
-            "CSV Files (*.csv);;All Files (*)"
-        )
+        filename, _ = QFileDialog.getSaveFileName(self, "Export Results to CSV", "", "CSV Files (*.csv);;All Files (*)")
         if filename:
             try:
                 write_csv(csv_content, filename)
@@ -668,12 +679,10 @@ class MainWindow(QMainWindow):
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(
-                        f"Analysis: DC Sweep (V: {params['min']}V to {params['max']}V, step {params['step']}V)",
-                        3000
+                        f"Analysis: DC Sweep (V: {params['min']}V to {params['max']}V, step {params['step']}V)", 3000
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters",
-                                    "Please enter valid numeric values.")
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -689,11 +698,10 @@ class MainWindow(QMainWindow):
                 if statusBar:
                     statusBar.showMessage(
                         f"Analysis: AC Sweep ({params['fStart']}Hz to {params['fStop']}Hz, {params['points']} pts/decade)",
-                        3000
+                        3000,
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters",
-                                    "Please enter valid numeric values.")
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -708,12 +716,10 @@ class MainWindow(QMainWindow):
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(
-                        f"Analysis: Transient (duration: {params['duration']}s, step: {params['step']}s)",
-                        3000
+                        f"Analysis: Transient (duration: {params['duration']}s, step: {params['step']}s)", 3000
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters",
-                                    "Please enter valid numeric values.")
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -754,8 +760,7 @@ class MainWindow(QMainWindow):
     def export_image(self):
         """Export the circuit diagram as a PNG or SVG image"""
         filename, selected_filter = QFileDialog.getSaveFileName(
-            self, "Export Image", "",
-            "PNG Image (*.png);;SVG Image (*.svg)"
+            self, "Export Image", "", "PNG Image (*.png);;SVG Image (*.svg)"
         )
         if not filename:
             return
@@ -763,11 +768,13 @@ class MainWindow(QMainWindow):
         scene = self.canvas.scene
 
         # Compute bounding rect of circuit items (excluding grid)
+        from .annotation_item import AnnotationItem
         from .component_item import ComponentGraphicsItem
         from .wire_item import WireGraphicsItem
-        from .annotation_item import AnnotationItem
+
         circuit_items = [
-            item for item in scene.items()
+            item
+            for item in scene.items()
             if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem, AnnotationItem))
         ]
         if not circuit_items:
@@ -782,9 +789,10 @@ class MainWindow(QMainWindow):
         padding = 40
         source_rect.adjust(-padding, -padding, padding, padding)
 
-        if filename.lower().endswith('.svg'):
-            from PyQt6.QtSvg import QSvgGenerator
+        if filename.lower().endswith(".svg"):
             from PyQt6.QtCore import QSize
+            from PyQt6.QtSvg import QSvgGenerator
+
             generator = QSvgGenerator()
             generator.setFileName(filename)
             generator.setSize(QSize(int(source_rect.width()), int(source_rect.height())))
@@ -792,13 +800,15 @@ class MainWindow(QMainWindow):
             generator.setTitle("SDM Spice Circuit")
 
             from PyQt6.QtGui import QPainter
+
             painter = QPainter(generator)
             scene.render(painter, source=source_rect)
             painter.end()
         else:
             # PNG
+            from PyQt6.QtCore import QRectF, Qt
             from PyQt6.QtGui import QImage, QPainter
-            from PyQt6.QtCore import Qt, QRectF
+
             scale = 2  # 2x resolution for crisp output
             width = int(source_rect.width() * scale)
             height = int(source_rect.height() * scale)
@@ -817,9 +827,10 @@ class MainWindow(QMainWindow):
     def clear_canvas(self):
         """Clear the canvas"""
         reply = QMessageBox.question(
-            self, "Clear Canvas",
+            self,
+            "Clear Canvas",
             "Are you sure you want to clear the canvas?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             self.canvas.clear_circuit()
@@ -847,14 +858,14 @@ class MainWindow(QMainWindow):
         if not component:
             return
 
-        if property_name == 'value':
+        if property_name == "value":
             component.value = new_value
             component.update()
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
 
-        elif property_name == 'rotation':
+        elif property_name == "rotation":
             component.rotation_angle = new_value
             component.update_terminals()
             component.update()
@@ -864,7 +875,7 @@ class MainWindow(QMainWindow):
                 statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
             self.properties_panel.show_component(component)
 
-        elif property_name == 'waveform':
+        elif property_name == "waveform":
             component.update()
             statusBar = self.statusBar()
             if statusBar:

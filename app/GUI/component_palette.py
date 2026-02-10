@@ -1,31 +1,32 @@
+from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QBrush, QDrag, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QListWidget, QListWidgetItem
-from PyQt6.QtCore import Qt, QMimeData, QSize, pyqtSignal
-from PyQt6.QtGui import QDrag, QIcon, QPixmap, QPainter, QPen, QBrush
-from .styles import COMPONENTS, theme_manager
+
 from .component_item import COMPONENT_CLASSES
+from .styles import COMPONENTS, theme_manager
 
 # Brief descriptions for each component type
 COMPONENT_TOOLTIPS = {
-    'Resistor': 'Resistor (R) — Resists current flow',
-    'Capacitor': 'Capacitor (C) — Stores energy in an electric field',
-    'Inductor': 'Inductor (L) — Stores energy in a magnetic field',
-    'Voltage Source': 'Voltage Source (V) — Provides a constant voltage',
-    'Current Source': 'Current Source (I) — Provides a constant current',
-    'Waveform Source': 'Waveform Source (VW) — Time-varying voltage source',
-    'Ground': 'Ground (GND) — Zero-volt reference node',
-    'Op-Amp': 'Op-Amp (OA) — Operational amplifier',
-    'VCVS': 'VCVS (E) — Voltage-controlled voltage source',
-    'CCVS': 'CCVS (H) — Current-controlled voltage source',
-    'VCCS': 'VCCS (G) — Voltage-controlled current source',
-    'CCCS': 'CCCS (F) — Current-controlled current source',
-    'BJT NPN': 'BJT NPN (Q) — NPN bipolar junction transistor',
-    'BJT PNP': 'BJT PNP (Q) — PNP bipolar junction transistor',
-    'MOSFET NMOS': 'MOSFET NMOS (M) — N-channel MOSFET',
-    'MOSFET PMOS': 'MOSFET PMOS (M) — P-channel MOSFET',
-    'VC Switch': 'VC Switch (S) — Voltage-controlled switch',
-    'Diode': 'Diode (D) — Allows current in one direction',
-    'LED': 'LED (D) — Light-emitting diode',
-    'Zener Diode': 'Zener Diode (D) — Voltage-regulating diode',
+    "Resistor": "Resistor (R) — Resists current flow",
+    "Capacitor": "Capacitor (C) — Stores energy in an electric field",
+    "Inductor": "Inductor (L) — Stores energy in a magnetic field",
+    "Voltage Source": "Voltage Source (V) — Provides a constant voltage",
+    "Current Source": "Current Source (I) — Provides a constant current",
+    "Waveform Source": "Waveform Source (VW) — Time-varying voltage source",
+    "Ground": "Ground (GND) — Zero-volt reference node",
+    "Op-Amp": "Op-Amp (OA) — Operational amplifier",
+    "VCVS": "VCVS (E) — Voltage-controlled voltage source",
+    "CCVS": "CCVS (H) — Current-controlled voltage source",
+    "VCCS": "VCCS (G) — Voltage-controlled current source",
+    "CCCS": "CCCS (F) — Current-controlled current source",
+    "BJT NPN": "BJT NPN (Q) — NPN bipolar junction transistor",
+    "BJT PNP": "BJT PNP (Q) — PNP bipolar junction transistor",
+    "MOSFET NMOS": "MOSFET NMOS (M) — N-channel MOSFET",
+    "MOSFET PMOS": "MOSFET PMOS (M) — P-channel MOSFET",
+    "VC Switch": "VC Switch (S) — Voltage-controlled switch",
+    "Diode": "Diode (D) — Allows current in one direction",
+    "LED": "LED (D) — Light-emitting diode",
+    "Zener Diode": "Zener Diode (D) — Voltage-regulating diode",
 }
 
 
@@ -40,7 +41,7 @@ def create_component_icon(component_type, size=48):
     if not component_class:
         return QIcon()
 
-    temp_comp = component_class('temp')
+    temp_comp = component_class("temp")
 
     # Paint component symbol
     painter = QPainter(pixmap)
@@ -60,6 +61,7 @@ def create_component_icon(component_type, size=48):
     painter.end()
 
     return QIcon(pixmap)
+
 
 class ComponentPalette(QListWidget):
     """Component palette with drag support"""
@@ -86,7 +88,7 @@ class ComponentPalette(QListWidget):
     def _on_item_double_clicked(self, item):
         """Handle double-click on palette item"""
         self.componentDoubleClicked.emit(item.text())
-    
+
     def startDrag(self, supportedActions):
         """Start drag operation"""
         item = self.currentItem()

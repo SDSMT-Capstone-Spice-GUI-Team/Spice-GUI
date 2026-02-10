@@ -1,26 +1,29 @@
 """
 Tests for GUI/format_utils.py — SI prefix parsing, formatting, and validation.
 """
-import pytest
-from GUI.format_utils import parse_value, format_value, validate_component_value
 
+import pytest
+from GUI.format_utils import format_value, parse_value, validate_component_value
 
 # ── parse_value ──────────────────────────────────────────────────────
 
-class TestParseValue:
 
-    @pytest.mark.parametrize("input_str, expected", [
-        ("10k", 10_000.0),
-        ("1M", 1_000_000.0),
-        ("4.7M", 4_700_000.0),
-        ("100n", 100e-9),
-        ("1u", 1e-6),
-        ("10m", 10e-3),
-        ("2.2p", 2.2e-12),
-        ("1f", 1e-15),
-        ("1G", 1e9),
-        ("1T", 1e12),
-    ])
+class TestParseValue:
+    @pytest.mark.parametrize(
+        "input_str, expected",
+        [
+            ("10k", 10_000.0),
+            ("1M", 1_000_000.0),
+            ("4.7M", 4_700_000.0),
+            ("100n", 100e-9),
+            ("1u", 1e-6),
+            ("10m", 10e-3),
+            ("2.2p", 2.2e-12),
+            ("1f", 1e-15),
+            ("1G", 1e9),
+            ("1T", 1e12),
+        ],
+    )
     def test_si_suffixes(self, input_str, expected):
         assert parse_value(input_str) == pytest.approx(expected)
 
@@ -56,8 +59,8 @@ class TestParseValue:
 
 # ── format_value ─────────────────────────────────────────────────────
 
-class TestFormatValue:
 
+class TestFormatValue:
     def test_zero(self):
         assert format_value(0) == "0.00 "
 
@@ -87,8 +90,8 @@ class TestFormatValue:
 
 # ── validate_component_value ─────────────────────────────────────────
 
-class TestValidateComponentValue:
 
+class TestValidateComponentValue:
     def test_valid_resistor(self):
         is_valid, msg = validate_component_value("10k", "Resistor")
         assert is_valid

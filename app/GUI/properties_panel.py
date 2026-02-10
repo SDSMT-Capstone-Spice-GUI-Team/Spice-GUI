@@ -1,8 +1,8 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
-                             QFormLayout, QGroupBox, QPushButton)
-from PyQt6.QtCore import Qt, pyqtSignal
 # waveform_dialog imported lazily in configure_waveform() for faster startup
 from models.component import DEFAULT_VALUES
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import QFormLayout, QGroupBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+
 from .format_utils import validate_component_value
 from .styles import theme_manager
 
@@ -25,7 +25,7 @@ class PropertiesPanel(QWidget):
 
         # Title
         title = QLabel("Properties")
-        title.setFont(theme_manager.font('panel_title'))
+        title.setFont(theme_manager.font("panel_title"))
         layout.addWidget(title)
 
         # Properties group box
@@ -35,13 +35,13 @@ class PropertiesPanel(QWidget):
 
         # Component ID field (read-only)
         self.id_label = QLabel("-")
-        self.id_label.setStyleSheet(theme_manager.stylesheet('muted_label'))
+        self.id_label.setStyleSheet(theme_manager.stylesheet("muted_label"))
         self.id_label.setToolTip("Unique identifier for this component (auto-generated)")
         self.form_layout.addRow("ID:", self.id_label)
 
         # Component Type field (read-only)
         self.type_label = QLabel("-")
-        self.type_label.setStyleSheet(theme_manager.stylesheet('muted_label'))
+        self.type_label.setStyleSheet(theme_manager.stylesheet("muted_label"))
         self.type_label.setToolTip("The type of circuit component")
         self.form_layout.addRow("Type:", self.type_label)
 
@@ -98,7 +98,7 @@ class PropertiesPanel(QWidget):
         if component is None:
             self.show_no_selection()
             return
-        
+
         self.current_component = component
         self.properties_group.setEnabled(True)
         self.apply_button.setEnabled(False)
@@ -113,7 +113,7 @@ class PropertiesPanel(QWidget):
         self.value_input.setText(component.value)
 
         # Waveform sources use the Configure Waveform dialog for editing
-        if component.component_type == 'Waveform Source':
+        if component.component_type == "Waveform Source":
             self.value_input.setReadOnly(True)
             self.value_input.setPlaceholderText("Use 'Configure Waveform...' button")
             self.waveform_button.setVisible(True)
@@ -138,9 +138,7 @@ class PropertiesPanel(QWidget):
         new_value = self.value_input.text().strip()
 
         # Validate value format
-        is_valid, error_msg = validate_component_value(
-            new_value, self.current_component.component_type
-        )
+        is_valid, error_msg = validate_component_value(new_value, self.current_component.component_type)
         if not is_valid:
             self.error_label.setText(error_msg)
             self.error_label.setVisible(True)
@@ -150,11 +148,7 @@ class PropertiesPanel(QWidget):
 
         # Emit signal if value changed
         if new_value != self.current_component.value:
-            self.property_changed.emit(
-                self.current_component.component_id,
-                'value',
-                new_value
-            )
+            self.property_changed.emit(self.current_component.component_id, "value", new_value)
 
         self.apply_button.setEnabled(False)
 
@@ -163,10 +157,11 @@ class PropertiesPanel(QWidget):
         if not self.current_component:
             return
 
-        if self.current_component.component_type != 'Waveform Source':
+        if self.current_component.component_type != "Waveform Source":
             return
 
         from .waveform_config_dialog import WaveformConfigDialog
+
         dialog = WaveformConfigDialog(self.current_component, self)
         if dialog.exec():
             # Get configured parameters
@@ -177,14 +172,10 @@ class PropertiesPanel(QWidget):
             self.current_component.waveform_params[waveform_type] = params
 
             # Update the value display to show the SPICE representation
-            if hasattr(self.current_component, 'get_spice_value'):
+            if hasattr(self.current_component, "get_spice_value"):
                 spice_value = self.current_component.get_spice_value()
                 self.value_input.setText(spice_value)
                 self.current_component.value = spice_value
 
             # Emit property changed signal
-            self.property_changed.emit(
-                self.current_component.component_id,
-                'waveform',
-                (waveform_type, params)
-            )
+            self.property_changed.emit(self.current_component.component_id, "waveform", (waveform_type, params))
