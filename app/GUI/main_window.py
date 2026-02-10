@@ -392,6 +392,12 @@ class MainWindow(QMainWindow):
         self.show_nodes_action.triggered.connect(self.toggle_node_labels)
         view_menu.addAction(self.show_nodes_action)
 
+        self.show_op_annotations_action = QAction("Show &OP Annotations", self)
+        self.show_op_annotations_action.setCheckable(True)
+        self.show_op_annotations_action.setChecked(True)
+        self.show_op_annotations_action.triggered.connect(self.toggle_op_annotations)
+        view_menu.addAction(self.show_op_annotations_action)
+
         view_menu.addSeparator()
 
         self.show_statistics_action = QAction("Circuit &Statistics", self)
@@ -853,18 +859,33 @@ class MainWindow(QMainWindow):
             return
 
         if self.model.analysis_type == "DC Operating Point":
-            node_voltages = result.data if result.data else {}
+            op_data = result.data if result.data else {}
+            # Handle new dict format with node_voltages/branch_currents
+            if isinstance(op_data, dict) and "node_voltages" in op_data:
+                node_voltages = op_data["node_voltages"]
+                branch_currents = op_data.get("branch_currents", {})
+            else:
+                # Backward compat: plain dict of voltages
+                node_voltages = op_data
+                branch_currents = {}
+
             if node_voltages:
                 self._last_results = node_voltages
                 self.results_text.append("\nNODE VOLTAGES:")
                 self.results_text.append("-" * 40)
                 for node, voltage in sorted(node_voltages.items()):
                     self.results_text.append(f"  {node:15s} : {voltage:12.6f} V")
-                self.canvas.set_node_voltages(node_voltages)
                 self.results_text.append("-" * 40)
+                if branch_currents:
+                    self.results_text.append("\nBRANCH CURRENTS:")
+                    self.results_text.append("-" * 40)
+                    for device, current in sorted(branch_currents.items()):
+                        self.results_text.append(f"  {device:15s} : {current:12.6e} A")
+                    self.results_text.append("-" * 40)
+                self.canvas.set_op_results(node_voltages, branch_currents)
             else:
                 self.results_text.append("\nNo node voltages found in output.")
-                self.canvas.clear_node_voltages()
+                self.canvas.clear_op_results()
 
         elif self.model.analysis_type == "DC Sweep":
             sweep_data = result.data if result.data else None
@@ -884,7 +905,7 @@ class MainWindow(QMainWindow):
                 self._show_or_overlay_plot("DC Sweep", sweep_data, DCSweepPlotDialog)
             else:
                 self.results_text.append("\nDC Sweep data - see raw output below")
-            self.canvas.clear_node_voltages()
+            self.canvas.clear_op_results()
 
         elif self.model.analysis_type == "AC Sweep":
             ac_data = result.data if result.data else None
@@ -902,7 +923,7 @@ class MainWindow(QMainWindow):
                 self._show_or_overlay_plot("AC Sweep", ac_data, ACSweepPlotDialog)
             else:
                 self.results_text.append("\nAC Sweep data - see raw output below")
-            self.canvas.clear_node_voltages()
+            self.canvas.clear_op_results()
 
         elif self.model.analysis_type == "Transient":
             tran_data = result.data if result.data else None
@@ -947,10 +968,14 @@ class MainWindow(QMainWindow):
                     self._waveform_dialog.show()
             else:
                 self.results_text.append("\nNo transient data found in output.")
-            self.canvas.clear_node_voltages()
+            self.canvas.clear_op_results()
 
         elif self.model.analysis_type == "Temperature Sweep":
-            node_voltages = result.data if result.data else {}
+            temp_data = result.data if result.data else {}
+            if isinstance(temp_data, dict) and "node_voltages" in temp_data:
+                node_voltages = temp_data["node_voltages"]
+            else:
+                node_voltages = temp_data
             if node_voltages:
                 self._last_results = node_voltages
                 self.results_text.append("\nTEMPERATURE SWEEP RESULTS:")
@@ -968,7 +993,7 @@ class MainWindow(QMainWindow):
                 self.results_text.append("Note: values shown are from the final temperature step.")
             else:
                 self.results_text.append("\nNo results found. Check raw output below.")
-            self.canvas.clear_node_voltages()
+            self.canvas.clear_op_results()
 
         elif self.model.analysis_type == "Parameter Sweep":
             sweep_data = result.data if result.data else None
@@ -1001,7 +1026,7 @@ class MainWindow(QMainWindow):
                     self._show_plot_dialog(ParameterSweepPlotDialog(sweep_data, self))
             else:
                 self.results_text.append("\nNo parameter sweep data.")
-            self.canvas.clear_node_voltages()
+            self.canvas.clear_op_results()
 
         self.results_text.append("=" * 70)
 
@@ -1319,6 +1344,11 @@ class MainWindow(QMainWindow):
     def toggle_node_labels(self, checked):
         """Toggle node label visibility"""
         self.canvas.show_node_labels = checked
+        self.canvas.scene.update()
+
+    def toggle_op_annotations(self, checked):
+        """Toggle DC operating point annotation visibility."""
+        self.canvas.show_op_annotations = checked
         self.canvas.scene.update()
 
     def _on_zoom_changed(self, level):

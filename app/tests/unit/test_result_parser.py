@@ -14,18 +14,18 @@ class TestParseOpResults:
     def test_pattern1_equals(self):
         output = "v(nodeA) = 5.00000\nv(nodeB) = 2.50000\n"
         result = ResultParser.parse_op_results(output)
-        assert result["nodeA"] == pytest.approx(5.0)
-        assert result["nodeB"] == pytest.approx(2.5)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(5.0)
+        assert result["node_voltages"]["nodeB"] == pytest.approx(2.5)
 
     def test_pattern1_colon(self):
         output = "v(out): 3.3\n"
         result = ResultParser.parse_op_results(output)
-        assert result["out"] == pytest.approx(3.3)
+        assert result["node_voltages"]["out"] == pytest.approx(3.3)
 
     def test_pattern3_print_format(self):
         output = "  V(nodeA)                        5.000000e+00\n"
         result = ResultParser.parse_op_results(output)
-        assert result["nodeA"] == pytest.approx(5.0)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(5.0)
 
     def test_pattern2_table_format(self):
         output = (
@@ -35,16 +35,18 @@ class TestParseOpResults:
             "nodeB                 2.5\n"
         )
         result = ResultParser.parse_op_results(output)
-        assert "nodeA" in result
-        assert result["nodeA"] == pytest.approx(5.0)
+        assert "nodeA" in result["node_voltages"]
+        assert result["node_voltages"]["nodeA"] == pytest.approx(5.0)
 
     def test_empty_string(self):
         result = ResultParser.parse_op_results("")
-        assert result == {}
+        assert result["node_voltages"] == {}
+        assert result["branch_currents"] == {}
 
     def test_garbage_input(self):
         result = ResultParser.parse_op_results("random garbage text\nnothing useful\n")
-        assert result == {}
+        assert result["node_voltages"] == {}
+        assert result["branch_currents"] == {}
 
 
 # ── parse_dc_results ─────────────────────────────────────────────────
