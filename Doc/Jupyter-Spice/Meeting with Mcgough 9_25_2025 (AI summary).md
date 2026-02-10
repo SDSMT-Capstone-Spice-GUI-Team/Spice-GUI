@@ -1,9 +1,9 @@
-  
+
 **Date:** Thu, Sep 25, 2025  
 **Time:** 11:32 AM  
 **Location:** Senior Design Lab  
 **Attendees:** Team members (Jeremy joined late due to health reasons), Faculty Mentor  
-**Referenced:** Prof. Montoya, Prof. Butterfield, 
+**Referenced:** Prof. Montoya, Prof. Butterfield,
 
 ---
 
