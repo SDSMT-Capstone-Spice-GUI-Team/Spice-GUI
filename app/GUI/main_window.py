@@ -30,6 +30,7 @@ from PyQt6.QtWidgets import (
 
 from .analysis_dialog import AnalysisDialog
 from .circuit_canvas import CircuitCanvasView
+from .circuit_statistics_panel import CircuitStatisticsPanel
 from .component_palette import ComponentPalette
 from .keybindings import KeybindingsRegistry
 from .parameter_sweep_dialog import ParameterSweepDialog
@@ -185,6 +186,11 @@ class MainWindow(QMainWindow):
         self.properties_stack.addWidget(blank_widget)  # Index 0
         self.properties_stack.addWidget(self.properties_panel)  # Index 1
         right_panel_layout.addWidget(self.properties_stack)
+
+        # Circuit statistics panel
+        self.statistics_panel = CircuitStatisticsPanel(self.model, self.circuit_ctrl, self.simulation_ctrl)
+        self.statistics_panel.setVisible(False)
+        right_panel_layout.addWidget(self.statistics_panel)
 
         right_panel_layout.addStretch()
         right_panel_layout.addWidget(QLabel("Actions"))
@@ -362,6 +368,14 @@ class MainWindow(QMainWindow):
         self.show_nodes_action.setChecked(True)
         self.show_nodes_action.triggered.connect(self.toggle_node_labels)
         view_menu.addAction(self.show_nodes_action)
+
+        view_menu.addSeparator()
+
+        self.show_statistics_action = QAction("Circuit &Statistics", self)
+        self.show_statistics_action.setCheckable(True)
+        self.show_statistics_action.setChecked(False)
+        self.show_statistics_action.triggered.connect(self._toggle_statistics_panel)
+        view_menu.addAction(self.show_statistics_action)
 
         view_menu.addSeparator()
 
@@ -1196,7 +1210,8 @@ class MainWindow(QMainWindow):
 
         # Apply global widget stylesheet for dark mode
         if is_dark:
-            self.setStyleSheet("""
+            self.setStyleSheet(
+                """
                 QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }
                 QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }
                 QMenuBar::item:selected { background-color: #3D3D3D; }
@@ -1219,12 +1234,19 @@ class MainWindow(QMainWindow):
                 QTableWidget { background-color: #2D2D2D; color: #D4D4D4;
                     gridline-color: #555555; }
                 QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }
-            """)
+            """
+            )
         else:
             self.setStyleSheet("")
 
         # Refresh canvas (grid + components)
         self.canvas.refresh_theme()
+
+    def _toggle_statistics_panel(self, checked):
+        """Toggle the circuit statistics panel visibility."""
+        self.statistics_panel.setVisible(checked)
+        if checked:
+            self.statistics_panel.refresh()
 
     def toggle_component_labels(self, checked):
         """Toggle component label visibility"""
@@ -1415,6 +1437,7 @@ class MainWindow(QMainWindow):
             settings.setValue("autosave/interval", 60)
         if settings.value("autosave/enabled") is None:
             settings.setValue("autosave/enabled", True)
+        settings.setValue("view/show_statistics", self.statistics_panel.isVisible())
         settings.setValue("view/theme", theme_manager.current_theme.name)
 
     def _restore_settings(self):
@@ -1458,6 +1481,12 @@ class MainWindow(QMainWindow):
             checked = show_nodes == "true" or show_nodes is True
             self.canvas.show_node_labels = checked
             self.show_nodes_action.setChecked(checked)
+
+        show_stats = settings.value("view/show_statistics")
+        if show_stats is not None:
+            checked = show_stats == "true" or show_stats is True
+            self.statistics_panel.setVisible(checked)
+            self.show_statistics_action.setChecked(checked)
 
         saved_theme = settings.value("view/theme")
         if saved_theme == "Dark Theme":
