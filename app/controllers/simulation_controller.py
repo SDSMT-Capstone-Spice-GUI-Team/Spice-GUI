@@ -11,6 +11,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
+
 from models.circuit import CircuitModel
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SimulationResult:
     """Result of a simulation run."""
+
     success: bool
     analysis_type: str = ""
     data: Any = None
@@ -48,6 +50,7 @@ class SimulationController:
         """Lazy initialization of NgspiceRunner."""
         if self._runner is None:
             from simulation import NgspiceRunner
+
             self._runner = NgspiceRunner()
         return self._runner
 
@@ -63,6 +66,7 @@ class SimulationController:
         Returns a SimulationResult with success=False and errors if invalid.
         """
         from simulation import validate_circuit
+
         is_valid, errors, warnings = validate_circuit(
             self.model.components,
             [w for w in self.model.wires],
@@ -99,21 +103,19 @@ class SimulationController:
         """
         # Phase 5: Notify simulation started
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify('simulation_started', None)
+            self.circuit_ctrl._notify("simulation_started", None)
 
         # 1. Validate
         validation = self.validate_circuit()
         if not validation.success:
             # Phase 5: Notify even on failure
             if self.circuit_ctrl:
-                self.circuit_ctrl._notify('simulation_completed', validation)
+                self.circuit_ctrl._notify("simulation_completed", validation)
             return validation
 
         # 2. Generate wrdata path for transient
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        wrdata_filepath = os.path.join(
-            self.runner.output_dir, f"wrdata_{timestamp}.txt"
-        )
+        wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_{timestamp}.txt")
 
         # 3. Generate netlist
         try:
@@ -125,7 +127,7 @@ class SimulationController:
             )
             # Phase 5: Notify even on failure
             if self.circuit_ctrl:
-                self.circuit_ctrl._notify('simulation_completed', result)
+                self.circuit_ctrl._notify("simulation_completed", result)
             return result
 
         # 4. Find ngspice
@@ -138,7 +140,7 @@ class SimulationController:
             )
             # Phase 5: Notify even on failure
             if self.circuit_ctrl:
-                self.circuit_ctrl._notify('simulation_completed', result)
+                self.circuit_ctrl._notify("simulation_completed", result)
             return result
 
         # 5. Run simulation
@@ -152,7 +154,7 @@ class SimulationController:
             )
             # Phase 5: Notify even on failure
             if self.circuit_ctrl:
-                self.circuit_ctrl._notify('simulation_completed', result)
+                self.circuit_ctrl._notify("simulation_completed", result)
             return result
 
         # 6. Parse results
@@ -166,13 +168,13 @@ class SimulationController:
 
         # Phase 5: Notify simulation completed
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify('simulation_completed', result)
+            self.circuit_ctrl._notify("simulation_completed", result)
 
         return result
 
-    def _parse_results(self, output_file: str, wrdata_filepath: str,
-                       netlist: str, raw_output: str,
-                       warnings: list[str]) -> SimulationResult:
+    def _parse_results(
+        self, output_file: str, wrdata_filepath: str, netlist: str, raw_output: str, warnings: list[str]
+    ) -> SimulationResult:
         """Parse simulation results based on analysis type."""
         from simulation import ResultParser
 
@@ -190,6 +192,10 @@ class SimulationController:
                 data = ResultParser.parse_ac_results(output)
             elif analysis == "Transient":
                 data = ResultParser.parse_transient_results(wrdata_filepath)
+            elif analysis == "Temperature Sweep":
+                # Temperature sweep runs DC OP at each temp; parse as OP
+                output = self.runner.read_output(output_file)
+                data = ResultParser.parse_op_results(output)
             else:
                 return SimulationResult(
                     success=False,

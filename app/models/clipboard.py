@@ -15,6 +15,7 @@ class ClipboardData:
     Stores serialized dicts (not live objects) so the clipboard
     contents can be pasted multiple times with new IDs each time.
     """
+
     components: list[dict] = field(default_factory=list)
     wires: list[dict] = field(default_factory=list)
     paste_count: int = 0

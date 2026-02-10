@@ -34,16 +34,16 @@
 ## Technical Notes
 *Any implementation details, constraints, or considerations the developer should know*
 
-- 
-- 
+-
+-
 
 ---
 
 ## Out of Scope
 *What we're explicitly NOT doing in this task*
 
-- 
-- 
+-
+-
 
 ---
 

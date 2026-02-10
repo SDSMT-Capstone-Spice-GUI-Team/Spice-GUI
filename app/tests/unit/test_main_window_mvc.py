@@ -4,9 +4,11 @@ Unit tests for Phase 4: MainWindow MVC Architecture
 Tests that MainWindow properly delegates to controllers and maintains
 separation between View and business logic.
 """
-import pytest
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
+
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, PropertyMock, patch
+
+import pytest
 
 
 class TestMainWindowControllerIntegration:
@@ -32,10 +34,10 @@ class TestMainWindowControllerIntegration:
 
         # MainWindow should instantiate these in __init__
         # We verify the types exist and can be imported
-        from models.circuit import CircuitModel
         from controllers.circuit_controller import CircuitController
         from controllers.file_controller import FileController
         from controllers.simulation_controller import SimulationController
+        from models.circuit import CircuitModel
 
         # Verify classes are importable
         assert CircuitModel is not None
@@ -61,7 +63,7 @@ class TestMainWindowControllerIntegration:
         model, circuit_ctrl, file_ctrl, simulation_ctrl = mock_controllers
 
         # Mock file operations
-        test_path = Path('/tmp/test_circuit.json')
+        test_path = Path("/tmp/test_circuit.json")
         file_ctrl.save_circuit = Mock()
         file_ctrl.load_circuit = Mock()
         file_ctrl.new_circuit = Mock()
@@ -82,24 +84,21 @@ class TestMainWindowControllerIntegration:
 
         # Mock simulation operations
         from controllers.simulation_controller import SimulationResult
-        mock_result = SimulationResult(
-            success=True,
-            analysis_type='DC Operating Point',
-            raw_output='test output'
-        )
+
+        mock_result = SimulationResult(success=True, analysis_type="DC Operating Point", raw_output="test output")
         simulation_ctrl.run_simulation = Mock(return_value=mock_result)
-        simulation_ctrl.generate_netlist = Mock(return_value='* Test Netlist')
+        simulation_ctrl.generate_netlist = Mock(return_value="* Test Netlist")
         simulation_ctrl.set_analysis = Mock()
 
         # Simulate MainWindow calling SimulationController methods
         result = simulation_ctrl.run_simulation()
         netlist = simulation_ctrl.generate_netlist()
-        simulation_ctrl.set_analysis('Transient', {'duration': '1ms'})
+        simulation_ctrl.set_analysis("Transient", {"duration": "1ms"})
 
         # Verify delegation
         assert result.success is True
-        assert netlist == '* Test Netlist'
-        simulation_ctrl.set_analysis.assert_called_once_with('Transient', {'duration': '1ms'})
+        assert netlist == "* Test Netlist"
+        simulation_ctrl.set_analysis.assert_called_once_with("Transient", {"duration": "1ms"})
 
     def test_canvas_syncs_before_save(self, mock_controllers):
         """Test that canvas syncs to model before saving"""
@@ -111,7 +110,7 @@ class TestMainWindowControllerIntegration:
 
         # Before save operation, sync should be called
         mock_canvas.sync_to_model(model)
-        file_ctrl.save_circuit(Path('/tmp/test.json'))
+        file_ctrl.save_circuit(Path("/tmp/test.json"))
 
         # Verify sync was called before save
         mock_canvas.sync_to_model.assert_called_once_with(model)
@@ -125,7 +124,7 @@ class TestMainWindowControllerIntegration:
         mock_canvas.sync_from_model = Mock()
 
         # After load operation, sync should be called
-        file_ctrl.load_circuit(Path('/tmp/test.json'))
+        file_ctrl.load_circuit(Path("/tmp/test.json"))
         mock_canvas.sync_from_model(model)
 
         # Verify sync was called after load
@@ -139,10 +138,10 @@ class TestMainWindowControllerIntegration:
         simulation_ctrl.set_analysis = Mock()
 
         # Set different analysis types
-        simulation_ctrl.set_analysis('DC Operating Point', {})
-        simulation_ctrl.set_analysis('DC Sweep', {'min': 0, 'max': 10, 'step': 1})
-        simulation_ctrl.set_analysis('AC Sweep', {'fStart': 1, 'fStop': 1000, 'points': 10})
-        simulation_ctrl.set_analysis('Transient', {'duration': '1ms', 'step': '1us'})
+        simulation_ctrl.set_analysis("DC Operating Point", {})
+        simulation_ctrl.set_analysis("DC Sweep", {"min": 0, "max": 10, "step": 1})
+        simulation_ctrl.set_analysis("AC Sweep", {"fStart": 1, "fStop": 1000, "points": 10})
+        simulation_ctrl.set_analysis("Transient", {"duration": "1ms", "step": "1us"})
 
         # Verify all were called
         assert simulation_ctrl.set_analysis.call_count == 4
@@ -157,7 +156,7 @@ class TestMainWindowViewResponsibilities:
         # (Can't test without Qt, but verify the pattern)
 
         # UI construction methods should exist
-        ui_methods = ['init_ui', 'create_menu_bar']
+        ui_methods = ["init_ui", "create_menu_bar"]
         for method_name in ui_methods:
             assert method_name is not None
 
@@ -168,7 +167,7 @@ class TestMainWindowViewResponsibilities:
         # - _restore_settings() - restore UI state
         # - closeEvent() - save on close
 
-        settings_methods = ['_save_settings', '_restore_settings', 'closeEvent']
+        settings_methods = ["_save_settings", "_restore_settings", "closeEvent"]
         for method_name in settings_methods:
             assert method_name is not None
 
@@ -183,12 +182,12 @@ class TestMainWindowViewResponsibilities:
         # - on_canvas_clicked()
 
         view_methods = [
-            'toggle_component_labels',
-            'toggle_component_values',
-            'toggle_node_labels',
-            '_on_zoom_changed',
-            'on_component_right_clicked',
-            'on_canvas_clicked'
+            "toggle_component_labels",
+            "toggle_component_values",
+            "toggle_node_labels",
+            "_on_zoom_changed",
+            "on_component_right_clicked",
+            "on_canvas_clicked",
         ]
         for method_name in view_methods:
             assert method_name is not None
@@ -199,7 +198,7 @@ class TestMainWindowViewResponsibilities:
         # - _display_simulation_results() - format results for display
         # - export_results_csv() - UI for CSV export
 
-        display_methods = ['_display_simulation_results', 'export_results_csv']
+        display_methods = ["_display_simulation_results", "export_results_csv"]
         for method_name in display_methods:
             assert method_name is not None
 
@@ -216,14 +215,14 @@ class TestMainWindowSessionManagement:
         file_ctrl = FileController(model)
 
         # Mock session file
-        file_ctrl.load_last_session = Mock(return_value=Path('/tmp/last_session.json'))
+        file_ctrl.load_last_session = Mock(return_value=Path("/tmp/last_session.json"))
 
         # MainWindow should call this on startup
         last_file = file_ctrl.load_last_session()
 
         # Verify session was requested
         file_ctrl.load_last_session.assert_called_once()
-        assert last_file == Path('/tmp/last_session.json')
+        assert last_file == Path("/tmp/last_session.json")
 
     def test_mainwindow_saves_session_after_successful_save(self):
         """Test that session is saved after successful circuit save"""
@@ -235,7 +234,7 @@ class TestMainWindowSessionManagement:
 
         # FileController._save_session() is called internally by save_circuit()
         # We verify the pattern exists
-        assert hasattr(file_ctrl, '_save_session')
+        assert hasattr(file_ctrl, "_save_session")
 
 
 class TestMainWindowErrorHandling:
@@ -254,7 +253,7 @@ class TestMainWindowErrorHandling:
 
         # Should raise OSError which MainWindow catches and shows error dialog
         with pytest.raises(OSError):
-            file_ctrl.save_circuit(Path('/invalid/path.json'))
+            file_ctrl.save_circuit(Path("/invalid/path.json"))
 
     def test_mainwindow_handles_load_errors(self):
         """Test that MainWindow handles load errors gracefully"""
@@ -269,7 +268,7 @@ class TestMainWindowErrorHandling:
 
         # Should raise ValueError which MainWindow catches and shows error dialog
         with pytest.raises(ValueError):
-            file_ctrl.load_circuit(Path('/invalid/circuit.json'))
+            file_ctrl.load_circuit(Path("/invalid/circuit.json"))
 
     def test_mainwindow_handles_simulation_errors(self):
         """Test that MainWindow handles simulation errors gracefully"""
@@ -280,11 +279,7 @@ class TestMainWindowErrorHandling:
         SimulationController(model)
 
         # Mock simulation failure
-        error_result = SimulationResult(
-            success=False,
-            errors=['Circuit has no ground'],
-            error='Simulation failed'
-        )
+        error_result = SimulationResult(success=False, errors=["Circuit has no ground"], error="Simulation failed")
 
         # MainWindow should check result.success and display errors
         assert error_result.success is False
@@ -303,13 +298,13 @@ class TestMainWindowDialogIntegration:
         sim_ctrl = SimulationController(model)
 
         # Simulate dialog returning parameters
-        params = {'duration': '1ms', 'step': '1us'}
+        params = {"duration": "1ms", "step": "1us"}
 
         # MainWindow should call controller
-        sim_ctrl.set_analysis('Transient', params)
+        sim_ctrl.set_analysis("Transient", params)
 
         # Verify model was updated
-        assert model.analysis_type == 'Transient'
+        assert model.analysis_type == "Transient"
         assert model.analysis_params == params
 
     def test_properties_panel_updates_via_canvas(self):
@@ -321,11 +316,11 @@ class TestMainWindowDialogIntegration:
 
         # Mock component
         mock_component = Mock()
-        mock_component.component_id = 'R1'
-        mock_component.value = '1k'
+        mock_component.component_id = "R1"
+        mock_component.value = "1k"
 
         # Simulate property change
-        mock_component.value = '2k'
+        mock_component.value = "2k"
         mock_component.update = Mock()
 
         # Component should update
@@ -345,16 +340,16 @@ class TestMainWindowMVCSeparation:
         # - Build node graphs (delegate to CircuitController or canvas sync)
 
         # All business logic should be in controllers
+        from controllers.circuit_controller import CircuitController
         from controllers.file_controller import FileController
         from controllers.simulation_controller import SimulationController
-        from controllers.circuit_controller import CircuitController
 
         # Verify controller classes exist and have expected methods
-        assert hasattr(FileController, 'save_circuit')
-        assert hasattr(FileController, 'load_circuit')
-        assert hasattr(SimulationController, 'run_simulation')
-        assert hasattr(SimulationController, 'generate_netlist')
-        assert hasattr(CircuitController, 'add_component')
+        assert hasattr(FileController, "save_circuit")
+        assert hasattr(FileController, "load_circuit")
+        assert hasattr(SimulationController, "run_simulation")
+        assert hasattr(SimulationController, "generate_netlist")
+        assert hasattr(CircuitController, "add_component")
 
     def test_controllers_do_not_contain_ui_code(self):
         """Test that controllers don't contain UI code"""
@@ -363,33 +358,33 @@ class TestMainWindowMVCSeparation:
         # - Create message boxes
         # - Update UI directly
 
+        import controllers.circuit_controller as cc
         import controllers.file_controller as fc
         import controllers.simulation_controller as sc
-        import controllers.circuit_controller as cc
 
         # Check that Qt widgets are not imported in controller modules
         # (We can check the source, but this is conceptual)
-        assert 'QtWidgets' not in dir(fc)
-        assert 'QtWidgets' not in dir(sc)
-        assert 'QtWidgets' not in dir(cc)
+        assert "QtWidgets" not in dir(fc)
+        assert "QtWidgets" not in dir(sc)
+        assert "QtWidgets" not in dir(cc)
 
     def test_model_is_framework_agnostic(self):
         """Test that model has no Qt dependencies"""
-        from models.circuit import CircuitModel
-        from models.component import ComponentData
-        from models.wire import WireData
-        from models.node import NodeData
-
         # Model classes should be pure Python
         # (No Qt base classes)
         import inspect
+
+        from models.circuit import CircuitModel
+        from models.component import ComponentData
+        from models.node import NodeData
+        from models.wire import WireData
 
         for cls in [CircuitModel, ComponentData, WireData, NodeData]:
             # Should not inherit from QObject or any Qt class
             bases = inspect.getmro(cls)
             base_names = [b.__name__ for b in bases]
-            assert 'QObject' not in base_names
-            assert 'QWidget' not in base_names
+            assert "QObject" not in base_names
+            assert "QWidget" not in base_names
 
 
 class TestMainWindowIntegrationPoints:
@@ -402,8 +397,8 @@ class TestMainWindowIntegrationPoints:
         # Passes path to FileController
         # FileController handles the actual I/O
 
-        test_path = Path('/tmp/test.json')
-        assert test_path.name == 'test.json'
+        test_path = Path("/tmp/test.json")
+        assert test_path.name == "test.json"
 
     def test_analysis_dialog_integration(self):
         """Test that analysis dialogs update SimulationController"""
@@ -414,12 +409,12 @@ class TestMainWindowIntegrationPoints:
         sim_ctrl = SimulationController(model)
 
         # Simulate dialog flow
-        params = {'duration': '10ms', 'step': '10us'}
-        sim_ctrl.set_analysis('Transient', params)
+        params = {"duration": "10ms", "step": "10us"}
+        sim_ctrl.set_analysis("Transient", params)
 
         # Verify update
-        assert model.analysis_type == 'Transient'
-        assert model.analysis_params['duration'] == '10ms'
+        assert model.analysis_type == "Transient"
+        assert model.analysis_params["duration"] == "10ms"
 
     def test_result_display_integration(self):
         """Test that simulation results are formatted for display"""
@@ -427,12 +422,10 @@ class TestMainWindowIntegrationPoints:
 
         # Simulation returns result object
         result = SimulationResult(
-            success=True,
-            analysis_type='DC Operating Point',
-            raw_output='v(node1) = 5.0\nv(node2) = 3.3'
+            success=True, analysis_type="DC Operating Point", raw_output="v(node1) = 5.0\nv(node2) = 3.3"
         )
 
         # MainWindow formats for display
         assert result.success is True
-        assert result.analysis_type == 'DC Operating Point'
+        assert result.analysis_type == "DC Operating Point"
         assert len(result.raw_output) > 0

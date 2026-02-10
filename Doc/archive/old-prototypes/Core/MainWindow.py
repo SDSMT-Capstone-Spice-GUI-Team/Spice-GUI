@@ -1,12 +1,14 @@
 import sys
-import random
-from PySide6 import QtCore, QtWidgets, QtGui
+
+from PySide6 import QtCore, QtWidgets
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SDM-Spice")
         self.setWindowState(QtCore.Qt.WindowMaximized)
+
 
 class MyWidget(QtWidgets.QWidget):
     def __init__(self):
@@ -35,9 +37,9 @@ class MyWidget(QtWidgets.QWidget):
         desktopScreen.moveCenter(centerPoint)
         self.move(desktopScreen.topLeft())
 
-    #@QtCore.Slot()
-    #def magic(self):
-        #self.text.setText(random.choice(self.hello))
+    # @QtCore.Slot()
+    # def magic(self):
+    # self.text.setText(random.choice(self.hello))
 
 
 def main():
@@ -54,5 +56,6 @@ def main():
         app.setStyleSheet(_style)
 
     sys.exit(app.exec())
+
 
 main()

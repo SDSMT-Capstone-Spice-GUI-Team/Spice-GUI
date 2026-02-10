@@ -64,7 +64,7 @@ Aligned on vision and process for a freshman-friendly SPICE GUI: drag-and-drop c
 1. **Comms & Calendar:** Create Slack channel; invite manager; send Google Calendar for Thu 11:00–12:00.
 2. **Repo Hygiene:** Confirm manager GitHub access (membership + 2FA); add **CONTRIBUTING.md**.
 3. **Backlog Build-out:** Convert MVP/whiteboard items to issues with priorities & acceptance criteria; seed milestones.
-4. **MVP Progress:** 
+4. **MVP Progress:**
    - Canvas: place/move/delete components.
    - Wiring: connect pins; basic validation.
    - Netlist: export from graph; smoke-test in NGSpice.

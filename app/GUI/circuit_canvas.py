@@ -119,6 +119,7 @@ class CircuitCanvasView(QGraphicsView):
             'component_removed': self._handle_component_removed,
             'component_moved': self._handle_component_moved,
             'component_rotated': self._handle_component_rotated,
+            'component_flipped': self._handle_component_flipped,
             'component_value_changed': self._handle_component_value_changed,
             'wire_added': self._handle_wire_added,
             'wire_removed': self._handle_wire_removed,
@@ -176,6 +177,14 @@ class CircuitCanvasView(QGraphicsView):
         comp = self.components.get(component_data.component_id)
         if comp:
             comp.rotation_angle = component_data.rotation
+            comp.update_terminals()
+            comp.update()
+            self.reroute_connected_wires(comp)
+
+    def _handle_component_flipped(self, component_data) -> None:
+        """Update graphics item flip"""
+        comp = self.components.get(component_data.component_id)
+        if comp:
             comp.update_terminals()
             comp.update()
             self.reroute_connected_wires(comp)
@@ -600,6 +609,10 @@ class CircuitCanvasView(QGraphicsView):
         elif event.key() == Qt.Key.Key_R:
             # Rotate selected components clockwise
             self.rotate_selected(clockwise=True)
+        elif event.key() == Qt.Key.Key_F and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self.flip_selected(horizontal=False)
+        elif event.key() == Qt.Key.Key_F:
+            self.flip_selected(horizontal=True)
         else:
             super().keyPressEvent(event)
 
@@ -711,6 +724,16 @@ class CircuitCanvasView(QGraphicsView):
             rotate_ccw_action.triggered.connect(lambda: self.rotate_component(item, False))
             menu.addAction(rotate_ccw_action)
 
+            menu.addSeparator()
+
+            flip_h_action = QAction("Flip Horizontal (F)", self)
+            flip_h_action.triggered.connect(lambda: self.flip_component(item, True))
+            menu.addAction(flip_h_action)
+
+            flip_v_action = QAction("Flip Vertical (Shift+F)", self)
+            flip_v_action.triggered.connect(lambda: self.flip_component(item, False))
+            menu.addAction(flip_v_action)
+
         elif isinstance(item, AnnotationItem):
             delete_action = QAction("Delete Annotation", self)
             delete_action.triggered.connect(lambda: self._delete_annotation(item))
@@ -758,6 +781,14 @@ class CircuitCanvasView(QGraphicsView):
                     rotate_ccw_action = QAction("Rotate Selected Counter-Clockwise", self)
                     rotate_ccw_action.triggered.connect(lambda: self.rotate_selected(False))
                     menu.addAction(rotate_ccw_action)
+
+                    flip_h_action = QAction("Flip Selected Horizontal", self)
+                    flip_h_action.triggered.connect(lambda: self.flip_selected(True))
+                    menu.addAction(flip_h_action)
+
+                    flip_v_action = QAction("Flip Selected Vertical", self)
+                    flip_v_action.triggered.connect(lambda: self.flip_selected(False))
+                    menu.addAction(flip_v_action)
 
                     menu.addSeparator()
                     sel_ids = [c.component_id for c in selected_components]
@@ -853,6 +884,24 @@ class CircuitCanvasView(QGraphicsView):
 
         for comp in components:
             self.rotate_component(comp, clockwise)
+
+    def flip_component(self, component, horizontal=True):
+        """Flip a single component - uses controller"""
+        if component is None or not isinstance(component, ComponentGraphicsItem):
+            return
+        if not self.controller:
+            logger.warning("Cannot flip component: no controller available")
+            return
+
+        self.controller.flip_component(component.component_id, horizontal)
+
+    def flip_selected(self, horizontal=True):
+        """Flip all selected components"""
+        selected_items = self.scene.selectedItems()
+        components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
+
+        for comp in components:
+            self.flip_component(comp, horizontal)
 
     def add_annotation(self, scene_pos=None):
         """Add a text annotation at the given scene position (or viewport center)."""

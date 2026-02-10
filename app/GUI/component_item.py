@@ -1,13 +1,17 @@
-from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
-from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer
-from PyQt6.QtGui import QPen, QBrush, QColor  # QPainterPath imported locally where needed
 import math
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from models.component import ComponentData, DEFAULT_VALUES
+import sys
+
+from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
+from PyQt6.QtGui import QBrush, QColor, QPen  # QPainterPath imported locally where needed
+from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from models.component import DEFAULT_VALUES, ComponentData
+
 from .format_utils import validate_component_value
 from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, WIRE_UPDATE_DELAY_MS, theme_manager
+
 
 class ComponentGraphicsItem(QGraphicsItem):
     """Base class for graphical components on the canvas.
@@ -18,9 +22,9 @@ class ComponentGraphicsItem(QGraphicsItem):
     """
 
     # Class attribute for subclass type identification
-    type_name = 'Unknown'
+    type_name = "Unknown"
 
-    def __init__(self, component_id, component_type='Unknown', model=None):
+    def __init__(self, component_id, component_type="Unknown", model=None):
         super().__init__()
 
         # Create or accept a ComponentData backing object
@@ -30,7 +34,7 @@ class ComponentGraphicsItem(QGraphicsItem):
             self.model = ComponentData(
                 component_id=component_id,
                 component_type=component_type,
-                value=DEFAULT_VALUES.get(component_type, '1u'),
+                value=DEFAULT_VALUES.get(component_type, "1u"),
                 position=(0.0, 0.0),
             )
 
@@ -122,13 +126,12 @@ class ComponentGraphicsItem(QGraphicsItem):
 
     def mouseDoubleClickEvent(self, event):
         """Open a dialog to edit component value on double-click"""
-        if self.component_type in ('Ground', 'Op-Amp'):
+        if self.component_type in ("Ground", "Op-Amp"):
             return
 
-        if self.component_type == 'Waveform Source':
+        if self.component_type == "Waveform Source":
             QMessageBox.information(
-                None, "Waveform Source",
-                "Use the 'Configure Waveform...' button in the Properties panel."
+                None, "Waveform Source", "Use the 'Configure Waveform...' button in the Properties panel."
             )
             return
 
@@ -138,7 +141,7 @@ class ComponentGraphicsItem(QGraphicsItem):
             f"Edit Value for {self.component_id}",
             "Enter new value (e.g. 10k, 100n, 4.7M):",
             QLineEdit.EchoMode.Normal,
-            current_value
+            current_value,
         )
 
         if ok and new_value:
@@ -173,11 +176,11 @@ class ComponentGraphicsItem(QGraphicsItem):
             (rect.left(), rect.top()),
             (rect.right(), rect.top()),
             (rect.right(), rect.bottom()),
-            (rect.left(), rect.bottom())
+            (rect.left(), rect.bottom()),
         ]
 
     def update_terminals(self):
-        """Update terminal positions based on rotation, sourced from model geometry."""
+        """Update terminal positions based on flip and rotation, sourced from model geometry."""
         base = self.model.get_base_terminal_positions()
 
         rad = math.radians(self.rotation_angle)
@@ -186,6 +189,10 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         self.terminals = []
         for tx, ty in base:
+            if self.model.flip_h:
+                tx = -tx
+            if self.model.flip_v:
+                ty = -ty
             new_x = tx * cos_a - ty * sin_a
             new_y = tx * sin_a + ty * cos_a
             self.terminals.append(QPointF(new_x, new_y))
@@ -197,6 +204,15 @@ class ComponentGraphicsItem(QGraphicsItem):
         else:
             self.rotation_angle = (self.rotation_angle - 90) % 360
 
+        self.update_terminals()
+        self.update()
+
+    def flip_component(self, horizontal=True):
+        """Flip component horizontally or vertically"""
+        if horizontal:
+            self.model.flip_h = not self.model.flip_h
+        else:
+            self.model.flip_v = not self.model.flip_v
         self.update_terminals()
         self.update()
 
@@ -214,12 +230,16 @@ class ComponentGraphicsItem(QGraphicsItem):
         # Save painter state
         painter.save()
 
-        # Apply rotation
+        # Apply rotation, then flip (flip is applied first in local coords)
         painter.rotate(self.rotation_angle)
+        sx = -1 if self.model.flip_h else 1
+        sy = -1 if self.model.flip_v else 1
+        if sx != 1 or sy != 1:
+            painter.scale(sx, sy)
 
         # Highlight if selected
         if self.isSelected():
-            painter.setPen(theme_manager.pen('component_selected'))
+            painter.setPen(theme_manager.pen("component_selected"))
             painter.drawRect(QRectF(-40, -20, 80, 40))
 
         # Draw component body
@@ -229,8 +249,8 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         # Draw label (check canvas visibility settings)
         canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
-        show_label = canvas.show_component_labels if canvas and hasattr(canvas, 'show_component_labels') else True
-        show_value = canvas.show_component_values if canvas and hasattr(canvas, 'show_component_values') else True
+        show_label = canvas.show_component_labels if canvas and hasattr(canvas, "show_component_labels") else True
+        show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
 
         if show_label or show_value:
             painter.setPen(QPen(Qt.GlobalColor.black))
@@ -245,7 +265,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         painter.restore()
 
         # Draw terminals in scene coordinates (not rotated)
-        painter.setPen(theme_manager.pen('terminal'))
+        painter.setPen(theme_manager.pen("terminal"))
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)
 
@@ -267,7 +287,7 @@ class ComponentGraphicsItem(QGraphicsItem):
                 views = self.scene().views()
                 if views:
                     canvas = views[0]
-                    if hasattr(canvas, 'reroute_connected_wires'):
+                    if hasattr(canvas, "reroute_connected_wires"):
                         canvas.reroute_connected_wires(self)
         self.last_position = None
         self.update_timer = None
@@ -297,7 +317,7 @@ class ComponentGraphicsItem(QGraphicsItem):
                 views = self.scene().views()
                 if views:
                     canvas = views[0]
-                    if hasattr(canvas, 'wires'):
+                    if hasattr(canvas, "wires"):
                         for wire in canvas.wires:
                             if wire.start_comp is self or wire.end_comp is self:
                                 wire.update()
@@ -314,7 +334,7 @@ class ComponentGraphicsItem(QGraphicsItem):
             return
 
         canvas = self.scene().views()[0]
-        if not hasattr(canvas, 'controller') or not canvas.controller:
+        if not hasattr(canvas, "controller") or not canvas.controller:
             return
 
         # Create single-shot timer for debouncing
@@ -332,7 +352,7 @@ class ComponentGraphicsItem(QGraphicsItem):
             return
 
         canvas = self.scene().views()[0]
-        if not hasattr(canvas, 'controller') or not canvas.controller:
+        if not hasattr(canvas, "controller") or not canvas.controller:
             return
 
         # Notify controller - observer will update wires
@@ -370,7 +390,8 @@ class ComponentGraphicsItem(QGraphicsItem):
 
 class Resistor(ComponentGraphicsItem):
     """Resistor component"""
-    type_name = 'Resistor'
+
+    type_name = "Resistor"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -387,17 +408,13 @@ class Resistor(ComponentGraphicsItem):
         painter.drawLine(10, -8, 15, 0)
 
     def get_obstacle_shape(self):
-        return [
-            (-18.0, -11.0),
-            (18.0, -11.0),
-            (18.0, 11.0),
-            (-18.0, 11.0)
-        ]
+        return [(-18.0, -11.0), (18.0, -11.0), (18.0, 11.0), (-18.0, 11.0)]
 
 
 class Capacitor(ComponentGraphicsItem):
     """Capacitor component"""
-    type_name = 'Capacitor'
+
+    type_name = "Capacitor"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -410,17 +427,13 @@ class Capacitor(ComponentGraphicsItem):
         painter.drawLine(5, -12, 5, 12)
 
     def get_obstacle_shape(self):
-        return [
-            (-18.0, -14.0),
-            (18.0, -14.0),
-            (18.0, 14.0),
-            (-18.0, 14.0)
-        ]
+        return [(-18.0, -14.0), (18.0, -14.0), (18.0, 14.0), (-18.0, 14.0)]
 
 
 class Inductor(ComponentGraphicsItem):
     """Inductor component"""
-    type_name = 'Inductor'
+
+    type_name = "Inductor"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -430,20 +443,16 @@ class Inductor(ComponentGraphicsItem):
             painter.drawLine(-30, 0, -20, 0)
             painter.drawLine(20, 0, 30, 0)
         for i in range(-20, 20, 8):
-            painter.drawArc(i, -5, 8, 10, 0, 180*16)
+            painter.drawArc(i, -5, 8, 10, 0, 180 * 16)
 
     def get_obstacle_shape(self):
-        return [
-            (-18.0, -11.0),
-            (18.0, -11.0),
-            (18.0, 11.0),
-            (-18.0, 11.0)
-        ]
+        return [(-18.0, -11.0), (18.0, -11.0), (18.0, 11.0), (-18.0, 11.0)]
 
 
 class VoltageSource(ComponentGraphicsItem):
     """Voltage source component"""
-    type_name = 'Voltage Source'
+
+    type_name = "Voltage Source"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -458,17 +467,13 @@ class VoltageSource(ComponentGraphicsItem):
         painter.drawLine(12, 0, 8, 0)
 
     def get_obstacle_shape(self):
-        return [
-            (-18.0, -18.0),
-            (18.0, -18.0),
-            (18.0, 18.0),
-            (-18.0, 18.0)
-        ]
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
 class CurrentSource(ComponentGraphicsItem):
     """Current source component"""
-    type_name = 'Current Source'
+
+    type_name = "Current Source"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -478,19 +483,16 @@ class CurrentSource(ComponentGraphicsItem):
             painter.drawLine(-30, 0, -15, 0)
             painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
-        painter.drawText(-5, 5, 'I')
+        painter.drawText(-5, 5, "I")
 
     def get_obstacle_shape(self):
-        return [
-            (-18.0, -18.0),
-            (18.0, -18.0),
-            (18.0, 18.0),
-            (-18.0, 18.0)
-        ]
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
 
 class WaveformVoltageSource(ComponentGraphicsItem):
     """Waveform voltage source component (sine, pulse, PWL, etc.)"""
-    type_name = 'Waveform Source'
+
+    type_name = "Waveform Source"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -519,8 +521,10 @@ class WaveformVoltageSource(ComponentGraphicsItem):
         painter.drawEllipse(-15, -15, 30, 30)
         # Draw sine wave symbol
         from models.component import COMPONENT_COLORS
-        painter.setPen(QPen(QColor(COMPONENT_COLORS.get(self.component_type, '#E91E63')), 2))
+
+        painter.setPen(QPen(QColor(COMPONENT_COLORS.get(self.component_type, "#E91E63")), 2))
         from PyQt6.QtGui import QPainterPath
+
         path = QPainterPath()
         path.moveTo(-10, 0)
         for x in range(-10, 11, 2):
@@ -535,9 +539,11 @@ class WaveformVoltageSource(ComponentGraphicsItem):
     def get_obstacle_shape(self):
         return super().get_obstacle_shape()
 
+
 class Ground(ComponentGraphicsItem):
     """Ground component"""
-    type_name = 'Ground'
+
+    type_name = "Ground"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -552,7 +558,7 @@ class Ground(ComponentGraphicsItem):
         painter.rotate(self.rotation_angle)
 
         if self.isSelected():
-            painter.setPen(theme_manager.pen('component_selected'))
+            painter.setPen(theme_manager.pen("component_selected"))
             painter.drawRect(QRectF(-40, -20, 80, 40))
 
         painter.setPen(QPen(color, 2))
@@ -560,8 +566,8 @@ class Ground(ComponentGraphicsItem):
         self.draw_component_body(painter)
 
         canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
-        show_label = canvas.show_component_labels if canvas and hasattr(canvas, 'show_component_labels') else True
-        show_value = canvas.show_component_values if canvas and hasattr(canvas, 'show_component_values') else True
+        show_label = canvas.show_component_labels if canvas and hasattr(canvas, "show_component_labels") else True
+        show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
 
         if show_label or show_value:
             painter.setPen(QPen(Qt.GlobalColor.black))
@@ -574,7 +580,7 @@ class Ground(ComponentGraphicsItem):
 
         painter.restore()
 
-        painter.setPen(theme_manager.pen('terminal'))
+        painter.setPen(theme_manager.pen("terminal"))
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)
 
@@ -587,16 +593,13 @@ class Ground(ComponentGraphicsItem):
         painter.drawLine(-5, 20, 5, 20)
 
     def get_obstacle_shape(self):
-        return [
-            (-17.0, 1.0),
-            (17.0, 1.0),
-            (17.0, 22.0),
-            (-17.0, 22.0)
-        ]
+        return [(-17.0, 1.0), (17.0, 1.0), (17.0, 22.0), (-17.0, 22.0)]
+
 
 class OpAmp(ComponentGraphicsItem):
     """Operational Amplifier component"""
-    type_name = 'Op-Amp'
+
+    type_name = "Op-Amp"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -618,9 +621,11 @@ class OpAmp(ComponentGraphicsItem):
     def boundingRect(self):
         return QRectF(-30, -25, 60, 50)
 
+
 class VCVS(ComponentGraphicsItem):
     """Voltage-Controlled Voltage Source (E element)"""
-    type_name = 'VCVS'
+
+    type_name = "VCVS"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -652,7 +657,8 @@ class VCVS(ComponentGraphicsItem):
 
 class CCVS(ComponentGraphicsItem):
     """Current-Controlled Voltage Source (H element)"""
-    type_name = 'CCVS'
+
+    type_name = "CCVS"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -687,7 +693,8 @@ class CCVS(ComponentGraphicsItem):
 
 class VCCS(ComponentGraphicsItem):
     """Voltage-Controlled Current Source (G element)"""
-    type_name = 'VCCS'
+
+    type_name = "VCCS"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -718,7 +725,8 @@ class VCCS(ComponentGraphicsItem):
 
 class CCCS(ComponentGraphicsItem):
     """Current-Controlled Current Source (F element)"""
-    type_name = 'CCCS'
+
+    type_name = "CCCS"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -753,7 +761,8 @@ class CCCS(ComponentGraphicsItem):
 
 class BJTNPN(ComponentGraphicsItem):
     """NPN Bipolar Junction Transistor"""
-    type_name = 'BJT NPN'
+
+    type_name = "BJT NPN"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -764,9 +773,9 @@ class BJTNPN(ComponentGraphicsItem):
     def draw_component_body(self, painter):
         # Terminal leads
         if self.scene() is not None:
-            painter.drawLine(-20, 0, -8, 0)       # Base lead
-            painter.drawLine(8, -12, 20, -20)      # Collector lead
-            painter.drawLine(8, 12, 20, 20)        # Emitter lead
+            painter.drawLine(-20, 0, -8, 0)  # Base lead
+            painter.drawLine(8, -12, 20, -20)  # Collector lead
+            painter.drawLine(8, 12, 20, 20)  # Emitter lead
 
         # Vertical base bar
         painter.drawLine(-8, -12, -8, 12)
@@ -787,7 +796,8 @@ class BJTNPN(ComponentGraphicsItem):
 
 class BJTPNP(ComponentGraphicsItem):
     """PNP Bipolar Junction Transistor"""
-    type_name = 'BJT PNP'
+
+    type_name = "BJT PNP"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -798,9 +808,9 @@ class BJTPNP(ComponentGraphicsItem):
     def draw_component_body(self, painter):
         # Terminal leads
         if self.scene() is not None:
-            painter.drawLine(-20, 0, -8, 0)       # Base lead
-            painter.drawLine(8, -12, 20, -20)      # Collector lead
-            painter.drawLine(8, 12, 20, 20)        # Emitter lead
+            painter.drawLine(-20, 0, -8, 0)  # Base lead
+            painter.drawLine(8, -12, 20, -20)  # Collector lead
+            painter.drawLine(8, 12, 20, 20)  # Emitter lead
 
         # Vertical base bar
         painter.drawLine(-8, -12, -8, 12)
@@ -821,7 +831,8 @@ class BJTPNP(ComponentGraphicsItem):
 
 class MOSFETNMOS(ComponentGraphicsItem):
     """N-Channel MOSFET (M element)"""
-    type_name = 'MOSFET NMOS'
+
+    type_name = "MOSFET NMOS"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -829,9 +840,9 @@ class MOSFETNMOS(ComponentGraphicsItem):
     def draw_component_body(self, painter):
         # Terminal lines: Drain (top-right), Gate (left), Source (bottom-right)
         if self.scene() is not None:
-            painter.drawLine(20, -20, 20, -10)   # Drain terminal line
-            painter.drawLine(-20, 0, -10, 0)     # Gate terminal line
-            painter.drawLine(20, 20, 20, 10)     # Source terminal line
+            painter.drawLine(20, -20, 20, -10)  # Drain terminal line
+            painter.drawLine(-20, 0, -10, 0)  # Gate terminal line
+            painter.drawLine(20, 20, 20, 10)  # Source terminal line
 
         # Gate vertical line
         painter.drawLine(-10, -12, -10, 12)
@@ -858,7 +869,8 @@ class MOSFETNMOS(ComponentGraphicsItem):
 
 class MOSFETPMOS(ComponentGraphicsItem):
     """P-Channel MOSFET (M element)"""
-    type_name = 'MOSFET PMOS'
+
+    type_name = "MOSFET PMOS"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -866,9 +878,9 @@ class MOSFETPMOS(ComponentGraphicsItem):
     def draw_component_body(self, painter):
         # Terminal lines: Drain (top-right), Gate (left), Source (bottom-right)
         if self.scene() is not None:
-            painter.drawLine(20, -20, 20, -10)   # Drain terminal line
-            painter.drawLine(-20, 0, -10, 0)     # Gate terminal line
-            painter.drawLine(20, 20, 20, 10)     # Source terminal line
+            painter.drawLine(20, -20, 20, -10)  # Drain terminal line
+            painter.drawLine(-20, 0, -10, 0)  # Gate terminal line
+            painter.drawLine(20, 20, 20, 10)  # Source terminal line
 
         # Gate vertical line
         painter.drawLine(-10, -12, -10, 12)
@@ -898,7 +910,8 @@ class MOSFETPMOS(ComponentGraphicsItem):
 
 class VCSwitch(ComponentGraphicsItem):
     """Voltage-Controlled Switch (S element)"""
-    type_name = 'VC Switch'
+
+    type_name = "VC Switch"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -909,10 +922,10 @@ class VCSwitch(ComponentGraphicsItem):
     def draw_component_body(self, painter):
         # Control and switch path terminal lines
         if self.scene() is not None:
-            painter.drawLine(-30, -10, -15, -10)   # ctrl+ terminal
-            painter.drawLine(-30, 10, -15, 10)     # ctrl- terminal
-            painter.drawLine(15, -10, 30, -10)     # switch+ terminal
-            painter.drawLine(15, 10, 30, 10)       # switch- terminal
+            painter.drawLine(-30, -10, -15, -10)  # ctrl+ terminal
+            painter.drawLine(-30, 10, -15, 10)  # ctrl- terminal
+            painter.drawLine(15, -10, 30, -10)  # switch+ terminal
+            painter.drawLine(15, 10, 30, 10)  # switch- terminal
 
         # Box outline for the switch body
         painter.drawRect(-15, -15, 30, 30)
@@ -935,7 +948,8 @@ class VCSwitch(ComponentGraphicsItem):
 
 class Diode(ComponentGraphicsItem):
     """Standard Diode (D element)"""
-    type_name = 'Diode'
+
+    type_name = "Diode"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -958,7 +972,8 @@ class Diode(ComponentGraphicsItem):
 
 class LEDComponent(ComponentGraphicsItem):
     """Light Emitting Diode (D element with LED model)"""
-    type_name = 'LED'
+
+    type_name = "LED"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -988,7 +1003,8 @@ class LEDComponent(ComponentGraphicsItem):
 
 class ZenerDiode(ComponentGraphicsItem):
     """Zener Diode (D element with breakdown voltage)"""
-    type_name = 'Zener Diode'
+
+    type_name = "Zener Diode"
 
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
@@ -1013,38 +1029,38 @@ class ZenerDiode(ComponentGraphicsItem):
 
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
-    'Resistor': Resistor,
-    'Capacitor': Capacitor,
-    'Inductor': Inductor,
-    'VoltageSource': VoltageSource,
-    'CurrentSource': CurrentSource,
-    'Voltage Source': VoltageSource,
-    'Current Source': CurrentSource,
-    'WaveformVoltageSource': WaveformVoltageSource,
-    'Waveform Source': WaveformVoltageSource,
-    'Ground': Ground,
-    'OpAmp': OpAmp,
-    'Op-Amp': OpAmp,
-    'VCVS': VCVS,
-    'VoltageControlledVoltageSource': VCVS,
-    'CCVS': CCVS,
-    'CurrentControlledVoltageSource': CCVS,
-    'VCCS': VCCS,
-    'VoltageControlledCurrentSource': VCCS,
-    'CCCS': CCCS,
-    'CurrentControlledCurrentSource': CCCS,
-    'BJT NPN': BJTNPN,
-    'BJT PNP': BJTPNP,
-    'MOSFET NMOS': MOSFETNMOS,
-    'MOSFETNMOS': MOSFETNMOS,
-    'MOSFET PMOS': MOSFETPMOS,
-    'MOSFETPMOS': MOSFETPMOS,
-    'VC Switch': VCSwitch,
-    'VCSwitch': VCSwitch,
-    'Diode': Diode,
-    'LED': LEDComponent,
-    'Zener Diode': ZenerDiode,
-    'ZenerDiode': ZenerDiode,
+    "Resistor": Resistor,
+    "Capacitor": Capacitor,
+    "Inductor": Inductor,
+    "VoltageSource": VoltageSource,
+    "CurrentSource": CurrentSource,
+    "Voltage Source": VoltageSource,
+    "Current Source": CurrentSource,
+    "WaveformVoltageSource": WaveformVoltageSource,
+    "Waveform Source": WaveformVoltageSource,
+    "Ground": Ground,
+    "OpAmp": OpAmp,
+    "Op-Amp": OpAmp,
+    "VCVS": VCVS,
+    "VoltageControlledVoltageSource": VCVS,
+    "CCVS": CCVS,
+    "CurrentControlledVoltageSource": CCVS,
+    "VCCS": VCCS,
+    "VoltageControlledCurrentSource": VCCS,
+    "CCCS": CCCS,
+    "CurrentControlledCurrentSource": CCCS,
+    "BJT NPN": BJTNPN,
+    "BJT PNP": BJTPNP,
+    "MOSFET NMOS": MOSFETNMOS,
+    "MOSFETNMOS": MOSFETNMOS,
+    "MOSFET PMOS": MOSFETPMOS,
+    "MOSFETPMOS": MOSFETPMOS,
+    "VC Switch": VCSwitch,
+    "VCSwitch": VCSwitch,
+    "Diode": Diode,
+    "LED": LEDComponent,
+    "Zener Diode": ZenerDiode,
+    "ZenerDiode": ZenerDiode,
 }
 
 
@@ -1057,7 +1073,7 @@ def create_component(component_type, component_id):
     comp_model = ComponentData(
         component_id=component_id,
         component_type=component_type,
-        value=DEFAULT_VALUES.get(component_type, '1u'),
+        value=DEFAULT_VALUES.get(component_type, "1u"),
         position=(0.0, 0.0),
     )
     return component_class(component_id, model=comp_model)
