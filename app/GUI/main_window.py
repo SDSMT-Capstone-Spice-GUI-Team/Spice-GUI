@@ -1,13 +1,10 @@
 """Main application window with MVC architecture"""
-
+import json
 import logging
 import os
+from pathlib import Path
 
-from controllers.circuit_controller import CircuitController
-from controllers.file_controller import FileController
-from controllers.simulation_controller import SimulationController
-from models.circuit import CircuitModel
-from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtCore import Qt, QSettings
 from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
 from PyQt6.QtWidgets import (
     QDialog,
@@ -24,12 +21,16 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .analysis_dialog import AnalysisDialog
-from .circuit_canvas import CircuitCanvasView
+from models.circuit import CircuitModel
+from controllers.circuit_controller import CircuitController
+from controllers.file_controller import FileController
+from controllers.simulation_controller import SimulationController
 from .component_palette import ComponentPalette
+from .circuit_canvas import CircuitCanvasView
+from .analysis_dialog import AnalysisDialog
 from .properties_panel import PropertiesPanel
-from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
 from .waveform_dialog import WaveformDialog
+from .styles import theme_manager, DEFAULT_WINDOW_SIZE, DEFAULT_SPLITTER_SIZES
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ class MainWindow(QMainWindow):
             "Wires auto-route using IDA* path finding!"
         )
         instructions.setWordWrap(True)
-        instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
+        instructions.setStyleSheet(theme_manager.stylesheet('instructions_panel'))
         left_panel.addWidget(instructions)
         main_layout.addLayout(left_panel, 1)
 
@@ -143,7 +144,6 @@ class MainWindow(QMainWindow):
         results_header = QHBoxLayout()
         results_header.addWidget(QLabel("Simulation Results"))
         self.btn_export_csv = QPushButton("Export CSV")
-        self.btn_export_csv.setToolTip("Export simulation results to a CSV file")
         self.btn_export_csv.setEnabled(False)
         self.btn_export_csv.clicked.connect(self.export_results_csv)
         results_header.addWidget(self.btn_export_csv)
@@ -164,37 +164,32 @@ class MainWindow(QMainWindow):
         self.properties_stack = QStackedWidget()
         self.properties_panel = PropertiesPanel()
         blank_widget = QWidget()
-        self.properties_stack.addWidget(blank_widget)  # Index 0
-        self.properties_stack.addWidget(self.properties_panel)  # Index 1
+        self.properties_stack.addWidget(blank_widget)       # Index 0
+        self.properties_stack.addWidget(self.properties_panel) # Index 1
         right_panel_layout.addWidget(self.properties_stack)
 
         right_panel_layout.addStretch()
         right_panel_layout.addWidget(QLabel("Actions"))
 
         self.btn_save = QPushButton("Save Circuit")
-        self.btn_save.setToolTip("Save the circuit to a file")
         self.btn_save.clicked.connect(self._on_save_as)
         right_panel_layout.addWidget(self.btn_save)
 
         self.btn_load = QPushButton("Load Circuit")
-        self.btn_load.setToolTip("Load a circuit from a file")
         self.btn_load.clicked.connect(self._on_load)
         right_panel_layout.addWidget(self.btn_load)
 
         self.btn_clear = QPushButton("Clear Canvas")
-        self.btn_clear.setToolTip("Remove all components and wires from the canvas")
         self.btn_clear.clicked.connect(self.clear_canvas)
         right_panel_layout.addWidget(self.btn_clear)
 
         right_panel_layout.addWidget(QLabel(""))  # Spacer
 
         self.btn_netlist = QPushButton("Generate Netlist")
-        self.btn_netlist.setToolTip("Generate a SPICE netlist from the circuit (Ctrl+G)")
         self.btn_netlist.clicked.connect(self.generate_netlist)
         right_panel_layout.addWidget(self.btn_netlist)
 
         self.btn_simulate = QPushButton("Run Simulation")
-        self.btn_simulate.setToolTip("Run the simulation with current analysis settings (F5)")
         self.btn_simulate.clicked.connect(self.run_simulation)
         right_panel_layout.addWidget(self.btn_simulate)
 
@@ -213,37 +208,32 @@ class MainWindow(QMainWindow):
 
         new_action = QAction("&New", self)
         new_action.setShortcut("Ctrl+N")
-        new_action.setToolTip("Create a new empty circuit (Ctrl+N)")
         new_action.triggered.connect(self._on_new)
         file_menu.addAction(new_action)
 
         open_action = QAction("&Open...", self)
         open_action.setShortcut("Ctrl+O")
-        open_action.setToolTip("Open a saved circuit file (Ctrl+O)")
         open_action.triggered.connect(self._on_load)
         file_menu.addAction(open_action)
 
+        # Open Example submenu
+        self.examples_menu = file_menu.addMenu("Open &Example")
+        self._populate_examples_menu()
+
         save_action = QAction("&Save", self)
         save_action.setShortcut("Ctrl+S")
-        save_action.setToolTip("Save the current circuit (Ctrl+S)")
         save_action.triggered.connect(self._on_save)
         file_menu.addAction(save_action)
 
         save_as_action = QAction("Save &As...", self)
         save_as_action.setShortcut("Ctrl+Shift+S")
-        save_as_action.setToolTip("Save the circuit to a new file (Ctrl+Shift+S)")
         save_as_action.triggered.connect(self._on_save_as)
         file_menu.addAction(save_as_action)
-
-        # Recent Files submenu
-        self.recent_files_menu = file_menu.addMenu("Recent &Files")
-        self._update_recent_files_menu()
 
         file_menu.addSeparator()
 
         export_img_action = QAction("Export &Image...", self)
         export_img_action.setShortcut("Ctrl+E")
-        export_img_action.setToolTip("Export circuit as PNG or SVG image (Ctrl+E)")
         export_img_action.triggered.connect(self.export_image)
         file_menu.addAction(export_img_action)
 
@@ -251,7 +241,6 @@ class MainWindow(QMainWindow):
 
         exit_action = QAction("E&xit", self)
         exit_action.setShortcut("Ctrl+Q")
-        exit_action.setToolTip("Close the application (Ctrl+Q)")
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
@@ -262,19 +251,16 @@ class MainWindow(QMainWindow):
 
         copy_action = QAction("&Copy", self)
         copy_action.setShortcut(QKeySequence.StandardKey.Copy)
-        copy_action.setToolTip("Copy selected components (Ctrl+C)")
         copy_action.triggered.connect(self.copy_selected)
         edit_menu.addAction(copy_action)
 
         cut_action = QAction("Cu&t", self)
         cut_action.setShortcut(QKeySequence.StandardKey.Cut)
-        cut_action.setToolTip("Cut selected components (Ctrl+X)")
         cut_action.triggered.connect(self.cut_selected)
         edit_menu.addAction(cut_action)
 
         paste_action = QAction("&Paste", self)
         paste_action.setShortcut(QKeySequence.StandardKey.Paste)
-        paste_action.setToolTip("Paste components from clipboard (Ctrl+V)")
         paste_action.triggered.connect(self.paste_components)
         edit_menu.addAction(paste_action)
 
@@ -282,7 +268,6 @@ class MainWindow(QMainWindow):
 
         delete_action = QAction("&Delete Selected", self)
         delete_action.setShortcut(QKeySequence.StandardKey.Delete)
-        delete_action.setToolTip("Delete the selected component or wire (Delete)")
         delete_action.triggered.connect(self.canvas.delete_selected)
         edit_menu.addAction(delete_action)
 
@@ -290,20 +275,17 @@ class MainWindow(QMainWindow):
 
         rotate_cw_action = QAction("Rotate Clockwise", self)
         rotate_cw_action.setShortcut("R")
-        rotate_cw_action.setToolTip("Rotate selected component clockwise (R)")
         rotate_cw_action.triggered.connect(lambda: self.canvas.rotate_selected(True))
         edit_menu.addAction(rotate_cw_action)
 
         rotate_ccw_action = QAction("Rotate Counter-Clockwise", self)
         rotate_ccw_action.setShortcut("Shift+R")
-        rotate_ccw_action.setToolTip("Rotate selected component counter-clockwise (Shift+R)")
         rotate_ccw_action.triggered.connect(lambda: self.canvas.rotate_selected(False))
         edit_menu.addAction(rotate_ccw_action)
 
         edit_menu.addSeparator()
 
         clear_action = QAction("&Clear Canvas", self)
-        clear_action.setToolTip("Remove all components and wires from the canvas")
         clear_action.triggered.connect(self.clear_canvas)
         edit_menu.addAction(clear_action)
 
@@ -315,21 +297,18 @@ class MainWindow(QMainWindow):
         self.show_labels_action = QAction("Show Component &Labels", self)
         self.show_labels_action.setCheckable(True)
         self.show_labels_action.setChecked(True)
-        self.show_labels_action.setToolTip("Toggle component ID labels on the canvas")
         self.show_labels_action.triggered.connect(self.toggle_component_labels)
         view_menu.addAction(self.show_labels_action)
 
         self.show_values_action = QAction("Show Component &Values", self)
         self.show_values_action.setCheckable(True)
         self.show_values_action.setChecked(True)
-        self.show_values_action.setToolTip("Toggle component value labels on the canvas")
         self.show_values_action.triggered.connect(self.toggle_component_values)
         view_menu.addAction(self.show_values_action)
 
         self.show_nodes_action = QAction("Show &Node Labels", self)
         self.show_nodes_action.setCheckable(True)
         self.show_nodes_action.setChecked(True)
-        self.show_nodes_action.setToolTip("Toggle circuit node labels on the canvas")
         self.show_nodes_action.triggered.connect(self.toggle_node_labels)
         view_menu.addAction(self.show_nodes_action)
 
@@ -337,25 +316,21 @@ class MainWindow(QMainWindow):
 
         zoom_in_action = QAction("Zoom &In", self)
         zoom_in_action.setShortcut("Ctrl+=")
-        zoom_in_action.setToolTip("Zoom in on the canvas (Ctrl++)")
         zoom_in_action.triggered.connect(lambda: self.canvas.zoom_in())
         view_menu.addAction(zoom_in_action)
 
         zoom_out_action = QAction("Zoom &Out", self)
         zoom_out_action.setShortcut("Ctrl+-")
-        zoom_out_action.setToolTip("Zoom out on the canvas (Ctrl+-)")
         zoom_out_action.triggered.connect(lambda: self.canvas.zoom_out())
         view_menu.addAction(zoom_out_action)
 
         zoom_fit_action = QAction("&Fit to Circuit", self)
         zoom_fit_action.setShortcut("Ctrl+0")
-        zoom_fit_action.setToolTip("Fit the view to show the entire circuit (Ctrl+0)")
         zoom_fit_action.triggered.connect(lambda: self.canvas.zoom_fit())
         view_menu.addAction(zoom_fit_action)
 
         zoom_reset_action = QAction("&Reset Zoom", self)
         zoom_reset_action.setShortcut("Ctrl+1")
-        zoom_reset_action.setToolTip("Reset zoom to 100% (Ctrl+1)")
         zoom_reset_action.triggered.connect(lambda: self.canvas.zoom_reset())
         view_menu.addAction(zoom_reset_action)
 
@@ -366,13 +341,11 @@ class MainWindow(QMainWindow):
 
         netlist_action = QAction("Generate &Netlist", self)
         netlist_action.setShortcut("Ctrl+G")
-        netlist_action.setToolTip("Generate a SPICE netlist from the circuit (Ctrl+G)")
         netlist_action.triggered.connect(self.generate_netlist)
         sim_menu.addAction(netlist_action)
 
         run_action = QAction("&Run Simulation", self)
         run_action.setShortcut("F5")
-        run_action.setToolTip("Run the simulation with current analysis settings (F5)")
         run_action.triggered.connect(self.run_simulation)
         sim_menu.addAction(run_action)
 
@@ -384,25 +357,21 @@ class MainWindow(QMainWindow):
         op_action = QAction("&DC Operating Point (.op)", self)
         op_action.setCheckable(True)
         op_action.setChecked(True)
-        op_action.setToolTip("Calculate DC node voltages at steady state")
         op_action.triggered.connect(self.set_analysis_op)
         analysis_menu.addAction(op_action)
 
         dc_action = QAction("&DC Sweep", self)
         dc_action.setCheckable(True)
-        dc_action.setToolTip("Sweep a source voltage and measure circuit response")
         dc_action.triggered.connect(self.set_analysis_dc)
         analysis_menu.addAction(dc_action)
 
         ac_action = QAction("&AC Sweep", self)
         ac_action.setCheckable(True)
-        ac_action.setToolTip("Analyze circuit frequency response")
         ac_action.triggered.connect(self.set_analysis_ac)
         analysis_menu.addAction(ac_action)
 
         tran_action = QAction("&Transient", self)
         tran_action.setCheckable(True)
-        tran_action.setToolTip("Simulate circuit behavior over time")
         tran_action.triggered.connect(self.set_analysis_transient)
         analysis_menu.addAction(tran_action)
 
@@ -424,10 +393,9 @@ class MainWindow(QMainWindow):
         """Create a new circuit"""
         if len(self.canvas.components) > 0:
             reply = QMessageBox.question(
-                self,
-                "New Circuit",
+                self, "New Circuit",
                 "Current circuit will be lost. Continue?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply == QMessageBox.StandardButton.No:
                 return
@@ -459,7 +427,6 @@ class MainWindow(QMainWindow):
             try:
                 # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(self.file_ctrl.current_file)
-                self._update_recent_files_menu()
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(f"Saved to {self.file_ctrl.current_file}", 3000)
@@ -470,12 +437,13 @@ class MainWindow(QMainWindow):
 
     def _on_save_as(self):
         """Save circuit to a new file"""
-        filename, _ = QFileDialog.getSaveFileName(self, "Save Circuit", "", "JSON Files (*.json);;All Files (*)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Circuit", "", "JSON Files (*.json);;All Files (*)"
+        )
         if filename:
             try:
                 # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(filename)
-                self._update_recent_files_menu()
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 QMessageBox.information(self, "Success", "Circuit saved successfully!")
             except (OSError, TypeError) as e:
@@ -483,12 +451,13 @@ class MainWindow(QMainWindow):
 
     def _on_load(self):
         """Load circuit from file"""
-        filename, _ = QFileDialog.getOpenFileName(self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)")
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)"
+        )
         if filename:
             try:
                 self.file_ctrl.load_circuit(filename)
                 # Phase 5: No sync needed - observer pattern rebuilds canvas
-                self._update_recent_files_menu()
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 self._sync_analysis_menu()
                 QMessageBox.information(self, "Success", "Circuit loaded successfully!")
@@ -507,51 +476,86 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 logger.error("Error loading last session: %s", e)
 
-    def _update_recent_files_menu(self):
-        """Update the Recent Files submenu with current list"""
-        self.recent_files_menu.clear()
+    def _populate_examples_menu(self):
+        """Populate the Open Example submenu with example circuits"""
+        # Get path to examples directory (relative to this file)
+        examples_dir = Path(__file__).parent.parent / "examples"
 
-        recent_files = self.file_ctrl.get_recent_files()
-
-        if not recent_files:
-            no_recent_action = QAction("(No recent files)", self)
-            no_recent_action.setEnabled(False)
-            self.recent_files_menu.addAction(no_recent_action)
-        else:
-            for filepath in recent_files:
-                filename = os.path.basename(filepath)
-                action = QAction(filename, self)
-                action.setToolTip(filepath)  # Show full path as tooltip
-                action.triggered.connect(lambda checked, f=filepath: self._open_recent_file(f))
-                self.recent_files_menu.addAction(action)
-
-            self.recent_files_menu.addSeparator()
-            clear_action = QAction("Clear Recent Files", self)
-            clear_action.triggered.connect(self._clear_recent_files)
-            self.recent_files_menu.addAction(clear_action)
-
-    def _open_recent_file(self, filepath: str):
-        """Open a file from the recent files list"""
-        if not os.path.exists(filepath):
-            QMessageBox.warning(
-                self, "File Not Found",
-                f"The file '{filepath}' no longer exists and has been removed from recent files."
-            )
-            self._update_recent_files_menu()
+        if not examples_dir.exists():
+            no_examples_action = QAction("(No examples available)", self)
+            no_examples_action.setEnabled(False)
+            self.examples_menu.addAction(no_examples_action)
             return
+
+        # Load and categorize examples
+        examples_by_category = {}
+        example_files = sorted(examples_dir.glob("*.json"))
+
+        for example_file in example_files:
+            try:
+                with open(example_file, "r") as f:
+                    data = json.load(f)
+
+                name = data.get("name", example_file.stem)
+                description = data.get("description", "")
+                category = data.get("category", "Other")
+
+                if category not in examples_by_category:
+                    examples_by_category[category] = []
+
+                examples_by_category[category].append(
+                    {"name": name, "description": description, "filepath": example_file}
+                )
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Failed to load example {example_file}: {e}")
+
+        # Create menu entries organized by category
+        if not examples_by_category:
+            no_examples_action = QAction("(No examples available)", self)
+            no_examples_action.setEnabled(False)
+            self.examples_menu.addAction(no_examples_action)
+            return
+
+        # Sort categories: Basic first, then alphabetically
+        category_order = sorted(examples_by_category.keys(), key=lambda c: (c != "Basic", c))
+
+        for i, category in enumerate(category_order):
+            if i > 0:
+                self.examples_menu.addSeparator()
+
+            # Add category label
+            category_label = QAction(f"─── {category} ───", self)
+            category_label.setEnabled(False)
+            self.examples_menu.addAction(category_label)
+
+            # Add examples in this category
+            for example in examples_by_category[category]:
+                action = QAction(example["name"], self)
+                action.setToolTip(example["description"])
+                action.triggered.connect(lambda checked, path=example["filepath"]: self._open_example(path))
+                self.examples_menu.addAction(action)
+
+    def _open_example(self, filepath: Path):
+        """Open an example circuit file"""
+        # Warn if there's unsaved work
+        if len(self.canvas.components) > 0:
+            reply = QMessageBox.question(
+                self,
+                "Open Example",
+                "Opening an example will replace your current circuit. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
 
         try:
             self.file_ctrl.load_circuit(filepath)
-            self.setWindowTitle(f"Circuit Design GUI - {filepath}")
+            self.setWindowTitle(f"Circuit Design GUI - {filepath.name} (Example)")
             self._sync_analysis_menu()
-            self._update_recent_files_menu()
+            # Don't set as current file (keep it as example, not saved)
+            self.file_ctrl.current_file = None
         except (OSError, ValueError) as e:
-            QMessageBox.critical(self, "Error", f"Failed to load: {e}")
-
-    def _clear_recent_files(self):
-        """Clear the recent files list"""
-        self.file_ctrl.clear_recent_files()
-        self._update_recent_files_menu()
+            QMessageBox.critical(self, "Error", f"Failed to load example: {e}")
 
     # Simulation Operations (delegated to SimulationController)
 
@@ -653,7 +657,6 @@ class MainWindow(QMainWindow):
                 self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
 
                 from simulation import ResultParser
-
                 table_string = ResultParser.format_results_as_table(tran_data)
                 self.results_text.append(table_string)
 
@@ -683,11 +686,8 @@ class MainWindow(QMainWindow):
             return
 
         from simulation.csv_exporter import (
-            export_ac_results,
-            export_dc_sweep_results,
-            export_op_results,
-            export_transient_results,
-            write_csv,
+            export_op_results, export_dc_sweep_results,
+            export_ac_results, export_transient_results, write_csv,
         )
 
         circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
@@ -703,7 +703,10 @@ class MainWindow(QMainWindow):
         else:
             return
 
-        filename, _ = QFileDialog.getSaveFileName(self, "Export Results to CSV", "", "CSV Files (*.csv);;All Files (*)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export Results to CSV", "",
+            "CSV Files (*.csv);;All Files (*)"
+        )
         if filename:
             try:
                 write_csv(csv_content, filename)
@@ -732,10 +735,12 @@ class MainWindow(QMainWindow):
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(
-                        f"Analysis: DC Sweep (V: {params['min']}V to {params['max']}V, step {params['step']}V)", 3000
+                        f"Analysis: DC Sweep (V: {params['min']}V to {params['max']}V, step {params['step']}V)",
+                        3000
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                QMessageBox.warning(self, "Invalid Parameters",
+                                    "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -751,10 +756,11 @@ class MainWindow(QMainWindow):
                 if statusBar:
                     statusBar.showMessage(
                         f"Analysis: AC Sweep ({params['fStart']}Hz to {params['fStop']}Hz, {params['points']} pts/decade)",
-                        3000,
+                        3000
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                QMessageBox.warning(self, "Invalid Parameters",
+                                    "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -769,10 +775,12 @@ class MainWindow(QMainWindow):
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(
-                        f"Analysis: Transient (duration: {params['duration']}s, step: {params['step']}s)", 3000
+                        f"Analysis: Transient (duration: {params['duration']}s, step: {params['step']}s)",
+                        3000
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                QMessageBox.warning(self, "Invalid Parameters",
+                                    "Please enter valid numeric values.")
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -813,7 +821,8 @@ class MainWindow(QMainWindow):
     def export_image(self):
         """Export the circuit diagram as a PNG or SVG image"""
         filename, selected_filter = QFileDialog.getSaveFileName(
-            self, "Export Image", "", "PNG Image (*.png);;SVG Image (*.svg)"
+            self, "Export Image", "",
+            "PNG Image (*.png);;SVG Image (*.svg)"
         )
         if not filename:
             return
@@ -821,13 +830,11 @@ class MainWindow(QMainWindow):
         scene = self.canvas.scene
 
         # Compute bounding rect of circuit items (excluding grid)
-        from .annotation_item import AnnotationItem
         from .component_item import ComponentGraphicsItem
         from .wire_item import WireGraphicsItem
-
+        from .annotation_item import AnnotationItem
         circuit_items = [
-            item
-            for item in scene.items()
+            item for item in scene.items()
             if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem, AnnotationItem))
         ]
         if not circuit_items:
@@ -842,10 +849,9 @@ class MainWindow(QMainWindow):
         padding = 40
         source_rect.adjust(-padding, -padding, padding, padding)
 
-        if filename.lower().endswith(".svg"):
-            from PyQt6.QtCore import QSize
+        if filename.lower().endswith('.svg'):
             from PyQt6.QtSvg import QSvgGenerator
-
+            from PyQt6.QtCore import QSize
             generator = QSvgGenerator()
             generator.setFileName(filename)
             generator.setSize(QSize(int(source_rect.width()), int(source_rect.height())))
@@ -853,15 +859,13 @@ class MainWindow(QMainWindow):
             generator.setTitle("SDM Spice Circuit")
 
             from PyQt6.QtGui import QPainter
-
             painter = QPainter(generator)
             scene.render(painter, source=source_rect)
             painter.end()
         else:
             # PNG
-            from PyQt6.QtCore import QRectF, Qt
             from PyQt6.QtGui import QImage, QPainter
-
+            from PyQt6.QtCore import Qt, QRectF
             scale = 2  # 2x resolution for crisp output
             width = int(source_rect.width() * scale)
             height = int(source_rect.height() * scale)
@@ -880,10 +884,9 @@ class MainWindow(QMainWindow):
     def clear_canvas(self):
         """Clear the canvas"""
         reply = QMessageBox.question(
-            self,
-            "Clear Canvas",
+            self, "Clear Canvas",
             "Are you sure you want to clear the canvas?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
             self.canvas.clear_circuit()
@@ -911,14 +914,14 @@ class MainWindow(QMainWindow):
         if not component:
             return
 
-        if property_name == "value":
+        if property_name == 'value':
             component.value = new_value
             component.update()
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
 
-        elif property_name == "rotation":
+        elif property_name == 'rotation':
             component.rotation_angle = new_value
             component.update_terminals()
             component.update()
@@ -928,7 +931,7 @@ class MainWindow(QMainWindow):
                 statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
             self.properties_panel.show_component(component)
 
-        elif property_name == "waveform":
+        elif property_name == 'waveform':
             component.update()
             statusBar = self.statusBar()
             if statusBar:
