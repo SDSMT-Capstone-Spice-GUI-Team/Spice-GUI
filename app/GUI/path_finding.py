@@ -1,33 +1,22 @@
 """
 pathfinding.py
 
-Multiple pathfinding algorithms for grid-aligned wire routing in circuit schematics:
-- A* (primary): Heuristic-based optimal pathfinding
-- IDA* (Iterative Deepening A*): Memory-efficient variant
-- Dijkstra: Guaranteed shortest path without heuristics
+IDA* pathfinding for grid-aligned wire routing in circuit schematics.
 """
 
-import heapq
 import time
 from abc import ABC, abstractmethod
-from typing import Dict, List, Set, Tuple
+from typing import Set, Tuple
 
 from PyQt6.QtCore import QPointF
 
 
 class WeightedPathfinder(ABC):
     """
-    Abstract base class for pathfinding algorithms with weighted edges.
+    Abstract base class for grid-based pathfinding with weighted edges.
 
-    This class defines the interface for pathfinding algorithms that support:
-    - Edge weight calculation (bend penalties, crossing costs, etc.)
-    - Obstacle avoidance
-    - Performance tracking
-    - Multiple algorithm implementations
-
-    Subclasses must implement:
-    - find_path(): Main pathfinding method
-    - _calculate_edge_cost(): Edge weight calculation logic
+    Provides shared utilities (grid conversion, heuristics, path simplification)
+    used by the IDA* implementation.
     """
 
     def __init__(self, grid_size=20):
@@ -61,7 +50,7 @@ class WeightedPathfinder(ABC):
         algorithm="astar",
         existing_wires=None,
         current_net=None,
-    ) -> Tuple[List[Tuple[int, int]], float, int]:
+    ) -> Tuple[list[Tuple[int, int]], float, int]:
         """
         Find path from start_pos to end_pos avoiding obstacles.
 
@@ -206,254 +195,6 @@ class WeightedPathfinder(ABC):
             return 0 if x == 0 else (1 if x > 0 else -1)
 
         return sign(dx1) == sign(dx2) and sign(dy1) == sign(dy2)
-
-
-class AStarPathfinder(WeightedPathfinder):
-    """A* pathfinding algorithm with heuristic-based optimal path finding"""
-
-    def __init__(self, grid_size=20):
-        super().__init__(grid_size)
-        self.last_g_score = {}  # Store g_score from last pathfinding run for visualization
-
-    def find_path(
-        self,
-        start_pos,
-        end_pos,
-        obstacles,
-        bounds=(-500, -500, 1000, 1000),
-        algorithm="astar",
-        existing_wires=None,
-        current_net=None,
-    ):
-        """
-        Find path using A* algorithm.
-
-        Args:
-            start_pos: QPointF - starting position
-            end_pos: QPointF - ending position
-            obstacles: set of (grid_x, grid_y) tuples representing blocked cells
-            bounds: tuple (min_x, min_y, width, height) for valid area
-            algorithm: str - ignored (always uses A*)
-            existing_wires: list of wire paths (optional)
-            current_net: identifier for current net (optional)
-
-        Returns:
-            tuple: (waypoints, runtime, iterations)
-        """
-        start_time = time.time()
-        waypoints = self._find_path_impl(start_pos, end_pos, obstacles, bounds, existing_wires, current_net)
-        self.last_runtime = time.time() - start_time
-        return waypoints, self.last_runtime, self.last_iterations
-
-    def _calculate_edge_cost(self, current, neighbor, direction, bend_count, existing_wires=None, current_net=None):
-        """
-        Calculate edge cost with bend penalties.
-
-        Args:
-            current: (x, y) tuple
-            neighbor: (x, y) tuple
-            direction: (dx, dy) tuple - movement direction
-            bend_count: int - number of bends so far
-
-        Returns:
-            float: Edge cost
-        """
-        return 1  # Base cost (bend penalty added separately in algorithm)
-
-    def _find_path_impl(self, start_pos, end_pos, obstacles, bounds, existing_wires=None, current_net=None):
-        """
-        A* algorithm implementation with edge weight system
-
-        Returns:
-            list of QPointF representing waypoints along the path
-        """
-        # Convert positions to grid coordinates
-        start_grid = self._pos_to_grid(start_pos)
-        end_grid = self._pos_to_grid(end_pos)
-
-        # Debug: Check if start has any valid neighbors
-        start_neighbors_blocked = 0
-        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-            neighbor = (start_grid[0] + dx, start_grid[1] + dy)
-            if neighbor in obstacles:
-                start_neighbors_blocked += 1
-
-        # A* algorithm with edge weights
-        open_set = []
-        heapq.heappush(open_set, (0, start_grid, None))  # (f_score, position, direction)
-
-        came_from = {}
-        g_score = {start_grid: 0}
-        f_score = {start_grid: self._heuristic(start_grid, end_grid)}
-        direction_map: Dict[tuple[int, int], tuple[int, int] | None] = {
-            start_grid: None
-        }  # Track direction for bend penalty
-        bend_count = {start_grid: 0}  # Track number of bends
-
-        min_x, min_y, width, height = bounds
-        max_x = min_x + width
-        max_y = min_y + height
-
-        iterations = 0
-        max_iterations = 10000  # Safety limit
-
-        while open_set and iterations < max_iterations:
-            iterations += 1
-            _, current, current_dir = heapq.heappop(open_set)
-
-            if current == end_grid:
-                # Reconstruct path
-                path = self._reconstruct_path(came_from, current)
-                # Convert grid coordinates back to scene positions
-                waypoints = [self._grid_to_pos(grid_pos) for grid_pos in path]
-                # Simplify path (remove unnecessary waypoints)
-                waypoints = self._simplify_path(waypoints)
-                self.last_iterations = iterations
-                # Store g_score for cost map visualization
-                self.last_g_score = dict(g_score)
-                return waypoints
-
-            # Check all 4 neighbors (up, down, left, right)
-            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                neighbor = (current[0] + dx, current[1] + dy)
-                new_direction = (dx, dy)
-
-                # Check bounds
-                neighbor_pos = self._grid_to_pos(neighbor)
-                if not (min_x <= neighbor_pos.x() <= max_x and min_y <= neighbor_pos.y() <= max_y):
-                    continue
-
-                # Check if blocked by obstacle
-                if neighbor in obstacles:
-                    continue
-
-                # Calculate edge cost with bend penalty
-                edge_cost = 1  # Base movement cost
-                new_bend_count = bend_count.get(current, 0)
-
-                # Add bend penalty if direction changes
-                if current_dir is not None and current_dir != new_direction:
-                    new_bend_count += 1
-                    edge_cost += self.bend_penalty_base**new_bend_count
-
-                # Calculate tentative g_score
-                tentative_g_score = g_score[current] + edge_cost
-
-                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
-                    came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g_score
-                    f_score[neighbor] = tentative_g_score + self._heuristic(neighbor, end_grid)
-                    direction_map[neighbor] = new_direction
-                    bend_count[neighbor] = new_bend_count
-                    heapq.heappush(open_set, (f_score[neighbor], neighbor, new_direction))
-
-        # No path found - return direct line as fallback
-        self.last_iterations = iterations
-        # Store g_score even on failure for visualization
-        self.last_g_score = dict(g_score)
-        return [start_pos, end_pos]
-
-
-class DijkstraPathfinder(WeightedPathfinder):
-    """Dijkstra's algorithm - guaranteed shortest path without heuristics"""
-
-    def __init__(self, grid_size=20):
-        super().__init__(grid_size)
-
-    def find_path(
-        self,
-        start_pos,
-        end_pos,
-        obstacles,
-        bounds=(-500, -500, 1000, 1000),
-        algorithm="dijkstra",
-        existing_wires=None,
-        current_net=None,
-    ):
-        """
-        Find path using Dijkstra's algorithm.
-
-        Returns:
-            tuple: (waypoints, runtime, iterations)
-        """
-        start_time = time.time()
-        waypoints = self._find_path_impl(start_pos, end_pos, obstacles, bounds, existing_wires, current_net)
-        self.last_runtime = time.time() - start_time
-        return waypoints, self.last_runtime, self.last_iterations
-
-    def _calculate_edge_cost(self, current, neighbor, direction, bend_count, existing_wires=None, current_net=None):
-        """Calculate edge cost (same as A* but without heuristic)"""
-        return 1  # Base cost
-
-    def _find_path_impl(self, start_pos, end_pos, obstacles, bounds, existing_wires=None, current_net=None):
-        """
-        Dijkstra's algorithm implementation - guaranteed shortest path without heuristics
-
-        Returns:
-            list of QPointF representing waypoints along the path
-        """
-        # Convert positions to grid coordinates
-        start_grid = self._pos_to_grid(start_pos)
-        end_grid = self._pos_to_grid(end_pos)
-
-        # Priority queue: (cost, position, direction)
-        open_set = []
-        heapq.heappush(open_set, (0, start_grid, None))
-
-        came_from = {}
-        cost = {start_grid: 0}
-        bend_count = {start_grid: 0}
-
-        min_x, min_y, width, height = bounds
-        max_x = min_x + width
-        max_y = min_y + height
-
-        iterations = 0
-        max_iterations = 10000
-
-        while open_set and iterations < max_iterations:
-            iterations += 1
-            current_cost, current, current_dir = heapq.heappop(open_set)
-
-            # Skip if we've already found a better path to this node
-            if current in cost and current_cost > cost[current]:
-                continue
-
-            if current == end_grid:
-                path = self._reconstruct_path(came_from, current)
-                waypoints = [self._grid_to_pos(grid_pos) for grid_pos in path]
-                waypoints = self._simplify_path(waypoints)
-                self.last_iterations = iterations
-                return waypoints
-
-            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                neighbor = (current[0] + dx, current[1] + dy)
-                new_direction = (dx, dy)
-
-                neighbor_pos = self._grid_to_pos(neighbor)
-                if not (min_x <= neighbor_pos.x() <= max_x and min_y <= neighbor_pos.y() <= max_y):
-                    continue
-
-                if neighbor in obstacles:
-                    continue
-
-                edge_cost = 1
-                new_bend_count = bend_count.get(current, 0)
-
-                if current_dir is not None and current_dir != new_direction:
-                    new_bend_count += 1
-                    edge_cost += self.bend_penalty_base**new_bend_count
-
-                tentative_cost = current_cost + edge_cost
-
-                if neighbor not in cost or tentative_cost < cost[neighbor]:
-                    came_from[neighbor] = current
-                    cost[neighbor] = tentative_cost
-                    bend_count[neighbor] = new_bend_count
-                    heapq.heappush(open_set, (tentative_cost, neighbor, new_direction))
-
-        self.last_iterations = iterations
-        return [start_pos, end_pos]
 
 
 class IDAStarPathfinder(WeightedPathfinder):
