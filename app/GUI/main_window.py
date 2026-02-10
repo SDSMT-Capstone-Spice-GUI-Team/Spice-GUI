@@ -235,6 +235,10 @@ class MainWindow(QMainWindow):
         save_as_action.triggered.connect(self._on_save_as)
         file_menu.addAction(save_as_action)
 
+        # Recent Files submenu
+        self.recent_files_menu = file_menu.addMenu("Recent &Files")
+        self._update_recent_files_menu()
+
         file_menu.addSeparator()
 
         export_img_action = QAction("Export &Image...", self)
@@ -455,6 +459,7 @@ class MainWindow(QMainWindow):
             try:
                 # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(self.file_ctrl.current_file)
+                self._update_recent_files_menu()
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(f"Saved to {self.file_ctrl.current_file}", 3000)
@@ -470,6 +475,7 @@ class MainWindow(QMainWindow):
             try:
                 # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(filename)
+                self._update_recent_files_menu()
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 QMessageBox.information(self, "Success", "Circuit saved successfully!")
             except (OSError, TypeError) as e:
@@ -482,6 +488,7 @@ class MainWindow(QMainWindow):
             try:
                 self.file_ctrl.load_circuit(filename)
                 # Phase 5: No sync needed - observer pattern rebuilds canvas
+                self._update_recent_files_menu()
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 self._sync_analysis_menu()
                 QMessageBox.information(self, "Success", "Circuit loaded successfully!")
@@ -499,6 +506,52 @@ class MainWindow(QMainWindow):
                 self._sync_analysis_menu()
             except Exception as e:
                 logger.error("Error loading last session: %s", e)
+
+    def _update_recent_files_menu(self):
+        """Update the Recent Files submenu with current list"""
+        self.recent_files_menu.clear()
+
+        recent_files = self.file_ctrl.get_recent_files()
+
+        if not recent_files:
+            no_recent_action = QAction("(No recent files)", self)
+            no_recent_action.setEnabled(False)
+            self.recent_files_menu.addAction(no_recent_action)
+        else:
+            for filepath in recent_files:
+                filename = os.path.basename(filepath)
+                action = QAction(filename, self)
+                action.setToolTip(filepath)  # Show full path as tooltip
+                action.triggered.connect(lambda checked, f=filepath: self._open_recent_file(f))
+                self.recent_files_menu.addAction(action)
+
+            self.recent_files_menu.addSeparator()
+            clear_action = QAction("Clear Recent Files", self)
+            clear_action.triggered.connect(self._clear_recent_files)
+            self.recent_files_menu.addAction(clear_action)
+
+    def _open_recent_file(self, filepath: str):
+        """Open a file from the recent files list"""
+        if not os.path.exists(filepath):
+            QMessageBox.warning(
+                self, "File Not Found",
+                f"The file '{filepath}' no longer exists and has been removed from recent files."
+            )
+            self._update_recent_files_menu()
+            return
+
+        try:
+            self.file_ctrl.load_circuit(filepath)
+            self.setWindowTitle(f"Circuit Design GUI - {filepath}")
+            self._sync_analysis_menu()
+            self._update_recent_files_menu()
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load: {e}")
+
+    def _clear_recent_files(self):
+        """Clear the recent files list"""
+        self.file_ctrl.clear_recent_files()
+        self._update_recent_files_menu()
 
     # Simulation Operations (delegated to SimulationController)
 

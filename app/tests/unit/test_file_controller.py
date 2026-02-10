@@ -1,40 +1,36 @@
 """Tests for FileController."""
 
 import json
-from pathlib import Path
-
 import pytest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 from controllers.file_controller import FileController, validate_circuit_data
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
 
-
 def _build_simple_circuit():
     """Build a simple V1-R1-GND circuit model."""
     model = CircuitModel()
     model.components["V1"] = ComponentData(
-        component_id="V1",
-        component_type="Voltage Source",
-        value="5V",
-        position=(0.0, 0.0),
+        component_id="V1", component_type="Voltage Source",
+        value="5V", position=(0.0, 0.0),
     )
     model.components["R1"] = ComponentData(
-        component_id="R1",
-        component_type="Resistor",
-        value="1k",
-        position=(100.0, 0.0),
+        component_id="R1", component_type="Resistor",
+        value="1k", position=(100.0, 0.0),
     )
     model.components["GND1"] = ComponentData(
-        component_id="GND1",
-        component_type="Ground",
-        value="0V",
-        position=(0.0, 100.0),
+        component_id="GND1", component_type="Ground",
+        value="0V", position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(start_component_id="V1", start_terminal=1,
+                 end_component_id="R1", end_terminal=0),
+        WireData(start_component_id="R1", start_terminal=1,
+                 end_component_id="GND1", end_terminal=0),
+        WireData(start_component_id="V1", start_terminal=0,
+                 end_component_id="GND1", end_terminal=0),
     ]
     model.component_counter = {"V": 1, "R": 1, "GND": 1}
     model.rebuild_nodes()
@@ -60,8 +56,8 @@ class TestSaveLoad:
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
         data = json.loads(filepath.read_text())
-        assert "components" in data
-        assert "wires" in data
+        assert 'components' in data
+        assert 'wires' in data
 
     def test_load_restores_components(self, tmp_path):
         model = _build_simple_circuit()
@@ -249,7 +245,13 @@ class TestHasFile:
 
 class TestValidateCircuitData:
     def test_valid_data_passes(self):
-        data = {"components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}], "wires": []}
+        data = {
+            "components": [
+                {"id": "R1", "type": "Resistor", "value": "1k",
+                 "pos": {"x": 0, "y": 0}}
+            ],
+            "wires": []
+        }
         validate_circuit_data(data)  # Should not raise
 
     def test_not_a_dict_raises(self):
@@ -258,18 +260,178 @@ class TestValidateCircuitData:
 
     def test_wire_references_unknown_component(self):
         data = {
-            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
-            "wires": [{"start_comp": "R1", "start_term": 0, "end_comp": "UNKNOWN", "end_term": 0}],
+            "components": [
+                {"id": "R1", "type": "Resistor", "value": "1k",
+                 "pos": {"x": 0, "y": 0}}
+            ],
+            "wires": [
+                {"start_comp": "R1", "start_term": 0,
+                 "end_comp": "UNKNOWN", "end_term": 0}
+            ]
         }
         with pytest.raises(ValueError, match="unknown component"):
             validate_circuit_data(data)
 
 
-class TestNoQtDependencies:
-    def test_no_pyqt_imports(self):
-        import controllers.file_controller as mod
+class TestRecentFiles:
+    """Test recent files functionality (Issue #101)."""
 
+    @patch('controllers.file_controller.QSettings')
+    def test_get_recent_files_returns_empty_list_initially(self, mock_qsettings):
+        """get_recent_files should return empty list when no recent files."""
+        mock_settings_instance = MagicMock()
+        mock_settings_instance.value.return_value = []
+        mock_qsettings.return_value = mock_settings_instance
+
+        ctrl = FileController()
+        recent = ctrl.get_recent_files()
+        assert recent == []
+
+    @patch('controllers.file_controller.QSettings')
+    def test_add_recent_file_adds_to_list(self, mock_qsettings, tmp_path):
+        """add_recent_file should add file to recent list."""
+        mock_settings_instance = MagicMock()
+        mock_settings_instance.value.return_value = []
+        mock_qsettings.return_value = mock_settings_instance
+
+        ctrl = FileController()
+        filepath = tmp_path / "test.json"
+        filepath.touch()  # Create file
+        ctrl.add_recent_file(filepath)
+
+        # Check that setValue was called with the file path
+        mock_settings_instance.setValue.assert_called()
+        call_args = mock_settings_instance.setValue.call_args
+        assert call_args[0][0] == "file/recent_files"
+        assert str(filepath.absolute()) in call_args[0][1]
+
+    @patch('controllers.file_controller.os.path.exists')
+    @patch('controllers.file_controller.QSettings')
+    def test_add_recent_file_moves_to_front_if_exists(self, mock_qsettings, mock_exists, tmp_path):
+        """add_recent_file should move existing file to front."""
+        file1 = str((tmp_path / "file1.json").absolute())
+        file2 = str((tmp_path / "file2.json").absolute())
+
+        # Mock: all files exist
+        mock_exists.return_value = True
+
+        mock_settings_instance = MagicMock()
+        mock_settings_instance.value.return_value = [file2, file1]
+        mock_qsettings.return_value = mock_settings_instance
+
+        ctrl = FileController()
+        ctrl.add_recent_file(Path(file1))
+
+        # file1 should now be at the front
+        call_args = mock_settings_instance.setValue.call_args
+        saved_list = call_args[0][1]
+        assert saved_list[0] == file1
+        assert saved_list[1] == file2
+
+    @patch('controllers.file_controller.os.path.exists')
+    @patch('controllers.file_controller.QSettings')
+    def test_add_recent_file_maintains_max_limit(self, mock_qsettings, mock_exists, tmp_path):
+        """add_recent_file should keep only MAX_RECENT_FILES (10) files."""
+        # Create 11 file paths
+        existing_files = [str((tmp_path / f"file{i}.json").absolute()) for i in range(10)]
+        new_file = tmp_path / "file11.json"
+
+        # Mock: all files exist
+        mock_exists.return_value = True
+
+        mock_settings_instance = MagicMock()
+        mock_settings_instance.value.return_value = existing_files
+        mock_qsettings.return_value = mock_settings_instance
+
+        ctrl = FileController()
+        ctrl.add_recent_file(new_file)
+
+        # Should have exactly 10 files
+        call_args = mock_settings_instance.setValue.call_args
+        saved_list = call_args[0][1]
+        assert len(saved_list) == 10
+        assert saved_list[0] == str(new_file.absolute())
+
+    @patch('controllers.file_controller.QSettings')
+    @patch('controllers.file_controller.os.path.exists')
+    def test_get_recent_files_filters_missing_files(self, mock_exists, mock_qsettings, tmp_path):
+        """get_recent_files should filter out files that no longer exist."""
+        file1 = str((tmp_path / "exists.json").absolute())
+        file2 = str((tmp_path / "missing.json").absolute())
+
+        # Mock: file1 exists, file2 doesn't
+        mock_exists.side_effect = lambda f: f == file1
+
+        mock_settings_instance = MagicMock()
+        mock_settings_instance.value.return_value = [file1, file2]
+        mock_qsettings.return_value = mock_settings_instance
+
+        ctrl = FileController()
+        recent = ctrl.get_recent_files()
+
+        # Should only return existing file
+        assert recent == [file1]
+
+        # Should update settings to remove missing file
+        assert mock_settings_instance.setValue.called
+
+    @patch('controllers.file_controller.QSettings')
+    def test_clear_recent_files(self, mock_qsettings):
+        """clear_recent_files should empty the list."""
+        mock_settings_instance = MagicMock()
+        mock_qsettings.return_value = mock_settings_instance
+
+        ctrl = FileController()
+        ctrl.clear_recent_files()
+
+        # Should save empty list
+        mock_settings_instance.setValue.assert_called_with("file/recent_files", [])
+
+    @patch('controllers.file_controller.QSettings')
+    def test_save_circuit_updates_recent_files(self, mock_qsettings, tmp_path):
+        """save_circuit should add file to recent files list."""
+        mock_settings_instance = MagicMock()
+        mock_settings_instance.value.return_value = []
+        mock_qsettings.return_value = mock_settings_instance
+
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        filepath = tmp_path / "test.json"
+        ctrl.save_circuit(filepath)
+
+        # Should have called setValue to add to recent files
+        calls = [call[0][0] for call in mock_settings_instance.setValue.call_args_list]
+        assert "file/recent_files" in calls
+
+    @patch('controllers.file_controller.QSettings')
+    def test_load_circuit_updates_recent_files(self, mock_qsettings, tmp_path):
+        """load_circuit should add file to recent files list."""
+        # First save a circuit
+        model = _build_simple_circuit()
+        filepath = tmp_path / "test.json"
+
+        mock_settings_instance = MagicMock()
+        mock_settings_instance.value.return_value = []
+        mock_qsettings.return_value = mock_settings_instance
+
+        ctrl = FileController(model)
+        ctrl.save_circuit(filepath)
+
+        # Now load it with a new controller
+        ctrl2 = FileController()
+        ctrl2.load_circuit(filepath)
+
+        # Should have called setValue to add to recent files
+        calls = [call[0][0] for call in mock_settings_instance.setValue.call_args_list]
+        assert "file/recent_files" in calls
+
+
+class TestQtDependencies:
+    def test_qsettings_imported_for_recent_files(self):
+        """FileController now uses QSettings for recent files (Issue #101)."""
+        import controllers.file_controller as mod
         source = open(mod.__file__).read()
-        assert "PyQt" not in source
-        assert "QtCore" not in source
-        assert "QtWidgets" not in source
+        # QSettings should be imported
+        assert 'QSettings' in source
+        # But no QtWidgets (stays out of view layer)
+        assert 'QtWidgets' not in source
