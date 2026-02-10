@@ -1,8 +1,4 @@
 import sys
-import random
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
 from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QCursor, QFont, QFontDatabase, QGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
@@ -23,10 +19,10 @@ class MainWindow(QtWidgets.QMainWindow):
         #Setup Menubar
         self.__init_menubar()
 
-        #Set PLACEHOLDER button
-        button = QtWidgets.QPushButton("Press Me!")
+        central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(central_widget)
+        left_widget = QtWidgets.QHBoxLayout(central_widget)
 
-        self.setCentralWidget(button)
 
     def __init_menubar(self):
         menu = self.menuBar()
