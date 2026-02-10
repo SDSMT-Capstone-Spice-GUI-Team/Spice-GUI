@@ -73,7 +73,13 @@ class WeightedPathfinder(ABC):
 
     @abstractmethod
     def _calculate_edge_cost(
-        self, current, neighbor, direction, bend_count, existing_wires=None, current_net=None
+        self,
+        current,
+        neighbor,
+        direction,
+        bend_count,
+        existing_wires=None,
+        current_net=None,
     ) -> int:
         """
         Calculate the cost of traversing an edge in the grid.
@@ -224,11 +230,27 @@ class IDAStarPathfinder(WeightedPathfinder):
         self.last_runtime = time.time() - start_time
         return waypoints, self.last_runtime, self.last_iterations
 
-    def _calculate_edge_cost(self, current, neighbor, direction, bend_count, existing_wires=None, current_net=None):
+    def _calculate_edge_cost(
+        self,
+        current,
+        neighbor,
+        direction,
+        bend_count,
+        existing_wires=None,
+        current_net=None,
+    ):
         """Calculate edge cost"""
         return 1  # Base cost
 
-    def _find_path_impl(self, start_pos, end_pos, obstacles, bounds, existing_wires=None, current_net=None):
+    def _find_path_impl(
+        self,
+        start_pos,
+        end_pos,
+        obstacles,
+        bounds,
+        existing_wires=None,
+        current_net=None,
+    ):
         """
         IDA* (Iterative Deepening A*) algorithm - memory-efficient A* variant
 
@@ -250,7 +272,18 @@ class IDAStarPathfinder(WeightedPathfinder):
 
         while iterations < max_iterations:
             result = self._idastar_search(
-                start_grid, end_grid, 0, threshold, None, 0, obstacles, min_x, max_x, min_y, max_y, {}
+                start_grid,
+                end_grid,
+                0,
+                threshold,
+                None,
+                0,
+                obstacles,
+                min_x,
+                max_x,
+                min_y,
+                max_y,
+                {},
             )
             iterations += 1
 
@@ -272,7 +305,19 @@ class IDAStarPathfinder(WeightedPathfinder):
         return [start_pos, end_pos]
 
     def _idastar_search(
-        self, current, goal, g_score, threshold, direction, bend_count, obstacles, min_x, max_x, min_y, max_y, visited
+        self,
+        current,
+        goal,
+        g_score,
+        threshold,
+        direction,
+        bend_count,
+        obstacles,
+        min_x,
+        max_x,
+        min_y,
+        max_y,
+        visited,
     ):
         """
         Recursive depth-first search for IDA*
@@ -344,7 +389,12 @@ class IDAStarPathfinder(WeightedPathfinder):
 
 
 def polygon_to_grid_filled(
-    polygon_points, position, rotation_angle, grid_size, inset=0, active_terminal_positions=None
+    polygon_points,
+    position,
+    rotation_angle,
+    grid_size,
+    inset=0,
+    active_terminal_positions=None,
 ):
     """
     Convert a polygon shape to grid cells filling the entire interior.
@@ -474,7 +524,14 @@ def polygon_to_grid_filled(
     return obstacles
 
 
-def polygon_to_grid_frame(polygon_points, position, rotation_angle, grid_size, inset=0, active_terminal_positions=None):
+def polygon_to_grid_frame(
+    polygon_points,
+    position,
+    rotation_angle,
+    grid_size,
+    inset=0,
+    active_terminal_positions=None,
+):
     """
     Convert a polygon shape to grid cells forming a perimeter frame.
     Used for non-connected components to allow wires near them.
@@ -672,7 +729,10 @@ def get_component_obstacles(
         terminal_info = []
         for i in range(len(comp.terminals)):
             term_pos = comp.get_terminal_pos(i)
-            term_grid = (round(term_pos.x() / grid_size), round(term_pos.y() / grid_size))
+            term_grid = (
+                round(term_pos.x() / grid_size),
+                round(term_pos.y() / grid_size),
+            )
             terminal_key = (comp.component_id, i)
             is_active = terminal_key in active_terminals_set
             terminal_info.append({"grid": term_grid, "pos": term_pos, "is_active": is_active})
@@ -733,7 +793,10 @@ def get_component_obstacles(
                 obstacles.discard((term_grid_x, term_grid_y))
                 for direction_dx, direction_dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
                     for step in range(1, 4):
-                        clear_pos = (term_grid_x + direction_dx * step, term_grid_y + direction_dy * step)
+                        clear_pos = (
+                            term_grid_x + direction_dx * step,
+                            term_grid_y + direction_dy * step,
+                        )
                         obstacles.discard(clear_pos)
             # Non-active terminals are left as obstacles (already added above)
             # This creates infinite cost for routing through unused terminals

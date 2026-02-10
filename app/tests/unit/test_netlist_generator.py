@@ -9,7 +9,14 @@ from models.wire import WireData
 from simulation.netlist_generator import NetlistGenerator
 
 
-def _generate(components, wires, nodes, terminal_to_node, analysis_type="DC Operating Point", analysis_params=None):
+def _generate(
+    components,
+    wires,
+    nodes,
+    terminal_to_node,
+    analysis_type="DC Operating Point",
+    analysis_params=None,
+):
     """Helper to generate a netlist string from circuit data."""
     gen = NetlistGenerator(
         components=components,

@@ -33,9 +33,24 @@ def _build_simple_circuit():
         position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="R1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
     ]
     model.component_counter = {"V": 1, "R": 1, "GND": 1}
     model.rebuild_nodes()
@@ -250,7 +265,10 @@ class TestHasFile:
 
 class TestValidateCircuitData:
     def test_valid_data_passes(self):
-        data = {"components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}], "wires": []}
+        data = {
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
+            "wires": [],
+        }
         validate_circuit_data(data)  # Should not raise
 
     def test_not_a_dict_raises(self):
@@ -260,7 +278,14 @@ class TestValidateCircuitData:
     def test_wire_references_unknown_component(self):
         data = {
             "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
-            "wires": [{"start_comp": "R1", "start_term": 0, "end_comp": "UNKNOWN", "end_term": 0}],
+            "wires": [
+                {
+                    "start_comp": "R1",
+                    "start_term": 0,
+                    "end_comp": "UNKNOWN",
+                    "end_term": 0,
+                }
+            ],
         }
         with pytest.raises(ValueError, match="unknown component"):
             validate_circuit_data(data)

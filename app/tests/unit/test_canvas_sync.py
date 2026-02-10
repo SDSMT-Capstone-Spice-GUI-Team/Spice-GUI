@@ -35,7 +35,12 @@ class TestCanvasSyncMethods:
         comp = Mock()
         comp.component_id = "R1"
         comp.pos = Mock(return_value=Mock(x=Mock(return_value=100), y=Mock(return_value=200)))
-        comp.model = ComponentData(component_id="R1", component_type="Resistor", value="1k", position=(100, 200))
+        comp.model = ComponentData(
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(100, 200),
+        )
         return comp
 
     @pytest.fixture
@@ -173,7 +178,13 @@ class TestCanvasSyncMethods:
 
     def test_sync_preserves_component_properties(self):
         """Test that sync preserves all component properties"""
-        comp = ComponentData(component_id="R1", component_type="Resistor", value="1k", position=(100, 200), rotation=90)
+        comp = ComponentData(
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(100, 200),
+            rotation=90,
+        )
 
         # Convert to dict and verify all properties preserved
         comp_dict = comp.to_dict()
