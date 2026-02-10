@@ -1,149 +1,17 @@
-# Claude Feedback Directory
+# Agent Feedback Directory
 
-This directory contains feedback, command references, and session data from autonomous workflow sessions.
+Session feedback from autonomous Claude Code workflow sessions. Insights are consolidated periodically into the best practices document.
 
-## Files
+## Current Files
 
-### `workflow-feedback-2026-02-09.md`
-**Comprehensive feedback on the automated workflow process.**
+| File | Purpose |
+|------|---------|
+| `CONSOLIDATED-BEST-PRACTICES.md` | Single source of truth — pain points, best practices, multi-agent coordination patterns, CLAUDE.md update tracker |
+| `2026-02-10-roadmap-epics-proposal.md` | Epics proposal for board prioritization (awaiting decision) |
+| `session-template.md` | Template for future session summary files |
 
-Contents:
-- What worked well (workflow documentation, issue structure, tooling)
-- Challenges encountered (branch management, venv paths, pre-commit hooks)
-- Completeness assessment for each issue
-- Recommendations for CLAUDE.md improvements
-- Key learnings and overall assessment
-- Suggestions for Claude Code team
+## Usage
 
-**Use this for**: Understanding workflow effectiveness, identifying process improvements, learning from challenges.
-
-### `commands-reference-2026-02-09.md`
-**Complete command reference for all tools used in the session.**
-
-Sections:
-1. GitHub Projects API (queries, updates, field management)
-2. Git Workflow (branching, stashing, committing, pushing)
-3. Testing (pytest, coverage, Makefile)
-4. Linting & Formatting (ruff, black, isort, pre-commit)
-5. GitHub CLI (issues, PRs, repository operations)
-6. File Operations (Read, Write, Edit, Glob, Grep)
-7. Common Patterns (complete issue workflow, testing workflow)
-8. Quick Reference Card
-
-**Use this for**: Copy-paste commands, learning tool syntax, automating workflows, creating scripts.
-
-### `session-data-2026-02-09.json`
-**Structured data about the session in JSON format.**
-
-Contains:
-- Session metadata (date, duration, model, success rate)
-- Issue details (files changed, tests added, hours logged)
-- Project constants (IDs, field IDs, option IDs)
-- Common commands (git, testing, linting, GitHub, projects)
-- Workflow steps (ordered list)
-- Test results and quality metrics
-- Challenges and solutions
-- Recommendations
-- Time breakdown
-- Settings for automation
-
-**Use this for**: Automation scripts, settings.json configuration, tracking metrics, generating reports.
-
-## How to Use
-
-### For Updating settings.json
-```bash
-# Extract project constants
-jq '.project_constants' session-data-2026-02-09.json
-
-# Extract common commands for automation
-jq '.common_commands' session-data-2026-02-09.json
-
-# Extract workflow steps
-jq '.workflow_steps[]' session-data-2026-02-09.json
-
-# Extract recommended settings
-jq '.files_for_settings' session-data-2026-02-09.json
-```
-
-### For Process Improvement
-1. Read `workflow-feedback-2026-02-09.md` → "Recommendations" section
-2. Implement suggestions in CLAUDE.md
-3. Update pre-flight checklists
-4. Document common issues and solutions
-
-### For Command Reference
-1. Open `commands-reference-2026-02-09.md`
-2. Navigate to relevant section (Git, Testing, GitHub, etc.)
-3. Copy command pattern
-4. Substitute variables (e.g., {number}, {branch}, {title})
-
-### For Metrics Tracking
-```bash
-# Extract metrics over time
-jq '{
-  date: .session.date,
-  issues: .session.issues_completed,
-  hours: .session.duration_hours,
-  success_rate: .session.success_rate,
-  tests: .test_results.passed
-}' session-data-2026-02-09.json
-```
-
-## Session Summary
-
-**Date**: 2026-02-09
-**Issues Completed**: 2 (Issue #104, Issue #99)
-**PRs Created**: 2 (PR #132, PR #133)
-**Tests Added**: 37 (all passing)
-**Hours Logged**: 5.0
-**Success Rate**: 95%
-
-**Key Achievements**:
-- ✅ Implemented FFT analysis with windowing and THD calculation
-- ✅ Implemented undo/redo system with command pattern
-- ✅ All tests passing (554/554 non-GUI tests)
-- ✅ All quality checks passing (ruff, black, isort)
-- ✅ Full CLAUDE.md workflow followed for both issues
-
-**Areas for Improvement**:
-- Branch awareness before creating files
-- Virtual environment path handling
-- Pre-commit hook compatibility with legacy branches
-- Session continuity for long autonomous sessions
-
-## Recommendations Applied to CLAUDE.md
-
-Consider adding these sections to CLAUDE.md:
-
-1. **Pre-flight Checklist** (before starting implementation)
-   - Verify on correct feature branch
-   - Verify venv activated
-   - Verify tests can run
-
-2. **Legacy Branch Handling** (for branches without pre-commit hooks)
-   - Use `PRE_COMMIT_ALLOW_NO_CONFIG=1` environment variable
-   - Or cherry-pick .pre-commit-config.yaml from main
-
-3. **Testing Best Practices**
-   - Use `make test` for consistency
-   - Always verify new AND existing tests pass
-   - Run linting before commit
-
-4. **Session Checkpointing** (for long autonomous sessions)
-   - Create checkpoint comments after each issue
-   - Summarize progress and next steps
-   - Helps with session recovery if context limit reached
-
-## Contact
-
-For questions about these feedback files, refer to:
-- Workflow process: See CLAUDE.md in project root
-- Command usage: See commands-reference-2026-02-09.md
-- Session data: See session-data-2026-02-09.json
-
----
-
-**Generated by**: Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
-**Session**: Autonomous workflow execution (Issues #104, #99)
-**Date**: 2026-02-09
+- **New session feedback**: Create a file named `YYYY-MM-DD-session-N-feedback.json` using the template
+- **Periodic consolidation**: Merge session files into `CONSOLIDATED-BEST-PRACTICES.md`, then delete the originals
+- **Process changes**: Update `CONSOLIDATED-BEST-PRACTICES.md` first, then apply to `CLAUDE.md` via PR
