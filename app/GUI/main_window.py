@@ -1,11 +1,25 @@
 """Main application window with MVC architecture"""
+import json
 import logging
 import os
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QFileDialog, QMessageBox, QTextEdit,
-                             QSplitter, QLabel, QDialog, QStackedWidget)
-from PyQt6.QtGui import QAction, QKeySequence, QActionGroup
+from pathlib import Path
+
 from PyQt6.QtCore import Qt, QSettings
+from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
+from PyQt6.QtWidgets import (
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QStackedWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 from models.circuit import CircuitModel
 from controllers.circuit_controller import CircuitController
@@ -201,6 +215,10 @@ class MainWindow(QMainWindow):
         open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self._on_load)
         file_menu.addAction(open_action)
+
+        # Open Example submenu
+        self.examples_menu = file_menu.addMenu("Open &Example")
+        self._populate_examples_menu()
 
         save_action = QAction("&Save", self)
         save_action.setShortcut("Ctrl+S")
@@ -457,6 +475,87 @@ class MainWindow(QMainWindow):
                 self._sync_analysis_menu()
             except Exception as e:
                 logger.error("Error loading last session: %s", e)
+
+    def _populate_examples_menu(self):
+        """Populate the Open Example submenu with example circuits"""
+        # Get path to examples directory (relative to this file)
+        examples_dir = Path(__file__).parent.parent / "examples"
+
+        if not examples_dir.exists():
+            no_examples_action = QAction("(No examples available)", self)
+            no_examples_action.setEnabled(False)
+            self.examples_menu.addAction(no_examples_action)
+            return
+
+        # Load and categorize examples
+        examples_by_category = {}
+        example_files = sorted(examples_dir.glob("*.json"))
+
+        for example_file in example_files:
+            try:
+                with open(example_file, "r") as f:
+                    data = json.load(f)
+
+                name = data.get("name", example_file.stem)
+                description = data.get("description", "")
+                category = data.get("category", "Other")
+
+                if category not in examples_by_category:
+                    examples_by_category[category] = []
+
+                examples_by_category[category].append(
+                    {"name": name, "description": description, "filepath": example_file}
+                )
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Failed to load example {example_file}: {e}")
+
+        # Create menu entries organized by category
+        if not examples_by_category:
+            no_examples_action = QAction("(No examples available)", self)
+            no_examples_action.setEnabled(False)
+            self.examples_menu.addAction(no_examples_action)
+            return
+
+        # Sort categories: Basic first, then alphabetically
+        category_order = sorted(examples_by_category.keys(), key=lambda c: (c != "Basic", c))
+
+        for i, category in enumerate(category_order):
+            if i > 0:
+                self.examples_menu.addSeparator()
+
+            # Add category label
+            category_label = QAction(f"─── {category} ───", self)
+            category_label.setEnabled(False)
+            self.examples_menu.addAction(category_label)
+
+            # Add examples in this category
+            for example in examples_by_category[category]:
+                action = QAction(example["name"], self)
+                action.setToolTip(example["description"])
+                action.triggered.connect(lambda checked, path=example["filepath"]: self._open_example(path))
+                self.examples_menu.addAction(action)
+
+    def _open_example(self, filepath: Path):
+        """Open an example circuit file"""
+        # Warn if there's unsaved work
+        if len(self.canvas.components) > 0:
+            reply = QMessageBox.question(
+                self,
+                "Open Example",
+                "Opening an example will replace your current circuit. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        try:
+            self.file_ctrl.load_circuit(filepath)
+            self.setWindowTitle(f"Circuit Design GUI - {filepath.name} (Example)")
+            self._sync_analysis_menu()
+            # Don't set as current file (keep it as example, not saved)
+            self.file_ctrl.current_file = None
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load example: {e}")
 
     # Simulation Operations (delegated to SimulationController)
 

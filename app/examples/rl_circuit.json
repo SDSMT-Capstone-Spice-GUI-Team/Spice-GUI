@@ -1,0 +1,82 @@
+{
+  "name": "RL Circuit",
+  "description": "Series RL circuit demonstrating transient analysis. Shows inductor current rise and fall with time constant L/R.",
+  "category": "Basic",
+  "analysis_type": "Transient",
+  "components": [
+    {
+      "type": "Voltage Source",
+      "id": "V1",
+      "value": "10V",
+      "pos": {
+        "x": 100.0,
+        "y": 100.0
+      },
+      "rotation": 0
+    },
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "100",
+      "pos": {
+        "x": 200.0,
+        "y": 100.0
+      },
+      "rotation": 0
+    },
+    {
+      "type": "Inductor",
+      "id": "L1",
+      "value": "10mH",
+      "pos": {
+        "x": 300.0,
+        "y": 100.0
+      },
+      "rotation": 0
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "0V",
+      "pos": {
+        "x": 350.0,
+        "y": 150.0
+      },
+      "rotation": 0
+    }
+  ],
+  "wires": [
+    {
+      "start_comp": "V1",
+      "start_term": 0,
+      "end_comp": "R1",
+      "end_term": 0
+    },
+    {
+      "start_comp": "R1",
+      "start_term": 1,
+      "end_comp": "L1",
+      "end_term": 0
+    },
+    {
+      "start_comp": "L1",
+      "start_term": 1,
+      "end_comp": "GND1",
+      "end_term": 0
+    },
+    {
+      "start_comp": "V1",
+      "start_term": 1,
+      "end_comp": "GND1",
+      "end_term": 0
+    }
+  ],
+  "counters": {
+    "R": 1,
+    "C": 0,
+    "L": 1,
+    "V": 1,
+    "I": 0,
+    "GND": 1
+  }
+}
