@@ -715,7 +715,7 @@ class MainWindow(QMainWindow):
                     if len(rows) > 20:
                         self.results_text.append(f"  ... ({len(rows)} total rows)")
                 self.results_text.append("\nPlot opened in a new window.")
-                self._show_plot_dialog(DCSweepPlotDialog(sweep_data, self))
+                self._show_or_overlay_plot("DC Sweep", sweep_data, DCSweepPlotDialog)
             else:
                 self.results_text.append("\nDC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -733,7 +733,7 @@ class MainWindow(QMainWindow):
                 if freqs:
                     self.results_text.append(f"  Range: {freqs[0]:.4g} Hz — {freqs[-1]:.4g} Hz")
                 self.results_text.append("\nBode plot opened in a new window.")
-                self._show_plot_dialog(ACSweepPlotDialog(ac_data, self))
+                self._show_or_overlay_plot("AC Sweep", ac_data, ACSweepPlotDialog)
             else:
                 self.results_text.append("\nAC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -753,14 +753,32 @@ class MainWindow(QMainWindow):
                 self.results_text.append("\n" + "-" * 40)
                 self.results_text.append("Waveform plot has also been generated in a new window.")
 
-                # Clean up previous waveform dialog
-                if self._waveform_dialog is not None:
-                    self._waveform_dialog.close()
-                    self._waveform_dialog.deleteLater()
-
-                # Show waveform plot
-                self._waveform_dialog = WaveformDialog(tran_data, self)
-                self._waveform_dialog.show()
+                # Check for overlay on existing waveform dialog
+                if self._waveform_dialog is not None and self._waveform_dialog.isVisible():
+                    reply = QMessageBox.question(
+                        self,
+                        "Overlay Results",
+                        "A waveform window is already open.\n\n"
+                        "Yes = Overlay new results on existing plot\n"
+                        "No = Replace with new results only",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    )
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self._waveform_dialog.add_dataset(tran_data)
+                        self._waveform_dialog.raise_()
+                        self._waveform_dialog.activateWindow()
+                    else:
+                        self._waveform_dialog.close()
+                        self._waveform_dialog.deleteLater()
+                        self._waveform_dialog = WaveformDialog(tran_data, self)
+                        self._waveform_dialog.show()
+                else:
+                    # Clean up previous waveform dialog
+                    if self._waveform_dialog is not None:
+                        self._waveform_dialog.close()
+                        self._waveform_dialog.deleteLater()
+                    self._waveform_dialog = WaveformDialog(tran_data, self)
+                    self._waveform_dialog.show()
             else:
                 self.results_text.append("\nNo transient data found in output.")
             self.canvas.clear_node_voltages()
@@ -798,6 +816,33 @@ class MainWindow(QMainWindow):
             self._plot_dialog.deleteLater()
         self._plot_dialog = dialog
         self._plot_dialog.show()
+
+    def _show_or_overlay_plot(self, analysis_type, data, dialog_class):
+        """Show a new plot or overlay data on an existing compatible dialog.
+
+        If a plot dialog of the same analysis type is already open, the user
+        is asked whether to overlay the new results or replace the old plot.
+        """
+        if (
+            self._plot_dialog is not None
+            and self._plot_dialog.isVisible()
+            and getattr(self._plot_dialog, "analysis_type", None) == analysis_type
+        ):
+            reply = QMessageBox.question(
+                self,
+                "Overlay Results",
+                "A plot window is already open.\n\n"
+                "Yes = Overlay new results on existing plot\n"
+                "No = Replace with new results only",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self._plot_dialog.add_dataset(data)
+                self._plot_dialog.raise_()
+                self._plot_dialog.activateWindow()
+                return
+
+        self._show_plot_dialog(dialog_class(data, self))
 
     def export_results_csv(self):
         """Export the last simulation results to a CSV file"""
