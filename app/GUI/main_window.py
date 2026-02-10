@@ -715,7 +715,11 @@ class MainWindow(QMainWindow):
                     if len(rows) > 20:
                         self.results_text.append(f"  ... ({len(rows)} total rows)")
                 self.results_text.append("\nPlot opened in a new window.")
-                self._show_plot_dialog(DCSweepPlotDialog(sweep_data, self))
+                if isinstance(self._plot_dialog, DCSweepPlotDialog) and self._plot_dialog.isVisible():
+                    self._plot_dialog.add_result(sweep_data)
+                    self._plot_dialog.raise_()
+                else:
+                    self._show_plot_dialog(DCSweepPlotDialog(sweep_data, self))
             else:
                 self.results_text.append("\nDC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -733,7 +737,11 @@ class MainWindow(QMainWindow):
                 if freqs:
                     self.results_text.append(f"  Range: {freqs[0]:.4g} Hz — {freqs[-1]:.4g} Hz")
                 self.results_text.append("\nBode plot opened in a new window.")
-                self._show_plot_dialog(ACSweepPlotDialog(ac_data, self))
+                if isinstance(self._plot_dialog, ACSweepPlotDialog) and self._plot_dialog.isVisible():
+                    self._plot_dialog.add_result(ac_data)
+                    self._plot_dialog.raise_()
+                else:
+                    self._show_plot_dialog(ACSweepPlotDialog(ac_data, self))
             else:
                 self.results_text.append("\nAC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -753,14 +761,16 @@ class MainWindow(QMainWindow):
                 self.results_text.append("\n" + "-" * 40)
                 self.results_text.append("Waveform plot has also been generated in a new window.")
 
-                # Clean up previous waveform dialog
-                if self._waveform_dialog is not None:
-                    self._waveform_dialog.close()
-                    self._waveform_dialog.deleteLater()
-
-                # Show waveform plot
-                self._waveform_dialog = WaveformDialog(tran_data, self)
-                self._waveform_dialog.show()
+                # Overlay on existing dialog or create new one
+                if self._waveform_dialog is not None and self._waveform_dialog.isVisible():
+                    self._waveform_dialog.add_run(tran_data)
+                    self._waveform_dialog.raise_()
+                else:
+                    if self._waveform_dialog is not None:
+                        self._waveform_dialog.close()
+                        self._waveform_dialog.deleteLater()
+                    self._waveform_dialog = WaveformDialog(tran_data, self)
+                    self._waveform_dialog.show()
             else:
                 self.results_text.append("\nNo transient data found in output.")
             self.canvas.clear_node_voltages()

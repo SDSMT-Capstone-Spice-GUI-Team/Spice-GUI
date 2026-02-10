@@ -65,6 +65,11 @@ class WaveformDialog(QDialog):
         for i, key in enumerate(self.voltage_keys):
             self.plot_colors[key] = color_map(i % 12)
 
+        # Overlay runs (previous transient results shown behind the active run)
+        self._overlay_runs: list[dict] = []  # {label, data, visible, keys}
+        self._run_counter = 1  # current data is always the latest run
+        self._overlay_checkboxes: list[QCheckBox] = []
+
         # Filter ranges
         self.time_min = None
         self.time_max = None
@@ -83,6 +88,23 @@ class WaveformDialog(QDialog):
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         main_layout.addWidget(right_panel, 1)
+
+        # --- Previous Runs (overlay controls) ---
+        self._runs_group = QGroupBox("Previous Runs")
+        runs_inner = QVBoxLayout()
+        runs_scroll = QScrollArea()
+        runs_scroll.setWidgetResizable(True)
+        self._runs_scroll_content = QWidget()
+        self._runs_scroll_layout = QVBoxLayout(self._runs_scroll_content)
+        self._runs_scroll_layout.addStretch()
+        runs_scroll.setWidget(self._runs_scroll_content)
+        runs_inner.addWidget(runs_scroll)
+        clear_runs_btn = QPushButton("Clear Previous")
+        clear_runs_btn.clicked.connect(self._clear_overlay_runs)
+        runs_inner.addWidget(clear_runs_btn)
+        self._runs_group.setLayout(runs_inner)
+        self._runs_group.setVisible(False)  # hidden until there are overlays
+        right_layout.addWidget(self._runs_group)
 
         # --- Toggle Overlays ---
         toggle_group = QGroupBox("Toggle Overlays")
@@ -156,6 +178,63 @@ class WaveformDialog(QDialog):
     def _on_visibility_changed(self, key, is_checked):
         """Updates the visibility state and refreshes the view."""
         self.column_visibility[key] = is_checked
+        self.update_view()
+
+    # -- multi-run overlay ---------------------------------------------------
+
+    _OVERLAY_STYLES = ["--", "-.", ":"]
+
+    def add_run(self, data, label=None):
+        """Add a new transient run, moving the current data to an overlay."""
+        # Stash current active data as an overlay run.
+        current_label = label or f"Run {self._run_counter}"
+        self._overlay_runs.append({
+            "label": current_label,
+            "data": self.full_data,
+            "visible": True,
+            "keys": list(self.voltage_keys),
+        })
+
+        # Add checkbox for the stashed run.
+        cb = QCheckBox(current_label)
+        cb.setChecked(True)
+        idx = len(self._overlay_runs) - 1
+        cb.toggled.connect(lambda state, i=idx: self._set_overlay_visible(i, state))
+        self._runs_scroll_layout.insertWidget(
+            self._runs_scroll_layout.count() - 1, cb,
+        )
+        self._overlay_checkboxes.append(cb)
+        self._runs_group.setVisible(True)
+
+        # Load new data as the active run.
+        self._run_counter += 1
+        self.full_data = data
+        self.view_data = data
+        self.voltage_keys = sorted(
+            [k for k in data[0].keys() if k.lower() not in ["time", "index"]],
+        )
+        self.column_visibility = {key: True for key in self.voltage_keys}
+
+        color_map = plt.get_cmap("Paired")
+        self.plot_colors = {}
+        for i, key in enumerate(self.voltage_keys):
+            self.plot_colors[key] = color_map(i % 12)
+
+        self.update_view()
+
+    def _set_overlay_visible(self, index, visible):
+        self._overlay_runs[index]["visible"] = visible
+        self.update_view()
+
+    def _clear_overlay_runs(self):
+        """Remove all previous overlay runs."""
+        self._overlay_runs.clear()
+        self._overlay_checkboxes.clear()
+        while self._runs_scroll_layout.count() > 1:
+            item = self._runs_scroll_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._runs_group.setVisible(False)
         self.update_view()
 
     def _on_scroll(self, value):
@@ -355,6 +434,24 @@ class WaveformDialog(QDialog):
             return
 
         time_full = [row[time_key] for row in data]
+
+        # 0. Plot overlay (previous) runs behind the active run
+        for ov_idx, ov_run in enumerate(self._overlay_runs):
+            if not ov_run["visible"]:
+                continue
+            ov_data = ov_run["data"]
+            ov_label = ov_run["label"]
+            ov_keys = ov_run["keys"]
+            linestyle = self._OVERLAY_STYLES[ov_idx % len(self._OVERLAY_STYLES)]
+            ov_time = [row["time"] for row in ov_data]
+            for key in ov_keys:
+                ov_vals = [row[key] for row in ov_data]
+                color = self.plot_colors.get(key, "k")
+                self.canvas.axes.plot(
+                    ov_time, ov_vals,
+                    label=f"{ov_label}: V({key})",
+                    color=color, linestyle=linestyle, alpha=0.6,
+                )
 
         # Use only visible keys
         visible_voltage_keys = [k for k in self.voltage_keys if self.column_visibility.get(k, False)]
