@@ -375,17 +375,24 @@ class MainWindow(QMainWindow):
         tran_action.triggered.connect(self.set_analysis_transient)
         analysis_menu.addAction(tran_action)
 
+        temp_action = QAction("Te&mperature Sweep", self)
+        temp_action.setCheckable(True)
+        temp_action.triggered.connect(self.set_analysis_temp_sweep)
+        analysis_menu.addAction(temp_action)
+
         # Create action group for mutually exclusive analysis types
         self.analysis_group = QActionGroup(self)
         self.analysis_group.addAction(op_action)
         self.analysis_group.addAction(dc_action)
         self.analysis_group.addAction(ac_action)
         self.analysis_group.addAction(tran_action)
+        self.analysis_group.addAction(temp_action)
 
         self.op_action = op_action
         self.dc_action = dc_action
         self.ac_action = ac_action
         self.tran_action = tran_action
+        self.temp_action = temp_action
 
     # File Operations (delegated to FileController)
 
@@ -683,6 +690,31 @@ class MainWindow(QMainWindow):
                 self.results_text.append("\nNo transient data found in output.")
             self.canvas.clear_node_voltages()
 
+        elif self.model.analysis_type == "Temperature Sweep":
+            node_voltages = result.data if result.data else {}
+            if node_voltages:
+                self._last_results = node_voltages
+                self.results_text.append("\nTEMPERATURE SWEEP RESULTS:")
+                self.results_text.append("-" * 40)
+                params = self.model.analysis_params
+                self.results_text.append(
+                    f"Temperature range: {params.get('tempStart', '?')}\u00b0C "
+                    f"to {params.get('tempStop', '?')}\u00b0C "
+                    f"(step {params.get('tempStep', '?')}\u00b0C)"
+                )
+                self.results_text.append("")
+                for node, voltage in sorted(node_voltages.items()):
+                    self.results_text.append(
+                        f"  {node:15s} : {voltage:12.6f} V")
+                self.results_text.append("-" * 40)
+                self.results_text.append(
+                    "Note: values shown are from the final temperature step."
+                )
+            else:
+                self.results_text.append(
+                    "\nNo results found. Check raw output below.")
+            self.canvas.clear_node_voltages()
+
         self.results_text.append("=" * 70)
 
         if self._last_results is not None:
@@ -793,6 +825,29 @@ class MainWindow(QMainWindow):
         else:
             self.op_action.setChecked(True)
 
+    def set_analysis_temp_sweep(self):
+        """Set analysis type to Temperature Sweep with parameters"""
+        dialog = AnalysisDialog("Temperature Sweep", self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.simulation_ctrl.set_analysis("Temperature Sweep", params)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(
+                        f"Analysis: Temperature Sweep "
+                        f"({params['tempStart']}\u00b0C to "
+                        f"{params['tempStop']}\u00b0C, step "
+                        f"{params['tempStep']}\u00b0C)",
+                        3000
+                    )
+            else:
+                QMessageBox.warning(self, "Invalid Parameters",
+                                    "Please enter valid numeric values.")
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
+
     def _sync_analysis_menu(self):
         """Update Analysis menu checkboxes to match model state."""
         analysis_type = self.model.analysis_type
@@ -804,6 +859,8 @@ class MainWindow(QMainWindow):
             self.ac_action.setChecked(True)
         elif analysis_type == "Transient":
             self.tran_action.setChecked(True)
+        elif analysis_type == "Temperature Sweep":
+            self.temp_action.setChecked(True)
 
     # View Operations
 

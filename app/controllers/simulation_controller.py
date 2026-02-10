@@ -192,6 +192,10 @@ class SimulationController:
                 data = ResultParser.parse_ac_results(output)
             elif analysis == "Transient":
                 data = ResultParser.parse_transient_results(wrdata_filepath)
+            elif analysis == "Temperature Sweep":
+                # Temperature sweep runs DC OP at each temp; parse as OP
+                output = self.runner.read_output(output_file)
+                data = ResultParser.parse_op_results(output)
             else:
                 return SimulationResult(
                     success=False,
