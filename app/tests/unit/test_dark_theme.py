@@ -1,10 +1,9 @@
 """Tests for dark theme and theme switching."""
 
 import pytest
-from PyQt6.QtGui import QColor
-
 from GUI.styles import DarkTheme, LightTheme, ThemeManager, theme_manager
 from GUI.styles.constants import COMPONENTS
+from PyQt6.QtGui import QColor
 
 
 class TestDarkThemeColors:
