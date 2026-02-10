@@ -71,7 +71,9 @@ class CircuitCanvasView(QGraphicsView):
 
         # Simulation results storage
         self.node_voltages = {}  # node_label -> voltage value
+        self.branch_currents = {}  # device_ref -> current value
         self.show_node_voltages = False  # Toggle for showing voltage values
+        self.show_op_annotations = True  # Toggle for OP result annotations
 
         # Label visibility settings
         self.show_component_labels = True  # Toggle for component IDs (R1, V1, etc.)
@@ -154,6 +156,20 @@ class CircuitCanvasView(QGraphicsView):
                 logger.error(f"Error handling event '{event}': {e}")
         else:
             logger.debug(f"Unhandled observer event: {event}")
+
+        # Clear stale OP annotations when circuit is modified
+        _stale_events = {
+            "component_added",
+            "component_removed",
+            "wire_added",
+            "wire_removed",
+            "component_value_changed",
+            "circuit_cleared",
+        }
+        if event in _stale_events and self.node_voltages:
+            self.node_voltages = {}
+            self.branch_currents = {}
+            self.show_node_voltages = False
 
     def _handle_component_added(self, component_data) -> None:
         """Create graphics item when component added to model"""
@@ -1124,75 +1140,142 @@ class CircuitCanvasView(QGraphicsView):
                 status.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
 
     def drawForeground(self, painter, rect):
-        """Draw node labels and voltages on top of everything"""
+        """Draw node labels, voltages, and OP annotations on top of everything."""
         if painter is None:
             return
 
-        # Early exit if nothing to draw
-        if not self.show_node_labels and not self.show_node_voltages:
+        show_op = self.show_op_annotations and self.show_node_voltages and self.node_voltages
+        has_content = self.show_node_labels or show_op
+
+        if not has_content:
             return
 
-        painter.setPen(theme_manager.pen("node_label_outline"))
-        painter.setBrush(theme_manager.brush("node_label_bg"))
-        painter.setFont(theme_manager.font("node_label"))
+        # Draw node labels (always use node_label style)
+        if self.show_node_labels:
+            painter.setPen(theme_manager.pen("node_label_outline"))
+            painter.setBrush(theme_manager.brush("node_label_bg"))
+            painter.setFont(theme_manager.font("node_label"))
 
-        for node in self.nodes:
-            pos = node.get_position(self.components)
-            if pos:
-                label = node.get_label()
+            for node in self.nodes:
+                pos = node.get_position(self.components)
+                if pos:
+                    label = node.get_label()
+                    self._draw_label_box(painter, pos, label, y_above=True)
 
-                # Build display text based on visibility settings
-                if self.show_node_labels:
-                    display_text = label
-                    if self.show_node_voltages and label in self.node_voltages:
+        # Draw OP voltage annotations (distinct style)
+        if show_op:
+            from simulation.result_parser import format_si
+
+            op_pen = theme_manager.pen("op_voltage")
+            op_brush = theme_manager.brush("op_annotation_bg")
+            op_font = theme_manager.font("op_annotation")
+            painter.setPen(op_pen)
+            painter.setBrush(op_brush)
+            painter.setFont(op_font)
+
+            for node in self.nodes:
+                pos = node.get_position(self.components)
+                if pos:
+                    label = node.get_label()
+                    if label in self.node_voltages:
                         voltage = self.node_voltages[label]
-                        display_text = f"{label}\n{voltage:.3f}V"
-                elif self.show_node_voltages and label in self.node_voltages:
-                    # Only show voltage, not label
-                    voltage = self.node_voltages[label]
-                    display_text = f"{voltage:.3f}V"
-                else:
-                    continue  # Nothing to show for this node
+                        text = format_si(voltage, "V")
+                        # Offset below the node (or below the node label)
+                        offset_y = 14 if self.show_node_labels else 0
+                        from PyQt6.QtCore import QPointF
 
-                metrics = painter.fontMetrics()
-                lines = display_text.split("\n")
-                max_width = max(metrics.horizontalAdvance(line) for line in lines)
-                text_height = metrics.height() * len(lines)
+                        draw_pos = QPointF(pos.x(), pos.y() + offset_y)
+                        self._draw_label_box(painter, draw_pos, text, y_above=False, pen=op_pen)
 
-                label_rect = QRectF(
-                    pos.x() - max_width / 2 - 2,
-                    pos.y() - text_height - 2,
-                    max_width + 4,
-                    text_height + 4,
-                )
-                painter.drawRect(label_rect)
+            # Draw branch current annotations along components
+            if self.branch_currents:
+                cur_pen = theme_manager.pen("op_current")
+                painter.setPen(cur_pen)
 
-                painter.setPen(theme_manager.pen("node_label_outline"))
-                y_offset = int(pos.y() - 4)
-                for line in lines:
-                    text_width = metrics.horizontalAdvance(line)
-                    painter.drawText(int(pos.x() - text_width / 2), y_offset, line)
-                    y_offset += metrics.height()
+                for comp_id, comp_item in self.components.items():
+                    # Match component ref (e.g., "r1", "v1") to branch currents
+                    comp_ref = getattr(comp_item, "component_id", comp_id).lower()
+                    if comp_ref in self.branch_currents:
+                        current = self.branch_currents[comp_ref]
+                        text = format_si(current, "A")
+                        # Position at center of component, offset to the right
+                        comp_rect = comp_item.boundingRect()
+                        center = comp_item.mapToScene(comp_rect.center())
+                        from PyQt6.QtCore import QPointF
+
+                        draw_pos = QPointF(center.x() + comp_rect.width() / 2 + 5, center.y())
+                        self._draw_label_box(painter, draw_pos, text, y_above=False, pen=cur_pen)
+
+    def _draw_label_box(self, painter, pos, text, y_above=True, pen=None):
+        """Draw a text label with background box at the given position."""
+        metrics = painter.fontMetrics()
+        lines = text.split("\n")
+        max_width = max(metrics.horizontalAdvance(line) for line in lines)
+        text_height = metrics.height() * len(lines)
+
+        if y_above:
+            label_rect = QRectF(
+                pos.x() - max_width / 2 - 2,
+                pos.y() - text_height - 2,
+                max_width + 4,
+                text_height + 4,
+            )
+        else:
+            label_rect = QRectF(
+                pos.x() - max_width / 2 - 2,
+                pos.y() - 2,
+                max_width + 4,
+                text_height + 4,
+            )
+
+        painter.drawRect(label_rect)
+
+        if pen:
+            painter.setPen(pen)
+        if y_above:
+            y_offset = int(pos.y() - 4)
+        else:
+            y_offset = int(pos.y() + metrics.ascent())
+
+        for line in lines:
+            text_width = metrics.horizontalAdvance(line)
+            painter.drawText(int(pos.x() - text_width / 2), y_offset, line)
+            y_offset += metrics.height()
 
     def set_node_voltages(self, voltages_dict):
-        """Set node voltages from simulation results"""
+        """Set node voltages from simulation results."""
         self.node_voltages = voltages_dict
         self.show_node_voltages = True
         self.scene.update()
 
     def clear_node_voltages(self):
-        """Clear displayed node voltages"""
+        """Clear displayed node voltages."""
         self.node_voltages = {}
+        self.branch_currents = {}
+        self.show_node_voltages = False
+        self.scene.update()
+
+    def set_op_results(self, voltages_dict, currents_dict=None):
+        """Set DC operating point results (voltages and branch currents)."""
+        self.node_voltages = voltages_dict
+        self.branch_currents = currents_dict or {}
+        self.show_node_voltages = True
+        self.scene.update()
+
+    def clear_op_results(self):
+        """Clear all operating point annotations."""
+        self.node_voltages = {}
+        self.branch_currents = {}
         self.show_node_voltages = False
         self.scene.update()
 
     def display_node_voltages(self):
-        """enable display node voltages"""
+        """Enable display of node voltages."""
         self.show_node_voltages = True
         self.scene.update()
 
     def hide_node_voltages(self):
-        """disable display node voltages"""
+        """Disable display of node voltages."""
         self.show_node_voltages = False
         self.scene.update()
 

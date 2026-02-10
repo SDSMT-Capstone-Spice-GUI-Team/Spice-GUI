@@ -5,9 +5,46 @@ Parses ngspice simulation output to extract results
 """
 
 import logging
+import math
 import re
 
 logger = logging.getLogger(__name__)
+
+# SI prefix table for engineering notation
+_SI_PREFIXES = [
+    (1e-15, "f"),
+    (1e-12, "p"),
+    (1e-9, "n"),
+    (1e-6, "\u00b5"),
+    (1e-3, "m"),
+    (1e0, ""),
+    (1e3, "k"),
+    (1e6, "M"),
+    (1e9, "G"),
+]
+
+
+def format_si(value, unit=""):
+    """Format a value with SI prefix.
+
+    Examples:
+        format_si(0.0033, "V") -> "3.30 mV"
+        format_si(1500, "Hz") -> "1.50 kHz"
+        format_si(0, "V") -> "0.00 V"
+    """
+    if value == 0 or not math.isfinite(value):
+        return f"0.00 {unit}" if unit else "0.00"
+
+    abs_val = abs(value)
+    for threshold, prefix in _SI_PREFIXES:
+        if abs_val < threshold * 1000:
+            scaled = value / threshold
+            return f"{scaled:.2f} {prefix}{unit}" if unit else f"{scaled:.2f} {prefix}"
+
+    # Larger than 1G — use the largest prefix
+    threshold, prefix = _SI_PREFIXES[-1]
+    scaled = value / threshold
+    return f"{scaled:.2f} {prefix}{unit}" if unit else f"{scaled:.2f} {prefix}"
 
 
 class ResultParser:
@@ -15,8 +52,14 @@ class ResultParser:
 
     @staticmethod
     def parse_op_results(output):
-        """Parse operational point analysis results to extract node voltages"""
+        """Parse operational point analysis results to extract node voltages and branch currents.
+
+        Returns a dict with 'node_voltages' and 'branch_currents' keys.
+        For backward compatibility, can also be used as a plain dict of voltages
+        when only voltages are present.
+        """
         node_voltages = {}
+        branch_currents = {}
 
         try:
             lines = output.split("\n")
@@ -28,6 +71,16 @@ class ResultParser:
                     node_name = match.group(1)
                     voltage = float(match.group(2))
                     node_voltages[node_name] = voltage
+                    continue
+
+                # Branch current patterns: i(device) = current or @device[current]
+                i_match = re.search(
+                    r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE
+                )
+                if i_match:
+                    device = i_match.group(1) or i_match.group(2)
+                    current = float(i_match.group(3))
+                    branch_currents[device.lower()] = current
                     continue
 
                 # Pattern 2: Node/Voltage table
@@ -49,19 +102,26 @@ class ResultParser:
                                 continue
 
             # Pattern 3: ngspice print output format
-            # Match lines like: " V(5)                             1.000000e-06 "
             for line in lines:
+                # Voltages: " V(5)   1.000000e-06 "
                 match = re.match(r"^\s*V\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
                 if match:
                     node_name = match.group(1)
                     voltage = float(match.group(2))
                     node_voltages[node_name] = voltage
+                    continue
+                # Currents: " I(v1)   -2.100000e-03 "
+                i_match = re.match(r"^\s*I\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
+                if i_match:
+                    device = i_match.group(1)
+                    current = float(i_match.group(2))
+                    branch_currents[device.lower()] = current
 
-            return node_voltages
+            return {"node_voltages": node_voltages, "branch_currents": branch_currents}
 
         except (ValueError, IndexError, AttributeError) as e:
             logger.error("Error parsing OP results: %s", e, exc_info=True)
-            return {}
+            return {"node_voltages": {}, "branch_currents": {}}
 
     @staticmethod
     def parse_dc_results(output):

@@ -68,6 +68,10 @@ class LightTheme(BaseTheme):
             "selection_highlight": "#FFFF00",  # Yellow
             "node_label": "#FF00FF",  # Magenta (255, 0, 255)
             "node_label_bg": "#FFFFFF",  # White (with alpha applied)
+            # ===== OP Annotation Colors =====
+            "op_voltage": "#0066CC",  # Blue for voltage annotations
+            "op_current": "#008800",  # Green for current annotations
+            "op_annotation_bg": "#FFFDE0",  # Light yellow background
             # ===== Wire Colors =====
             "wire_default": "#000000",  # Black
             "wire_preview": "#0000FF",  # Blue (temp wire)
@@ -99,6 +103,9 @@ class LightTheme(BaseTheme):
             "wire_selected": {"color": "wire_selected", "width": 4.0},
             # Node label pens
             "node_label_outline": {"color": "node_label", "width": 1.0},
+            # OP annotation pens
+            "op_voltage": {"color": "op_voltage", "width": 1.0},
+            "op_current": {"color": "op_current", "width": 1.0},
             # Obstacle visualization
             "obstacle_full": {"color": "obstacle_full", "width": 3.0},
             "obstacle_inset": {"color": "obstacle_inset", "width": 2.0, "style": "dot"},
@@ -108,6 +115,7 @@ class LightTheme(BaseTheme):
         """Define all brush configurations."""
         self._brushes = {
             "node_label_bg": {"color": "node_label_bg", "alpha": 200},
+            "op_annotation_bg": {"color": "op_annotation_bg", "alpha": 220},
             "terminal_fill": {"color": "terminal_fill", "alpha": 100},
             "component_fill": {"color": "background_primary", "alpha": 255},
         }
@@ -117,6 +125,7 @@ class LightTheme(BaseTheme):
         self._fonts = {
             "grid_label": {"size": 8, "bold": False},
             "node_label": {"size": 10, "bold": True},
+            "op_annotation": {"size": 9, "bold": True},
             "panel_title": {"size": 10, "bold": True},
             "panel_subtitle": {"size": 12, "bold": True},
             "monospace": {"family": "monospace", "size": 9, "bold": False},
