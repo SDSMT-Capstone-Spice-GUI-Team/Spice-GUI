@@ -86,8 +86,8 @@ class NodeData:
             return self.custom_label
         return self.auto_label
 
-    def set_custom_label(self, label: str) -> None:
-        """Set a custom label for this node."""
+    def set_custom_label(self, label: Optional[str]) -> None:
+        """Set a custom label for this node, or None to clear it."""
         self.custom_label = label
 
     def add_terminal(self, component_id: str, terminal_index: int) -> None:

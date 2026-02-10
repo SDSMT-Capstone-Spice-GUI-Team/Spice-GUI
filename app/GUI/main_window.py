@@ -1508,6 +1508,7 @@ class MainWindow(QMainWindow):
             "wire_added",
             "wire_removed",
             "wire_routed",
+            "net_name_changed",
         }
         if event in dirty_events:
             self._set_dirty(True)
