@@ -237,3 +237,53 @@ class TestResistorDivider:
         assert "R1" in netlist
         assert "R2" in netlist
         assert "V1" in netlist
+
+
+class TestWrdataPathCrossPlatform:
+    """Verify wrdata file paths use forward slashes for ngspice compatibility."""
+
+    def test_backslashes_converted_to_forward_slashes(self, simple_resistor_circuit):
+        """On Windows, os.path.join produces backslashes; ngspice needs forward slashes."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        gen = NetlistGenerator(
+            components=components,
+            wires=wires,
+            nodes=nodes,
+            terminal_to_node=t2n,
+            analysis_type="Transient",
+            analysis_params={"duration": 0.01, "step": 1e-5, "startTime": 0},
+            wrdata_filepath=r"simulation_output\wrdata_20260210.txt",
+        )
+        netlist = gen.generate()
+        assert "simulation_output/wrdata_20260210.txt" in netlist
+        assert "\\" not in netlist.split("wrdata ")[1].split("\n")[0]
+
+    def test_forward_slashes_preserved(self, simple_resistor_circuit):
+        """Unix paths with forward slashes should pass through unchanged."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        gen = NetlistGenerator(
+            components=components,
+            wires=wires,
+            nodes=nodes,
+            terminal_to_node=t2n,
+            analysis_type="Transient",
+            analysis_params={"duration": 0.01, "step": 1e-5, "startTime": 0},
+            wrdata_filepath="simulation_output/wrdata_20260210.txt",
+        )
+        netlist = gen.generate()
+        assert "simulation_output/wrdata_20260210.txt" in netlist
+
+    def test_windows_absolute_path(self, simple_resistor_circuit):
+        """Windows absolute paths should be converted."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        gen = NetlistGenerator(
+            components=components,
+            wires=wires,
+            nodes=nodes,
+            terminal_to_node=t2n,
+            analysis_type="Transient",
+            analysis_params={"duration": 0.01, "step": 1e-5, "startTime": 0},
+            wrdata_filepath=r"C:\Users\test\AppData\Local\wrdata.txt",
+        )
+        netlist = gen.generate()
+        assert "C:/Users/test/AppData/Local/wrdata.txt" in netlist
