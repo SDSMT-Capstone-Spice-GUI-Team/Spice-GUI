@@ -1,6 +1,7 @@
 """Tests for component flip (horizontal/vertical mirror) in the model layer."""
 
 import math
+
 import pytest
 from models.component import ComponentData
 
@@ -77,21 +78,21 @@ class TestFlipSerialization:
         resistor.flip_h = True
         resistor.flip_v = False
         d = resistor.to_dict()
-        assert d['flip_h'] is True
-        assert d['flip_v'] is False
+        assert d["flip_h"] is True
+        assert d["flip_v"] is False
 
     def test_from_dict_reads_flip(self, resistor):
         d = resistor.to_dict()
-        d['flip_h'] = True
-        d['flip_v'] = True
+        d["flip_h"] = True
+        d["flip_v"] = True
         restored = ComponentData.from_dict(d)
         assert restored.flip_h is True
         assert restored.flip_v is True
 
     def test_from_dict_defaults_missing_flip(self, resistor):
         d = resistor.to_dict()
-        del d['flip_h']
-        del d['flip_v']
+        del d["flip_h"]
+        del d["flip_v"]
         restored = ComponentData.from_dict(d)
         assert restored.flip_h is False
         assert restored.flip_v is False

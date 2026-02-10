@@ -1,13 +1,12 @@
 """Tests for path_finding.py — wire routing algorithms."""
 
 import pytest
-from PyQt6.QtCore import QPointF
-
 from GUI.path_finding import (
     AStarPathfinder,
     DijkstraPathfinder,
     IDAStarPathfinder,
 )
+from PyQt6.QtCore import QPointF
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -16,8 +15,7 @@ from GUI.path_finding import (
 GRID = 20  # default grid size used in all pathfinders
 
 
-@pytest.fixture(params=[AStarPathfinder, DijkstraPathfinder, IDAStarPathfinder],
-                ids=["astar", "dijkstra", "idastar"])
+@pytest.fixture(params=[AStarPathfinder, DijkstraPathfinder, IDAStarPathfinder], ids=["astar", "dijkstra", "idastar"])
 def pathfinder(request):
     """Yield each pathfinder implementation so every test runs against all three."""
     return request.param(grid_size=GRID)
@@ -30,6 +28,7 @@ BOUNDS = (-200, -200, 400, 400)
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _grid(gx, gy):
     """Shorthand: grid coords → QPointF in scene coordinates."""
@@ -44,6 +43,7 @@ def _to_grid_tuples(waypoints):
 # ===========================================================================
 # 1. Grid conversion helpers
 # ===========================================================================
+
 
 class TestGridConversion:
     def test_pos_to_grid(self):
@@ -73,6 +73,7 @@ class TestGridConversion:
 # 2. Heuristic
 # ===========================================================================
 
+
 class TestHeuristic:
     def test_same_point(self):
         pf = AStarPathfinder(grid_size=GRID)
@@ -87,6 +88,7 @@ class TestHeuristic:
 # ===========================================================================
 # 3. Path simplification
 # ===========================================================================
+
 
 class TestSimplifyPath:
     def test_two_points_unchanged(self):
@@ -115,6 +117,7 @@ class TestSimplifyPath:
 # 4. Same-direction helper
 # ===========================================================================
 
+
 class TestSameDirection:
     def test_same(self):
         pf = AStarPathfinder(grid_size=GRID)
@@ -133,12 +136,12 @@ class TestSameDirection:
 # 5. Basic routing (parametrized over all algorithms)
 # ===========================================================================
 
+
 class TestBasicRouting:
     def test_same_start_and_end(self, pathfinder):
         """Same point should return a trivial path."""
         start = end = _grid(0, 0)
-        waypoints, runtime, iters = pathfinder.find_path(
-            start, end, set(), bounds=BOUNDS)
+        waypoints, runtime, iters = pathfinder.find_path(start, end, set(), bounds=BOUNDS)
         grid_pts = _to_grid_tuples(waypoints)
         assert grid_pts[0] == (0, 0)
         assert grid_pts[-1] == (0, 0)
@@ -182,6 +185,7 @@ class TestBasicRouting:
 # 6. Obstacle avoidance
 # ===========================================================================
 
+
 class TestObstacleAvoidance:
     def test_routes_around_single_obstacle(self, pathfinder):
         """A wall of obstacles should force a detour."""
@@ -210,6 +214,7 @@ class TestObstacleAvoidance:
 # 7. Orthogonal paths (no diagonals)
 # ===========================================================================
 
+
 class TestOrthogonalPaths:
     def test_path_is_orthogonal(self, pathfinder):
         """All segments should be horizontal or vertical (no diagonals)."""
@@ -226,9 +231,9 @@ class TestOrthogonalPaths:
 # 8. Fallback on unreachable target
 # ===========================================================================
 
+
 class TestUnreachable:
-    @pytest.mark.parametrize("pf_class", [AStarPathfinder, DijkstraPathfinder],
-                             ids=["astar", "dijkstra"])
+    @pytest.mark.parametrize("pf_class", [AStarPathfinder, DijkstraPathfinder], ids=["astar", "dijkstra"])
     def test_surrounded_target_returns_fallback(self, pf_class):
         """If the target is fully surrounded, return a direct fallback line.
 
@@ -250,6 +255,7 @@ class TestUnreachable:
 # 9. Performance
 # ===========================================================================
 
+
 class TestPerformance:
     def test_completes_within_time_limit(self, pathfinder):
         """Routing across a moderately-sized grid should finish in < 5s."""
@@ -268,6 +274,7 @@ class TestPerformance:
 # ===========================================================================
 # 10. Reconstruct path helper
 # ===========================================================================
+
 
 class TestReconstructPath:
     def test_single_node(self):

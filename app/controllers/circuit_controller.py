@@ -120,7 +120,7 @@ class CircuitController:
             component.flip_h = not component.flip_h
         else:
             component.flip_v = not component.flip_v
-        self._notify('component_flipped', component)
+        self._notify("component_flipped", component)
 
     def update_component_value(self, component_id: str, value: str) -> None:
         """Update a component's value."""
