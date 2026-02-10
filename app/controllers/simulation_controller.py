@@ -221,3 +221,173 @@ class SimulationController:
                 netlist=netlist,
                 raw_output=raw_output,
             )
+
+    def run_parameter_sweep(self, sweep_config: dict, progress_callback=None) -> SimulationResult:
+        """
+        Run a parameter sweep: modify a component's value across a range
+        and run the base analysis at each step.
+
+        Args:
+            sweep_config: dict with keys component_id, start, stop, num_steps,
+                          base_analysis_type, base_params
+            progress_callback: optional callable(step_index, total_steps) -> bool.
+                               Return False to cancel the sweep.
+
+        Returns:
+            SimulationResult with analysis_type="Parameter Sweep" and data
+            containing sweep results.
+        """
+        component_id = sweep_config["component_id"]
+        start = sweep_config["start"]
+        stop = sweep_config["stop"]
+        num_steps = sweep_config["num_steps"]
+        base_type = sweep_config["base_analysis_type"]
+        base_params = sweep_config["base_params"]
+
+        comp = self.model.components.get(component_id)
+        if comp is None:
+            return SimulationResult(
+                success=False,
+                error=f"Component {component_id} not found in circuit",
+            )
+
+        # Save original state
+        original_value = comp.value
+        original_analysis = self.model.analysis_type
+        original_params = self.model.analysis_params.copy()
+
+        # Set base analysis for netlist generation
+        self.set_analysis(base_type, base_params)
+
+        # Validate once
+        validation = self.validate_circuit()
+        if not validation.success:
+            self.set_analysis(original_analysis, original_params)
+            return validation
+
+        # Find ngspice once
+        ngspice_path = self.runner.find_ngspice()
+        if ngspice_path is None:
+            self.set_analysis(original_analysis, original_params)
+            return SimulationResult(
+                success=False,
+                error="ngspice executable not found. Please install ngspice.",
+            )
+
+        # Calculate sweep values (linear spacing)
+        sweep_values = [
+            start + (stop - start) * i / (num_steps - 1) for i in range(num_steps)
+        ]
+
+        # Run sweep
+        step_results = []
+        errors = []
+        cancelled = False
+
+        try:
+            for i, val in enumerate(sweep_values):
+                # Check for cancellation
+                if progress_callback and not progress_callback(i, num_steps):
+                    cancelled = True
+                    break
+
+                comp.value = self._format_sweep_value(val)
+
+                # Generate netlist
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                wrdata_filepath = os.path.join(
+                    self.runner.output_dir, f"wrdata_sweep_{i}_{timestamp}.txt"
+                )
+
+                try:
+                    netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
+                except (ValueError, KeyError, TypeError) as e:
+                    step_results.append(
+                        SimulationResult(success=False, error=f"Netlist generation failed: {e}")
+                    )
+                    errors.append(f"Step {i + 1} ({comp.value}): netlist failed: {e}")
+                    continue
+
+                # Run simulation
+                success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
+                if not success:
+                    step_results.append(
+                        SimulationResult(
+                            success=False,
+                            error=stderr or "Simulation failed",
+                            netlist=netlist,
+                            raw_output=stdout,
+                        )
+                    )
+                    errors.append(f"Step {i + 1} ({comp.value}): {stderr or 'failed'}")
+                    continue
+
+                # Parse results
+                result = self._parse_results(
+                    output_file=output_file,
+                    wrdata_filepath=wrdata_filepath,
+                    netlist=netlist,
+                    raw_output=stdout,
+                    warnings=validation.warnings,
+                )
+                step_results.append(result)
+
+                if not result.success:
+                    errors.append(f"Step {i + 1} ({comp.value}): {result.error}")
+        finally:
+            # Restore original state
+            comp.value = original_value
+            self.set_analysis(original_analysis, original_params)
+
+        # Trim sweep_values to match actual results if cancelled
+        actual_values = sweep_values[: len(step_results)]
+
+        sweep_data = {
+            "component_id": component_id,
+            "component_type": comp.component_type,
+            "sweep_values": actual_values,
+            "base_analysis_type": base_type,
+            "results": step_results,
+            "num_steps": len(step_results),
+            "cancelled": cancelled,
+        }
+
+        any_success = any(r.success for r in step_results)
+
+        return SimulationResult(
+            success=any_success,
+            analysis_type="Parameter Sweep",
+            data=sweep_data,
+            errors=errors,
+            warnings=validation.warnings,
+        )
+
+    @staticmethod
+    def _format_sweep_value(value: float) -> str:
+        """Format a float as a SPICE-compatible value string."""
+        if value == 0:
+            return "0"
+
+        abs_val = abs(value)
+        # SPICE prefixes (MEG for mega to avoid ambiguity with milli)
+        prefixes = [
+            (1e12, "T"),
+            (1e9, "G"),
+            (1e6, "MEG"),
+            (1e3, "k"),
+            (1, ""),
+            (1e-3, "m"),
+            (1e-6, "u"),
+            (1e-9, "n"),
+            (1e-12, "p"),
+            (1e-15, "f"),
+        ]
+
+        for mult, prefix in prefixes:
+            if abs_val >= mult:
+                scaled = value / mult
+                if scaled == int(scaled):
+                    return f"{int(scaled)}{prefix}"
+                return f"{scaled:.6g}{prefix}"
+
+        return f"{value:.6g}"
