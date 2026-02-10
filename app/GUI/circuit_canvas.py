@@ -608,32 +608,15 @@ class CircuitCanvasView(QGraphicsView):
         super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event):
-        """Handle keyboard shortcuts"""
+        """Forward unhandled key events to the parent.
+
+        All keyboard shortcuts (Delete, Ctrl+C/X/V, R, F, Ctrl+A, etc.) are
+        handled by QAction shortcuts on the menu bar, so no duplicate
+        handling is needed here.
+        """
         if event is None:
             return
-
-        if event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
-            self.delete_selected()
-        elif event.key() == Qt.Key.Key_C and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            self.copy_selected_components(self.get_selected_component_ids())
-        elif event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            self.cut_selected_components(self.get_selected_component_ids())
-        elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            self.paste_components()
-        elif event.key() == Qt.Key.Key_R and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-            # Rotate selected components counter-clockwise (check Shift+R before plain R)
-            self.rotate_selected(clockwise=False)
-        elif event.key() == Qt.Key.Key_R:
-            # Rotate selected components clockwise
-            self.rotate_selected(clockwise=True)
-        elif event.key() == Qt.Key.Key_F and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-            self.flip_selected(horizontal=False)
-        elif event.key() == Qt.Key.Key_F:
-            self.flip_selected(horizontal=True)
-        elif event.key() == Qt.Key.Key_A and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            self.select_all()
-        else:
-            super().keyPressEvent(event)
+        super().keyPressEvent(event)
 
     def wheelEvent(self, event):
         """Zoom with Ctrl+Scroll wheel, centered on cursor."""
