@@ -180,7 +180,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         ]
 
     def update_terminals(self):
-        """Update terminal positions based on rotation, sourced from model geometry."""
+        """Update terminal positions based on flip and rotation, sourced from model geometry."""
         base = self.model.get_base_terminal_positions()
 
         rad = math.radians(self.rotation_angle)
@@ -189,6 +189,10 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         self.terminals = []
         for tx, ty in base:
+            if self.model.flip_h:
+                tx = -tx
+            if self.model.flip_v:
+                ty = -ty
             new_x = tx * cos_a - ty * sin_a
             new_y = tx * sin_a + ty * cos_a
             self.terminals.append(QPointF(new_x, new_y))
@@ -200,6 +204,15 @@ class ComponentGraphicsItem(QGraphicsItem):
         else:
             self.rotation_angle = (self.rotation_angle - 90) % 360
 
+        self.update_terminals()
+        self.update()
+
+    def flip_component(self, horizontal=True):
+        """Flip component horizontally or vertically"""
+        if horizontal:
+            self.model.flip_h = not self.model.flip_h
+        else:
+            self.model.flip_v = not self.model.flip_v
         self.update_terminals()
         self.update()
 
@@ -217,8 +230,12 @@ class ComponentGraphicsItem(QGraphicsItem):
         # Save painter state
         painter.save()
 
-        # Apply rotation
+        # Apply rotation, then flip (flip is applied first in local coords)
         painter.rotate(self.rotation_angle)
+        sx = -1 if self.model.flip_h else 1
+        sy = -1 if self.model.flip_v else 1
+        if sx != 1 or sy != 1:
+            painter.scale(sx, sy)
 
         # Highlight if selected
         if self.isSelected():

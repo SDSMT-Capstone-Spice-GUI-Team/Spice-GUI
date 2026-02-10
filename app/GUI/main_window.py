@@ -283,6 +283,18 @@ class MainWindow(QMainWindow):
         rotate_ccw_action.triggered.connect(lambda: self.canvas.rotate_selected(False))
         edit_menu.addAction(rotate_ccw_action)
 
+        flip_h_action = QAction("Flip Horizontal", self)
+        flip_h_action.setShortcut("F")
+        flip_h_action.triggered.connect(lambda: self.canvas.flip_selected(True))
+        flip_h_action.setToolTip("Flip selected components horizontally (F)")
+        edit_menu.addAction(flip_h_action)
+
+        flip_v_action = QAction("Flip Vertical", self)
+        flip_v_action.setShortcut("Shift+F")
+        flip_v_action.triggered.connect(lambda: self.canvas.flip_selected(False))
+        flip_v_action.setToolTip("Flip selected components vertically (Shift+F)")
+        edit_menu.addAction(flip_v_action)
+
         edit_menu.addSeparator()
 
         clear_action = QAction("&Clear Canvas", self)
