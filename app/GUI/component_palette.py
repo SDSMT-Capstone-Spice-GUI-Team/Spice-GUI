@@ -1,6 +1,6 @@
 from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QDrag, QIcon, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import QListWidget, QListWidgetItem
+from PyQt6.QtWidgets import QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
 
 from .component_item import COMPONENT_CLASSES
 from .styles import COMPONENTS, theme_manager
@@ -63,31 +63,58 @@ def create_component_icon(component_type, size=48):
     return QIcon(pixmap)
 
 
-class ComponentPalette(QListWidget):
-    """Component palette with drag support"""
+class ComponentPalette(QWidget):
+    """Component palette with search filter and drag support"""
 
     # Signal emitted when component is double-clicked
     componentDoubleClicked = pyqtSignal(str)  # component_type
 
     def __init__(self):
         super().__init__()
-        self.setDragEnabled(True)
-        self.setDefaultDropAction(Qt.DropAction.CopyAction)
-        self.setIconSize(QSize(48, 48))
-        self.setSpacing(4)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        # Search filter
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Filter components...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.textChanged.connect(self._filter_components)
+        layout.addWidget(self.search_input)
+
+        # Component list
+        self.list_widget = _PaletteListWidget()
+        self.list_widget.setDragEnabled(True)
+        self.list_widget.setDefaultDropAction(Qt.DropAction.CopyAction)
+        self.list_widget.setIconSize(QSize(48, 48))
+        self.list_widget.setSpacing(4)
 
         for component_name in COMPONENTS.keys():
             item = QListWidgetItem(component_name)
             item.setIcon(create_component_icon(component_name))
             item.setToolTip(COMPONENT_TOOLTIPS.get(component_name, component_name))
-            self.addItem(item)
+            self.list_widget.addItem(item)
 
-        # Connect double-click to emit signal
-        self.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        layout.addWidget(self.list_widget)
 
     def _on_item_double_clicked(self, item):
         """Handle double-click on palette item"""
         self.componentDoubleClicked.emit(item.text())
+
+    def _filter_components(self, text):
+        """Show/hide components based on search text."""
+        text = text.lower()
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            if item is not None:
+                name = item.text().lower()
+                tooltip = (item.toolTip() or "").lower()
+                item.setHidden(text not in name and text not in tooltip)
+
+
+class _PaletteListWidget(QListWidget):
+    """Internal list widget with drag support for the component palette."""
 
     def startDrag(self, supportedActions):
         """Start drag operation"""
