@@ -82,6 +82,11 @@ class DarkTheme(BaseTheme):
             # ===== Obstacle Visualization =====
             "obstacle_full": "#FF6464",  # Light red
             "obstacle_inset": "#6496FF",  # Light blue
+            # ===== Probe Colors =====
+            "probe_voltage": "#FF66AA",  # Bright pink for probed voltages
+            "probe_current": "#66DDAA",  # Light green for probed currents
+            "probe_bg": "#3D1E2D",  # Dark pink-tinted background
+            "probe_highlight": "#FF66CC",  # Bright pink for probe crosshair
         }
 
     def _define_pens(self):
@@ -108,6 +113,10 @@ class DarkTheme(BaseTheme):
             # Obstacle visualization
             "obstacle_full": {"color": "obstacle_full", "width": 3.0},
             "obstacle_inset": {"color": "obstacle_inset", "width": 2.0, "style": "dot"},
+            # Probe pens
+            "probe_voltage": {"color": "probe_voltage", "width": 1.5},
+            "probe_current": {"color": "probe_current", "width": 1.5},
+            "probe_highlight": {"color": "probe_highlight", "width": 2.0, "style": "dash"},
         }
 
     def _define_brushes(self):
@@ -117,6 +126,7 @@ class DarkTheme(BaseTheme):
             "op_annotation_bg": {"color": "op_annotation_bg", "alpha": 220},
             "terminal_fill": {"color": "terminal_fill", "alpha": 100},
             "component_fill": {"color": "background_primary", "alpha": 255},
+            "probe_bg": {"color": "probe_bg", "alpha": 230},
         }
 
     def _define_fonts(self):
@@ -128,6 +138,7 @@ class DarkTheme(BaseTheme):
             "panel_title": {"size": 10, "bold": True},
             "panel_subtitle": {"size": 12, "bold": True},
             "monospace": {"family": "monospace", "size": 9, "bold": False},
+            "probe_label": {"size": 10, "bold": True},
         }
 
     def _define_stylesheets(self):

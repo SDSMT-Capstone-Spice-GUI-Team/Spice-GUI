@@ -40,6 +40,8 @@ DEFAULTS = {
     # Simulation
     "sim.netlist": "Ctrl+G",
     "sim.run": "F5",
+    # Tools
+    "tools.probe": "P",
 }
 
 # Human-readable labels for each action
@@ -68,6 +70,7 @@ ACTION_LABELS = {
     "view.zoom_reset": "Reset Zoom",
     "sim.netlist": "Generate Netlist",
     "sim.run": "Run Simulation",
+    "tools.probe": "Probe Tool",
 }
 
 _CONFIG_DIR = Path.home() / ".spice-gui"

@@ -45,6 +45,7 @@ class CircuitCanvasView(QGraphicsView):
     componentRightClicked = pyqtSignal(object, object)  # component, global position
     canvasClicked = pyqtSignal()
     zoomChanged = pyqtSignal(float)  # current zoom level (1.0 = 100%)
+    probeRequested = pyqtSignal(str, str)  # (signal_name, probe_type: "node"|"component")
 
     def __init__(self, controller=None):
         super().__init__()
@@ -74,6 +75,10 @@ class CircuitCanvasView(QGraphicsView):
         self.branch_currents = {}  # device_ref -> current value
         self.show_node_voltages = False  # Toggle for showing voltage values
         self.show_op_annotations = True  # Toggle for OP result annotations
+
+        # Probe mode state
+        self.probe_mode = False  # Whether probe tool is active
+        self.probe_results = []  # List of probe result dicts for display
 
         # Label visibility settings
         self.show_component_labels = True  # Toggle for component IDs (R1, V1, etc.)
@@ -170,6 +175,7 @@ class CircuitCanvasView(QGraphicsView):
             self.node_voltages = {}
             self.branch_currents = {}
             self.show_node_voltages = False
+            self.probe_results = []
 
     def _handle_component_added(self, component_data) -> None:
         """Create graphics item when component added to model"""
@@ -493,8 +499,22 @@ class CircuitCanvasView(QGraphicsView):
         self.componentAdded.emit(component_data.component_id)
 
     def mousePressEvent(self, event):
-        """Handle wire drawing and component selection"""
+        """Handle wire drawing, probe mode, and component selection"""
         if event is None:
+            return
+
+        # Probe mode: intercept left clicks to probe nodes/components
+        if self.probe_mode and event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position().toPoint()
+            scene_pos = self.mapToScene(pos)
+            result = self._probe_at_position(scene_pos)
+            if result is None and not self.node_voltages:
+                main_window = self.window()
+                if main_window and hasattr(main_window, "statusBar"):
+                    status = main_window.statusBar()
+                    if status:
+                        status.showMessage("No simulation results available. Run a simulation first.", 3000)
+            event.accept()
             return
 
         clicked_terminal = None  # Initialize here
@@ -674,6 +694,15 @@ class CircuitCanvasView(QGraphicsView):
         if event is None:
             return
         if event.key() == Qt.Key.Key_Escape:
+            if self.probe_mode:
+                self.set_probe_mode(False)
+                self.clear_probes()
+                # Notify main window to uncheck the action
+                main_window = self.window()
+                if main_window and hasattr(main_window, "probe_action"):
+                    main_window.probe_action.setChecked(False)
+                event.accept()
+                return
             if self.wire_start_comp is not None:
                 if self.temp_wire_line:
                     self.scene.removeItem(self.temp_wire_line)
@@ -1226,6 +1255,25 @@ class CircuitCanvasView(QGraphicsView):
                         draw_pos = QPointF(center.x() + comp_rect.width() / 2 + 5, center.y())
                         self._draw_label_box(painter, draw_pos, text, y_above=False, pen=cur_pen)
 
+        # Draw probe annotations (always on top, visually distinct)
+        if self.probe_results:
+            probe_v_pen = theme_manager.pen("probe_voltage")
+            probe_brush = theme_manager.brush("probe_bg")
+            probe_font = theme_manager.font("probe_label")
+            painter.setFont(probe_font)
+            painter.setBrush(probe_brush)
+
+            for probe in self.probe_results:
+                pos = probe["pos"]
+                if probe["type"] == "node":
+                    text = probe["voltage"]
+                    painter.setPen(probe_v_pen)
+                    self._draw_label_box(painter, pos, text, y_above=False, pen=probe_v_pen)
+                elif probe["type"] == "component":
+                    text = probe["text"]
+                    painter.setPen(probe_v_pen)
+                    self._draw_label_box(painter, pos, text, y_above=False, pen=probe_v_pen)
+
     def _draw_label_box(self, painter, pos, text, y_above=True, pen=None):
         """Draw a text label with background box at the given position."""
         metrics = painter.fontMetrics()
@@ -1288,6 +1336,117 @@ class CircuitCanvasView(QGraphicsView):
         self.branch_currents = {}
         self.show_node_voltages = False
         self.scene.update()
+
+    def set_probe_mode(self, active):
+        """Enable or disable probe mode."""
+        self.probe_mode = active
+        if active:
+            self.setCursor(Qt.CursorShape.CrossCursor)
+        else:
+            self.unsetCursor()
+        self.scene.update()
+
+    def clear_probes(self):
+        """Remove all probe annotations."""
+        self.probe_results = []
+        self.scene.update()
+
+    def _probe_at_position(self, scene_pos):
+        """Probe the node or component at scene_pos and store result."""
+        # Check if we clicked on a component first
+        item = self.itemAt(self.mapFromScene(scene_pos))
+        if isinstance(item, ComponentGraphicsItem):
+            if self.node_voltages:
+                return self._probe_component(item)
+            # No OP data - request sweep probe for this component
+            comp_ref = item.component_id.lower()
+            self.probeRequested.emit(comp_ref, "component")
+            return None
+
+        # Otherwise try to find a node near the click
+        node = self.find_node_at_position(scene_pos)
+        if node:
+            if self.node_voltages:
+                return self._probe_node(node)
+            # No OP data - request sweep probe for this node
+            self.probeRequested.emit(node.get_label(), "node")
+            return None
+
+        return None
+
+    def _probe_node(self, node):
+        """Create a probe result for a node."""
+        from PyQt6.QtCore import QPointF
+        from simulation.result_parser import format_si
+
+        label = node.get_label()
+        if label not in self.node_voltages:
+            return None
+
+        voltage = self.node_voltages[label]
+        pos = node.get_position(self.components)
+        if not pos:
+            return None
+
+        result = {
+            "type": "node",
+            "label": label,
+            "voltage": format_si(voltage, "V"),
+            "pos": QPointF(pos.x(), pos.y()),
+        }
+        self.probe_results.append(result)
+        self.scene.update()
+        return result
+
+    def _probe_component(self, comp_item):
+        """Create a probe result for a component."""
+        from PyQt6.QtCore import QPointF
+        from simulation.result_parser import format_si
+
+        comp_id = comp_item.component_id
+        comp_ref = comp_id.lower()
+
+        lines = [comp_id]
+
+        # Voltage across terminals
+        term_voltages = []
+        for term_idx in range(len(comp_item.terminals)):
+            terminal_key = (comp_id, term_idx)
+            node = self.terminal_to_node.get(terminal_key)
+            if node:
+                node_label = node.get_label()
+                if node_label in self.node_voltages:
+                    v = self.node_voltages[node_label]
+                    term_voltages.append((term_idx, node_label, v))
+
+        if len(term_voltages) >= 2:
+            v_across = term_voltages[0][2] - term_voltages[1][2]
+            lines.append(f"V: {format_si(v_across, 'V')}")
+        elif len(term_voltages) == 1:
+            lines.append(f"V({term_voltages[0][1]}): {format_si(term_voltages[0][2], 'V')}")
+
+        # Branch current
+        if comp_ref in self.branch_currents:
+            current = self.branch_currents[comp_ref]
+            lines.append(f"I: {format_si(current, 'A')}")
+
+        # Power dissipation (if both voltage and current known)
+        if len(term_voltages) >= 2 and comp_ref in self.branch_currents:
+            v_across = term_voltages[0][2] - term_voltages[1][2]
+            power = abs(v_across * self.branch_currents[comp_ref])
+            lines.append(f"P: {format_si(power, 'W')}")
+
+        comp_rect = comp_item.boundingRect()
+        center = comp_item.mapToScene(comp_rect.center())
+        result = {
+            "type": "component",
+            "label": comp_id,
+            "text": "\n".join(lines),
+            "pos": QPointF(center.x() + comp_rect.width() / 2 + 10, center.y()),
+        }
+        self.probe_results.append(result)
+        self.scene.update()
+        return result
 
     def display_node_voltages(self):
         """Enable display of node voltages."""

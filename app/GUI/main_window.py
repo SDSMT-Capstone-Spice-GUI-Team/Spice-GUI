@@ -96,6 +96,7 @@ class MainWindow(QMainWindow):
         self.canvas.componentRightClicked.connect(self.on_component_right_clicked)
         self.canvas.canvasClicked.connect(self.on_canvas_clicked)
         self.canvas.selectionChanged.connect(self._on_selection_changed)
+        self.canvas.probeRequested.connect(self._on_probe_requested)
         self.palette.componentDoubleClicked.connect(self.canvas.add_component_at_center)
         self.properties_panel.property_changed.connect(self.on_property_changed)
         self.circuit_ctrl.add_observer(self._on_dirty_change)
@@ -400,6 +401,15 @@ class MainWindow(QMainWindow):
 
         view_menu.addSeparator()
 
+        self.probe_action = QAction("&Probe Tool", self)
+        self.probe_action.setCheckable(True)
+        self.probe_action.setShortcut(kb.get("tools.probe"))
+        self.probe_action.setToolTip("Click nodes or components to see voltage/current values")
+        self.probe_action.triggered.connect(self._toggle_probe_mode)
+        view_menu.addAction(self.probe_action)
+
+        view_menu.addSeparator()
+
         self.show_statistics_action = QAction("Circuit &Statistics", self)
         self.show_statistics_action.setCheckable(True)
         self.show_statistics_action.setChecked(False)
@@ -545,6 +555,7 @@ class MainWindow(QMainWindow):
             "view.zoom_reset": zoom_reset_action,
             "sim.netlist": netlist_action,
             "sim.run": run_action,
+            "tools.probe": self.probe_action,
         }
 
         # Settings menu
@@ -1259,7 +1270,8 @@ class MainWindow(QMainWindow):
 
         # Apply global widget stylesheet for dark mode
         if is_dark:
-            self.setStyleSheet("""
+            self.setStyleSheet(
+                """
                 QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }
                 QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }
                 QMenuBar::item:selected { background-color: #3D3D3D; }
@@ -1282,7 +1294,8 @@ class MainWindow(QMainWindow):
                 QTableWidget { background-color: #2D2D2D; color: #D4D4D4;
                     gridline-color: #555555; }
                 QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }
-            """)
+            """
+            )
         else:
             self.setStyleSheet("")
 
@@ -1350,6 +1363,72 @@ class MainWindow(QMainWindow):
         """Toggle DC operating point annotation visibility."""
         self.canvas.show_op_annotations = checked
         self.canvas.scene.update()
+
+    def _toggle_probe_mode(self, checked):
+        """Toggle interactive probe mode on the canvas."""
+        self.canvas.set_probe_mode(checked)
+        if checked:
+            if not self.canvas.node_voltages and self._last_results is None:
+                self.statusBar().showMessage("Probe mode active. Run a simulation first to see values.", 3000)
+            else:
+                self.statusBar().showMessage(
+                    "Probe mode active. Click nodes or components to see values. Press Escape to exit.",
+                    3000,
+                )
+        else:
+            self.canvas.clear_probes()
+            self.statusBar().showMessage("Probe mode deactivated.", 2000)
+
+    def _on_probe_requested(self, signal_name, probe_type):
+        """Handle probe click for sweep/transient analyses (no OP data on canvas)."""
+        if self._last_results is None:
+            self.statusBar().showMessage("No simulation results available. Run a simulation first.", 3000)
+            return
+
+        analysis_type = self._last_results_type
+        if analysis_type == "Transient":
+            self._probe_open_waveform(signal_name, probe_type)
+        elif analysis_type == "DC Sweep":
+            self._probe_open_dc_sweep(signal_name, probe_type)
+        elif analysis_type == "AC Sweep":
+            self._probe_open_ac_sweep(signal_name, probe_type)
+        else:
+            self.statusBar().showMessage(f"Probe not supported for {analysis_type} analysis.", 3000)
+
+    def _probe_open_waveform(self, signal_name, probe_type):
+        """Open waveform dialog focused on the probed signal."""
+        tran_data = self._last_results
+        if not tran_data:
+            return
+        # Open or raise the waveform dialog
+        if self._waveform_dialog is None or not self._waveform_dialog.isVisible():
+            self._waveform_dialog = WaveformDialog(tran_data, self)
+            self._waveform_dialog.show()
+        self._waveform_dialog.raise_()
+        self._waveform_dialog.activateWindow()
+        self.statusBar().showMessage(f"Opened waveform plot for {signal_name}.", 2000)
+
+    def _probe_open_dc_sweep(self, signal_name, probe_type):
+        """Open DC sweep plot dialog for the probed signal."""
+        sweep_data = self._last_results
+        if not sweep_data:
+            return
+        if self._plot_dialog is None or not self._plot_dialog.isVisible():
+            self._show_plot_dialog(DCSweepPlotDialog(sweep_data, self))
+        self._plot_dialog.raise_()
+        self._plot_dialog.activateWindow()
+        self.statusBar().showMessage(f"Opened DC sweep plot for {signal_name}.", 2000)
+
+    def _probe_open_ac_sweep(self, signal_name, probe_type):
+        """Open AC sweep Bode plot dialog for the probed signal."""
+        ac_data = self._last_results
+        if not ac_data:
+            return
+        if self._plot_dialog is None or not self._plot_dialog.isVisible():
+            self._show_plot_dialog(ACSweepPlotDialog(ac_data, self))
+        self._plot_dialog.raise_()
+        self._plot_dialog.activateWindow()
+        self.statusBar().showMessage(f"Opened AC sweep plot for {signal_name}.", 2000)
 
     def _on_zoom_changed(self, level):
         """Update the zoom level display"""
