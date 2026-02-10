@@ -1457,32 +1457,31 @@ class MainWindow(QMainWindow):
 
         # Apply global widget stylesheet for dark mode
         if is_dark:
-            self.setStyleSheet(
-                """
-                QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }
-                QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }
-                QMenuBar::item:selected { background-color: #3D3D3D; }
-                QMenu { background-color: #2D2D2D; color: #D4D4D4; }
-                QMenu::item:selected { background-color: #3D3D3D; }
-                QLabel { color: #D4D4D4; }
-                QPushButton {
-                    background-color: #3D3D3D; color: #D4D4D4;
-                    border: 1px solid #555555; padding: 4px 12px; border-radius: 3px;
-                }
-                QPushButton:hover { background-color: #4D4D4D; }
-                QTextEdit, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-                    background-color: #2D2D2D; color: #D4D4D4;
-                    border: 1px solid #555555;
-                }
-                QSplitter::handle { background-color: #3D3D3D; }
-                QScrollBar { background-color: #2D2D2D; }
-                QScrollBar::handle { background-color: #555555; }
-                QGroupBox { color: #D4D4D4; border: 1px solid #555555; }
-                QTableWidget { background-color: #2D2D2D; color: #D4D4D4;
-                    gridline-color: #555555; }
-                QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }
-            """
+            dark_stylesheet = (
+                "QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }"
+                " QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }"
+                " QMenuBar::item:selected { background-color: #3D3D3D; }"
+                " QMenu { background-color: #2D2D2D; color: #D4D4D4; }"
+                " QMenu::item:selected { background-color: #3D3D3D; }"
+                " QLabel { color: #D4D4D4; }"
+                " QPushButton {"
+                "   background-color: #3D3D3D; color: #D4D4D4;"
+                "   border: 1px solid #555555; padding: 4px 12px; border-radius: 3px;"
+                " }"
+                " QPushButton:hover { background-color: #4D4D4D; }"
+                " QTextEdit, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {"
+                "   background-color: #2D2D2D; color: #D4D4D4;"
+                "   border: 1px solid #555555;"
+                " }"
+                " QSplitter::handle { background-color: #3D3D3D; }"
+                " QScrollBar { background-color: #2D2D2D; }"
+                " QScrollBar::handle { background-color: #555555; }"
+                " QGroupBox { color: #D4D4D4; border: 1px solid #555555; }"
+                " QTableWidget { background-color: #2D2D2D; color: #D4D4D4;"
+                "   gridline-color: #555555; }"
+                " QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }"
             )
+            self.setStyleSheet(dark_stylesheet)
         else:
             self.setStyleSheet("")
 
