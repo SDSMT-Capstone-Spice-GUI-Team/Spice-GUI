@@ -112,6 +112,31 @@ Claude Code is authorized to work **fully autonomously** on Ready items.
 | Vague requirements | Make judgment call, note assumptions in commit/issue comment |
 | Conflicting issues | Move to Blocked with explanation, pick next Ready item |
 
+### Agent Feedback (required on every issue/PR)
+
+After completing work on an issue, post a structured feedback comment on the issue:
+
+```markdown
+### Agent Feedback
+- **Issue clarity**: X/5 — [what was clear/unclear]
+- **Blockers**: [what slowed you down, or "None"]
+- **Confidence**: [High/Medium/Low] — [what you're confident about, what needs human review]
+- **Assumptions made**: [any judgment calls, or "None"]
+- **Review focus**: [specific areas the reviewer should check]
+```
+
+After reviewing a PR, post feedback on the PR:
+
+```markdown
+### Review Feedback
+- **Issue scope**: [too broad / too narrow / just right]
+- **Code quality**: [follows patterns / introduces new conventions / concerns]
+- **Test coverage**: [adequate / gaps in X]
+- **Suggestion for issue writing**: [what would have made this easier]
+```
+
+This feedback improves future issue quality and agent effectiveness over time.
+
 ## Platform Notes
 - **Windows**: Avoid piping `gh` output directly to `python` (fails with "pipe is being closed"). Write to a temp file first, then read it.
 - **Board field updates**: `updateProjectV2Field` with `singleSelectOptions` regenerates all option IDs. Always re-query IDs after modifying field options.
