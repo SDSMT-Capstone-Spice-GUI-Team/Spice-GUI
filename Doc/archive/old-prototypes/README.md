@@ -6,7 +6,7 @@ This directory contains code from early project exploration that is no longer us
 
 **What it was:** Early main window prototype using PySide6
 **Status:** Obsolete - Current implementation uses PyQt6
-**Why archived:** 
+**Why archived:**
 - Uses PySide6, current app uses PyQt6 (ADR 005)
 - Replaced by main_window.py
 - Not referenced anywhere in current codebase
@@ -16,4 +16,3 @@ This directory contains code from early project exploration that is no longer us
 - `darkMode.qss` - Dark mode stylesheet (not used)
 
 **Historical Note:** This represents the initial UI exploration before settling on the circuit design canvas approach.
-

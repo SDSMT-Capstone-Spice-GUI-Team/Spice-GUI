@@ -3,9 +3,8 @@
 import pytest
 from models.circuit import CircuitModel
 from models.component import ComponentData
-from models.wire import WireData
 from models.node import reset_node_counter
-
+from models.wire import WireData
 
 
 def _resistor(comp_id="R1", pos=(0.0, 0.0)):
@@ -185,34 +184,31 @@ class TestSerialization:
         model.component_counter = {"R": 1, "V": 1}
 
         data = model.to_dict()
-        assert 'components' in data
-        assert 'wires' in data
-        assert 'counters' in data
-        assert len(data['components']) == 2
-        assert len(data['wires']) == 1
-        assert data['counters'] == {"R": 1, "V": 1}
+        assert "components" in data
+        assert "wires" in data
+        assert "counters" in data
+        assert len(data["components"]) == 2
+        assert len(data["wires"]) == 1
+        assert data["counters"] == {"R": 1, "V": 1}
 
     def test_from_dict_restores_state(self):
         data = {
-            'components': [
-                {'type': 'Resistor', 'id': 'R1', 'value': '1k',
-                 'pos': {'x': 100.0, 'y': 200.0}, 'rotation': 0},
-                {'type': 'VoltageSource', 'id': 'V1', 'value': '5V',
-                 'pos': {'x': 50.0, 'y': 50.0}, 'rotation': 0},
+            "components": [
+                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 100.0, "y": 200.0}, "rotation": 0},
+                {"type": "VoltageSource", "id": "V1", "value": "5V", "pos": {"x": 50.0, "y": 50.0}, "rotation": 0},
             ],
-            'wires': [
-                {'start_comp': 'R1', 'start_term': 1,
-                 'end_comp': 'V1', 'end_term': 0},
+            "wires": [
+                {"start_comp": "R1", "start_term": 1, "end_comp": "V1", "end_term": 0},
             ],
-            'counters': {'R': 1, 'V': 1},
+            "counters": {"R": 1, "V": 1},
         }
         model = CircuitModel.from_dict(data)
         assert len(model.components) == 2
-        assert 'R1' in model.components
-        assert 'V1' in model.components
-        assert model.components['V1'].component_type == 'Voltage Source'
+        assert "R1" in model.components
+        assert "V1" in model.components
+        assert model.components["V1"].component_type == "Voltage Source"
         assert len(model.wires) == 1
-        assert model.component_counter == {'R': 1, 'V': 1}
+        assert model.component_counter == {"R": 1, "V": 1}
         # Nodes should have been rebuilt
         assert len(model.nodes) == 1
 
@@ -237,7 +233,7 @@ class TestSerialization:
     def test_empty_circuit_round_trip(self):
         model = CircuitModel()
         data = model.to_dict()
-        assert data == {'components': [], 'wires': [], 'counters': {}}
+        assert data == {"components": [], "wires": [], "counters": {}}
 
         reset_node_counter()
         model2 = CircuitModel.from_dict(data)
@@ -251,8 +247,8 @@ class TestSerialization:
         model.analysis_params = {"step": "1m", "duration": "10m", "start": 0}
 
         data = model.to_dict()
-        assert data['analysis_type'] == "Transient"
-        assert data['analysis_params'] == {"step": "1m", "duration": "10m", "start": 0}
+        assert data["analysis_type"] == "Transient"
+        assert data["analysis_params"] == {"step": "1m", "duration": "10m", "start": 0}
 
         reset_node_counter()
         model2 = CircuitModel.from_dict(data)
@@ -263,15 +259,15 @@ class TestSerialization:
         """Default DC Operating Point should not bloat the JSON."""
         model = CircuitModel()
         data = model.to_dict()
-        assert 'analysis_type' not in data
-        assert 'analysis_params' not in data
+        assert "analysis_type" not in data
+        assert "analysis_params" not in data
 
     def test_from_dict_without_analysis_uses_defaults(self):
         """Loading old circuit files without analysis fields uses defaults."""
         data = {
-            'components': [],
-            'wires': [],
-            'counters': {},
+            "components": [],
+            "wires": [],
+            "counters": {},
         }
         model = CircuitModel.from_dict(data)
         assert model.analysis_type == "DC Operating Point"
@@ -280,7 +276,8 @@ class TestSerialization:
     def test_no_pyqt_imports(self):
         """Verify CircuitModel has no Qt dependencies."""
         import models.circuit as mod
+
         source = open(mod.__file__).read()
-        assert 'PyQt' not in source
-        assert 'QtCore' not in source
-        assert 'QtWidgets' not in source
+        assert "PyQt" not in source
+        assert "QtCore" not in source
+        assert "QtWidgets" not in source

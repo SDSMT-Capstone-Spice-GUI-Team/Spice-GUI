@@ -4,10 +4,10 @@ layer_control_widget.py
 Widget for controlling algorithm layer visibility and displaying performance metrics
 """
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QCheckBox,
-                              QLabel, QPushButton, QGroupBox, QTextEdit)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPalette
+from PyQt6.QtWidgets import QCheckBox, QGroupBox, QHBoxLayout, QLabel, QPushButton, QTextEdit, QVBoxLayout, QWidget
+
 from .styles import theme_manager
 
 
@@ -41,7 +41,7 @@ class LayerControlWidget(QWidget):
 
         # Title
         title = QLabel("Algorithm Layers")
-        title.setStyleSheet(theme_manager.stylesheet('title_bold'))
+        title.setStyleSheet(theme_manager.stylesheet("title_bold"))
         layout.addWidget(title)
 
         # Layer checkboxes group
@@ -95,7 +95,7 @@ class LayerControlWidget(QWidget):
         self.metrics_text = QTextEdit()
         self.metrics_text.setReadOnly(True)
         self.metrics_text.setMaximumHeight(150)
-        self.metrics_text.setStyleSheet(theme_manager.stylesheet('metrics_text'))
+        self.metrics_text.setStyleSheet(theme_manager.stylesheet("metrics_text"))
         metrics_layout.addWidget(self.metrics_text)
 
         refresh_btn = QPushButton("Refresh Metrics")
@@ -113,7 +113,7 @@ class LayerControlWidget(QWidget):
 
     def _on_visibility_changed(self, algorithm_type, state):
         """Handle checkbox state change"""
-        visible = (state == Qt.CheckState.Checked.value)
+        visible = state == Qt.CheckState.Checked.value
         self.layer_manager.set_layer_visibility(algorithm_type, visible)
         self.layerVisibilityChanged.emit(algorithm_type, visible)
 
@@ -200,7 +200,7 @@ class CompactLayerControlWidget(QWidget):
 
     def _on_visibility_changed(self, algorithm_type, state):
         """Handle checkbox state change"""
-        visible = (state == Qt.CheckState.Checked.value)
+        visible = state == Qt.CheckState.Checked.value
         self.layer_manager.set_layer_visibility(algorithm_type, visible)
         self.layerVisibilityChanged.emit(algorithm_type, visible)
 

@@ -168,8 +168,8 @@
 ### Open Questions
 *What still needs to be clarified?*
 
-1. 
-2. 
+1.
+2.
 
 ### Stakeholder Sign-off
 

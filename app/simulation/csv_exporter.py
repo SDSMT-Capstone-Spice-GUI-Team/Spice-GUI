@@ -57,10 +57,10 @@ def export_dc_sweep_results(sweep_data, circuit_name=""):
         writer.writerow(["# Circuit", circuit_name])
     writer.writerow([])
 
-    headers = sweep_data.get('headers', [])
+    headers = sweep_data.get("headers", [])
     writer.writerow(headers)
 
-    for row in sweep_data.get('data', []):
+    for row in sweep_data.get("data", []):
         writer.writerow(row)
 
     return output.getvalue()
@@ -88,9 +88,9 @@ def export_ac_results(ac_data, circuit_name=""):
         writer.writerow(["# Circuit", circuit_name])
     writer.writerow([])
 
-    frequencies = ac_data.get('frequencies', [])
-    magnitude = ac_data.get('magnitude', {})
-    phase = ac_data.get('phase', {})
+    frequencies = ac_data.get("frequencies", [])
+    magnitude = ac_data.get("magnitude", {})
+    phase = ac_data.get("phase", {})
 
     # Build headers: Frequency, |V(node1)|, phase(node1), |V(node2)|, ...
     headers = ["Frequency (Hz)"]
@@ -158,5 +158,5 @@ def write_csv(csv_content, filepath):
         csv_content: str from one of the export_* functions
         filepath: path to write to
     """
-    with open(filepath, 'w', newline='') as f:
+    with open(filepath, "w", newline="") as f:
         f.write(csv_content)
