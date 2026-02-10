@@ -1235,8 +1235,7 @@ class MainWindow(QMainWindow):
 
         # Apply global widget stylesheet for dark mode
         if is_dark:
-            self.setStyleSheet(
-                """
+            self.setStyleSheet("""
                 QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }
                 QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }
                 QMenuBar::item:selected { background-color: #3D3D3D; }
@@ -1259,8 +1258,7 @@ class MainWindow(QMainWindow):
                 QTableWidget { background-color: #2D2D2D; color: #D4D4D4;
                     gridline-color: #555555; }
                 QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }
-            """
-            )
+            """)
         else:
             self.setStyleSheet("")
 
