@@ -361,6 +361,134 @@ class SimulationController:
             warnings=validation.warnings,
         )
 
+    def run_monte_carlo(self, mc_config: dict, progress_callback=None) -> SimulationResult:
+        """
+        Run Monte Carlo analysis: vary component values randomly and run
+        the base analysis N times.
+
+        Args:
+            mc_config: dict with keys:
+                num_runs, base_analysis_type, base_params, tolerances
+            progress_callback: optional callable(step, total) -> bool.
+
+        Returns:
+            SimulationResult with analysis_type='Monte Carlo'.
+        """
+        import numpy as np
+        from simulation.monte_carlo import apply_tolerance
+
+        num_runs = mc_config["num_runs"]
+        base_type = mc_config["base_analysis_type"]
+        base_params = mc_config["base_params"]
+        tolerances = mc_config.get("tolerances", {})
+
+        # Save original state
+        original_values = {}
+        for cid in tolerances:
+            comp = self.model.components.get(cid)
+            if comp:
+                original_values[cid] = comp.value
+
+        original_analysis = self.model.analysis_type
+        original_params = self.model.analysis_params.copy()
+
+        self.set_analysis(base_type, base_params)
+
+        validation = self.validate_circuit()
+        if not validation.success:
+            self.set_analysis(original_analysis, original_params)
+            return validation
+
+        ngspice_path = self.runner.find_ngspice()
+        if ngspice_path is None:
+            self.set_analysis(original_analysis, original_params)
+            return SimulationResult(
+                success=False,
+                error="ngspice executable not found. Please install ngspice.",
+            )
+
+        rng = np.random.default_rng()
+        step_results = []
+        run_values = []
+        errors = []
+        cancelled = False
+
+        try:
+            for i in range(num_runs):
+                if progress_callback and not progress_callback(i, num_runs):
+                    cancelled = True
+                    break
+
+                values_this_run = {}
+                for cid, tol_config in tolerances.items():
+                    comp = self.model.components.get(cid)
+                    if comp is None:
+                        continue
+                    new_val = apply_tolerance(
+                        original_values[cid],
+                        tol_config["tolerance_pct"],
+                        tol_config.get("distribution", "gaussian"),
+                        rng,
+                    )
+                    comp.value = new_val
+                    values_this_run[cid] = new_val
+
+                run_values.append(values_this_run)
+
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_mc_{i}_{timestamp}.txt")
+
+                try:
+                    netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
+                except (ValueError, KeyError, TypeError) as e:
+                    step_results.append(SimulationResult(success=False, error=f"Netlist generation failed: {e}"))
+                    errors.append(f"Run {i + 1}: netlist failed: {e}")
+                    continue
+
+                success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
+                if not success:
+                    step_results.append(
+                        SimulationResult(success=False, error=stderr or "Simulation failed", netlist=netlist)
+                    )
+                    errors.append(f"Run {i + 1}: {stderr or 'failed'}")
+                    continue
+
+                result = self._parse_results(
+                    output_file=output_file,
+                    wrdata_filepath=wrdata_filepath,
+                    netlist=netlist,
+                    raw_output=stdout,
+                    warnings=validation.warnings,
+                )
+                step_results.append(result)
+                if not result.success:
+                    errors.append(f"Run {i + 1}: {result.error}")
+        finally:
+            for cid, orig_val in original_values.items():
+                comp = self.model.components.get(cid)
+                if comp:
+                    comp.value = orig_val
+            self.set_analysis(original_analysis, original_params)
+
+        any_success = any(r.success for r in step_results)
+
+        mc_data = {
+            "num_runs": len(step_results),
+            "base_analysis_type": base_type,
+            "tolerances": tolerances,
+            "run_values": run_values,
+            "results": step_results,
+            "cancelled": cancelled,
+        }
+
+        return SimulationResult(
+            success=any_success,
+            analysis_type="Monte Carlo",
+            data=mc_data,
+            errors=errors,
+            warnings=validation.warnings,
+        )
+
     @staticmethod
     def _format_sweep_value(value: float) -> str:
         """Format a float as a SPICE-compatible value string."""

@@ -1,6 +1,6 @@
 # Analysis Types
 
-SDM Spice supports four types of circuit analysis through ngspice integration.
+SDM Spice supports multiple types of circuit analysis through ngspice integration, plus advanced features like parameter sweeps, FFT/harmonic analysis, and temperature sweeps.
 
 ## DC Operating Point (.op)
 
@@ -153,6 +153,93 @@ Simulates the circuit behavior over time. Shows how voltages and currents change
 
 ---
 
+## Temperature Sweep
+
+### Description
+Runs a simulation across a range of temperatures to observe how circuit behavior changes with temperature. Useful for understanding thermal sensitivity and ensuring designs work across operating conditions.
+
+### When to Use
+- Evaluating circuit stability over temperature
+- Characterizing semiconductor behavior vs temperature
+- Verifying designs meet specifications across an operating range
+
+### Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| Start Temperature | Starting temperature (°C) | -40 |
+| Stop Temperature | Ending temperature (°C) | 125 |
+| Step | Temperature increment (°C) | 5 |
+
+### How to Run
+1. Go to **Analysis > Temperature Sweep**
+2. Configure temperature range in the dialog
+3. Press **F5** or **Simulation > Run Simulation**
+
+### Output
+- Plot of circuit parameters vs temperature
+- Results overlaid for comparison across temperature points
+
+---
+
+## Parameter Sweep
+
+### Description
+Sweeps a component parameter (e.g., resistance, capacitance) across a range of values, running the selected analysis at each step. Results are overlaid on a single plot for easy comparison.
+
+### When to Use
+- Exploring how a component value affects circuit behavior
+- Sensitivity analysis
+- Finding optimal component values
+- Comparing design trade-offs
+
+### Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| Component | The component to sweep | R1 |
+| Start Value | Starting parameter value | 1k |
+| Stop Value | Ending parameter value | 10k |
+| Steps | Number of sweep steps | 10 |
+
+### How to Run
+1. Go to **Simulation > Parameter Sweep**
+2. Select the component and value range
+3. Choose the underlying analysis type (DC OP, DC Sweep, AC, Transient)
+4. Click **Run Sweep**
+
+### Output
+- Overlaid traces for each parameter value, color-coded and labeled
+- Legend showing the parameter value for each trace
+- Toggle individual traces on/off
+
+---
+
+## FFT / Harmonic Analysis
+
+### Description
+Performs Fast Fourier Transform on transient simulation results to show the frequency spectrum. Identifies fundamental frequency, harmonics, and computes Total Harmonic Distortion (THD%).
+
+### When to Use
+- Analyzing distortion in amplifier circuits
+- Identifying harmonic content of waveforms
+- Measuring THD for audio or signal circuits
+- Verifying oscillator frequency purity
+
+### How to Run
+1. Run a **Transient** analysis first
+2. In the Waveform Viewer, click **Show Spectrum**
+3. Select a windowing function (Hann, Hamming, etc.)
+4. View frequency spectrum with harmonic markers
+
+### Output
+- Frequency spectrum plot (magnitude vs frequency)
+- Fundamental frequency and harmonic markers
+- THD% calculation
+- Selectable windowing functions for spectral accuracy
+
+---
+
 ## Analysis Comparison
 
 | Analysis | Domain | Typical Use | Output |
@@ -161,6 +248,9 @@ Simulates the circuit behavior over time. Shows how voltages and currents change
 | DC Sweep | DC | Transfer characteristics | Voltage/current vs source |
 | AC Sweep | Frequency | Filter response | Magnitude/phase vs frequency |
 | Transient | Time | Waveform analysis | Voltage/current vs time |
+| Temperature Sweep | Temperature | Thermal sensitivity | Parameters vs temperature |
+| Parameter Sweep | Varies | Component sensitivity | Overlaid traces per value |
+| FFT Analysis | Frequency | Harmonic distortion | Spectrum from transient data |
 
 ---
 
@@ -185,12 +275,14 @@ Simulates the circuit behavior over time. Shows how voltages and currents change
 ## Simulation Results
 
 ### Canvas Display
-- DC Operating Point shows node voltages directly on the canvas
-- Voltages appear near their respective nodes
+- DC Operating Point shows node voltages and branch currents directly on the canvas as annotations
+- Annotations can be toggled on/off via **View > Show Annotations**
+- Annotations use distinct styling to avoid overlap with circuit elements
 
 ### Results Panel
 - Text output from ngspice
 - Numerical values for all nodes and branches
+- Power dissipation per component (P = V × I)
 
 ### Waveform Viewer
 - For DC Sweep, AC Sweep, and Transient analyses
@@ -198,6 +290,10 @@ Simulates the circuit behavior over time. Shows how voltages and currents change
 - Zoom, pan, and export capabilities
 - Toggle individual traces on/off
 - Data table with scrollable results
+- **Measurement cursors**: Two vertical cursors (A & B) that snap to data points and display X/Y values with delta measurements (ΔX, ΔY)
+- **Result overlay**: Run multiple simulations and overlay results for comparison, with color-coded traces and toggleable legend
+- **CSV export**: Export simulation data to CSV for external analysis
+- **Frequency response markers** (AC Sweep): Auto-detected -3dB cutoff, bandwidth, unity-gain frequency, gain/phase margins shown on Bode plots
 
 ---
 
