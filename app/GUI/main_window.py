@@ -77,6 +77,7 @@ class MainWindow(QMainWindow):
         self.canvas.zoomChanged.connect(self._on_zoom_changed)
         self.canvas.componentRightClicked.connect(self.on_component_right_clicked)
         self.canvas.canvasClicked.connect(self.on_canvas_clicked)
+        self.canvas.selectionChanged.connect(self._on_selection_changed)
         self.palette.componentDoubleClicked.connect(self.canvas.add_component_at_center)
         self.properties_panel.property_changed.connect(self.on_property_changed)
 
@@ -1019,9 +1020,21 @@ class MainWindow(QMainWindow):
         else:
             self.properties_stack.setCurrentIndex(0)  # Show blank
 
+    def _on_selection_changed(self, selection):
+        """Handle canvas selection changes — single component, list, or None."""
+        if selection is None:
+            self.properties_stack.setCurrentIndex(0)
+            self.properties_panel.show_no_selection()
+        elif isinstance(selection, list):
+            self.properties_stack.setCurrentIndex(1)
+            self.properties_panel.show_multi_selection(len(selection))
+        else:
+            self.properties_stack.setCurrentIndex(1)
+            self.properties_panel.show_component(selection)
+
     def on_canvas_clicked(self):
         """Handle click on an empty canvas area"""
-        self.properties_stack.setCurrentIndex(0)  # Show blank
+        self.properties_stack.setCurrentIndex(0)
         self.properties_panel.show_no_selection()
 
     def on_property_changed(self, component_id, property_name, new_value):

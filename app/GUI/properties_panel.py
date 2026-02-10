@@ -93,6 +93,18 @@ class PropertiesPanel(QWidget):
         self.waveform_button.setVisible(False)
         self.current_component = None
 
+    def show_multi_selection(self, count):
+        """Display summary when multiple components are selected."""
+        self.current_component = None
+        self.properties_group.setEnabled(False)
+        self.id_label.setText(f"{count} items selected")
+        self.type_label.setText("(multiple)")
+        self.value_input.clear()
+        self.value_input.setPlaceholderText("")
+        self.apply_button.setEnabled(False)
+        self.error_label.setVisible(False)
+        self.waveform_button.setVisible(False)
+
     def show_component(self, component):
         """Display properties for the given component"""
         if component is None:
