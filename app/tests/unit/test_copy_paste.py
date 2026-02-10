@@ -4,6 +4,7 @@ import pytest
 from controllers.circuit_controller import CircuitController
 from models.clipboard import ClipboardData
 
+
 @pytest.fixture
 def controller():
     return CircuitController()
@@ -35,7 +36,7 @@ class TestClipboardData:
         assert cb.paste_count == 0
 
     def test_non_empty_clipboard(self):
-        cb = ClipboardData(components=[{'id': 'R1'}])
+        cb = ClipboardData(components=[{"id": "R1"}])
         assert not cb.is_empty()
 
 
@@ -61,8 +62,8 @@ class TestCopyComponents:
         controller.copy_components(["R1"])
         assert len(controller._clipboard.components) == 1
         comp = controller._clipboard.components[0]
-        assert comp['value'] == '10k'
-        assert comp['rotation'] == 90
+        assert comp["value"] == "10k"
+        assert comp["rotation"] == 90
 
     def test_copy_multiple_components(self, two_resistor_circuit):
         ctrl = two_resistor_circuit
@@ -75,8 +76,8 @@ class TestCopyComponents:
         ctrl.copy_components(["R1", "R2"])
         assert len(ctrl._clipboard.wires) == 1
         wire = ctrl._clipboard.wires[0]
-        assert wire['start_comp'] == 'R1'
-        assert wire['end_comp'] == 'R2'
+        assert wire["start_comp"] == "R1"
+        assert wire["end_comp"] == "R2"
 
     def test_copy_excludes_external_wires(self, two_resistor_circuit):
         ctrl = two_resistor_circuit
@@ -153,7 +154,7 @@ class TestPasteComponents:
         controller.copy_components(["R1"])
         controller.add_observer(callback)
         controller.paste_components()
-        comp_events = [e for e in recorded if e[0] == 'component_added']
+        comp_events = [e for e in recorded if e[0] == "component_added"]
         assert len(comp_events) == 1
 
     def test_paste_adds_to_model(self, controller):
@@ -191,7 +192,7 @@ class TestCutComponents:
         assert result is True
         assert controller.has_clipboard_content()
         assert "R1" not in controller.model.components
-        assert ('component_removed', 'R1') in recorded
+        assert ("component_removed", "R1") in recorded
 
     def test_cut_then_paste(self, controller):
         controller.add_component("Resistor", (50.0, 50.0))
@@ -216,12 +217,14 @@ class TestCutComponents:
 class TestNoQtDependencies:
     def test_clipboard_no_pyqt(self):
         import models.clipboard as mod
+
         source = open(mod.__file__).read()
-        assert 'PyQt' not in source
-        assert 'QtCore' not in source
+        assert "PyQt" not in source
+        assert "QtCore" not in source
 
     def test_controller_no_pyqt(self):
         import controllers.circuit_controller as mod
+
         source = open(mod.__file__).read()
-        assert 'PyQt' not in source
-        assert 'QtCore' not in source
+        assert "PyQt" not in source
+        assert "QtCore" not in source
