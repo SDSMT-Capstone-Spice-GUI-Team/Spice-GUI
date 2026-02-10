@@ -913,26 +913,33 @@ class CircuitCanvasView(QGraphicsView):
                 self.annotations.remove(ann)
 
     def delete_component(self, component):
-        """Delete a component and all connected wires - Phase 5: uses controller"""
+        """Delete a component and all connected wires via undo/redo command."""
         if component is None:
             return
         if not self.controller:
             logger.warning("Cannot delete component: no controller available")
             return
 
-        # Controller handles deletion, observers clean up graphics
-        self.controller.remove_component(component.component_id)
+        from controllers.commands import DeleteComponentCommand
+
+        cmd = DeleteComponentCommand(self.controller, component.component_id)
+        self.controller.execute_command(cmd)
 
     def delete_wire(self, wire):
-        """Delete a wire"""
+        """Delete a wire via undo/redo command (updates model and supports Ctrl+Z)."""
         if wire is None:
             return
+        if not self.controller:
+            logger.warning("Cannot delete wire: no controller available")
+            return
+        if wire not in self.wires:
+            return
 
-        self.update_nodes_after_wire_deletion(wire)
+        from controllers.commands import DeleteWireCommand
 
-        self.scene.removeItem(wire)
-        if wire in self.wires:
-            self.wires.remove(wire)
+        wire_index = self.wires.index(wire)
+        cmd = DeleteWireCommand(self.controller, wire_index)
+        self.controller.execute_command(cmd)
 
     def rotate_component(self, component, clockwise=True):
         """Rotate a single component - Phase 5: uses controller"""
