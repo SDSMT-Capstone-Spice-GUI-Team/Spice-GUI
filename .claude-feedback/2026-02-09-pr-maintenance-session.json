@@ -1,0 +1,159 @@
+{
+  "session": {
+    "date": "2026-02-09",
+    "session_type": "pr-maintenance",
+    "model": "claude-opus-4-6",
+    "branch_base": "main",
+    "context_restores": 1,
+    "description": "Continuation session focused on PR maintenance: linting, formatting, merge conflict resolution, and stale PR cleanup"
+  },
+
+  "prs_handled": [
+    {
+      "number": 151,
+      "title": "add multi-run overlay for simulation result plots",
+      "action": "closed",
+      "reason": "Stale — superseded by merged PR #153 (v2 branch). Was already closed."
+    },
+    {
+      "number": 161,
+      "title": "Add measurement cursors to waveform viewer",
+      "action": "closed",
+      "reason": "Stale — superseded by PR #162 (v2 branch after remote branch conflict)."
+    },
+    {
+      "number": 162,
+      "title": "add measurement cursors to waveform viewer (#78)",
+      "action": "fixed",
+      "problems": ["merge_conflicts", "ci_lint_failure"],
+      "resolution": "Rebased on main, resolved conflicts in results_plot_dialog.py and waveform_dialog.py (combined overlay + cursor features), applied ruff format + isort, force-pushed.",
+      "tests_after": 652
+    },
+    {
+      "number": 152,
+      "title": "add parameter sweep across component values",
+      "action": "fixed",
+      "problems": ["ci_lint_failure"],
+      "resolution": "Rebased on main, applied ruff format + isort to pass CI lint check, force-pushed.",
+      "tests_after": 657
+    },
+    {
+      "number": 165,
+      "title": "add dark mode and theme switching",
+      "action": "fixed",
+      "problems": ["merge_conflicts", "ci_lint_failure"],
+      "resolution": "Rebased on main, resolved conflicts in main_window.py (auto-save + theme persistence), results_plot_dialog.py (cursor + theme imports), waveform_dialog.py (cursor + theme imports). Skipped stale formatting commit, applied fresh formatting. Force-pushed.",
+      "tests_after": 698
+    },
+    {
+      "number": 166,
+      "title": "update workflow docs: enforce formatting and fresh-main start",
+      "action": "none",
+      "reason": "Already merged into main."
+    }
+  ],
+
+  "root_causes": {
+    "ci_lint_failures": {
+      "description": "CI runs `ruff format --check` but branches created before CI was added have no formatting applied. Every feature branch carries 20-40 unrelated formatting diffs.",
+      "affected_prs": [152, 162, 165],
+      "fix_applied": "Ran ruff format + isort on each branch and committed"
+    },
+    "merge_conflicts": {
+      "description": "PRs #162 and #165 both modified results_plot_dialog.py, waveform_dialog.py, and main_window.py. Multiple features (overlay, cursors, dark mode, auto-save, keybindings) landed on main while these PRs were open.",
+      "affected_prs": [162, 165],
+      "fix_applied": "Manual conflict resolution combining all feature sets"
+    },
+    "stale_branches": {
+      "description": "Remote branch conflicts from prior sessions led to creating -v2 suffix branches. Original PRs were left open.",
+      "affected_prs": [151, 161],
+      "fix_applied": "Closed with comments pointing to replacement PRs"
+    }
+  },
+
+  "suggestions": {
+    "formatter_consolidation": {
+      "priority": "high",
+      "problem": "Three formatters (black, isort, ruff format) in pre-commit hooks fight each other. isort reformats imports, then ruff format reformats them differently, requiring multiple cycles to converge.",
+      "recommendation": "Drop black and isort from .pre-commit-config.yaml. Ruff handles both formatting (ruff format) and import sorting (ruff check --select I --fix). This is already the CI gate, so aligning pre-commit with CI eliminates drift.",
+      "implementation": "1. Remove black and isort hooks from .pre-commit-config.yaml\n2. Add `select = ['I']` to ruff lint config in pyproject.toml (if not present)\n3. Keep ruff-format hook as the sole formatter\n4. Run `ruff format app/ && ruff check --select I --fix app/` once on main to baseline"
+    },
+    "format_main_baseline": {
+      "priority": "high",
+      "problem": "Every feature branch carries 20-40 unrelated formatting changes because main was never formatted with the current toolchain.",
+      "recommendation": "Land a single 'format entire codebase' commit on main. This was partially done via PR #163 (keybindings branch) but that commit only covered files as of that branch's state.",
+      "implementation": "1. Create branch format-codebase from main\n2. Run: ruff format app/ && ruff check --select I --fix app/\n3. Commit and merge to main\n4. All future feature branches will start clean"
+    },
+    "stale_pr_policy": {
+      "priority": "medium",
+      "problem": "When remote branch conflicts force creating -v2 branches, original PRs are left dangling.",
+      "recommendation": "Add to CLAUDE.md workflow: When creating a -v2 branch, immediately close the original PR with a comment linking to the new one."
+    },
+    "ci_format_step": {
+      "priority": "low",
+      "problem": "CI only checks formatting but doesn't auto-fix. Contributors must run formatters locally.",
+      "recommendation": "Consider adding a CI step that auto-formats and commits (via a bot) on PR branches, or at minimum, add a 'make format' target that runs the exact same checks as CI."
+    }
+  },
+
+  "claude_md_updates_needed": [
+    {
+      "section": "Autonomous Workflow > Work Loop",
+      "change": "Add step: 'Run ruff format --check app/ before pushing' — this is the CI gate, not just ruff check",
+      "reason": "ruff check (lint rules) and ruff format --check (formatting) are separate CI jobs. Current docs only mention ruff check."
+    },
+    {
+      "section": "Autonomous Workflow > Work Loop",
+      "change": "Add step: 'When creating -v2 branch due to remote conflict, close original PR with link to new one'",
+      "reason": "Prevents stale PR accumulation"
+    },
+    {
+      "section": "Testing & Linting",
+      "change": "Add: ruff format --check app/  # formatting (CI gate)",
+      "reason": "Formatting check is a separate CI job from lint"
+    },
+    {
+      "section": "New section: Formatting",
+      "change": "Document the canonical formatting command sequence: ruff format app/ && ruff check --select I --fix app/",
+      "reason": "Eliminates confusion about which formatters to run"
+    }
+  ],
+
+  "permissions_and_commands_needed": {
+    "new_makefile_targets": [
+      {
+        "target": "format",
+        "command": "ruff format app/ && ruff check --select I --fix app/",
+        "reason": "Single command to match CI formatting expectations"
+      },
+      {
+        "target": "format-check",
+        "command": "ruff format --check app/ && ruff check --select I app/",
+        "reason": "Dry-run to verify formatting without modifying files (mirrors CI)"
+      }
+    ],
+    "pre_commit_config_changes": [
+      {
+        "action": "remove",
+        "hook": "black",
+        "reason": "Redundant with ruff format, causes formatter conflicts"
+      },
+      {
+        "action": "remove",
+        "hook": "isort",
+        "reason": "Redundant with ruff's I rules, causes import style conflicts with ruff format"
+      }
+    ],
+    "folder_permissions": "No new folder permissions needed. All work was within existing app/ tree.",
+    "additional_tools": "No new CLI tools needed. Existing ruff, gh, git, pytest toolchain is sufficient."
+  },
+
+  "metrics": {
+    "prs_closed": 2,
+    "prs_fixed": 3,
+    "merge_conflicts_resolved": 8,
+    "force_pushes": 4,
+    "formatter_round_trips": 6,
+    "total_tests_verified": "652-698 across branches"
+  }
+}
