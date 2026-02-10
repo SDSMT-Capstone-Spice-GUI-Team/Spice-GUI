@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 from simulation.fft_analysis import analyze_signal_spectrum
 
 from .format_utils import format_value, parse_value
+from .measurement_cursors import MeasurementCursors, format_readout_html
 from .styles import SCROLL_LOAD_COUNT
 
 matplotlib.use("QtAgg")
@@ -143,6 +144,29 @@ class WaveformDialog(QDialog):
         fft_button = QPushButton("Analyze FFT")
         fft_button.clicked.connect(self._show_fft_analysis)
         right_layout.addWidget(fft_button)
+
+        # --- Measurement Cursors ---
+        cursor_group = QGroupBox("Measurement Cursors")
+        cursor_layout = QVBoxLayout(cursor_group)
+        self.cursor_checkbox = QCheckBox("Enable Cursors")
+        self.cursor_checkbox.setToolTip(
+            "Left-click to place Cursor A, right-click for Cursor B. "
+            "Drag an existing cursor to move it."
+        )
+        cursor_layout.addWidget(self.cursor_checkbox)
+        self.cursor_readout = QLabel("")
+        self.cursor_readout.setWordWrap(True)
+        cursor_layout.addWidget(self.cursor_readout)
+        right_layout.addWidget(cursor_group)
+
+        # Create cursor manager
+        self._cursors = MeasurementCursors(self.canvas, self.canvas.axes)
+        self._cursors.set_readout_callback(
+            lambda data: self.cursor_readout.setText(
+                format_readout_html(data, x_label="Time", y_label="Voltage")
+            )
+        )
+        self.cursor_checkbox.toggled.connect(self._cursors.set_enabled)
 
         # Data Table
         right_layout.addWidget(QLabel("Simulation Data"))
@@ -312,6 +336,9 @@ class WaveformDialog(QDialog):
     def update_view(self):
         """Resets and populates the table and plot with the current view_data."""
         self.plot_data(self.view_data)
+        # Restore cursor lines after axes.clear() + replot
+        if hasattr(self, "_cursors"):
+            self._cursors.refresh()
         self.table.clear()
         self.table.setRowCount(0)
         self.rows_loaded = 0
@@ -470,6 +497,7 @@ class WaveformDialog(QDialog):
 
     def closeEvent(self, event):
         """Clean up matplotlib figure to prevent memory leaks."""
+        self._cursors.disconnect()
         plt.close(self.canvas.figure)
         super().closeEvent(event)
 

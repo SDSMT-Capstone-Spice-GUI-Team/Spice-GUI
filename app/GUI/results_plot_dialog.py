@@ -2,6 +2,7 @@
 results_plot_dialog.py — Matplotlib-based dialogs for DC Sweep and AC Sweep results.
 
 Uses the same FigureCanvasQTAgg embedding pattern as waveform_dialog.py.
+Includes measurement cursors for precise signal measurement.
 """
 
 import logging
@@ -10,7 +11,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt6.QtWidgets import QDialog, QVBoxLayout
+from PyQt6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QLabel, QVBoxLayout
+
+from .measurement_cursors import MeasurementCursors, format_readout_html
 
 matplotlib.use("QtAgg")
 
@@ -23,7 +26,7 @@ class DCSweepPlotDialog(QDialog):
     def __init__(self, data, parent=None):
         super().__init__(parent)
         self.setWindowTitle("DC Sweep Results")
-        self.setMinimumSize(800, 500)
+        self.setMinimumSize(800, 550)
 
         layout = QVBoxLayout(self)
 
@@ -34,6 +37,26 @@ class DCSweepPlotDialog(QDialog):
         ax = fig.add_subplot(111)
         self._plot_dc_sweep(ax, data)
         fig.tight_layout()
+
+        # Cursor controls
+        cursor_bar = QHBoxLayout()
+        self._cursor_cb = QCheckBox("Enable Cursors")
+        self._cursor_cb.setToolTip(
+            "Left-click to place Cursor A, right-click for Cursor B"
+        )
+        cursor_bar.addWidget(self._cursor_cb)
+        self._cursor_readout = QLabel("")
+        self._cursor_readout.setWordWrap(True)
+        cursor_bar.addWidget(self._cursor_readout, 1)
+        layout.addLayout(cursor_bar)
+
+        self._cursors = MeasurementCursors(self._canvas, ax)
+        self._cursors.set_readout_callback(
+            lambda d: self._cursor_readout.setText(
+                format_readout_html(d, x_label="Sweep", y_label="Voltage")
+            )
+        )
+        self._cursor_cb.toggled.connect(self._cursors.set_enabled)
 
     def _plot_dc_sweep(self, ax, data):
         headers = data.get("headers", [])
@@ -58,6 +81,7 @@ class DCSweepPlotDialog(QDialog):
         ax.grid(True, alpha=0.3)
 
     def closeEvent(self, event):
+        self._cursors.disconnect()
         plt.close(self._canvas.figure)
         super().closeEvent(event)
 
@@ -68,7 +92,7 @@ class ACSweepPlotDialog(QDialog):
     def __init__(self, data, parent=None):
         super().__init__(parent)
         self.setWindowTitle("AC Sweep Results — Bode Plot")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(800, 650)
 
         layout = QVBoxLayout(self)
 
@@ -80,6 +104,26 @@ class ACSweepPlotDialog(QDialog):
         ax_phase = fig.add_subplot(212, sharex=ax_mag)
         self._plot_bode(ax_mag, ax_phase, data)
         fig.tight_layout()
+
+        # Cursor controls — synchronized across both subplots
+        cursor_bar = QHBoxLayout()
+        self._cursor_cb = QCheckBox("Enable Cursors")
+        self._cursor_cb.setToolTip(
+            "Left-click to place Cursor A, right-click for Cursor B"
+        )
+        cursor_bar.addWidget(self._cursor_cb)
+        self._cursor_readout = QLabel("")
+        self._cursor_readout.setWordWrap(True)
+        cursor_bar.addWidget(self._cursor_readout, 1)
+        layout.addLayout(cursor_bar)
+
+        self._cursors = MeasurementCursors(self._canvas, [ax_mag, ax_phase])
+        self._cursors.set_readout_callback(
+            lambda d: self._cursor_readout.setText(
+                format_readout_html(d, x_label="Freq", y_label="Mag/Phase")
+            )
+        )
+        self._cursor_cb.toggled.connect(self._cursors.set_enabled)
 
     def _plot_bode(self, ax_mag, ax_phase, data):
         frequencies = data.get("frequencies", [])
@@ -114,5 +158,6 @@ class ACSweepPlotDialog(QDialog):
         ax_phase.grid(True, which="both", alpha=0.3)
 
     def closeEvent(self, event):
+        self._cursors.disconnect()
         plt.close(self._canvas.figure)
         super().closeEvent(event)
