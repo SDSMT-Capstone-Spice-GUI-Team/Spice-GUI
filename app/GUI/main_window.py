@@ -9,7 +9,7 @@ from controllers.circuit_controller import CircuitController
 from controllers.file_controller import FileController
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
-from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtCore import QSettings, Qt, QTimer
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
     QDialog,
@@ -76,7 +76,13 @@ class MainWindow(QMainWindow):
 
         # Restore state
         self._restore_settings()
+        self._check_auto_save_recovery()
         self._load_last_session()
+
+        # Auto-save timer
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.timeout.connect(self._auto_save)
+        self._start_autosave_timer()
 
     def _connect_signals(self):
         """Connect signals between UI components"""
@@ -541,6 +547,7 @@ class MainWindow(QMainWindow):
             try:
                 # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(self.file_ctrl.current_file)
+                self.file_ctrl.clear_auto_save()
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(f"Saved to {self.file_ctrl.current_file}", 3000)
@@ -556,6 +563,7 @@ class MainWindow(QMainWindow):
             try:
                 # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(filename)
+                self.file_ctrl.clear_auto_save()
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 QMessageBox.information(self, "Success", "Circuit saved successfully!")
             except (OSError, TypeError) as e:
@@ -1213,6 +1221,11 @@ class MainWindow(QMainWindow):
         settings.setValue("view/show_labels", self.canvas.show_component_labels)
         settings.setValue("view/show_values", self.canvas.show_component_values)
         settings.setValue("view/show_nodes", self.canvas.show_node_labels)
+        # Preserve auto-save defaults if not yet set
+        if settings.value("autosave/interval") is None:
+            settings.setValue("autosave/interval", 60)
+        if settings.value("autosave/enabled") is None:
+            settings.setValue("autosave/enabled", True)
 
     def _restore_settings(self):
         """Restore user preferences from QSettings"""
@@ -1264,4 +1277,47 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Save settings before closing"""
         self._save_settings()
+        self.file_ctrl.clear_auto_save()
         super().closeEvent(event)
+
+    # Auto-save and crash recovery
+
+    def _start_autosave_timer(self):
+        """Start or restart the auto-save timer using the configured interval."""
+        settings = QSettings("SDSMT", "SDM Spice")
+        interval = int(settings.value("autosave/interval", 60))
+        enabled = settings.value("autosave/enabled", True)
+        if enabled == "false" or enabled is False:
+            self._autosave_timer.stop()
+            return
+        self._autosave_timer.start(interval * 1000)
+
+    def _auto_save(self):
+        """Periodic auto-save callback — saves to recovery file."""
+        if not self.model.components:
+            return
+        self.file_ctrl.auto_save()
+
+    def _check_auto_save_recovery(self):
+        """On startup, check for auto-save file and offer recovery."""
+        if not self.file_ctrl.has_auto_save():
+            return
+        reply = QMessageBox.question(
+            self,
+            "Recover Unsaved Changes",
+            "An auto-save recovery file was found.\n\n"
+            "This may contain unsaved work from a previous session "
+            "that was not closed cleanly.\n\n"
+            "Would you like to recover it?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            source = self.file_ctrl.load_auto_save()
+            if source is not None:
+                title = f"Circuit Design GUI - {source}" if source else "Circuit Design GUI - (Recovered)"
+                self.setWindowTitle(title)
+                self._sync_analysis_menu()
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage("Auto-save recovered", 5000)
+        self.file_ctrl.clear_auto_save()
