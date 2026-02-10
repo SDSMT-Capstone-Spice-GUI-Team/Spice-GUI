@@ -58,6 +58,8 @@ gh project item-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json --lim
 ```
 Parse the JSON to find: project ID, Status field ID, Hours field ID, and the option IDs for each status (Backlog, Ready, In progress, Blocked, In review, Done).
 
+**Caching**: IDs may be cached in MEMORY.md for speed. If a board mutation fails, re-query all IDs before retrying.
+
 ### Board Commands
 ```bash
 # Move item to a status:
@@ -74,6 +76,9 @@ gh api graphql -f query='mutation {
 
 # Add issue to board:
 gh project item-add 2 --owner SDSMT-Capstone-Spice-GUI-Team --url <ISSUE_URL>
+
+# View issue details (use --json to avoid Projects Classic deprecation errors):
+gh issue view <N> --repo SDSMT-Capstone-Spice-GUI-Team/Spice-GUI --json title,body,labels,comments
 ```
 
 ## Autonomous Workflow
@@ -83,18 +88,19 @@ Claude Code is authorized to work **fully autonomously** on Ready items.
 ### Work Loop
 1. Discover board IDs (see above)
 2. Query board for next **Ready** item (prefer higher priority, lower issue number)
-3. Move issue to **In Progress**
-4. Create branch `issue-<N>-short-description` from `main`
-5. Write a brief plan, assess complexity
-6. Implement the change
-7. Run `python -m pytest` — all tests must pass
-8. Run `ruff check app/` — fix any lint errors
-9. Commit with descriptive message, push branch to remote
-10. Create PR targeting `main` (or push directly for small fixes)
-11. Close the GitHub issue (reference the commit/PR)
-12. Move issue to **In Review** on the board
-13. Log hours: comment `⏱️ Xh - description` on issue, update Hours field
-14. Pick next Ready item → repeat from step 2
+3. **Triage**: Check issue comments and state (`gh issue view <N> --json state,comments`). If already resolved or closed, move to In Review/Done and skip to next Ready item.
+4. Move issue to **In Progress**
+5. Create branch `issue-<N>-short-description` from `main`
+6. Write a brief plan, assess complexity
+7. Implement the change
+8. Run `python -m pytest` — all tests must pass
+9. Run `ruff check app/` — fix any lint errors
+10. Commit with descriptive message, push branch to remote
+11. Create PR targeting `main` (or push directly for small fixes)
+12. Close the GitHub issue (reference the commit/PR)
+13. Move issue to **In Review** on the board
+14. Log hours: comment `⏱️ Xh - description` on issue, update Hours field
+15. Pick next Ready item → repeat from step 2
 
 ### Hours Estimates
 - Small fix/tweak: **0.5h**
@@ -111,6 +117,7 @@ Claude Code is authorized to work **fully autonomously** on Ready items.
 | Hard to test (UI, ngspice) | Implement, commit, flag manual testing needed in issue comment |
 | Vague requirements | Make judgment call, note assumptions in commit/issue comment |
 | Conflicting issues | Move to Blocked with explanation, pick next Ready item |
+| Stale Ready item (already fixed/closed) | Verify via issue comments/state, move to In Review/Done, pick next Ready item |
 
 ### Agent Feedback (required on every issue/PR)
 

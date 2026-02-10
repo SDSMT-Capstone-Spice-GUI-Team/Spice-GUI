@@ -35,7 +35,9 @@
       "Bash(ls:*)",
       "Bash(rm:*)",
       "Bash(wc:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(git rm:*)",
+      "Bash(source:*)"
     ]
   }
 }
