@@ -142,6 +142,31 @@ class CircuitController:
 
     # --- Wire operations ---
 
+    def has_duplicate_wire(
+        self,
+        start_comp_id: str,
+        start_term: int,
+        end_comp_id: str,
+        end_term: int,
+    ) -> bool:
+        """Check if a wire already exists between the given terminal pair."""
+        for wire in self.model.wires:
+            same_fwd = (
+                wire.start_component_id == start_comp_id
+                and wire.start_terminal == start_term
+                and wire.end_component_id == end_comp_id
+                and wire.end_terminal == end_term
+            )
+            same_rev = (
+                wire.start_component_id == end_comp_id
+                and wire.start_terminal == end_term
+                and wire.end_component_id == start_comp_id
+                and wire.end_terminal == start_term
+            )
+            if same_fwd or same_rev:
+                return True
+        return False
+
     def add_wire(
         self,
         start_comp_id: str,
@@ -149,13 +174,23 @@ class CircuitController:
         end_comp_id: str,
         end_term: int,
         waypoints: Optional[list[tuple[float, float]]] = None,
-    ) -> WireData:
+    ) -> Optional[WireData]:
         """
         Create and add a new wire connection.
 
         Returns:
-            The newly created WireData.
+            The newly created WireData, or None if a duplicate wire exists.
         """
+        if self.has_duplicate_wire(start_comp_id, start_term, end_comp_id, end_term):
+            logger.info(
+                "Duplicate wire rejected: %s[%s] -> %s[%s]",
+                start_comp_id,
+                start_term,
+                end_comp_id,
+                end_term,
+            )
+            return None
+
         wire = WireData(
             start_component_id=start_comp_id,
             start_terminal=start_term,

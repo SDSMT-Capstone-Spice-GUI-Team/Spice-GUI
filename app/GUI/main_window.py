@@ -33,6 +33,8 @@ from .circuit_canvas import CircuitCanvasView
 from .circuit_statistics_panel import CircuitStatisticsPanel
 from .component_palette import ComponentPalette
 from .keybindings import KeybindingsRegistry
+from .monte_carlo_dialog import MonteCarloDialog
+from .monte_carlo_results_dialog import MonteCarloResultsDialog
 from .parameter_sweep_dialog import ParameterSweepDialog
 from .parameter_sweep_plot_dialog import ParameterSweepPlotDialog
 from .properties_panel import PropertiesPanel
@@ -518,6 +520,12 @@ class MainWindow(QMainWindow):
         sweep_action.triggered.connect(self.set_analysis_parameter_sweep)
         analysis_menu.addAction(sweep_action)
 
+        mc_action = QAction("&Monte Carlo...", self)
+        mc_action.setCheckable(True)
+        mc_action.setToolTip("Run Monte Carlo tolerance analysis with randomized component values")
+        mc_action.triggered.connect(self.set_analysis_monte_carlo)
+        analysis_menu.addAction(mc_action)
+
         # Create action group for mutually exclusive analysis types
         self.analysis_group = QActionGroup(self)
         self.analysis_group.addAction(op_action)
@@ -526,6 +534,7 @@ class MainWindow(QMainWindow):
         self.analysis_group.addAction(tran_action)
         self.analysis_group.addAction(temp_action)
         self.analysis_group.addAction(sweep_action)
+        self.analysis_group.addAction(mc_action)
 
         self.op_action = op_action
         self.dc_action = dc_action
@@ -810,6 +819,8 @@ class MainWindow(QMainWindow):
         try:
             if self.model.analysis_type == "Parameter Sweep":
                 result = self._run_parameter_sweep()
+            elif self.model.analysis_type == "Monte Carlo":
+                result = self._run_monte_carlo()
             else:
                 # Phase 5: No sync needed - model always up to date
                 result = self.simulation_ctrl.run_simulation()
@@ -857,6 +868,36 @@ class MainWindow(QMainWindow):
 
             result.data["sweep_labels"] = [format_value(v).strip() for v in result.data.get("sweep_values", [])]
 
+        return result
+
+    def _run_monte_carlo(self):
+        """Run Monte Carlo analysis with a progress dialog."""
+        mc_config = self.model.analysis_params
+        num_runs = mc_config.get("num_runs", 20)
+
+        progress = QProgressDialog(
+            "Running Monte Carlo analysis...",
+            "Cancel",
+            0,
+            num_runs,
+            self,
+        )
+        progress.setWindowTitle("Monte Carlo")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+
+        def on_progress(step, total):
+            progress.setValue(step)
+            progress.setLabelText(f"Running simulation {step + 1} of {total}...")
+            QApplication.processEvents()
+            return not progress.wasCanceled()
+
+        result = self.simulation_ctrl.run_monte_carlo(
+            mc_config,
+            progress_callback=on_progress,
+        )
+        progress.setValue(num_runs)
+        progress.close()
         return result
 
     def _display_simulation_results(self, result):
@@ -1076,6 +1117,39 @@ class MainWindow(QMainWindow):
                 self.results_text.append("\nNo parameter sweep data.")
             self.canvas.clear_op_results()
             self.properties_panel.clear_simulation_results()
+
+        elif self.model.analysis_type == "Monte Carlo":
+            mc_data = result.data if result.data else None
+            if mc_data:
+                self._last_results = mc_data
+                base_type = mc_data.get("base_analysis_type", "?")
+                step_results = mc_data.get("results", [])
+                ok_count = sum(1 for r in step_results if r.success)
+
+                self.results_text.append("\nMONTE CARLO RESULTS:")
+                self.results_text.append("-" * 40)
+                self.results_text.append(f"  Base analysis:  {base_type}")
+                self.results_text.append(f"  Runs:           {ok_count}/{len(step_results)} succeeded")
+                tolerances = mc_data.get("tolerances", {})
+                for cid, tol in sorted(tolerances.items()):
+                    self.results_text.append(
+                        f"  {cid}: \u00b1{tol['tolerance_pct']}% ({tol.get('distribution', 'gaussian')})"
+                    )
+                if mc_data.get("cancelled"):
+                    self.results_text.append("  (analysis was cancelled)")
+                self.results_text.append("-" * 40)
+
+                if result.errors:
+                    self.results_text.append("\nRun errors:")
+                    for err in result.errors[:10]:
+                        self.results_text.append(f"  - {err}")
+
+                if ok_count > 0:
+                    self.results_text.append("\nResults opened in a new window.")
+                    self._show_plot_dialog(MonteCarloResultsDialog(mc_data, self))
+            else:
+                self.results_text.append("\nNo Monte Carlo data.")
+            self.canvas.clear_op_results()
 
         self.results_text.append("=" * 70)
 
@@ -1315,6 +1389,40 @@ class MainWindow(QMainWindow):
         else:
             self.op_action.setChecked(True)
 
+    def set_analysis_monte_carlo(self):
+        """Set analysis type to Monte Carlo with configuration dialog."""
+        if not self.model.components:
+            QMessageBox.warning(
+                self,
+                "No Components",
+                "Add components to the circuit before configuring Monte Carlo analysis.",
+            )
+            self.op_action.setChecked(True)
+            return
+
+        dialog = MonteCarloDialog(self.model.components, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.simulation_ctrl.set_analysis("Monte Carlo", params)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(
+                        f"Analysis: Monte Carlo ({params['num_runs']} runs, "
+                        f"base: {params['base_analysis_type']}, "
+                        f"{len(params['tolerances'])} components varied)",
+                        3000,
+                    )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Parameters",
+                    "Set tolerance > 0% for at least one component.",
+                )
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
+
     def _sync_analysis_menu(self):
         """Update Analysis menu checkboxes to match model state."""
         analysis_type = self.model.analysis_type
@@ -1349,32 +1457,31 @@ class MainWindow(QMainWindow):
 
         # Apply global widget stylesheet for dark mode
         if is_dark:
-            self.setStyleSheet(
-                """
-                QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }
-                QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }
-                QMenuBar::item:selected { background-color: #3D3D3D; }
-                QMenu { background-color: #2D2D2D; color: #D4D4D4; }
-                QMenu::item:selected { background-color: #3D3D3D; }
-                QLabel { color: #D4D4D4; }
-                QPushButton {
-                    background-color: #3D3D3D; color: #D4D4D4;
-                    border: 1px solid #555555; padding: 4px 12px; border-radius: 3px;
-                }
-                QPushButton:hover { background-color: #4D4D4D; }
-                QTextEdit, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-                    background-color: #2D2D2D; color: #D4D4D4;
-                    border: 1px solid #555555;
-                }
-                QSplitter::handle { background-color: #3D3D3D; }
-                QScrollBar { background-color: #2D2D2D; }
-                QScrollBar::handle { background-color: #555555; }
-                QGroupBox { color: #D4D4D4; border: 1px solid #555555; }
-                QTableWidget { background-color: #2D2D2D; color: #D4D4D4;
-                    gridline-color: #555555; }
-                QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }
-            """
+            dark_stylesheet = (
+                "QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }"
+                " QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }"
+                " QMenuBar::item:selected { background-color: #3D3D3D; }"
+                " QMenu { background-color: #2D2D2D; color: #D4D4D4; }"
+                " QMenu::item:selected { background-color: #3D3D3D; }"
+                " QLabel { color: #D4D4D4; }"
+                " QPushButton {"
+                "   background-color: #3D3D3D; color: #D4D4D4;"
+                "   border: 1px solid #555555; padding: 4px 12px; border-radius: 3px;"
+                " }"
+                " QPushButton:hover { background-color: #4D4D4D; }"
+                " QTextEdit, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {"
+                "   background-color: #2D2D2D; color: #D4D4D4;"
+                "   border: 1px solid #555555;"
+                " }"
+                " QSplitter::handle { background-color: #3D3D3D; }"
+                " QScrollBar { background-color: #2D2D2D; }"
+                " QScrollBar::handle { background-color: #555555; }"
+                " QGroupBox { color: #D4D4D4; border: 1px solid #555555; }"
+                " QTableWidget { background-color: #2D2D2D; color: #D4D4D4;"
+                "   gridline-color: #555555; }"
+                " QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }"
             )
+            self.setStyleSheet(dark_stylesheet)
         else:
             self.setStyleSheet("")
 

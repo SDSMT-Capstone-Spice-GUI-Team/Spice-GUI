@@ -182,6 +182,67 @@ class TestWireOperations:
         assert recorded[-1][0] == "wire_routed"
 
 
+class TestDuplicateWirePrevention:
+    """Tests for duplicate wire detection and prevention."""
+
+    def test_has_duplicate_wire_false_when_no_wires(self, controller):
+        """No duplicate when no wires exist."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        assert controller.has_duplicate_wire("R1", 0, "R2", 0) is False
+
+    def test_has_duplicate_wire_true_for_exact_match(self, controller):
+        """Detect duplicate when same terminal pair already connected."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 0, "R2", 0)
+        assert controller.has_duplicate_wire("R1", 0, "R2", 0) is True
+
+    def test_has_duplicate_wire_true_for_reverse_direction(self, controller):
+        """Detect duplicate even when terminals are specified in reverse order."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 0, "R2", 1)
+        assert controller.has_duplicate_wire("R2", 1, "R1", 0) is True
+
+    def test_different_terminal_not_duplicate(self, controller):
+        """Different terminal on same component is NOT a duplicate."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 0, "R2", 0)
+        assert controller.has_duplicate_wire("R1", 0, "R2", 1) is False
+
+    def test_add_wire_returns_none_for_duplicate(self, controller):
+        """add_wire should return None and not add a duplicate."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        wire1 = controller.add_wire("R1", 0, "R2", 0)
+        assert wire1 is not None
+        wire2 = controller.add_wire("R1", 0, "R2", 0)
+        assert wire2 is None
+        assert len(controller.model.wires) == 1
+
+    def test_add_wire_returns_none_for_reverse_duplicate(self, controller):
+        """add_wire should reject reverse-direction duplicate."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 0, "R2", 1)
+        wire2 = controller.add_wire("R2", 1, "R1", 0)
+        assert wire2 is None
+        assert len(controller.model.wires) == 1
+
+    def test_multi_wire_terminal_allowed(self, controller):
+        """Multiple wires from same terminal to different targets are allowed."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_component("Resistor", (200.0, 0.0))
+        wire1 = controller.add_wire("R1", 0, "R2", 0)
+        wire2 = controller.add_wire("R1", 0, "R3", 0)
+        assert wire1 is not None
+        assert wire2 is not None
+        assert len(controller.model.wires) == 2
+
+
 class TestCircuitOperations:
     def test_clear_circuit(self, controller, events):
         recorded, callback = events
