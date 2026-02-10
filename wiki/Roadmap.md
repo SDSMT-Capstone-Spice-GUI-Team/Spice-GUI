@@ -17,18 +17,32 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 **Features Implemented:**
 - [x] Circuit schematic editor with drag-and-drop
 - [x] Grid-aligned layout (10px snap) - [ADR 008](../Doc/decisions/008-grid-aligned-layout-10px.md)
-- [x] Component library (R, L, C, V, I, Diode, BJT, MOSFET, Ground, Op-Amp)
+- [x] 20+ component library (R, L, C, V, I, Diode, LED, Zener, BJT NPN/PNP, MOSFET NMOS/PMOS, dependent sources, VC switch, Ground, Op-Amp)
 - [x] Intelligent wire routing with A*/IDA*/Dijkstra pathfinding
 - [x] Simulation engine integration (ngspice) - [ADR 004](../Doc/decisions/004-ngspice-external-simulation-engine.md)
-- [x] All analysis types (DC OP, DC Sweep, AC, Transient)
-- [x] Waveform viewer with matplotlib
+- [x] All analysis types (DC OP, DC Sweep, AC, Transient, Temperature Sweep)
+- [x] Parameter sweep across component values
+- [x] FFT/harmonic analysis with THD calculation
+- [x] Waveform viewer with measurement cursors and result overlay
+- [x] Frequency response markers on Bode plots (AC Sweep)
+- [x] DC operating point annotations on schematic
+- [x] Interactive voltage/current probes
+- [x] Power dissipation per component
 - [x] File save/load (JSON format) - [ADR 003](../Doc/decisions/003-json-circuit-file-format.md)
+- [x] SPICE netlist import (.cir/.spice)
 - [x] Session persistence (auto-restore last circuit)
-- [x] Export capabilities (CSV, PNG, SVG, netlist)
-- [x] Component rotation and properties editing
+- [x] Auto-save with crash recovery
+- [x] Export capabilities (CSV, PNG, SVG, PDF, netlist)
+- [x] Component rotation, flip, and properties editing
+- [x] In-place component value editing
 - [x] Copy/paste/cut operations
+- [x] Multi-select with marquee selection
+- [x] Undo/redo system
 - [x] Circuit annotations and net labels
 - [x] Zoom controls
+- [x] Dark mode and theme switching
+- [x] Configurable keyboard shortcuts
+- [x] Recent files menu
 - [x] Comprehensive test suite (108+ tests) - [ADR 006](../Doc/decisions/006-pytest-github-actions-testing.md)
 
 **Architecture:**
@@ -203,21 +217,43 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 ## Current Status (as of Feb 2026)
 
 ### Recently Completed
+- ✅ Dark mode and theme switching
+- ✅ Parameter sweep across component values
+- ✅ Measurement cursors in waveform viewer
+- ✅ Configurable keyboard shortcuts
+- ✅ Auto-save and crash recovery
+- ✅ Overlay multiple simulation results
+- ✅ FFT/harmonic analysis for transient results
+- ✅ Temperature sweep analysis
+- ✅ Fourier/FFT analysis
+- ✅ SPICE netlist import (.cir/.spice)
+- ✅ DC operating point annotations on schematic
+- ✅ Interactive voltage/current probes
+- ✅ Frequency response markers on Bode plots
+- ✅ Power dissipation per component
+- ✅ Drag-and-drop from component palette
+- ✅ In-place component value editing
 - ✅ Circuit annotations and net labels
 - ✅ Copy/paste/cut for components
-- ✅ Image export (PNG/SVG)
-- ✅ Diodes, LEDs, BJTs, MOSFETs
+- ✅ Image/PDF export (PNG/SVG/PDF)
+- ✅ CSV export for simulation data
+- ✅ Diodes, LEDs, Zener diodes, BJTs, MOSFETs
 - ✅ Voltage-controlled switch
+- ✅ Dependent sources (VCVS, CCVS, VCCS, CCCS)
+- ✅ Multi-select with marquee selection
+- ✅ Component flip (horizontal/vertical)
+- ✅ Undo/redo system
+- ✅ Zoom controls
+- ✅ Recent files menu
 
 ### In Progress
+- Wire labels and net names
+- Monte Carlo analysis for component tolerance simulation
 - Documentation and examples
-- Performance optimization
-- Bug fixes and polish
 
 ### Next Up
-- Example circuit library
-- Getting started tutorials
-- User guide
+- Print preview and print schematic
+- Additional polish and bug fixes
 
 ---
 
@@ -253,4 +289,4 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 
 ---
 
-*Last Updated: 2026-02-08*
+*Last Updated: 2026-02-10*

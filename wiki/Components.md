@@ -163,7 +163,7 @@ Example: `EXP(0 5 0 1m 5m 1m)` - Exponential rise and fall
 | Symbol | OA |
 | Terminals | 5 |
 | Color | Yellow |
-| Status | Partial |
+| Status | Fully Functional |
 
 **Description:** An ideal operational amplifier with very high gain.
 
@@ -179,6 +179,188 @@ Example: `EXP(0 5 0 1m 5m 1m)` - Exponential rise and fall
 - Output resistance: 0.001 ohms
 
 **Note:** Currently uses an ideal model. Real op-amp models with bandwidth limitations and other non-idealities are planned for future releases.
+
+---
+
+### Dependent Sources
+
+#### VCVS — Voltage-Controlled Voltage Source (E)
+
+| Property | Value |
+|----------|-------|
+| Symbol | E |
+| Terminals | 4 |
+| Status | Fully Functional |
+
+**Description:** Output voltage is proportional to a controlling voltage elsewhere in the circuit.
+
+**SPICE Syntax:** `E<name> <n+> <n-> <nc+> <nc-> <gain>`
+
+---
+
+#### CCVS — Current-Controlled Voltage Source (H)
+
+| Property | Value |
+|----------|-------|
+| Symbol | H |
+| Terminals | 4 |
+| Status | Fully Functional |
+
+**Description:** Output voltage is proportional to a controlling current elsewhere in the circuit.
+
+**SPICE Syntax:** `H<name> <n+> <n-> <vcontrol> <gain>`
+
+---
+
+#### VCCS — Voltage-Controlled Current Source (G)
+
+| Property | Value |
+|----------|-------|
+| Symbol | G |
+| Terminals | 4 |
+| Status | Fully Functional |
+
+**Description:** Output current is proportional to a controlling voltage elsewhere in the circuit.
+
+**SPICE Syntax:** `G<name> <n+> <n-> <nc+> <nc-> <gain>`
+
+---
+
+#### CCCS — Current-Controlled Current Source (F)
+
+| Property | Value |
+|----------|-------|
+| Symbol | F |
+| Terminals | 4 |
+| Status | Fully Functional |
+
+**Description:** Output current is proportional to a controlling current elsewhere in the circuit.
+
+**SPICE Syntax:** `F<name> <n+> <n-> <vcontrol> <gain>`
+
+---
+
+### Semiconductors
+
+#### Diode (D)
+
+| Property | Value |
+|----------|-------|
+| Symbol | D |
+| Terminals | 2 |
+| Status | Fully Functional |
+
+**Description:** A PN junction diode that allows current to flow in one direction.
+
+**SPICE Syntax:** `D<name> <anode> <cathode> <model>`
+
+---
+
+#### LED — Light-Emitting Diode (D)
+
+| Property | Value |
+|----------|-------|
+| Symbol | D |
+| Terminals | 2 |
+| Status | Fully Functional |
+
+**Description:** A diode that emits light when forward-biased.
+
+**SPICE Syntax:** `D<name> <anode> <cathode> <model>`
+
+---
+
+#### Zener Diode (D)
+
+| Property | Value |
+|----------|-------|
+| Symbol | D |
+| Terminals | 2 |
+| Status | Fully Functional |
+
+**Description:** A diode designed to operate in reverse breakdown, used for voltage regulation.
+
+**SPICE Syntax:** `D<name> <anode> <cathode> <model>`
+
+---
+
+#### BJT NPN (Q)
+
+| Property | Value |
+|----------|-------|
+| Symbol | Q |
+| Terminals | 3 |
+| Status | Fully Functional |
+
+**Description:** NPN bipolar junction transistor. Current flows from collector to emitter when base current is applied.
+
+**Terminals:** Base, Collector, Emitter
+
+**SPICE Syntax:** `Q<name> <collector> <base> <emitter> <model>`
+
+---
+
+#### BJT PNP (Q)
+
+| Property | Value |
+|----------|-------|
+| Symbol | Q |
+| Terminals | 3 |
+| Status | Fully Functional |
+
+**Description:** PNP bipolar junction transistor. Current flows from emitter to collector when base current is sunk.
+
+**Terminals:** Base, Collector, Emitter
+
+**SPICE Syntax:** `Q<name> <collector> <base> <emitter> <model>`
+
+---
+
+#### MOSFET NMOS (M)
+
+| Property | Value |
+|----------|-------|
+| Symbol | M |
+| Terminals | 3 |
+| Status | Fully Functional |
+
+**Description:** N-channel metal-oxide-semiconductor field-effect transistor.
+
+**Terminals:** Gate, Drain, Source
+
+**SPICE Syntax:** `M<name> <drain> <gate> <source> <body> <model>`
+
+---
+
+#### MOSFET PMOS (M)
+
+| Property | Value |
+|----------|-------|
+| Symbol | M |
+| Terminals | 3 |
+| Status | Fully Functional |
+
+**Description:** P-channel metal-oxide-semiconductor field-effect transistor.
+
+**Terminals:** Gate, Drain, Source
+
+**SPICE Syntax:** `M<name> <drain> <gate> <source> <body> <model>`
+
+---
+
+### Switches
+
+#### Voltage-Controlled Switch (S)
+
+| Property | Value |
+|----------|-------|
+| Symbol | S |
+| Terminals | 4 |
+| Status | Fully Functional |
+
+**Description:** A switch that opens or closes based on a controlling voltage.
+
+**SPICE Syntax:** `S<name> <n+> <n-> <nc+> <nc-> <model>`
 
 ---
 
@@ -209,11 +391,6 @@ SDM Spice supports standard engineering notation:
 
 The following components are planned for future releases:
 
-- **Diode** - PN junction diode
-- **BJT** - Bipolar junction transistor (NPN, PNP)
-- **MOSFET** - Metal-oxide semiconductor FET (NMOS, PMOS)
-- **Zener Diode** - Voltage reference diode
-- **LED** - Light-emitting diode
 - **Transformer** - Coupled inductors
 
 See the [GitHub Issues](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/issues) for component requests and status.
