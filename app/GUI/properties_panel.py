@@ -3,7 +3,7 @@ from models.component import DEFAULT_VALUES
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QFormLayout, QGroupBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
-from .format_utils import validate_component_value
+from .format_utils import format_value, validate_component_value
 from .styles import theme_manager
 
 
@@ -75,7 +75,32 @@ class PropertiesPanel(QWidget):
         self.waveform_button.setVisible(False)
         layout.addWidget(self.waveform_button)
 
+        # Simulation Results section
+        self.results_group = QGroupBox("Simulation Results")
+        self.results_layout = QFormLayout(self.results_group)
+        self.results_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+        self.power_label = QLabel("-")
+        self.power_label.setToolTip("Power dissipated by this component (P = V\u00b2/R or P = VI)")
+        self.results_layout.addRow("Power:", self.power_label)
+
+        self.voltage_label = QLabel("-")
+        self.voltage_label.setToolTip("Voltage across the component terminals")
+        self.results_layout.addRow("V across:", self.voltage_label)
+
+        self.total_power_label = QLabel("-")
+        self.total_power_label.setToolTip("Total power dissipated by all components in the circuit")
+        self.results_layout.addRow("Total P:", self.total_power_label)
+
+        self.results_group.setVisible(False)
+        layout.addWidget(self.results_group)
+
         layout.addStretch()
+
+        # Simulation results storage
+        self._power_data = {}  # component_id -> power (watts)
+        self._voltage_data = {}  # component_id -> voltage across (volts)
+        self._total_power = 0.0
 
         # Initially show "no selection" state
         self.show_no_selection()
@@ -91,6 +116,7 @@ class PropertiesPanel(QWidget):
         self.apply_button.setEnabled(False)
         self.error_label.setVisible(False)
         self.waveform_button.setVisible(False)
+        self.results_group.setVisible(False)
         self.current_component = None
 
     def show_multi_selection(self, count):
@@ -135,6 +161,9 @@ class PropertiesPanel(QWidget):
             self.waveform_button.setVisible(False)
 
         self.value_input.blockSignals(False)
+
+        # Show simulation results if available
+        self._update_results_display()
 
     def on_value_changed(self):
         """Handle value input changes"""
@@ -191,3 +220,50 @@ class PropertiesPanel(QWidget):
 
             # Emit property changed signal
             self.property_changed.emit(self.current_component.component_id, "waveform", (waveform_type, params))
+
+    def set_simulation_results(self, power_data, voltage_data=None, total_power=0.0):
+        """Store simulation results for display when a component is selected.
+
+        Args:
+            power_data: dict mapping component_id to power in watts
+            voltage_data: optional dict mapping component_id to voltage across (volts)
+            total_power: total circuit power dissipation
+        """
+        self._power_data = power_data or {}
+        self._voltage_data = voltage_data or {}
+        self._total_power = total_power
+        self._update_results_display()
+
+    def clear_simulation_results(self):
+        """Clear stored simulation results."""
+        self._power_data = {}
+        self._voltage_data = {}
+        self._total_power = 0.0
+        self.results_group.setVisible(False)
+
+    def _update_results_display(self):
+        """Update the results section for the current component."""
+        if not self._power_data:
+            self.results_group.setVisible(False)
+            return
+
+        if not self.current_component:
+            self.results_group.setVisible(False)
+            return
+
+        cid = self.current_component.component_id
+        if cid in self._power_data:
+            p = self._power_data[cid]
+            sign = "(dissipating)" if p >= 0 else "(supplying)"
+            self.power_label.setText(f"{format_value(abs(p), 'W')} {sign}")
+        else:
+            self.power_label.setText("N/A")
+
+        if cid in self._voltage_data:
+            v = self._voltage_data[cid]
+            self.voltage_label.setText(format_value(v, "V"))
+        else:
+            self.voltage_label.setText("N/A")
+
+        self.total_power_label.setText(format_value(abs(self._total_power), "W"))
+        self.results_group.setVisible(True)

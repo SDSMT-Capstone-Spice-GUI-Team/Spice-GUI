@@ -894,9 +894,13 @@ class MainWindow(QMainWindow):
                         self.results_text.append(f"  {device:15s} : {current:12.6e} A")
                     self.results_text.append("-" * 40)
                 self.canvas.set_op_results(node_voltages, branch_currents)
+
+                # Calculate and display power dissipation
+                self._calculate_power(node_voltages)
             else:
                 self.results_text.append("\nNo node voltages found in output.")
                 self.canvas.clear_op_results()
+                self.properties_panel.clear_simulation_results()
 
         elif self.model.analysis_type == "DC Sweep":
             sweep_data = result.data if result.data else None
@@ -917,6 +921,7 @@ class MainWindow(QMainWindow):
             else:
                 self.results_text.append("\nDC Sweep data - see raw output below")
             self.canvas.clear_op_results()
+            self.properties_panel.clear_simulation_results()
 
         elif self.model.analysis_type == "AC Sweep":
             ac_data = result.data if result.data else None
@@ -935,6 +940,7 @@ class MainWindow(QMainWindow):
             else:
                 self.results_text.append("\nAC Sweep data - see raw output below")
             self.canvas.clear_op_results()
+            self.properties_panel.clear_simulation_results()
 
         elif self.model.analysis_type == "Transient":
             tran_data = result.data if result.data else None
@@ -980,6 +986,7 @@ class MainWindow(QMainWindow):
             else:
                 self.results_text.append("\nNo transient data found in output.")
             self.canvas.clear_op_results()
+            self.properties_panel.clear_simulation_results()
 
         elif self.model.analysis_type == "Temperature Sweep":
             temp_data = result.data if result.data else {}
@@ -1005,6 +1012,7 @@ class MainWindow(QMainWindow):
             else:
                 self.results_text.append("\nNo results found. Check raw output below.")
             self.canvas.clear_op_results()
+            self.properties_panel.clear_simulation_results()
 
         elif self.model.analysis_type == "Parameter Sweep":
             sweep_data = result.data if result.data else None
@@ -1038,11 +1046,53 @@ class MainWindow(QMainWindow):
             else:
                 self.results_text.append("\nNo parameter sweep data.")
             self.canvas.clear_op_results()
+            self.properties_panel.clear_simulation_results()
 
         self.results_text.append("=" * 70)
 
         if self._last_results is not None:
             self.btn_export_csv.setEnabled(True)
+
+    def _calculate_power(self, node_voltages):
+        """Calculate and display power dissipation for all components."""
+        from simulation.power_calculator import calculate_power, total_power
+
+        components = self.circuit_ctrl.model.components
+        nodes = self.circuit_ctrl.model.nodes
+        power_data = calculate_power(components, nodes, node_voltages)
+
+        if power_data:
+            # Build voltage-across data for properties panel
+            voltage_data = {}
+            # Build terminal-to-node lookup
+            term_to_label = {}
+            for node in nodes:
+                label = node.get_label()
+                for comp_id, term_idx in node.terminals:
+                    term_to_label[(comp_id, term_idx)] = label
+
+            for comp in components:
+                cid = comp.component_id
+                l0 = term_to_label.get((cid, 0))
+                l1 = term_to_label.get((cid, 1))
+                if l0 and l1 and l0 in node_voltages and l1 in node_voltages:
+                    voltage_data[cid] = node_voltages[l0] - node_voltages[l1]
+
+            tp = total_power(power_data)
+            self.properties_panel.set_simulation_results(power_data, voltage_data, tp)
+
+            # Show summary in results text
+            from GUI.format_utils import format_value
+
+            self.results_text.append("\nPOWER DISSIPATION:")
+            self.results_text.append("-" * 40)
+            for cid, p in sorted(power_data.items()):
+                sign = "dissipating" if p >= 0 else "supplying"
+                self.results_text.append(f"  {cid:15s} : {format_value(abs(p), 'W'):>12s} ({sign})")
+            self.results_text.append("-" * 40)
+            self.results_text.append(f"  {'Total':15s} : {format_value(abs(tp), 'W'):>12s}")
+        else:
+            self.properties_panel.clear_simulation_results()
 
     def _show_plot_dialog(self, dialog):
         """Show a plot dialog, closing any previous one."""
