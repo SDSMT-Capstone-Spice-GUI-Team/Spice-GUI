@@ -12,8 +12,8 @@ Prerequisites: Python 3.11+, `gh` CLI (authenticated), git.
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 # Linux/Mac: source .venv/bin/activate
-pip install -r app/requirements.txt
-pip install pytest ruff
+pip install -r app/requirements.txt -r app/requirements-dev.txt
+make install-hooks  # Install pre-commit hooks (black, isort, ruff)
 ```
 Or run `scripts/setup.sh` (Linux/Mac) or `scripts/setup.ps1` (Windows).
 
@@ -22,7 +22,8 @@ Or run `scripts/setup.sh` (Linux/Mac) or `scripts/setup.ps1` (Windows).
 python -m pytest              # run all tests (works from repo root)
 python -m pytest -v           # verbose
 python -m pytest app/tests/unit/test_foo.py  # single file
-ruff check app/               # lint
+make lint                     # full lint: ruff + black --check + isort --check
+make format                   # auto-format: black + isort + ruff --fix
 ```
 
 ## Project Structure
@@ -117,7 +118,10 @@ source .venv/bin/activate
 # Install all dependencies
 pip install -r app/requirements.txt -r app/requirements-dev.txt
 
-# Or use Makefile
+# Install pre-commit hooks
+make install-hooks
+
+# Or use Makefile for deps
 make install-dev
 ```
 
@@ -129,12 +133,12 @@ Claude Code is authorized to work **fully autonomously** on Ready items.
 
 Before starting implementation on any issue, verify:
 
-1. **Branch Verification**
+1. **Start from Fresh Main**
    ```bash
-   git branch  # Should show feature branch with *
+   git checkout main && git pull origin main
    ```
-   - ✅ On correct feature branch: `issue-<N>-description`
-   - ❌ On main/wrong branch: Create/switch to feature branch first
+   - Ensures feature branches are based on the latest code
+   - Run this at session start and before creating each new feature branch
 
 2. **Virtual Environment**
    ```bash
@@ -150,7 +154,14 @@ Before starting implementation on any issue, verify:
    - ✅ Tests can be collected: Proceed
    - ❌ Import errors/missing deps: Fix environment first
 
-4. **Clean Working Tree**
+4. **Pre-commit Hooks**
+   ```bash
+   ls .git/hooks/pre-commit  # Should exist
+   ```
+   - ✅ Hook file exists: Proceed
+   - ❌ Missing: Run `make install-hooks` (or `pre-commit install`)
+
+5. **Clean Working Tree**
    ```bash
    git status
    ```
@@ -167,29 +178,28 @@ Before starting implementation on any issue, verify:
 5. Create branch `issue-<N>-short-description` from `main`
 6. Write a brief plan, assess complexity
 7. Implement the change
-8. **Run tests and linting**
+8. **Format, test, and lint**
    ```bash
-   # Option A: Use Makefile (recommended - handles venv automatically)
+   # Auto-format first (black + isort + ruff --fix)
+   make format
+
+   # Then run tests and lint checks
    make test
    make lint
-
-   # Option B: Manual (if Makefile unavailable)
-   source .venv/bin/activate  # From project root
-   cd app
-   python -m pytest tests/ -v --tb=short
-   ruff check .
    ```
 
    **Requirements**:
+   - ✅ Code is formatted (`make format` produces no diff)
    - ✅ All new tests pass
    - ✅ All existing tests still pass (no regressions)
-   - ✅ Ruff linting passes (or use `make format` to auto-fix)
+   - ✅ Full lint passes: ruff + black --check + isort --check (`make lint`)
    - ✅ Test count increased by ≥5 for new features
 
    **Troubleshooting**:
    - `ModuleNotFoundError`: Venv not activated or deps not installed
    - `pytest: command not found`: Run `pip install -r app/requirements-dev.txt`
-   - Pre-2026-02-09: qtbot errors are known issue, ignore
+   - Formatting drift: Run `make format` then `make lint` to verify
+   - Pre-commit hook missing: Run `make install-hooks`
 
 9. Commit changes
 10. Fetch and rebase on latest `origin/main` — resolves merge conflicts from PRs merged mid-session
