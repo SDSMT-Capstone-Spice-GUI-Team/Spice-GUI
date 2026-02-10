@@ -17,6 +17,7 @@ from matplotlib.figure import Figure
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
+from .styles import theme_manager
 
 matplotlib.use("QtAgg")
 
@@ -24,6 +25,23 @@ logger = logging.getLogger(__name__)
 
 # Line styles cycled per dataset for visual distinction
 _LINE_STYLES = ["-", "--", "-.", ":"]
+
+
+def _apply_mpl_theme(fig):
+    """Apply the current application theme colors to a matplotlib figure."""
+    is_dark = theme_manager.current_theme.name == "Dark Theme"
+    if is_dark:
+        bg = "#1E1E1E"
+        fg = "#D4D4D4"
+        fig.patch.set_facecolor(bg)
+        for ax in fig.axes:
+            ax.set_facecolor("#2D2D2D")
+            ax.tick_params(colors=fg)
+            ax.xaxis.label.set_color(fg)
+            ax.yaxis.label.set_color(fg)
+            ax.title.set_color(fg)
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#555555")
 
 
 class DCSweepPlotDialog(QDialog):
@@ -136,6 +154,7 @@ class DCSweepPlotDialog(QDialog):
             legend = self._ax.legend(loc="best", fontsize="small")
             self._setup_legend_toggle(legend)
 
+        _apply_mpl_theme(self._fig)
         self._fig.tight_layout()
 
         # Update cursors
@@ -346,6 +365,7 @@ class ACSweepPlotDialog(QDialog):
             phase_legend = self._ax_phase.legend(loc="best", fontsize="small")
             self._setup_legend_toggle(phase_legend, self._ax_phase)
 
+        _apply_mpl_theme(self._fig)
         self._fig.tight_layout()
 
         # Update cursors on magnitude axes (shared x with phase)
