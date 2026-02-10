@@ -71,6 +71,7 @@ class MainWindow(QMainWindow):
         self._last_results_type = None
         self._waveform_dialog = None
         self._plot_dialog = None  # DC Sweep / AC Sweep plot dialog
+        self._dirty = False  # Unsaved changes flag
 
         # Build UI
         self.init_ui()
@@ -97,6 +98,7 @@ class MainWindow(QMainWindow):
         self.canvas.selectionChanged.connect(self._on_selection_changed)
         self.palette.componentDoubleClicked.connect(self.canvas.add_component_at_center)
         self.properties_panel.property_changed.connect(self.on_property_changed)
+        self.circuit_ctrl.add_observer(self._on_dirty_change)
 
     def init_ui(self):
         """Initialize user interface"""
@@ -618,6 +620,7 @@ class MainWindow(QMainWindow):
                 # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(self.file_ctrl.current_file)
                 self.file_ctrl.clear_auto_save()
+                self._set_dirty(False)
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(f"Saved to {self.file_ctrl.current_file}", 3000)
@@ -634,7 +637,7 @@ class MainWindow(QMainWindow):
                 # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(filename)
                 self.file_ctrl.clear_auto_save()
-                self.setWindowTitle(f"Circuit Design GUI - {filename}")
+                self._set_dirty(False)
                 QMessageBox.information(self, "Success", "Circuit saved successfully!")
             except (OSError, TypeError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to save: {e}")
@@ -1266,6 +1269,42 @@ class MainWindow(QMainWindow):
         self.statistics_panel.setVisible(checked)
         if checked:
             self.statistics_panel.refresh()
+
+    # Dirty flag (unsaved changes indicator)
+
+    def _on_dirty_change(self, event: str, data) -> None:
+        """Mark circuit as dirty on model-modifying events."""
+        dirty_events = {
+            "component_added",
+            "component_removed",
+            "component_moved",
+            "component_rotated",
+            "component_flipped",
+            "component_value_changed",
+            "wire_added",
+            "wire_removed",
+            "wire_routed",
+        }
+        if event in dirty_events:
+            self._set_dirty(True)
+        elif event in ("circuit_cleared", "model_loaded"):
+            self._set_dirty(False)
+
+    def _set_dirty(self, dirty: bool):
+        """Update the dirty flag and refresh the title bar."""
+        self._dirty = dirty
+        self._update_title_bar()
+
+    def _update_title_bar(self):
+        """Update window title to show dirty indicator."""
+        base = "Circuit Design GUI"
+        if self.file_ctrl.current_file:
+            base += f" - {self.file_ctrl.current_file}"
+        else:
+            base += " - Student Prototype"
+        if self._dirty:
+            base += " *"
+        self.setWindowTitle(base)
 
     def toggle_component_labels(self, checked):
         """Toggle component label visibility"""
