@@ -219,6 +219,27 @@ class MainWindow(QMainWindow):
 
         main_layout.addLayout(right_panel_layout, 1)
 
+        # Focus policies for keyboard navigation
+        self.palette.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.canvas.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.results_text.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.btn_save.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.btn_load.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.btn_clear.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.btn_netlist.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.btn_simulate.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+
+        # Tab order: Palette -> Canvas -> Properties -> Action buttons
+        self.setTabOrder(self.palette, self.canvas)
+        self.setTabOrder(self.canvas, self.properties_panel.value_input)
+        self.setTabOrder(self.properties_panel.value_input, self.properties_panel.apply_button)
+        self.setTabOrder(self.properties_panel.apply_button, self.btn_save)
+        self.setTabOrder(self.btn_save, self.btn_load)
+        self.setTabOrder(self.btn_load, self.btn_clear)
+        self.setTabOrder(self.btn_clear, self.btn_netlist)
+        self.setTabOrder(self.btn_netlist, self.btn_simulate)
+        self.setTabOrder(self.btn_simulate, self.results_text)
+
     def create_menu_bar(self):
         """Create menu bar with File, Edit, View, Simulation, Analysis, and Settings menus"""
         menubar = self.menuBar()

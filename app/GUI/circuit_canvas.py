@@ -649,13 +649,26 @@ class CircuitCanvasView(QGraphicsView):
         super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event):
-        """Forward unhandled key events to the parent.
+        """Handle Escape to cancel wire drawing; forward other keys.
 
         All keyboard shortcuts (Delete, Ctrl+C/X/V, R, F, Ctrl+A, etc.) are
         handled by QAction shortcuts on the menu bar, so no duplicate
         handling is needed here.
         """
         if event is None:
+            return
+        if event.key() == Qt.Key.Key_Escape:
+            if self.wire_start_comp is not None:
+                if self.temp_wire_line:
+                    self.scene.removeItem(self.temp_wire_line)
+                    self.temp_wire_line = None
+                self.wire_start_comp = None
+                self.wire_start_term = None
+                event.accept()
+                return
+            # Deselect all if not wiring
+            self.scene.clearSelection()
+            event.accept()
             return
         super().keyPressEvent(event)
 
