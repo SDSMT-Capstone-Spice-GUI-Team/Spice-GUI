@@ -1,4 +1,4 @@
-.PHONY: help test lint format check preflight install-dev install-hooks
+.PHONY: help test lint format format-check check preflight install-dev install-hooks
 
 help:  ## Show this help message
 	@echo 'Usage: make [target]'
@@ -18,6 +18,12 @@ format:  ## Auto-format code (black + isort + ruff --fix)
 	black --line-length=120 app/
 	isort --profile=black --line-length=120 app/
 	ruff check --fix app/
+
+format-check:  ## Check formatting without modifying files
+	@black --check --line-length=120 app/ && \
+		isort --check-only --profile=black --line-length=120 app/ && \
+		echo "✓ All files correctly formatted" || \
+		(echo "⚠️  Formatting issues found. Run 'make format' to fix." && false)
 
 check:  ## Run all checks (lint + test)
 	@echo "Running linting checks..."
@@ -44,7 +50,12 @@ preflight:  ## Run pre-flight checks before starting work
 		(echo "   ⚠️  WARNING: Cannot collect tests (missing dependencies?)" && false)
 	@echo "   ✓ Tests can be collected"
 	@echo ""
-	@echo "4. Working tree check:"
+	@echo "4. Pre-commit hooks check:"
+	@test -f .git/hooks/pre-commit || \
+		(echo "   ⚠️  WARNING: Pre-commit hooks not installed. Run 'make install-hooks'" && false)
+	@echo "   ✓ Pre-commit hooks installed"
+	@echo ""
+	@echo "5. Working tree check:"
 	@git diff --quiet && git diff --cached --quiet || \
 		(echo "   ⚠️  WARNING: Uncommitted changes in working tree" && false)
 	@echo "   ✓ Clean working tree"

@@ -37,7 +37,28 @@
       "Bash(wc:*)",
       "Bash(mkdir:*)",
       "Bash(git rm:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(make test:*)",
+      "Bash(make lint:*)",
+      "Bash(make format:*)",
+      "Bash(make format-check:*)",
+      "Bash(make check:*)",
+      "Bash(make preflight:*)",
+      "Bash(make install-dev:*)",
+      "Bash(make install-hooks:*)",
+      "Bash(pre-commit install:*)",
+      "Bash(pre-commit run:*)",
+      "Bash(black:*)",
+      "Bash(isort:*)",
+      "Bash(cat .git/hooks/pre-commit:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -f:*)",
+      "Bash(git branch -D:*)",
+      "Bash(rm -rf:*)"
     ]
   }
 }

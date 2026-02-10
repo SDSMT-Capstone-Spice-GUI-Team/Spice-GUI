@@ -111,9 +111,22 @@ This document explains the recommended permissions for autonomous operation, wit
 **Justification**: Required for Python development workflows. Local operations.
 
 ### Make 🟡 Low Risk (4/5)
-- `make`, `make test`, `make build`, `make clean` - Run Makefile targets
+- `make test` - Run pytest test suite
+- `make lint` - Run linting checks (ruff + black --check + isort --check)
+- `make format` - Auto-format code (black + isort + ruff --fix)
+- `make format-check` - Check formatting without modifying files
+- `make check` - Run all checks (lint + test)
+- `make preflight` - Run pre-flight checks (branch, venv, tests, hooks, clean tree)
+- `make install-dev` - Install development dependencies
+- `make install-hooks` - Install pre-commit hooks
 
-**Justification**: Standard build system. Operations defined in Makefile are project-specific.
+**Justification**: Project-specific build targets. All local operations. `make format` modifies files but changes are visible in git diff.
+
+### Pre-commit 🟡 Low Risk (4/5)
+- `pre-commit install` - Install git pre-commit hooks
+- `pre-commit run --all-files` - Run all hooks on all files
+
+**Justification**: Code quality enforcement. Hooks modify files locally (formatting) but changes are tracked by git.
 
 ### Other Languages 🟡 Low Risk (4/5)
 - `cargo test/build/run` - Rust toolchain
@@ -128,10 +141,13 @@ This document explains the recommended permissions for autonomous operation, wit
 ## Linting & Formatting
 
 ### Code Quality Tools 🟢 Safe (5/5)
-- `eslint` - JavaScript linter (read-only without --fix)
-- `prettier` - Code formatter
-- `black`, `ruff` - Python formatters
-- `flake8`, `pylint` - Python linters
+- `ruff check` - Python linter
+- `ruff format` - Python formatter (via ruff)
+- `black` - Python code formatter
+- `black --check` - Check formatting without modifying
+- `isort` - Python import sorter
+- `isort --check-only` - Check import order without modifying
+- `bandit` - Python security linter
 
 **Justification**: Code quality checks. Formatters modify files but changes are visible in git diff and easily reversible.
 
@@ -214,5 +230,18 @@ This document explains the recommended permissions for autonomous operation, wit
 - Force operations: `git push --force`, `--no-verify` flags
 - Sudo/privileged operations
 - Operations that send messages or affect shared state
+
+## Explicit Deny List
+
+These commands are explicitly denied in `settings.json` to prevent accidental damage:
+
+- `git push --force` - Can overwrite remote history
+- `git push origin main` - Direct push to main bypasses PR review
+- `git reset --hard` - Destroys uncommitted work permanently
+- `git clean -f` - Deletes untracked files permanently
+- `git branch -D` - Force-deletes branches without merge check
+- `rm -rf` - Recursive force deletion
+
+---
 
 This permission set allows autonomous work on code development, testing, and local git operations while ensuring all risky actions still require user approval.
