@@ -35,7 +35,7 @@ SDM Spice is an SDSMT Capstone project currently in active development. We welco
 ## Development Setup
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.11+
 - Git
 - ngspice
 
@@ -60,6 +60,7 @@ python app/main.py
 
 ### Create a Branch
 
+**Human contributors:**
 ```bash
 git checkout -b feature/your-feature-name
 ```
@@ -68,6 +69,11 @@ Branch naming conventions:
 - `feature/description` - New features
 - `bugfix/description` - Bug fixes
 - `docs/description` - Documentation updates
+
+**Automated/agent contributions** use issue-linked branches:
+```bash
+git checkout -b issue-42-add-csv-export
+```
 
 ## Code Guidelines
 
@@ -121,6 +127,16 @@ Format:
 - Blank line
 - Detailed description (if needed)
 
+### AI-Assisted Contributions
+
+If your contribution was made with AI assistance (Claude Code, GitHub Copilot, etc.), include a co-author tag in your commit messages:
+
+```
+Co-Authored-By: Claude <model> <noreply@anthropic.com>
+```
+
+This applies to both human-authored commits with AI assistance and fully agent-generated commits.
+
 ## Pull Request Process
 
 1. **Update documentation** if you changed functionality
@@ -155,14 +171,18 @@ If applicable, add screenshots
 
 ## Testing
 
-### Manual Testing
-Currently, SDM Spice relies on manual testing. Before submitting:
-1. Test the specific feature/fix
-2. Verify existing functionality still works
-3. Test on your platform
+### Running Tests
+```bash
+cd app
+python -m pytest              # run all tests
+python -m pytest -v           # verbose output
+ruff check app/               # lint check
+```
 
-### Future: Automated Testing
-We plan to add automated tests. Contributions to test infrastructure are welcome!
+### Before Submitting
+1. Run `python -m pytest` — all tests must pass
+2. Run `ruff check app/` — no lint errors
+3. Test your specific change manually if it involves UI
 
 ## Project Structure
 
@@ -171,17 +191,13 @@ Spice-GUI/
 ├── app/
 │   ├── main.py              # Entry point
 │   ├── requirements.txt     # Dependencies
-│   ├── GUI/                  # UI components
-│   │   ├── main_window.py
-│   │   ├── circuit_canvas.py
-│   │   ├── component_item.py
-│   │   └── ...
-│   └── simulation/           # SPICE integration
-│       ├── netlist_generator.py
-│       ├── ngspice_runner.py
-│       └── result_parser.py
-├── DiscoveryDocs/           # Project documentation
-├── Doc/                     # Additional docs
+│   ├── models/              # Data classes (no Qt dependencies)
+│   ├── controllers/         # Business logic
+│   ├── GUI/                 # PyQt6 views and graphics items
+│   ├── simulation/          # ngspice pipeline
+│   └── tests/               # pytest suite (unit/ and integration/)
+├── wiki/                    # GitHub wiki source
+├── Doc/                     # Architecture decisions, references
 └── README.md
 ```
 
@@ -205,6 +221,20 @@ Issues and PRs use these labels:
 | `tech-debt` | Code cleanup/refactoring |
 | `testing` | Test-related |
 | `ui/ux` | User interface related |
+| `ci/cd` | CI/CD pipeline related |
+| `needs-discussion` | Needs design discussion before work |
+
+## Definition of Ready
+
+An issue is **Ready** for work when it has:
+
+1. **Clear acceptance criteria** — you can tell when it is done
+2. **Enough context** — no major open questions remain
+3. **Appropriate labels** — at least one type label (`bug`, `enhancement`, `tech-debt`, etc.)
+4. **Priority set** — on the project board
+5. **Reasonable scope** — can be completed in a single PR
+
+Issues that are vague or need design discussion should have the `needs-discussion` label and stay in Backlog until refined.
 
 ## Getting Help
 
