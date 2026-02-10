@@ -4,6 +4,15 @@ Shared test fixtures for the Spice-GUI test suite.
 All fixtures build pure-Python model objects (no Qt dependencies).
 """
 
+import sys
+from pathlib import Path
+
+# Ensure app/ is on sys.path so bare imports (models, simulation, GUI, controllers)
+# work when running individual test files (e.g., python -m pytest app/tests/unit/test_foo.py).
+_app_dir = str(Path(__file__).resolve().parent.parent)
+if _app_dir not in sys.path:
+    sys.path.insert(0, _app_dir)
+
 import pytest
 from models.component import ComponentData
 from models.node import NodeData, reset_node_counter

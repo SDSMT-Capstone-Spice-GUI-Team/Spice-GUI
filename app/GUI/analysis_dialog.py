@@ -11,7 +11,6 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
-from simulation.preset_manager import PresetManager
 
 from .format_utils import parse_value
 
@@ -68,7 +67,11 @@ class AnalysisDialog(QDialog):
         super().__init__(parent)
         self.analysis_type = analysis_type
         self.field_widgets = {}
-        self._preset_manager = preset_manager or PresetManager()
+        if preset_manager is None:
+            from simulation.preset_manager import PresetManager
+
+            preset_manager = PresetManager()
+        self._preset_manager = preset_manager
         self.init_ui()
 
     def init_ui(self):
