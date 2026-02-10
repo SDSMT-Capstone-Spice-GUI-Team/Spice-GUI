@@ -85,6 +85,29 @@ class TestAnalysisCommands:
         )
         assert ".tran" in netlist
 
+    def test_temperature_sweep(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components, wires, nodes, t2n,
+            analysis_type="Temperature Sweep",
+            analysis_params={
+                'tempStart': -40, 'tempStop': 85, 'tempStep': 25,
+            },
+        )
+        assert ".op" in netlist
+        assert ".step temp -40 85 25" in netlist
+
+    def test_temperature_sweep_custom_range(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components, wires, nodes, t2n,
+            analysis_type="Temperature Sweep",
+            analysis_params={
+                'tempStart': 0, 'tempStop': 100, 'tempStep': 10,
+            },
+        )
+        assert ".step temp 0 100 10" in netlist
+
 
 class TestOpAmp:
     def test_opamp_subcircuit(self):

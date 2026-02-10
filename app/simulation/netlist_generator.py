@@ -280,6 +280,15 @@ class NetlistGenerator:
             tstart = params.get('start', 0)
             lines.append(f".tran {params['step']} {params['duration']} {tstart}")
 
+        elif self.analysis_type == "Temperature Sweep":
+            params = self.analysis_params
+            temp_start = params.get('tempStart', -40)
+            temp_stop = params.get('tempStop', 85)
+            temp_step = params.get('tempStep', 25)
+            # DC operating point as the base analysis, swept over temperature
+            lines.append(".op")
+            lines.append(f".step temp {temp_start} {temp_stop} {temp_step}")
+
         # Add control block for running simulation and getting output
         lines.append("")
         lines.append("* Control block for batch execution")
