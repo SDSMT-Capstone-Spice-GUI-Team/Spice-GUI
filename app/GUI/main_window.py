@@ -30,6 +30,7 @@ from .analysis_dialog import AnalysisDialog
 from .circuit_canvas import CircuitCanvasView
 from .component_palette import ComponentPalette
 from .properties_panel import PropertiesPanel
+from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
 from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
 from .waveform_dialog import WaveformDialog
 
@@ -60,6 +61,7 @@ class MainWindow(QMainWindow):
         self._last_results = None
         self._last_results_type = None
         self._waveform_dialog = None
+        self._plot_dialog = None  # DC Sweep / AC Sweep plot dialog
 
         # Build UI
         self.init_ui()
@@ -704,7 +706,16 @@ class MainWindow(QMainWindow):
                 self._last_results = sweep_data
                 self.results_text.append("\nDC SWEEP RESULTS:")
                 self.results_text.append("-" * 40)
-                self.results_text.append(str(sweep_data))
+                headers = sweep_data.get("headers", [])
+                rows = sweep_data.get("data", [])
+                if headers and rows:
+                    self.results_text.append("  ".join(f"{h:>12}" for h in headers))
+                    for row in rows[:20]:
+                        self.results_text.append("  ".join(f"{v:12.6g}" for v in row))
+                    if len(rows) > 20:
+                        self.results_text.append(f"  ... ({len(rows)} total rows)")
+                self.results_text.append("\nPlot opened in a new window.")
+                self._show_plot_dialog(DCSweepPlotDialog(sweep_data, self))
             else:
                 self.results_text.append("\nDC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -715,7 +726,14 @@ class MainWindow(QMainWindow):
                 self._last_results = ac_data
                 self.results_text.append("\nAC SWEEP RESULTS:")
                 self.results_text.append("-" * 40)
-                self.results_text.append(str(ac_data))
+                freqs = ac_data.get("frequencies", [])
+                mag = ac_data.get("magnitude", {})
+                self.results_text.append(f"  Frequency points: {len(freqs)}")
+                self.results_text.append(f"  Signals: {', '.join(sorted(mag.keys()))}")
+                if freqs:
+                    self.results_text.append(f"  Range: {freqs[0]:.4g} Hz — {freqs[-1]:.4g} Hz")
+                self.results_text.append("\nBode plot opened in a new window.")
+                self._show_plot_dialog(ACSweepPlotDialog(ac_data, self))
             else:
                 self.results_text.append("\nAC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -772,6 +790,14 @@ class MainWindow(QMainWindow):
 
         if self._last_results is not None:
             self.btn_export_csv.setEnabled(True)
+
+    def _show_plot_dialog(self, dialog):
+        """Show a plot dialog, closing any previous one."""
+        if self._plot_dialog is not None:
+            self._plot_dialog.close()
+            self._plot_dialog.deleteLater()
+        self._plot_dialog = dialog
+        self._plot_dialog.show()
 
     def export_results_csv(self):
         """Export the last simulation results to a CSV file"""
