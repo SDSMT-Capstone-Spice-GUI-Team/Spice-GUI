@@ -2,12 +2,11 @@
 Unit tests for multi-select features: rubber band selection, Ctrl+A,
 group movement, and properties panel multi-selection display.
 """
+
 import pytest
-from PyQt6.QtCore import QPointF
-
-from models.component import ComponentData
 from GUI.properties_panel import PropertiesPanel
-
+from models.component import ComponentData
+from PyQt6.QtCore import QPointF
 
 # ---------------------------------------------------------------------------
 # Properties panel multi-selection display

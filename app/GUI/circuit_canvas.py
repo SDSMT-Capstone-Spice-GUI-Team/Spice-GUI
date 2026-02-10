@@ -1,6 +1,6 @@
 import logging
 
-from PyQt6.QtCore import QRectF, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QPainter
 from PyQt6.QtWidgets import (
     QGraphicsLineItem,
@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QInputDialog,
     QLineEdit,
     QMenu,
+    QRubberBand,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ class CircuitCanvasView(QGraphicsView):
         self.wire_start_comp = None
         self.wire_start_term = None
         self.temp_wire_line = None  # Temporary line while drawing wire
-        
+
         # Rubber band selection
         self._rubber_band = None
         self._rubber_band_origin = QPoint()

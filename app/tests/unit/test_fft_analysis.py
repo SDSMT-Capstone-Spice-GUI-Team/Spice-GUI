@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-
 from simulation.fft_analysis import (
     FFTResult,
     analyze_signal_spectrum,

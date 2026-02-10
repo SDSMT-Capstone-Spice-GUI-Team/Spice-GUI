@@ -1,10 +1,9 @@
 """
 Unit tests for results_plot_dialog.py — DC Sweep and AC Sweep plot dialogs.
 """
+
 import pytest
-
 from GUI.results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
-
 
 # ---------------------------------------------------------------------------
 # DC Sweep Plot
