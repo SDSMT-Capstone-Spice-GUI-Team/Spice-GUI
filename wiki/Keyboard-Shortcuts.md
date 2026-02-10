@@ -1,6 +1,6 @@
 # Keyboard Shortcuts
 
-SDM Spice provides keyboard shortcuts for common operations to improve workflow efficiency.
+SDM Spice provides keyboard shortcuts for common operations to improve workflow efficiency. All shortcuts are fully configurable through the Keybindings dialog.
 
 ## File Operations
 
@@ -10,15 +10,24 @@ SDM Spice provides keyboard shortcuts for common operations to improve workflow 
 | Ctrl+O | Open | Open an existing circuit file |
 | Ctrl+S | Save | Save the current circuit |
 | Ctrl+Shift+S | Save As | Save circuit with a new filename |
+| Ctrl+E | Export Image | Export circuit as PNG/SVG |
 | Ctrl+Q | Exit | Close the application |
 
 ## Edit Operations
 
 | Shortcut | Action | Description |
 |----------|--------|-------------|
+| Ctrl+Z | Undo | Undo the last action |
+| Ctrl+Shift+Z | Redo | Redo the last undone action |
+| Ctrl+C | Copy | Copy selected components |
+| Ctrl+X | Cut | Cut selected components |
+| Ctrl+V | Paste | Paste copied components |
 | Del | Delete | Delete selected component(s) or wire(s) |
 | R | Rotate CW | Rotate selected component 90° clockwise |
 | Shift+R | Rotate CCW | Rotate selected component 90° counter-clockwise |
+| F | Flip Horizontal | Mirror component horizontally |
+| Shift+F | Flip Vertical | Mirror component vertically |
+| Ctrl+A | Select All | Select all components on canvas |
 
 ## Simulation Operations
 
@@ -31,9 +40,10 @@ SDM Spice provides keyboard shortcuts for common operations to improve workflow 
 
 | Shortcut | Action | Description |
 |----------|--------|-------------|
-| (Planned) Ctrl++ | Zoom In | Increase canvas magnification |
-| (Planned) Ctrl+- | Zoom Out | Decrease canvas magnification |
-| (Planned) Ctrl+0 | Reset Zoom | Return to default zoom level |
+| Ctrl+= | Zoom In | Increase canvas magnification |
+| Ctrl+- | Zoom Out | Decrease canvas magnification |
+| Ctrl+0 | Fit to Circuit | Zoom to fit entire circuit |
+| Ctrl+1 | Reset Zoom | Return to default zoom level |
 
 ## Component Operations
 
@@ -47,7 +57,8 @@ SDM Spice provides keyboard shortcuts for common operations to improve workflow 
 | Shortcut | Action | Description |
 |----------|--------|-------------|
 | Click | Select | Select a single component |
-| (Planned) Ctrl+A | Select All | Select all components on canvas |
+| Click+Drag (canvas) | Marquee Select | Rubber-band selection of multiple components |
+| Ctrl+A | Select All | Select all components on canvas |
 | Escape | Deselect | Clear current selection |
 
 ## Quick Reference Card
@@ -60,11 +71,17 @@ SDM Spice provides keyboard shortcuts for common operations to improve workflow 
 │  Ctrl+N   New         │  Ctrl+G   Gen Netlist   │
 │  Ctrl+O   Open        │  F5       Run Sim       │
 │  Ctrl+S   Save        │                         │
-│  Ctrl+Q   Exit        │                         │
-├─────────────────────────────────────────────────┤
-│  EDIT                 │  COMPONENT              │
-│  Del      Delete      │  R        Rotate CW     │
-│                       │  Shift+R  Rotate CCW    │
+│  Ctrl+E   Export Img  │  VIEW                   │
+│  Ctrl+Q   Exit        │  Ctrl+=   Zoom In       │
+├───────────────────────┤  Ctrl+-   Zoom Out      │
+│  EDIT                 │  Ctrl+0   Fit Circuit   │
+│  Ctrl+Z   Undo        │  Ctrl+1   Reset Zoom   │
+│  Ctrl+Shift+Z  Redo   │                         │
+│  Ctrl+C   Copy        │  COMPONENT              │
+│  Ctrl+X   Cut         │  R        Rotate CW     │
+│  Ctrl+V   Paste       │  Shift+R  Rotate CCW    │
+│  Ctrl+A   Select All  │  F        Flip H        │
+│  Del      Delete      │  Shift+F  Flip V        │
 │                       │  Dbl-clk  Edit Props    │
 └─────────────────────────────────────────────────┘
 ```
@@ -73,14 +90,23 @@ SDM Spice provides keyboard shortcuts for common operations to improve workflow 
 
 All keyboard shortcuts are also shown in their respective menus:
 
-- **File Menu**: New, Open, Save, Save As, Exit
-- **Edit Menu**: Delete, Rotate, Clear Canvas
+- **File Menu**: New, Open, Save, Save As, Export Image, Exit
+- **Edit Menu**: Undo, Redo, Copy, Cut, Paste, Delete, Rotate, Flip, Select All, Clear Canvas
 - **Simulation Menu**: Generate Netlist, Run Simulation
 - **Analysis Menu**: Select analysis type
+- **View Menu**: Zoom controls, Theme switching
 
 ## Customization
 
-Keyboard shortcuts are currently not customizable. Custom shortcut configuration is planned for a future release.
+Keyboard shortcuts are fully configurable:
+
+1. Go to **Edit > Keybindings...** to open the Keybindings dialog
+2. Click on any shortcut to change it
+3. Press the new key combination you want to assign
+4. Conflicts with existing bindings are detected and highlighted
+5. Click **Reset to Defaults** to restore all default shortcuts
+
+Custom keybindings are saved to `~/.spice-gui/keybindings.json` and persist across sessions.
 
 ## Platform Notes
 
