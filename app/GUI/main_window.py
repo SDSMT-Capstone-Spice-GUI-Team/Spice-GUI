@@ -282,6 +282,11 @@ class MainWindow(QMainWindow):
 
         file_menu.addSeparator()
 
+        import_netlist_action = QAction("&Import SPICE Netlist...", self)
+        import_netlist_action.setToolTip("Import a SPICE netlist file (.cir, .spice)")
+        import_netlist_action.triggered.connect(self._on_import_netlist)
+        file_menu.addAction(import_netlist_action)
+
         export_img_action = QAction("Export &Image...", self)
         export_img_action.setShortcut(kb.get("file.export_image"))
         export_img_action.triggered.connect(self.export_image)
@@ -671,6 +676,30 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "Success", "Circuit loaded successfully!")
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to load: {e}")
+
+    def _on_import_netlist(self):
+        """Import a SPICE netlist file"""
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import SPICE Netlist",
+            "",
+            "SPICE Netlists (*.cir *.spice *.sp *.net);;All Files (*)",
+        )
+        if filename:
+            try:
+                self.file_ctrl.import_netlist(filename)
+                self.setWindowTitle(f"Circuit Design GUI - {Path(filename).name} (imported)")
+                self._sync_analysis_menu()
+                self._set_dirty(True)
+                num_components = len(self.model.components)
+                num_wires = len(self.model.wires)
+                QMessageBox.information(
+                    self,
+                    "Import Successful",
+                    f"Imported {num_components} components and {num_wires} wires from {Path(filename).name}.",
+                )
+            except (OSError, ValueError) as e:
+                QMessageBox.critical(self, "Import Error", f"Failed to import netlist:\n{e}")
 
     def _load_last_session(self):
         """Load last session using FileController"""
@@ -1320,7 +1349,8 @@ class MainWindow(QMainWindow):
 
         # Apply global widget stylesheet for dark mode
         if is_dark:
-            self.setStyleSheet("""
+            self.setStyleSheet(
+                """
                 QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }
                 QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }
                 QMenuBar::item:selected { background-color: #3D3D3D; }
@@ -1343,7 +1373,8 @@ class MainWindow(QMainWindow):
                 QTableWidget { background-color: #2D2D2D; color: #D4D4D4;
                     gridline-color: #555555; }
                 QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }
-            """)
+            """
+            )
         else:
             self.setStyleSheet("")
 
