@@ -49,6 +49,8 @@ jobs:
       - name: Run tests (Linux)
         if: runner.os == 'Linux'
         working-directory: app
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: xvfb-run python -m pytest tests/ -v --tb=short
 
       - name: Run tests (Windows)
