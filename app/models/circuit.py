@@ -6,9 +6,10 @@ This module contains no Qt dependencies. It holds all circuit data
 """
 
 from dataclasses import dataclass, field
+
 from .component import ComponentData
-from .wire import WireData
 from .node import NodeData, reset_node_counter
+from .wire import WireData
 
 
 @dataclass
@@ -19,6 +20,7 @@ class CircuitModel:
     Manages components, wires, and the node graph that tracks
     electrical connectivity between terminals.
     """
+
     components: dict[str, ComponentData] = field(default_factory=dict)
     wires: list[WireData] = field(default_factory=list)
     nodes: list[NodeData] = field(default_factory=list)
@@ -34,7 +36,7 @@ class CircuitModel:
     def add_component(self, component: ComponentData) -> None:
         """Add a component to the circuit."""
         self.components[component.component_id] = component
-        if component.component_type == 'Ground':
+        if component.component_type == "Ground":
             self._handle_ground_added(component)
 
     def remove_component(self, component_id: str) -> list[int]:
@@ -48,10 +50,7 @@ class CircuitModel:
             return []
 
         # Find wires connected to this component
-        wire_indices = [
-            i for i, wire in enumerate(self.wires)
-            if wire.connects_component(component_id)
-        ]
+        wire_indices = [i for i, wire in enumerate(self.wires) if wire.connects_component(component_id)]
 
         del self.components[component_id]
         return wire_indices
@@ -109,8 +108,9 @@ class CircuitModel:
             self.terminal_to_node[start_terminal] = new_node
             self.terminal_to_node[end_terminal] = new_node
 
-            if (start_comp and start_comp.component_type == 'Ground') or \
-               (end_comp and end_comp.component_type == 'Ground'):
+            if (start_comp and start_comp.component_type == "Ground") or (
+                end_comp and end_comp.component_type == "Ground"
+            ):
                 new_node.set_as_ground()
 
         elif start_node is None and end_node is not None:
@@ -118,7 +118,7 @@ class CircuitModel:
             end_node.add_wire(len(self.wires) - 1)
             self.terminal_to_node[start_terminal] = end_node
 
-            if start_comp and start_comp.component_type == 'Ground':
+            if start_comp and start_comp.component_type == "Ground":
                 end_node.set_as_ground()
 
         elif end_node is None and start_node is not None:
@@ -126,7 +126,7 @@ class CircuitModel:
             start_node.add_wire(len(self.wires) - 1)
             self.terminal_to_node[end_terminal] = start_node
 
-            if end_comp and end_comp.component_type == 'Ground':
+            if end_comp and end_comp.component_type == "Ground":
                 start_node.set_as_ground()
 
         elif start_node is not None and end_node is not None and start_node != end_node:
@@ -145,7 +145,7 @@ class CircuitModel:
         reset_node_counter()
 
         for comp in self.components.values():
-            if comp.component_type == 'Ground':
+            if comp.component_type == "Ground":
                 self._handle_ground_added(comp)
 
         for wire in self.wires:
@@ -168,32 +168,32 @@ class CircuitModel:
     def to_dict(self) -> dict:
         """Serialize circuit to dictionary (matches existing JSON format)."""
         data = {
-            'components': [c.to_dict() for c in self.components.values()],
-            'wires': [w.to_dict() for w in self.wires],
-            'counters': self.component_counter.copy(),
+            "components": [c.to_dict() for c in self.components.values()],
+            "wires": [w.to_dict() for w in self.wires],
+            "counters": self.component_counter.copy(),
         }
         if self.analysis_type != "DC Operating Point" or self.analysis_params:
-            data['analysis_type'] = self.analysis_type
-            data['analysis_params'] = self.analysis_params.copy()
+            data["analysis_type"] = self.analysis_type
+            data["analysis_params"] = self.analysis_params.copy()
         return data
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'CircuitModel':
+    def from_dict(cls, data: dict) -> "CircuitModel":
         """
         Deserialize circuit from dictionary.
 
         Rebuilds the node graph after loading components and wires.
         """
         model = cls()
-        model.component_counter = data.get('counters', {}).copy()
-        model.analysis_type = data.get('analysis_type', 'DC Operating Point')
-        model.analysis_params = data.get('analysis_params', {}).copy()
+        model.component_counter = data.get("counters", {}).copy()
+        model.analysis_type = data.get("analysis_type", "DC Operating Point")
+        model.analysis_params = data.get("analysis_params", {}).copy()
 
-        for comp_data in data.get('components', []):
+        for comp_data in data.get("components", []):
             component = ComponentData.from_dict(comp_data)
             model.components[component.component_id] = component
 
-        for wire_data in data.get('wires', []):
+        for wire_data in data.get("wires", []):
             wire = WireData.from_dict(wire_data)
             model.wires.append(wire)
 

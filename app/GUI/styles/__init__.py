@@ -27,56 +27,55 @@ Usage:
 
 # Core constants (always available, theme-independent)
 from .constants import (
-    GRID_SIZE,
-    GRID_EXTENT,
-    MAJOR_GRID_INTERVAL,
     COMPONENTS,
     DEFAULT_COMPONENT_COUNTER,
+    DEFAULT_SPLITTER_SIZES,
+    DEFAULT_WINDOW_SIZE,
+    GRID_EXTENT,
+    GRID_SIZE,
+    INITIAL_LOAD_COUNT,
+    MAJOR_GRID_INTERVAL,
+    SCROLL_LOAD_COUNT,
+    SIMULATION_TIMEOUT,
     TERMINAL_CLICK_RADIUS,
     TERMINAL_HOVER_RADIUS,
     WIRE_CLICK_WIDTH,
-    DEFAULT_WINDOW_SIZE,
-    DEFAULT_SPLITTER_SIZES,
-    SIMULATION_TIMEOUT,
     WIRE_UPDATE_DELAY_MS,
-    INITIAL_LOAD_COUNT,
-    SCROLL_LOAD_COUNT,
     ZOOM_FACTOR,
-    ZOOM_MIN,
-    ZOOM_MAX,
     ZOOM_FIT_PADDING,
+    ZOOM_MAX,
+    ZOOM_MIN,
 )
+from .light_theme import LightTheme
 
 # Theme system
-from .theme import ThemeProtocol, BaseTheme
-from .theme_manager import theme_manager, ThemeManager
-from .light_theme import LightTheme
+from .theme import BaseTheme, ThemeProtocol
+from .theme_manager import ThemeManager, theme_manager
 
 __all__ = [
     # Constants
-    'GRID_SIZE',
-    'GRID_EXTENT',
-    'MAJOR_GRID_INTERVAL',
-    'COMPONENTS',
-    'DEFAULT_COMPONENT_COUNTER',
-    'TERMINAL_CLICK_RADIUS',
-    'TERMINAL_HOVER_RADIUS',
-    'WIRE_CLICK_WIDTH',
-    'DEFAULT_WINDOW_SIZE',
-    'DEFAULT_SPLITTER_SIZES',
-    'SIMULATION_TIMEOUT',
-    'WIRE_UPDATE_DELAY_MS',
-    'INITIAL_LOAD_COUNT',
-    'SCROLL_LOAD_COUNT',
-    'ZOOM_FACTOR',
-    'ZOOM_MIN',
-    'ZOOM_MAX',
-    'ZOOM_FIT_PADDING',
-
+    "GRID_SIZE",
+    "GRID_EXTENT",
+    "MAJOR_GRID_INTERVAL",
+    "COMPONENTS",
+    "DEFAULT_COMPONENT_COUNTER",
+    "TERMINAL_CLICK_RADIUS",
+    "TERMINAL_HOVER_RADIUS",
+    "WIRE_CLICK_WIDTH",
+    "DEFAULT_WINDOW_SIZE",
+    "DEFAULT_SPLITTER_SIZES",
+    "SIMULATION_TIMEOUT",
+    "WIRE_UPDATE_DELAY_MS",
+    "INITIAL_LOAD_COUNT",
+    "SCROLL_LOAD_COUNT",
+    "ZOOM_FACTOR",
+    "ZOOM_MIN",
+    "ZOOM_MAX",
+    "ZOOM_FIT_PADDING",
     # Theme system
-    'ThemeProtocol',
-    'BaseTheme',
-    'ThemeManager',
-    'theme_manager',
-    'LightTheme',
+    "ThemeProtocol",
+    "BaseTheme",
+    "ThemeManager",
+    "theme_manager",
+    "LightTheme",
 ]

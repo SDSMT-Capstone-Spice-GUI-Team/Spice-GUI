@@ -39,6 +39,17 @@ class AnalysisDialog(QDialog):
                 ("Start Time", "startTime", "float", "0")
             ],
             "description": "Time domain analysis"
+        },
+        "Temperature Sweep": {
+            "fields": [
+                ("Start Temperature (\u00b0C)", "tempStart", "float", "-40"),
+                ("Stop Temperature (\u00b0C)", "tempStop", "float", "85"),
+                ("Step Size (\u00b0C)", "tempStep", "float", "25"),
+            ],
+            "description": (
+                "Sweep temperature and run a DC operating point analysis "
+                "at each temperature to see how circuit behavior changes"
+            )
         }
     }
     
@@ -164,5 +175,11 @@ class AnalysisDialog(QDialog):
             tstop = params.get("duration", 1)
             tstart = params.get("startTime", 0)
             return f".tran {tstep} {tstop} {tstart}"
+
+        elif self.analysis_type == "Temperature Sweep":
+            tstart = params.get("tempStart", -40)
+            tstop = params.get("tempStop", 85)
+            tstep = params.get("tempStep", 25)
+            return f".step temp {tstart} {tstop} {tstep}"
 
         return ""

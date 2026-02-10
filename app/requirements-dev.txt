@@ -1,0 +1,19 @@
+# Development dependencies for SDM Spice
+
+# Code quality and formatting
+ruff>=0.15.0
+black>=25.1.0
+isort>=5.13.0
+
+# Pre-commit hooks
+pre-commit>=4.0.0
+
+# Type checking (optional - gradual adoption)
+mypy>=1.13.0
+
+# Security linting
+bandit>=1.8.0
+
+# Testing (pytest already in main requirements.txt, but adding coverage tools)
+pytest-cov>=6.0.0
+pytest-qt>=4.4.0  # Required for PyQt6 GUI testing

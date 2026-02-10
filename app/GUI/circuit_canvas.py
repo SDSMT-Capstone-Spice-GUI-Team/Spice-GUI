@@ -10,7 +10,6 @@ from .component_item import ComponentGraphicsItem
 from .wire_item import WireGraphicsItem, WireItem
 from .circuit_node import Node
 from .annotation_item import AnnotationItem
-from .algorithm_layers import AlgorithmLayerManager
 from .styles import (GRID_SIZE, GRID_EXTENT, MAJOR_GRID_INTERVAL,
                      COMPONENTS, DEFAULT_COMPONENT_COUNTER,
                      TERMINAL_CLICK_RADIUS, theme_manager,
@@ -51,10 +50,6 @@ class CircuitCanvasView(QGraphicsView):
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
-
-        # Multi-algorithm layer management
-        self.layer_manager = AlgorithmLayerManager()
-        self.multi_algorithm_mode = False  # Disable multi-algorithm mode - use only IDA*
 
         # Simulation results storage
         self.node_voltages = {}  # node_label -> voltage value
@@ -119,6 +114,7 @@ class CircuitCanvasView(QGraphicsView):
             'component_removed': self._handle_component_removed,
             'component_moved': self._handle_component_moved,
             'component_rotated': self._handle_component_rotated,
+            'component_flipped': self._handle_component_flipped,
             'component_value_changed': self._handle_component_value_changed,
             'wire_added': self._handle_wire_added,
             'wire_removed': self._handle_wire_removed,
@@ -180,6 +176,14 @@ class CircuitCanvasView(QGraphicsView):
             comp.update()
             self.reroute_connected_wires(comp)
 
+    def _handle_component_flipped(self, component_data) -> None:
+        """Update graphics item flip"""
+        comp = self.components.get(component_data.component_id)
+        if comp:
+            comp.update_terminals()
+            comp.update()
+            self.reroute_connected_wires(comp)
+
     def _handle_component_value_changed(self, component_data) -> None:
         """Update graphics item value display"""
         comp = self.components.get(component_data.component_id)
@@ -233,7 +237,6 @@ class CircuitCanvasView(QGraphicsView):
         self.terminal_to_node = {}
         self.annotations = []
         Node._node_counter = 0
-        self.layer_manager.clear_all_wires()
 
     def _handle_nodes_rebuilt(self, data: None) -> None:
         """Rebuild node visualization from model"""
@@ -478,53 +481,27 @@ class CircuitCanvasView(QGraphicsView):
                             target_term = clicked_term_index
                         
                         if can_connect:
-                            # Create wire(s) with multi-algorithm routing
-                            if self.multi_algorithm_mode:
-                                # Create a wire for each active algorithm
-                                for algorithm in self.layer_manager.active_algorithms:
-                                    layer = self.layer_manager.get_layer(algorithm)
-                                    wire = WireItem(
-                                        self.wire_start_comp, self.wire_start_term,
-                                        clicked_component, target_term,
-                                        canvas=self,
-                                        algorithm=algorithm,
-                                        layer_color=layer.color
-                                    )
-                                    self.scene.addItem(wire)
-                                    self.wires.append(wire)
-
-                                    # Add wire to layer and track performance
-                                    self.layer_manager.add_wire_to_layer(
-                                        wire, algorithm, wire.runtime, wire.iterations
-                                    )
-
-                                    # UPDATE NODE CONNECTIVITY (only for first wire to avoid duplicates)
-                                    if algorithm == self.layer_manager.active_algorithms[0]:
-                                        self.update_nodes_for_wire(wire)
-                                pass
+                            if self.controller:
+                                # Controller creates wire, observer creates graphics item
+                                self.controller.add_wire(
+                                    self.wire_start_comp.component_id,
+                                    self.wire_start_term,
+                                    clicked_component.component_id,
+                                    target_term
+                                )
+                                self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
                             else:
-                                # Single algorithm mode - Phase 5: use controller
-                                if self.controller:
-                                    # Controller creates wire, observer creates graphics item
-                                    self.controller.add_wire(
-                                        self.wire_start_comp.component_id,
-                                        self.wire_start_term,
-                                        clicked_component.component_id,
-                                        target_term
-                                    )
-                                    self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
-                                else:
-                                    # Fallback to old method if no controller (shouldn't happen)
-                                    wire = WireItem(
-                                        self.wire_start_comp, self.wire_start_term,
-                                        clicked_component, target_term,
-                                        canvas=self,
-                                        algorithm='idastar'
-                                    )
-                                    self.scene.addItem(wire)
-                                    self.wires.append(wire)
-                                    self.update_nodes_for_wire(wire)
-                                    self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
+                                # Fallback to old method if no controller (shouldn't happen)
+                                wire = WireItem(
+                                    self.wire_start_comp, self.wire_start_term,
+                                    clicked_component, target_term,
+                                    canvas=self,
+                                    algorithm='idastar'
+                                )
+                                self.scene.addItem(wire)
+                                self.wires.append(wire)
+                                self.update_nodes_for_wire(wire)
+                                self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
                     
                     # Clean up temporary wire line
                     if self.temp_wire_line:
@@ -600,6 +577,10 @@ class CircuitCanvasView(QGraphicsView):
         elif event.key() == Qt.Key.Key_R:
             # Rotate selected components clockwise
             self.rotate_selected(clockwise=True)
+        elif event.key() == Qt.Key.Key_F and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self.flip_selected(horizontal=False)
+        elif event.key() == Qt.Key.Key_F:
+            self.flip_selected(horizontal=True)
         else:
             super().keyPressEvent(event)
 
@@ -711,6 +692,16 @@ class CircuitCanvasView(QGraphicsView):
             rotate_ccw_action.triggered.connect(lambda: self.rotate_component(item, False))
             menu.addAction(rotate_ccw_action)
 
+            menu.addSeparator()
+
+            flip_h_action = QAction("Flip Horizontal (F)", self)
+            flip_h_action.triggered.connect(lambda: self.flip_component(item, True))
+            menu.addAction(flip_h_action)
+
+            flip_v_action = QAction("Flip Vertical (Shift+F)", self)
+            flip_v_action.triggered.connect(lambda: self.flip_component(item, False))
+            menu.addAction(flip_v_action)
+
         elif isinstance(item, AnnotationItem):
             delete_action = QAction("Delete Annotation", self)
             delete_action.triggered.connect(lambda: self._delete_annotation(item))
@@ -758,6 +749,14 @@ class CircuitCanvasView(QGraphicsView):
                     rotate_ccw_action = QAction("Rotate Selected Counter-Clockwise", self)
                     rotate_ccw_action.triggered.connect(lambda: self.rotate_selected(False))
                     menu.addAction(rotate_ccw_action)
+
+                    flip_h_action = QAction("Flip Selected Horizontal", self)
+                    flip_h_action.triggered.connect(lambda: self.flip_selected(True))
+                    menu.addAction(flip_h_action)
+
+                    flip_v_action = QAction("Flip Selected Vertical", self)
+                    flip_v_action.triggered.connect(lambda: self.flip_selected(False))
+                    menu.addAction(flip_v_action)
 
                     menu.addSeparator()
                     sel_ids = [c.component_id for c in selected_components]
@@ -853,6 +852,24 @@ class CircuitCanvasView(QGraphicsView):
 
         for comp in components:
             self.rotate_component(comp, clockwise)
+
+    def flip_component(self, component, horizontal=True):
+        """Flip a single component - uses controller"""
+        if component is None or not isinstance(component, ComponentGraphicsItem):
+            return
+        if not self.controller:
+            logger.warning("Cannot flip component: no controller available")
+            return
+
+        self.controller.flip_component(component.component_id, horizontal)
+
+    def flip_selected(self, horizontal=True):
+        """Flip all selected components"""
+        selected_items = self.scene.selectedItems()
+        components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
+
+        for comp in components:
+            self.flip_component(comp, horizontal)
 
     def add_annotation(self, scene_pos=None):
         """Add a text annotation at the given scene position (or viewport center)."""
@@ -1262,37 +1279,6 @@ class CircuitCanvasView(QGraphicsView):
         self.annotations = []
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
         Node._node_counter = 0
-        self.layer_manager.clear_all_wires()
-
-    def toggle_multi_algorithm_mode(self, enabled=None):
-        """
-        Toggle or set multi-algorithm routing mode
-
-        Args:
-            enabled: If None, toggle; if bool, set to that value
-
-        Returns:
-            bool: New state of multi-algorithm mode
-        """
-        if enabled is None:
-            self.multi_algorithm_mode = not self.multi_algorithm_mode
-            pass
-        else:
-            self.multi_algorithm_mode = enabled
-        return self.multi_algorithm_mode
-
-    def set_active_algorithms(self, algorithm_list):
-        """
-        Set which algorithms should be used for routing
-
-        Args:
-            algorithm_list: List of algorithm names ('astar', 'idastar', 'dijkstra')
-        """
-        self.layer_manager.set_active_algorithms(algorithm_list)
-
-    def get_performance_report(self):
-        """Get performance comparison report for all algorithms"""
-        return self.layer_manager.get_performance_report()
 
     def toggle_obstacle_boundaries(self, show=None):
         """

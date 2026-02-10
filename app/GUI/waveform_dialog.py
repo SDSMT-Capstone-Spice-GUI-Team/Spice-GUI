@@ -474,7 +474,6 @@ class WaveformDialog(QDialog):
         plt.close(self.canvas.figure)
         super().closeEvent(event)
 
-
 class FFTAnalysisDialog(QDialog):
     """Dialog for displaying FFT analysis of transient simulation signals."""
 
