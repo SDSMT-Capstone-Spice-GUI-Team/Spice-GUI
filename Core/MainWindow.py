@@ -19,10 +19,26 @@ class MainWindow(QtWidgets.QMainWindow):
         #Setup Menubar
         self.__init_menubar()
 
+        #Setup View
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
-        left_widget = QtWidgets.QHBoxLayout(central_widget)
+        main_layout = QtWidgets.QHBoxLayout(central_widget)
 
+        #Setup Component Palette
+        left_panel = QtWidgets.QVBoxLayout()
+        left_panel.addWidget(QtWidgets.QLabel("Component Palette"))
+        main_layout.addLayout(left_panel)
+
+        #Setup Canvas and Results
+        center_panel = QtWidgets.QVBoxLayout()
+        center_panel.addWidget(QtWidgets.QLabel("Canvas"))
+        center_panel.addWidget(QtWidgets.QLabel("Results Page"))
+        main_layout.addLayout(center_panel)
+
+        #Setup Properties Panel
+        right_panel = QtWidgets.QVBoxLayout()
+        right_panel.addWidget(QtWidgets.QLabel("Properties"))
+        main_layout.addLayout(right_panel)
 
     def __init_menubar(self):
         menu = self.menuBar()
