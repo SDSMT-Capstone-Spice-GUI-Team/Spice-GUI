@@ -593,24 +593,32 @@ class MainWindow(QMainWindow):
         self.results_text.append("=" * 70)
 
         if not result.success:
-            self.results_text.append("\nERROR: Simulation failed!")
+            # Show validation / simulation errors in the results panel
+            self.results_text.append("\nSIMULATION COULD NOT RUN")
+            self.results_text.append("=" * 40)
             if result.errors:
-                self.results_text.append("\nErrors:")
+                self.results_text.append("\nPlease fix the following issues:\n")
                 for error in result.errors:
                     self.results_text.append(f"  - {error}")
-            if result.error:
-                self.results_text.append(f"\nError message: {result.error}")
-            return
-
-        if result.errors:
-            self.results_text.append("\nCIRCUIT VALIDATION FAILED")
-            self.results_text.append("=" * 40)
-            for error in result.errors:
-                self.results_text.append(f"  - {error}")
             if result.warnings:
-                self.results_text.append("\nWarnings:")
+                self.results_text.append("\nAdditional notes:\n")
                 for warning in result.warnings:
                     self.results_text.append(f"  - {warning}")
+            if result.error and not result.errors:
+                self.results_text.append(f"\n{result.error}")
+
+            # Also show a popup so the user notices immediately
+            popup_lines = list(result.errors or [])
+            if result.warnings:
+                popup_lines.append("")
+                popup_lines.extend(result.warnings)
+            if not popup_lines and result.error:
+                popup_lines.append(result.error)
+            QMessageBox.warning(
+                self,
+                "Circuit Validation",
+                "\n\n".join(popup_lines),
+            )
             return
 
         if self.model.analysis_type == "DC Operating Point":
