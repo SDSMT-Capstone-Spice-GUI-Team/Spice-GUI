@@ -59,10 +59,11 @@ class TestAutoSave:
     def test_auto_save_includes_source_path(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
         ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
-        ctrl.current_file = Path("/some/circuit.json")
+        source = tmp_path / "my_circuit.json"
+        ctrl.current_file = source
         ctrl.auto_save()
         data = json.loads(Path(autosave).read_text())
-        assert data["_autosave_source"] == "/some/circuit.json"
+        assert data["_autosave_source"] == str(source)
 
     def test_auto_save_empty_source_when_no_file(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
@@ -144,12 +145,13 @@ class TestLoadAutoSave:
     def test_load_returns_source_path(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
         ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
-        ctrl.current_file = Path("/my/circuit.json")
+        source_file = tmp_path / "my_circuit.json"
+        ctrl.current_file = source_file
         ctrl.auto_save()
 
         ctrl2 = FileController(autosave_file=autosave)
         source = ctrl2.load_auto_save()
-        assert source == "/my/circuit.json"
+        assert source == str(source_file)
 
     def test_load_returns_empty_string_for_unsaved(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
@@ -163,12 +165,13 @@ class TestLoadAutoSave:
     def test_load_sets_current_file_from_source(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
         ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
-        ctrl.current_file = Path("/my/circuit.json")
+        source_file = tmp_path / "my_circuit.json"
+        ctrl.current_file = source_file
         ctrl.auto_save()
 
         ctrl2 = FileController(autosave_file=autosave)
         ctrl2.load_auto_save()
-        assert ctrl2.current_file == Path("/my/circuit.json")
+        assert ctrl2.current_file == source_file
 
     def test_load_returns_none_when_no_file(self, tmp_path):
         autosave = str(tmp_path / "nonexistent.json")
@@ -211,7 +214,7 @@ class TestLoadAutoSave:
         """The _autosave_source metadata should not leak into the model."""
         autosave = str(tmp_path / "recovery.json")
         ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
-        ctrl.current_file = Path("/my/circuit.json")
+        ctrl.current_file = tmp_path / "my_circuit.json"
         ctrl.auto_save()
 
         ctrl2 = FileController(autosave_file=autosave)

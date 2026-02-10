@@ -10,7 +10,7 @@ from controllers.file_controller import FileController
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 from PyQt6.QtCore import QSettings, QTimer, Qt
-from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
+from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 from .analysis_dialog import AnalysisDialog
 from .circuit_canvas import CircuitCanvasView
 from .component_palette import ComponentPalette
+from .keybindings import KeybindingsRegistry
 from .properties_panel import PropertiesPanel
 from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
 from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
@@ -48,6 +49,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.setGeometry(100, 100, *DEFAULT_WINDOW_SIZE)
+
+        # Keybindings registry (load before UI so shortcuts are applied)
+        self.keybindings = KeybindingsRegistry()
 
         # Create model (single source of truth)
         self.model = CircuitModel()
@@ -206,7 +210,7 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(right_panel_layout, 1)
 
     def create_menu_bar(self):
-        """Create menu bar with File, Edit, View, Simulation, and Analysis menus"""
+        """Create menu bar with File, Edit, View, Simulation, Analysis, and Settings menus"""
         menubar = self.menuBar()
         if menubar is None:
             return
@@ -216,13 +220,15 @@ class MainWindow(QMainWindow):
         if file_menu is None:
             return
 
+        kb = self.keybindings
+
         new_action = QAction("&New", self)
-        new_action.setShortcut("Ctrl+N")
+        new_action.setShortcut(kb.get("file.new"))
         new_action.triggered.connect(self._on_new)
         file_menu.addAction(new_action)
 
         open_action = QAction("&Open...", self)
-        open_action.setShortcut("Ctrl+O")
+        open_action.setShortcut(kb.get("file.open"))
         open_action.triggered.connect(self._on_load)
         file_menu.addAction(open_action)
 
@@ -231,26 +237,26 @@ class MainWindow(QMainWindow):
         self._populate_examples_menu()
 
         save_action = QAction("&Save", self)
-        save_action.setShortcut("Ctrl+S")
+        save_action.setShortcut(kb.get("file.save"))
         save_action.triggered.connect(self._on_save)
         file_menu.addAction(save_action)
 
         save_as_action = QAction("Save &As...", self)
-        save_as_action.setShortcut("Ctrl+Shift+S")
+        save_as_action.setShortcut(kb.get("file.save_as"))
         save_as_action.triggered.connect(self._on_save_as)
         file_menu.addAction(save_as_action)
 
         file_menu.addSeparator()
 
         export_img_action = QAction("Export &Image...", self)
-        export_img_action.setShortcut("Ctrl+E")
+        export_img_action.setShortcut(kb.get("file.export_image"))
         export_img_action.triggered.connect(self.export_image)
         file_menu.addAction(export_img_action)
 
         file_menu.addSeparator()
 
         exit_action = QAction("E&xit", self)
-        exit_action.setShortcut("Ctrl+Q")
+        exit_action.setShortcut(kb.get("file.exit"))
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
@@ -261,13 +267,13 @@ class MainWindow(QMainWindow):
 
         # Undo/Redo actions
         undo_action = QAction("&Undo", self)
-        undo_action.setShortcut(QKeySequence.StandardKey.Undo)
+        undo_action.setShortcut(kb.get("edit.undo"))
         undo_action.triggered.connect(self._on_undo)
         edit_menu.addAction(undo_action)
         self.undo_action = undo_action  # Store reference to update enabled state
 
         redo_action = QAction("&Redo", self)
-        redo_action.setShortcut(QKeySequence.StandardKey.Redo)
+        redo_action.setShortcut(kb.get("edit.redo"))
         redo_action.triggered.connect(self._on_redo)
         edit_menu.addAction(redo_action)
         self.redo_action = redo_action  # Store reference to update enabled state
@@ -275,54 +281,58 @@ class MainWindow(QMainWindow):
         edit_menu.addSeparator()
 
         copy_action = QAction("&Copy", self)
-        copy_action.setShortcut(QKeySequence.StandardKey.Copy)
+        copy_action.setShortcut(kb.get("edit.copy"))
         copy_action.triggered.connect(self.copy_selected)
         edit_menu.addAction(copy_action)
 
         cut_action = QAction("Cu&t", self)
-        cut_action.setShortcut(QKeySequence.StandardKey.Cut)
+        cut_action.setShortcut(kb.get("edit.cut"))
         cut_action.triggered.connect(self.cut_selected)
         edit_menu.addAction(cut_action)
 
         paste_action = QAction("&Paste", self)
-        paste_action.setShortcut(QKeySequence.StandardKey.Paste)
+        paste_action.setShortcut(kb.get("edit.paste"))
         paste_action.triggered.connect(self.paste_components)
         edit_menu.addAction(paste_action)
 
         edit_menu.addSeparator()
 
         delete_action = QAction("&Delete Selected", self)
-        delete_action.setShortcut(QKeySequence.StandardKey.Delete)
+        delete_action.setShortcut(kb.get("edit.delete"))
         delete_action.triggered.connect(self.canvas.delete_selected)
         edit_menu.addAction(delete_action)
+
+        select_all_action = QAction("Select &All", self)
+        select_all_action.setShortcut(kb.get("edit.select_all"))
+        select_all_action.triggered.connect(self.canvas.select_all)
+        edit_menu.addAction(select_all_action)
 
         edit_menu.addSeparator()
 
         rotate_cw_action = QAction("Rotate Clockwise", self)
-        rotate_cw_action.setShortcut("R")
+        rotate_cw_action.setShortcut(kb.get("edit.rotate_cw"))
         rotate_cw_action.triggered.connect(lambda: self.canvas.rotate_selected(True))
         edit_menu.addAction(rotate_cw_action)
 
         rotate_ccw_action = QAction("Rotate Counter-Clockwise", self)
-        rotate_ccw_action.setShortcut("Shift+R")
+        rotate_ccw_action.setShortcut(kb.get("edit.rotate_ccw"))
         rotate_ccw_action.triggered.connect(lambda: self.canvas.rotate_selected(False))
         edit_menu.addAction(rotate_ccw_action)
 
         flip_h_action = QAction("Flip Horizontal", self)
-        flip_h_action.setShortcut("F")
+        flip_h_action.setShortcut(kb.get("edit.flip_h"))
         flip_h_action.triggered.connect(lambda: self.canvas.flip_selected(True))
-        flip_h_action.setToolTip("Flip selected components horizontally (F)")
         edit_menu.addAction(flip_h_action)
 
         flip_v_action = QAction("Flip Vertical", self)
-        flip_v_action.setShortcut("Shift+F")
+        flip_v_action.setShortcut(kb.get("edit.flip_v"))
         flip_v_action.triggered.connect(lambda: self.canvas.flip_selected(False))
-        flip_v_action.setToolTip("Flip selected components vertically (Shift+F)")
         edit_menu.addAction(flip_v_action)
 
         edit_menu.addSeparator()
 
         clear_action = QAction("&Clear Canvas", self)
+        clear_action.setShortcut(kb.get("edit.clear"))
         clear_action.triggered.connect(self.clear_canvas)
         edit_menu.addAction(clear_action)
 
@@ -352,22 +362,22 @@ class MainWindow(QMainWindow):
         view_menu.addSeparator()
 
         zoom_in_action = QAction("Zoom &In", self)
-        zoom_in_action.setShortcut("Ctrl+=")
+        zoom_in_action.setShortcut(kb.get("view.zoom_in"))
         zoom_in_action.triggered.connect(lambda: self.canvas.zoom_in())
         view_menu.addAction(zoom_in_action)
 
         zoom_out_action = QAction("Zoom &Out", self)
-        zoom_out_action.setShortcut("Ctrl+-")
+        zoom_out_action.setShortcut(kb.get("view.zoom_out"))
         zoom_out_action.triggered.connect(lambda: self.canvas.zoom_out())
         view_menu.addAction(zoom_out_action)
 
         zoom_fit_action = QAction("&Fit to Circuit", self)
-        zoom_fit_action.setShortcut("Ctrl+0")
+        zoom_fit_action.setShortcut(kb.get("view.zoom_fit"))
         zoom_fit_action.triggered.connect(lambda: self.canvas.zoom_fit())
         view_menu.addAction(zoom_fit_action)
 
         zoom_reset_action = QAction("&Reset Zoom", self)
-        zoom_reset_action.setShortcut("Ctrl+1")
+        zoom_reset_action.setShortcut(kb.get("view.zoom_reset"))
         zoom_reset_action.triggered.connect(lambda: self.canvas.zoom_reset())
         view_menu.addAction(zoom_reset_action)
 
@@ -377,12 +387,12 @@ class MainWindow(QMainWindow):
             return
 
         netlist_action = QAction("Generate &Netlist", self)
-        netlist_action.setShortcut("Ctrl+G")
+        netlist_action.setShortcut(kb.get("sim.netlist"))
         netlist_action.triggered.connect(self.generate_netlist)
         sim_menu.addAction(netlist_action)
 
         run_action = QAction("&Run Simulation", self)
-        run_action.setShortcut("F5")
+        run_action.setShortcut(kb.get("sim.run"))
         run_action.triggered.connect(self.run_simulation)
         sim_menu.addAction(run_action)
 
@@ -430,6 +440,41 @@ class MainWindow(QMainWindow):
         self.ac_action = ac_action
         self.tran_action = tran_action
         self.temp_action = temp_action
+
+        # Store action references for keybinding re-application
+        self._bound_actions = {
+            "file.new": new_action,
+            "file.open": open_action,
+            "file.save": save_action,
+            "file.save_as": save_as_action,
+            "file.export_image": export_img_action,
+            "file.exit": exit_action,
+            "edit.undo": undo_action,
+            "edit.redo": redo_action,
+            "edit.copy": copy_action,
+            "edit.cut": cut_action,
+            "edit.paste": paste_action,
+            "edit.delete": delete_action,
+            "edit.select_all": select_all_action,
+            "edit.rotate_cw": rotate_cw_action,
+            "edit.rotate_ccw": rotate_ccw_action,
+            "edit.flip_h": flip_h_action,
+            "edit.flip_v": flip_v_action,
+            "edit.clear": clear_action,
+            "view.zoom_in": zoom_in_action,
+            "view.zoom_out": zoom_out_action,
+            "view.zoom_fit": zoom_fit_action,
+            "view.zoom_reset": zoom_reset_action,
+            "sim.netlist": netlist_action,
+            "sim.run": run_action,
+        }
+
+        # Settings menu
+        settings_menu = menubar.addMenu("Se&ttings")
+        if settings_menu:
+            keybindings_action = QAction("&Keybindings...", self)
+            keybindings_action.triggered.connect(self._open_keybindings_dialog)
+            settings_menu.addAction(keybindings_action)
 
     # File Operations (delegated to FileController)
 
@@ -723,7 +768,7 @@ class MainWindow(QMainWindow):
                     if len(rows) > 20:
                         self.results_text.append(f"  ... ({len(rows)} total rows)")
                 self.results_text.append("\nPlot opened in a new window.")
-                self._show_plot_dialog(DCSweepPlotDialog(sweep_data, self))
+                self._show_or_overlay_plot("DC Sweep", sweep_data, DCSweepPlotDialog)
             else:
                 self.results_text.append("\nDC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -741,7 +786,7 @@ class MainWindow(QMainWindow):
                 if freqs:
                     self.results_text.append(f"  Range: {freqs[0]:.4g} Hz — {freqs[-1]:.4g} Hz")
                 self.results_text.append("\nBode plot opened in a new window.")
-                self._show_plot_dialog(ACSweepPlotDialog(ac_data, self))
+                self._show_or_overlay_plot("AC Sweep", ac_data, ACSweepPlotDialog)
             else:
                 self.results_text.append("\nAC Sweep data - see raw output below")
             self.canvas.clear_node_voltages()
@@ -761,14 +806,32 @@ class MainWindow(QMainWindow):
                 self.results_text.append("\n" + "-" * 40)
                 self.results_text.append("Waveform plot has also been generated in a new window.")
 
-                # Clean up previous waveform dialog
-                if self._waveform_dialog is not None:
-                    self._waveform_dialog.close()
-                    self._waveform_dialog.deleteLater()
-
-                # Show waveform plot
-                self._waveform_dialog = WaveformDialog(tran_data, self)
-                self._waveform_dialog.show()
+                # Check for overlay on existing waveform dialog
+                if self._waveform_dialog is not None and self._waveform_dialog.isVisible():
+                    reply = QMessageBox.question(
+                        self,
+                        "Overlay Results",
+                        "A waveform window is already open.\n\n"
+                        "Yes = Overlay new results on existing plot\n"
+                        "No = Replace with new results only",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    )
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self._waveform_dialog.add_dataset(tran_data)
+                        self._waveform_dialog.raise_()
+                        self._waveform_dialog.activateWindow()
+                    else:
+                        self._waveform_dialog.close()
+                        self._waveform_dialog.deleteLater()
+                        self._waveform_dialog = WaveformDialog(tran_data, self)
+                        self._waveform_dialog.show()
+                else:
+                    # Clean up previous waveform dialog
+                    if self._waveform_dialog is not None:
+                        self._waveform_dialog.close()
+                        self._waveform_dialog.deleteLater()
+                    self._waveform_dialog = WaveformDialog(tran_data, self)
+                    self._waveform_dialog.show()
             else:
                 self.results_text.append("\nNo transient data found in output.")
             self.canvas.clear_node_voltages()
@@ -806,6 +869,33 @@ class MainWindow(QMainWindow):
             self._plot_dialog.deleteLater()
         self._plot_dialog = dialog
         self._plot_dialog.show()
+
+    def _show_or_overlay_plot(self, analysis_type, data, dialog_class):
+        """Show a new plot or overlay data on an existing compatible dialog.
+
+        If a plot dialog of the same analysis type is already open, the user
+        is asked whether to overlay the new results or replace the old plot.
+        """
+        if (
+            self._plot_dialog is not None
+            and self._plot_dialog.isVisible()
+            and getattr(self._plot_dialog, "analysis_type", None) == analysis_type
+        ):
+            reply = QMessageBox.question(
+                self,
+                "Overlay Results",
+                "A plot window is already open.\n\n"
+                "Yes = Overlay new results on existing plot\n"
+                "No = Replace with new results only",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self._plot_dialog.add_dataset(data)
+                self._plot_dialog.raise_()
+                self._plot_dialog.activateWindow()
+                return
+
+        self._show_plot_dialog(dialog_class(data, self))
 
     def export_results_csv(self):
         """Export the last simulation results to a CSV file"""
@@ -1099,6 +1189,23 @@ class MainWindow(QMainWindow):
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
+
+    # Keybindings
+
+    def _open_keybindings_dialog(self):
+        """Open the keybindings preferences dialog."""
+        from .keybindings_dialog import KeybindingsDialog
+
+        dialog = KeybindingsDialog(self.keybindings, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Re-apply shortcuts to all menu actions
+            self._apply_keybindings()
+
+    def _apply_keybindings(self):
+        """Re-apply shortcuts from the registry to stored actions."""
+        kb = self.keybindings
+        for action_name, qaction in self._bound_actions.items():
+            qaction.setShortcut(kb.get(action_name))
 
     # Settings Persistence
 
