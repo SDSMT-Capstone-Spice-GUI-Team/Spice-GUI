@@ -26,6 +26,7 @@ class WireData:
     algorithm: str = "idastar"
     runtime: float = 0.0  # Time taken to route (seconds)
     iterations: int = 0  # Pathfinding iterations
+    routing_failed: bool = False  # True when pathfinding fell back to straight line
 
     def get_terminals(self) -> list[tuple[str, int]]:
         """

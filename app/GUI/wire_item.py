@@ -167,19 +167,32 @@ class WireGraphicsItem(QGraphicsPathItem):
             pathfinder = IDAStarPathfinder(GRID_SIZE)
             result = pathfinder.find_path(start, end, obstacles, algorithm=self.algorithm)
 
-            # Unpack result (waypoints, runtime, iterations)
-            self.waypoints, runtime, iterations = result
+            # Unpack result (waypoints, runtime, iterations, routing_failed)
+            self.waypoints, runtime, iterations, routing_failed = result
 
             # Store in model
             self.model.runtime = runtime
             self.model.iterations = iterations
+            self.model.routing_failed = routing_failed
             # Convert QPointF waypoints to tuples for model storage
             self.model.waypoints = [(wp.x(), wp.y()) for wp in self.waypoints]
+
+            if routing_failed:
+                logger.warning(
+                    "Pathfinding failed for wire %s[%s] -> %s[%s]: "
+                    "could not find valid route, using straight-line fallback",
+                    self.start_comp.component_id,
+                    self.start_term,
+                    self.end_comp.component_id,
+                    self.end_term,
+                )
+                self._notify_routing_failed()
         else:
             # Fallback to direct line
             self.waypoints = [start, end]
             self.model.runtime = 0.0
             self.model.iterations = 0
+            self.model.routing_failed = False
             self.model.waypoints = [(start.x(), start.y()), (end.x(), end.y())]
 
         # Create path from waypoints
@@ -198,14 +211,27 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         self.update()  # Force item redraw
 
+    def _notify_routing_failed(self):
+        """Show status bar message when wire routing fails."""
+        if not self.canvas:
+            return
+        main_window = self.canvas.window() if hasattr(self.canvas, "window") else None
+        if main_window and hasattr(main_window, "statusBar"):
+            status = main_window.statusBar()
+            if status:
+                status.showMessage("Wire routing failed — move components to create space", 5000)
+
     def paint(self, painter, option=None, widget=None):
         """Override paint to show selection highlight and layer color"""
         if painter is None:
             return
 
-        # Draw wire with layer color
+        # Draw wire with appropriate style
         if self.isSelected():
             painter.setPen(theme_manager.pen("wire_selected"))
+        elif self.model.routing_failed:
+            pen = QPen(Qt.GlobalColor.red, 2, Qt.PenStyle.DashLine)
+            painter.setPen(pen)
         else:
             painter.setPen(QPen(self.layer_color, 2))
 
