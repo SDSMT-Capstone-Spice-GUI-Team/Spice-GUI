@@ -2,6 +2,8 @@
 simulation/circuit_validator.py
 
 Pre-simulation circuit validation with no Qt dependencies.
+Error messages are written to be educational and student-friendly,
+suggesting how to fix each problem.
 """
 
 
@@ -26,13 +28,22 @@ def validate_circuit(components, wires, analysis_type):
     # 1. Circuit must have components (beyond just Ground)
     non_ground = [c for c in components.values() if c.component_type != 'Ground']
     if not non_ground:
-        errors.append("Circuit has no components. Add at least one component to simulate.")
+        errors.append(
+            "There are no components on the canvas. "
+            "Drag components from the palette on the left to start "
+            "designing your circuit."
+        )
         return False, errors, warnings
 
     # 2. Must have a ground node
     has_ground = any(c.component_type == 'Ground' for c in components.values())
     if not has_ground:
-        errors.append("Circuit has no ground node. Every SPICE circuit requires a ground (node 0).")
+        errors.append(
+            "Your circuit needs a ground connection. "
+            "Every circuit needs a reference point (0 V). "
+            "Drag a Ground component from the palette and connect it "
+            "to your circuit."
+        )
 
     # 3. Build set of connected terminals from wires
     connected_terminals = set()
@@ -56,12 +67,14 @@ def validate_circuit(components, wires, analysis_type):
         if len(comp_unconnected) == terminal_count:
             errors.append(
                 f"{comp.component_id} ({comp.component_type}) has no connections. "
-                f"Connect its terminals to the circuit."
+                f"Make sure all component terminals (the dots on each end) "
+                f"are connected with wires before simulating."
             )
         elif comp_unconnected:
             warnings.append(
                 f"{comp.component_id} ({comp.component_type}) has unconnected "
-                f"terminal(s): {comp_unconnected}."
+                f"terminals. Make sure all component terminals (the dots on "
+                f"each end) are connected with wires before simulating."
             )
 
     # 5. Analysis-specific checks
@@ -75,13 +88,16 @@ def validate_circuit(components, wires, analysis_type):
                       if c.component_type == 'Voltage Source']
         if not dc_sources:
             errors.append(
-                "DC Sweep requires at least one DC Voltage Source to sweep."
+                "DC Sweep analysis requires a Voltage Source to sweep. "
+                "Add a Voltage Source to your circuit and connect it "
+                "before running this analysis."
             )
 
     if not voltage_sources and not current_sources:
         warnings.append(
             "Circuit has no voltage or current sources. "
-            "The simulation may not produce meaningful results."
+            "Add a Voltage Source or Current Source to provide power "
+            "to the circuit."
         )
 
     is_valid = len(errors) == 0
