@@ -36,16 +36,19 @@ class PropertiesPanel(QWidget):
         # Component ID field (read-only)
         self.id_label = QLabel("-")
         self.id_label.setStyleSheet(theme_manager.stylesheet("muted_label"))
+        self.id_label.setToolTip("Unique identifier for this component (auto-generated)")
         self.form_layout.addRow("ID:", self.id_label)
 
         # Component Type field (read-only)
         self.type_label = QLabel("-")
         self.type_label.setStyleSheet(theme_manager.stylesheet("muted_label"))
+        self.type_label.setToolTip("The type of circuit component")
         self.form_layout.addRow("Type:", self.type_label)
 
         # Value field (editable)
         self.value_input = QLineEdit()
         self.value_input.setPlaceholderText("e.g., 10k, 100u, 5V")
+        self.value_input.setToolTip("Component value with optional SI suffix (e.g., 10k, 100n, 4.7M)")
         self.value_input.textChanged.connect(self.on_value_changed)
         self.form_layout.addRow("Value:", self.value_input)
 
@@ -60,12 +63,14 @@ class PropertiesPanel(QWidget):
 
         # Apply button
         self.apply_button = QPushButton("Apply Changes")
+        self.apply_button.setToolTip("Apply the changed value to the selected component")
         self.apply_button.clicked.connect(self.apply_changes)
         self.apply_button.setEnabled(False)
         layout.addWidget(self.apply_button)
 
         # Waveform configuration button (shown only for waveform sources)
         self.waveform_button = QPushButton("Configure Waveform...")
+        self.waveform_button.setToolTip("Open waveform parameter configuration")
         self.waveform_button.clicked.connect(self.configure_waveform)
         self.waveform_button.setVisible(False)
         layout.addWidget(self.waveform_button)

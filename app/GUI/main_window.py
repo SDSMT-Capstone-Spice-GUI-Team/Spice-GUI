@@ -143,6 +143,7 @@ class MainWindow(QMainWindow):
         results_header = QHBoxLayout()
         results_header.addWidget(QLabel("Simulation Results"))
         self.btn_export_csv = QPushButton("Export CSV")
+        self.btn_export_csv.setToolTip("Export simulation results to a CSV file")
         self.btn_export_csv.setEnabled(False)
         self.btn_export_csv.clicked.connect(self.export_results_csv)
         results_header.addWidget(self.btn_export_csv)
@@ -171,24 +172,29 @@ class MainWindow(QMainWindow):
         right_panel_layout.addWidget(QLabel("Actions"))
 
         self.btn_save = QPushButton("Save Circuit")
+        self.btn_save.setToolTip("Save the circuit to a file")
         self.btn_save.clicked.connect(self._on_save_as)
         right_panel_layout.addWidget(self.btn_save)
 
         self.btn_load = QPushButton("Load Circuit")
+        self.btn_load.setToolTip("Load a circuit from a file")
         self.btn_load.clicked.connect(self._on_load)
         right_panel_layout.addWidget(self.btn_load)
 
         self.btn_clear = QPushButton("Clear Canvas")
+        self.btn_clear.setToolTip("Remove all components and wires from the canvas")
         self.btn_clear.clicked.connect(self.clear_canvas)
         right_panel_layout.addWidget(self.btn_clear)
 
         right_panel_layout.addWidget(QLabel(""))  # Spacer
 
         self.btn_netlist = QPushButton("Generate Netlist")
+        self.btn_netlist.setToolTip("Generate a SPICE netlist from the circuit (Ctrl+G)")
         self.btn_netlist.clicked.connect(self.generate_netlist)
         right_panel_layout.addWidget(self.btn_netlist)
 
         self.btn_simulate = QPushButton("Run Simulation")
+        self.btn_simulate.setToolTip("Run the simulation with current analysis settings (F5)")
         self.btn_simulate.clicked.connect(self.run_simulation)
         right_panel_layout.addWidget(self.btn_simulate)
 
@@ -207,21 +213,25 @@ class MainWindow(QMainWindow):
 
         new_action = QAction("&New", self)
         new_action.setShortcut("Ctrl+N")
+        new_action.setToolTip("Create a new empty circuit (Ctrl+N)")
         new_action.triggered.connect(self._on_new)
         file_menu.addAction(new_action)
 
         open_action = QAction("&Open...", self)
         open_action.setShortcut("Ctrl+O")
+        open_action.setToolTip("Open a saved circuit file (Ctrl+O)")
         open_action.triggered.connect(self._on_load)
         file_menu.addAction(open_action)
 
         save_action = QAction("&Save", self)
         save_action.setShortcut("Ctrl+S")
+        save_action.setToolTip("Save the current circuit (Ctrl+S)")
         save_action.triggered.connect(self._on_save)
         file_menu.addAction(save_action)
 
         save_as_action = QAction("Save &As...", self)
         save_as_action.setShortcut("Ctrl+Shift+S")
+        save_as_action.setToolTip("Save the circuit to a new file (Ctrl+Shift+S)")
         save_as_action.triggered.connect(self._on_save_as)
         file_menu.addAction(save_as_action)
 
@@ -229,6 +239,7 @@ class MainWindow(QMainWindow):
 
         export_img_action = QAction("Export &Image...", self)
         export_img_action.setShortcut("Ctrl+E")
+        export_img_action.setToolTip("Export circuit as PNG or SVG image (Ctrl+E)")
         export_img_action.triggered.connect(self.export_image)
         file_menu.addAction(export_img_action)
 
@@ -236,6 +247,7 @@ class MainWindow(QMainWindow):
 
         exit_action = QAction("E&xit", self)
         exit_action.setShortcut("Ctrl+Q")
+        exit_action.setToolTip("Close the application (Ctrl+Q)")
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
@@ -246,16 +258,19 @@ class MainWindow(QMainWindow):
 
         copy_action = QAction("&Copy", self)
         copy_action.setShortcut(QKeySequence.StandardKey.Copy)
+        copy_action.setToolTip("Copy selected components (Ctrl+C)")
         copy_action.triggered.connect(self.copy_selected)
         edit_menu.addAction(copy_action)
 
         cut_action = QAction("Cu&t", self)
         cut_action.setShortcut(QKeySequence.StandardKey.Cut)
+        cut_action.setToolTip("Cut selected components (Ctrl+X)")
         cut_action.triggered.connect(self.cut_selected)
         edit_menu.addAction(cut_action)
 
         paste_action = QAction("&Paste", self)
         paste_action.setShortcut(QKeySequence.StandardKey.Paste)
+        paste_action.setToolTip("Paste components from clipboard (Ctrl+V)")
         paste_action.triggered.connect(self.paste_components)
         edit_menu.addAction(paste_action)
 
@@ -263,6 +278,7 @@ class MainWindow(QMainWindow):
 
         delete_action = QAction("&Delete Selected", self)
         delete_action.setShortcut(QKeySequence.StandardKey.Delete)
+        delete_action.setToolTip("Delete the selected component or wire (Delete)")
         delete_action.triggered.connect(self.canvas.delete_selected)
         edit_menu.addAction(delete_action)
 
@@ -270,17 +286,20 @@ class MainWindow(QMainWindow):
 
         rotate_cw_action = QAction("Rotate Clockwise", self)
         rotate_cw_action.setShortcut("R")
+        rotate_cw_action.setToolTip("Rotate selected component clockwise (R)")
         rotate_cw_action.triggered.connect(lambda: self.canvas.rotate_selected(True))
         edit_menu.addAction(rotate_cw_action)
 
         rotate_ccw_action = QAction("Rotate Counter-Clockwise", self)
         rotate_ccw_action.setShortcut("Shift+R")
+        rotate_ccw_action.setToolTip("Rotate selected component counter-clockwise (Shift+R)")
         rotate_ccw_action.triggered.connect(lambda: self.canvas.rotate_selected(False))
         edit_menu.addAction(rotate_ccw_action)
 
         edit_menu.addSeparator()
 
         clear_action = QAction("&Clear Canvas", self)
+        clear_action.setToolTip("Remove all components and wires from the canvas")
         clear_action.triggered.connect(self.clear_canvas)
         edit_menu.addAction(clear_action)
 
@@ -292,18 +311,21 @@ class MainWindow(QMainWindow):
         self.show_labels_action = QAction("Show Component &Labels", self)
         self.show_labels_action.setCheckable(True)
         self.show_labels_action.setChecked(True)
+        self.show_labels_action.setToolTip("Toggle component ID labels on the canvas")
         self.show_labels_action.triggered.connect(self.toggle_component_labels)
         view_menu.addAction(self.show_labels_action)
 
         self.show_values_action = QAction("Show Component &Values", self)
         self.show_values_action.setCheckable(True)
         self.show_values_action.setChecked(True)
+        self.show_values_action.setToolTip("Toggle component value labels on the canvas")
         self.show_values_action.triggered.connect(self.toggle_component_values)
         view_menu.addAction(self.show_values_action)
 
         self.show_nodes_action = QAction("Show &Node Labels", self)
         self.show_nodes_action.setCheckable(True)
         self.show_nodes_action.setChecked(True)
+        self.show_nodes_action.setToolTip("Toggle circuit node labels on the canvas")
         self.show_nodes_action.triggered.connect(self.toggle_node_labels)
         view_menu.addAction(self.show_nodes_action)
 
@@ -311,21 +333,25 @@ class MainWindow(QMainWindow):
 
         zoom_in_action = QAction("Zoom &In", self)
         zoom_in_action.setShortcut("Ctrl+=")
+        zoom_in_action.setToolTip("Zoom in on the canvas (Ctrl++)")
         zoom_in_action.triggered.connect(lambda: self.canvas.zoom_in())
         view_menu.addAction(zoom_in_action)
 
         zoom_out_action = QAction("Zoom &Out", self)
         zoom_out_action.setShortcut("Ctrl+-")
+        zoom_out_action.setToolTip("Zoom out on the canvas (Ctrl+-)")
         zoom_out_action.triggered.connect(lambda: self.canvas.zoom_out())
         view_menu.addAction(zoom_out_action)
 
         zoom_fit_action = QAction("&Fit to Circuit", self)
         zoom_fit_action.setShortcut("Ctrl+0")
+        zoom_fit_action.setToolTip("Fit the view to show the entire circuit (Ctrl+0)")
         zoom_fit_action.triggered.connect(lambda: self.canvas.zoom_fit())
         view_menu.addAction(zoom_fit_action)
 
         zoom_reset_action = QAction("&Reset Zoom", self)
         zoom_reset_action.setShortcut("Ctrl+1")
+        zoom_reset_action.setToolTip("Reset zoom to 100% (Ctrl+1)")
         zoom_reset_action.triggered.connect(lambda: self.canvas.zoom_reset())
         view_menu.addAction(zoom_reset_action)
 
@@ -336,11 +362,13 @@ class MainWindow(QMainWindow):
 
         netlist_action = QAction("Generate &Netlist", self)
         netlist_action.setShortcut("Ctrl+G")
+        netlist_action.setToolTip("Generate a SPICE netlist from the circuit (Ctrl+G)")
         netlist_action.triggered.connect(self.generate_netlist)
         sim_menu.addAction(netlist_action)
 
         run_action = QAction("&Run Simulation", self)
         run_action.setShortcut("F5")
+        run_action.setToolTip("Run the simulation with current analysis settings (F5)")
         run_action.triggered.connect(self.run_simulation)
         sim_menu.addAction(run_action)
 
@@ -352,21 +380,25 @@ class MainWindow(QMainWindow):
         op_action = QAction("&DC Operating Point (.op)", self)
         op_action.setCheckable(True)
         op_action.setChecked(True)
+        op_action.setToolTip("Calculate DC node voltages at steady state")
         op_action.triggered.connect(self.set_analysis_op)
         analysis_menu.addAction(op_action)
 
         dc_action = QAction("&DC Sweep", self)
         dc_action.setCheckable(True)
+        dc_action.setToolTip("Sweep a source voltage and measure circuit response")
         dc_action.triggered.connect(self.set_analysis_dc)
         analysis_menu.addAction(dc_action)
 
         ac_action = QAction("&AC Sweep", self)
         ac_action.setCheckable(True)
+        ac_action.setToolTip("Analyze circuit frequency response")
         ac_action.triggered.connect(self.set_analysis_ac)
         analysis_menu.addAction(ac_action)
 
         tran_action = QAction("&Transient", self)
         tran_action.setCheckable(True)
+        tran_action.setToolTip("Simulate circuit behavior over time")
         tran_action.triggered.connect(self.set_analysis_transient)
         analysis_menu.addAction(tran_action)
 

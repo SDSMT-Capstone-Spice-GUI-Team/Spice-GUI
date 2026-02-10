@@ -6,6 +6,20 @@ from .format_utils import parse_value
 class AnalysisDialog(QDialog):
     """Enhanced dialog for configuring analysis parameters"""
 
+    # Tooltips for analysis parameter fields (keyed by field key)
+    FIELD_TOOLTIPS = {
+        "source": "Name of the voltage source to sweep (e.g., V1)",
+        "min": "Starting voltage for the DC sweep in volts",
+        "max": "Ending voltage for the DC sweep in volts",
+        "step": "Increment between each sweep point",
+        "fStart": "Starting frequency for the sweep in Hz",
+        "fStop": "Ending frequency for the sweep in Hz",
+        "points": "Number of frequency samples per 10x frequency range",
+        "sweepType": "Frequency scale: dec (decade), oct (octave), or lin (linear)",
+        "duration": "Total simulation time (use SI suffixes: 10m = 10 ms)",
+        "startTime": "Time at which to begin recording results",
+    }
+
     # Analysis type configurations
     ANALYSIS_CONFIGS = {
         "DC Operating Point": {"fields": [], "description": "Calculate DC operating point of the circuit"},
@@ -51,6 +65,7 @@ class AnalysisDialog(QDialog):
         if self.analysis_type is None:
             self.type_combo = QComboBox()
             self.type_combo.addItems(self.ANALYSIS_CONFIGS.keys())
+            self.type_combo.setToolTip("Select the type of circuit analysis to run")
             self.type_combo.currentTextChanged.connect(self._on_type_changed)
             layout.addWidget(QLabel("Analysis Type:"))
             layout.addWidget(self.type_combo)
@@ -105,6 +120,10 @@ class AnalysisDialog(QDialog):
             else:  # (label, key, type, default)
                 label, key, field_type, default = field_config
                 widget = QLineEdit(str(default))
+
+            tooltip = self.FIELD_TOOLTIPS.get(key, "")
+            if tooltip:
+                widget.setToolTip(tooltip)
 
             self.field_widgets[key] = (widget, field_type)
             self.form_layout.addRow(f"{label}:", widget)
