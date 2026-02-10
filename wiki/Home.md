@@ -7,11 +7,18 @@ Welcome to the **SDM Spice** (South Dakota Mines Spice) documentation wiki.
 SDM Spice is an open-source circuit design and simulation platform developed at South Dakota School of Mines and Technology (SDSMT). It provides an intuitive drag-and-drop interface for designing electronic circuits and running SPICE simulations.
 
 ### Key Features
-- Visual circuit schematic editor
-- Drag-and-drop component placement
-- Intelligent wire routing
-- Integrated ngspice simulation
-- Interactive waveform visualization
+- Visual circuit schematic editor with drag-and-drop component placement
+- 20+ components: passives, sources, dependent sources, semiconductors (BJT, MOSFET, diodes), switches
+- Intelligent wire routing with automatic pathfinding
+- Integrated ngspice simulation (DC OP, DC Sweep, AC Sweep, Transient, Temperature Sweep)
+- Parameter sweep across component values
+- Interactive waveform viewer with measurement cursors and result overlay
+- FFT/harmonic analysis with THD calculation
+- CSV, PNG, SVG, and PDF export
+- SPICE netlist import (.cir/.spice files)
+- Dark mode and configurable keyboard shortcuts
+- Auto-save with crash recovery
+- Undo/redo, copy/paste, multi-select
 - Cross-platform support (Windows, macOS, Linux)
 
 ## Quick Links
@@ -48,7 +55,7 @@ SDM Spice is an open-source circuit design and simulation platform developed at 
 
 ## Current Status
 
-SDM Spice is currently in **Phase 1 (Student MVP)** development.
+SDM Spice **Phase 1 (Student MVP)** is complete. The application is fully functional with comprehensive circuit design, simulation, and analysis capabilities.
 
 ## Support
 

@@ -144,6 +144,14 @@ print all
 | Voltage Source | `V<name> <n+> <n-> <value>` |
 | Current Source | `I<name> <n+> <n-> <value>` |
 | Waveform | `V<name> <n+> <n-> SIN(...)` |
+| Diode | `D<name> <anode> <cathode> <model>` |
+| BJT | `Q<name> <C> <B> <E> <model>` |
+| MOSFET | `M<name> <D> <G> <S> <body> <model>` |
+| VCVS | `E<name> <n+> <n-> <nc+> <nc-> <gain>` |
+| CCVS | `H<name> <n+> <n-> <vcontrol> <gain>` |
+| VCCS | `G<name> <n+> <n-> <nc+> <nc-> <gain>` |
+| CCCS | `F<name> <n+> <n-> <vcontrol> <gain>` |
+| VC Switch | `S<name> <n+> <n-> <nc+> <nc-> <model>` |
 
 ---
 
@@ -199,28 +207,58 @@ This enables automatic restoration on application startup.
 
 ---
 
-## Export Formats (Future)
+## Auto-Save File
 
-Planned export capabilities:
-
-| Format | Purpose |
-|--------|---------|
-| PNG/SVG | Schematic image export |
-| PDF | Documentation/printing |
-| CSV | Simulation data for spreadsheets |
-| Raw SPICE | Standard netlist format |
+SDM Spice automatically saves your work to a temporary file every 60 seconds. If the application crashes, you will be prompted to recover from the auto-save file on next startup. The auto-save file is cleared on clean exit.
 
 ---
 
-## Import Formats (Future)
+## Keybindings Configuration
 
-Planned import capabilities:
+Custom keyboard shortcuts are stored in `~/.spice-gui/keybindings.json`:
 
-| Format | Purpose |
-|--------|---------|
-| SPICE Netlist | Import existing circuits |
-| LTspice | Cross-tool compatibility |
-| KiCad | Schematic import |
+```json
+{
+  "edit.undo": "Ctrl+Z",
+  "edit.redo": "Ctrl+Shift+Z",
+  "edit.rotate_cw": "R",
+  "sim.run": "F5"
+}
+```
+
+Only overridden shortcuts are stored; defaults are used for any action not present in the file.
+
+---
+
+## Export Formats
+
+| Format | Purpose | Status |
+|--------|---------|--------|
+| PNG | Schematic image export | Implemented |
+| SVG | Scalable schematic export | Implemented |
+| PDF | Documentation/printing | Implemented |
+| CSV | Simulation data for spreadsheets | Implemented |
+| SPICE Netlist | Standard netlist format | Implemented |
+
+### CSV Export
+Simulation results can be exported to CSV from the Waveform Viewer. The CSV includes all traced signals with headers.
+
+### Image/PDF Export
+Export the circuit schematic via **File > Export Image** (Ctrl+E). Choose between PNG, SVG, or PDF format.
+
+---
+
+## Import Formats
+
+| Format | Purpose | Status |
+|--------|---------|--------|
+| JSON Circuit | Native SDM Spice format | Implemented |
+| SPICE Netlist (.cir/.spice) | Import existing SPICE circuits | Implemented |
+| LTspice | Cross-tool compatibility | Planned |
+| KiCad | Schematic import | Planned |
+
+### SPICE Netlist Import
+SDM Spice can parse standard SPICE netlist files (.cir, .spice) and place components on the canvas with automatic layout. This allows you to load textbook examples and reference circuits directly.
 
 ---
 
