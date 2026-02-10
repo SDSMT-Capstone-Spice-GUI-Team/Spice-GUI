@@ -1,10 +1,23 @@
-from PyQt6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QVBoxLayout
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+)
+from simulation.preset_manager import PresetManager
 
 from .format_utils import parse_value
 
 
 class AnalysisDialog(QDialog):
-    """Enhanced dialog for configuring analysis parameters"""
+    """Enhanced dialog for configuring analysis parameters with preset support"""
 
     # Analysis type configurations
     ANALYSIS_CONFIGS = {
@@ -51,10 +64,11 @@ class AnalysisDialog(QDialog):
         },
     }
 
-    def __init__(self, analysis_type=None, parent=None):
+    def __init__(self, analysis_type=None, parent=None, preset_manager=None):
         super().__init__(parent)
         self.analysis_type = analysis_type
         self.field_widgets = {}
+        self._preset_manager = preset_manager or PresetManager()
         self.init_ui()
 
     def init_ui(self):
@@ -74,6 +88,26 @@ class AnalysisDialog(QDialog):
         self.desc_label = QLabel()
         self.desc_label.setWordWrap(True)
         layout.addWidget(self.desc_label)
+
+        # --- Preset controls ---
+        preset_layout = QHBoxLayout()
+        preset_layout.addWidget(QLabel("Preset:"))
+        self.preset_combo = QComboBox()
+        self.preset_combo.setMinimumWidth(180)
+        self.preset_combo.currentIndexChanged.connect(self._on_preset_selected)
+        preset_layout.addWidget(self.preset_combo, 1)
+
+        self.save_preset_btn = QPushButton("Save")
+        self.save_preset_btn.setToolTip("Save current parameters as a preset")
+        self.save_preset_btn.clicked.connect(self._save_preset)
+        preset_layout.addWidget(self.save_preset_btn)
+
+        self.delete_preset_btn = QPushButton("Delete")
+        self.delete_preset_btn.setToolTip("Delete the selected preset")
+        self.delete_preset_btn.clicked.connect(self._delete_preset)
+        preset_layout.addWidget(self.delete_preset_btn)
+
+        layout.addLayout(preset_layout)
 
         # Form layout for parameters
         self.form_layout = QFormLayout()
@@ -122,6 +156,9 @@ class AnalysisDialog(QDialog):
 
             self.field_widgets[key] = (widget, field_type)
             self.form_layout.addRow(f"{label}:", widget)
+
+        # Refresh preset dropdown for this analysis type
+        self._refresh_preset_combo()
 
     def get_parameters(self):
         """Get parameters from dialog with validation"""
@@ -179,3 +216,110 @@ class AnalysisDialog(QDialog):
             return f".step temp {tstart} {tstop} {tstep}"
 
         return ""
+
+    # --- Preset management ---
+
+    def _refresh_preset_combo(self):
+        """Rebuild the preset dropdown for the current analysis type."""
+        self.preset_combo.blockSignals(True)
+        self.preset_combo.clear()
+        self.preset_combo.addItem("(none)")
+
+        presets = self._preset_manager.get_presets(self.analysis_type)
+        for p in presets:
+            suffix = " [built-in]" if p.get("builtin") else ""
+            self.preset_combo.addItem(f"{p['name']}{suffix}", p["name"])
+
+        self.preset_combo.setCurrentIndex(0)
+        self.preset_combo.blockSignals(False)
+        self._update_delete_button()
+
+    def _on_preset_selected(self, index):
+        """Load the selected preset into the form fields."""
+        if index <= 0:
+            self._update_delete_button()
+            return
+
+        preset_name = self.preset_combo.itemData(index)
+        if preset_name is None:
+            return
+
+        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        if preset is None:
+            return
+
+        self._apply_preset_params(preset["params"])
+        self._update_delete_button()
+
+    def _apply_preset_params(self, params):
+        """Set form widget values from a params dict."""
+        for key, (widget, field_type) in self.field_widgets.items():
+            if key not in params:
+                continue
+            value = params[key]
+            if field_type == "combo":
+                widget.setCurrentText(str(value))
+            else:
+                widget.setText(str(value))
+
+    def _save_preset(self):
+        """Save current parameters as a named preset."""
+        params = self.get_parameters()
+        if params is None:
+            QMessageBox.warning(self, "Invalid Parameters", "Please enter valid parameters before saving a preset.")
+            return
+
+        # Remove analysis_type key from params (stored separately)
+        save_params = {k: v for k, v in params.items() if k != "analysis_type"}
+
+        name, ok = QInputDialog.getText(self, "Save Preset", "Preset name:")
+        if not ok or not name.strip():
+            return
+
+        name = name.strip()
+        try:
+            self._preset_manager.save_preset(name, self.analysis_type, save_params)
+            self._refresh_preset_combo()
+            # Select the newly saved preset
+            for i in range(self.preset_combo.count()):
+                if self.preset_combo.itemData(i) == name:
+                    self.preset_combo.setCurrentIndex(i)
+                    break
+        except ValueError as e:
+            QMessageBox.warning(self, "Cannot Save", str(e))
+
+    def _delete_preset(self):
+        """Delete the currently selected user preset."""
+        index = self.preset_combo.currentIndex()
+        if index <= 0:
+            return
+
+        preset_name = self.preset_combo.itemData(index)
+        if preset_name is None:
+            return
+
+        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        if preset and preset.get("builtin"):
+            QMessageBox.information(self, "Built-in Preset", "Built-in presets cannot be deleted.")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Delete Preset",
+            f"Delete preset '{preset_name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._preset_manager.delete_preset(preset_name, self.analysis_type)
+            self._refresh_preset_combo()
+
+    def _update_delete_button(self):
+        """Enable/disable the delete button based on selection."""
+        index = self.preset_combo.currentIndex()
+        if index <= 0:
+            self.delete_preset_btn.setEnabled(False)
+            return
+
+        preset_name = self.preset_combo.itemData(index)
+        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        self.delete_preset_btn.setEnabled(preset is not None and not preset.get("builtin", False))
