@@ -220,9 +220,31 @@ class ComponentData:
     def _default_waveform_params() -> dict:
         """Return default waveform parameters for all waveform types."""
         return {
-            "SIN": {"offset": "0", "amplitude": "5", "frequency": "1k", "delay": "0", "theta": "0", "phase": "0"},
-            "PULSE": {"v1": "0", "v2": "5", "td": "0", "tr": "1n", "tf": "1n", "pw": "500u", "per": "1m"},
-            "EXP": {"v1": "0", "v2": "5", "td1": "0", "tau1": "1u", "td2": "2u", "tau2": "2u"},
+            "SIN": {
+                "offset": "0",
+                "amplitude": "5",
+                "frequency": "1k",
+                "delay": "0",
+                "theta": "0",
+                "phase": "0",
+            },
+            "PULSE": {
+                "v1": "0",
+                "v2": "5",
+                "td": "0",
+                "tr": "1n",
+                "tf": "1n",
+                "pw": "500u",
+                "per": "1m",
+            },
+            "EXP": {
+                "v1": "0",
+                "v2": "5",
+                "td1": "0",
+                "tau1": "1u",
+                "td2": "2u",
+                "tau2": "2u",
+            },
         }
 
     def get_terminal_count(self) -> int:

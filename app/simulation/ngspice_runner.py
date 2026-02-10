@@ -98,10 +98,20 @@ class NgspiceRunner:
             if os.path.exists(output_filename):
                 return True, output_filename, result.stdout, result.stderr
             else:
-                return False, None, result.stdout, result.stderr or "Output file not created"
+                return (
+                    False,
+                    None,
+                    result.stdout,
+                    result.stderr or "Output file not created",
+                )
 
         except subprocess.TimeoutExpired:
-            return False, None, "", f"Simulation timed out (>{SIMULATION_TIMEOUT} seconds)"
+            return (
+                False,
+                None,
+                "",
+                f"Simulation timed out (>{SIMULATION_TIMEOUT} seconds)",
+            )
         except (OSError, subprocess.SubprocessError) as e:
             return False, None, "", f"Simulation error: {str(e)}"
 

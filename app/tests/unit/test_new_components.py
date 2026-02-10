@@ -28,7 +28,14 @@ from tests.conftest import make_component, make_wire
 # ---------------------------------------------------------------------------
 
 
-def _generate(components, wires, nodes, terminal_to_node, analysis_type="DC Operating Point", analysis_params=None):
+def _generate(
+    components,
+    wires,
+    nodes,
+    terminal_to_node,
+    analysis_type="DC Operating Point",
+    analysis_params=None,
+):
     """Generate a netlist string from circuit data."""
     gen = NetlistGenerator(
         components=components,
@@ -607,32 +614,64 @@ class TestCircuitModelIntegration:
 
     def test_add_bjt_to_model(self):
         model = CircuitModel()
-        bjt = ComponentData(component_id="Q1", component_type="BJT NPN", value="2N3904", position=(0.0, 0.0))
+        bjt = ComponentData(
+            component_id="Q1",
+            component_type="BJT NPN",
+            value="2N3904",
+            position=(0.0, 0.0),
+        )
         model.add_component(bjt)
         assert "Q1" in model.components
         assert model.components["Q1"].component_type == "BJT NPN"
 
     def test_add_mosfet_to_model(self):
         model = CircuitModel()
-        mos = ComponentData(component_id="M1", component_type="MOSFET NMOS", value="NMOS1", position=(0.0, 0.0))
+        mos = ComponentData(
+            component_id="M1",
+            component_type="MOSFET NMOS",
+            value="NMOS1",
+            position=(0.0, 0.0),
+        )
         model.add_component(mos)
         assert "M1" in model.components
 
     def test_add_diode_to_model(self):
         model = CircuitModel()
-        diode = ComponentData(component_id="D1", component_type="Diode", value="IS=1e-14 N=1", position=(0.0, 0.0))
+        diode = ComponentData(
+            component_id="D1",
+            component_type="Diode",
+            value="IS=1e-14 N=1",
+            position=(0.0, 0.0),
+        )
         model.add_component(diode)
         assert "D1" in model.components
 
     def test_wire_bjt_creates_node(self):
         model = CircuitModel()
         model.add_component(
-            ComponentData(component_id="Q1", component_type="BJT NPN", value="2N3904", position=(0.0, 0.0))
+            ComponentData(
+                component_id="Q1",
+                component_type="BJT NPN",
+                value="2N3904",
+                position=(0.0, 0.0),
+            )
         )
         model.add_component(
-            ComponentData(component_id="R1", component_type="Resistor", value="1k", position=(100.0, 0.0))
+            ComponentData(
+                component_id="R1",
+                component_type="Resistor",
+                value="1k",
+                position=(100.0, 0.0),
+            )
         )
-        model.add_wire(WireData(start_component_id="Q1", start_terminal=0, end_component_id="R1", end_terminal=0))
+        model.add_wire(
+            WireData(
+                start_component_id="Q1",
+                start_terminal=0,
+                end_component_id="R1",
+                end_terminal=0,
+            )
+        )
         assert len(model.nodes) == 1
         assert ("Q1", 0) in model.nodes[0].terminals
         assert ("R1", 0) in model.nodes[0].terminals
@@ -641,12 +680,29 @@ class TestCircuitModelIntegration:
         """Save and load a circuit containing a BJT."""
         model = CircuitModel()
         model.add_component(
-            ComponentData(component_id="Q1", component_type="BJT NPN", value="2N3904", position=(100.0, 200.0))
+            ComponentData(
+                component_id="Q1",
+                component_type="BJT NPN",
+                value="2N3904",
+                position=(100.0, 200.0),
+            )
         )
         model.add_component(
-            ComponentData(component_id="GND1", component_type="Ground", value="0V", position=(0.0, 0.0))
+            ComponentData(
+                component_id="GND1",
+                component_type="Ground",
+                value="0V",
+                position=(0.0, 0.0),
+            )
         )
-        model.add_wire(WireData(start_component_id="Q1", start_terminal=2, end_component_id="GND1", end_terminal=0))
+        model.add_wire(
+            WireData(
+                start_component_id="Q1",
+                start_terminal=2,
+                end_component_id="GND1",
+                end_terminal=0,
+            )
+        )
         model.component_counter = {"Q": 1, "GND": 1}
 
         data = model.to_dict()
@@ -663,18 +719,52 @@ class TestCircuitModelIntegration:
         model = CircuitModel()
         model.add_component(
             ComponentData(
-                component_id="D1", component_type="Zener Diode", value="IS=1e-14 N=1 BV=5.1", position=(50.0, 50.0)
+                component_id="D1",
+                component_type="Zener Diode",
+                value="IS=1e-14 N=1 BV=5.1",
+                position=(50.0, 50.0),
             )
         )
         model.add_component(
-            ComponentData(component_id="V1", component_type="Voltage Source", value="10V", position=(0.0, 0.0))
+            ComponentData(
+                component_id="V1",
+                component_type="Voltage Source",
+                value="10V",
+                position=(0.0, 0.0),
+            )
         )
         model.add_component(
-            ComponentData(component_id="GND1", component_type="Ground", value="0V", position=(100.0, 100.0))
+            ComponentData(
+                component_id="GND1",
+                component_type="Ground",
+                value="0V",
+                position=(100.0, 100.0),
+            )
         )
-        model.add_wire(WireData(start_component_id="V1", start_terminal=0, end_component_id="D1", end_terminal=0))
-        model.add_wire(WireData(start_component_id="D1", start_terminal=1, end_component_id="GND1", end_terminal=0))
-        model.add_wire(WireData(start_component_id="V1", start_terminal=1, end_component_id="GND1", end_terminal=0))
+        model.add_wire(
+            WireData(
+                start_component_id="V1",
+                start_terminal=0,
+                end_component_id="D1",
+                end_terminal=0,
+            )
+        )
+        model.add_wire(
+            WireData(
+                start_component_id="D1",
+                start_terminal=1,
+                end_component_id="GND1",
+                end_terminal=0,
+            )
+        )
+        model.add_wire(
+            WireData(
+                start_component_id="V1",
+                start_terminal=1,
+                end_component_id="GND1",
+                end_terminal=0,
+            )
+        )
         model.component_counter = {"D": 1, "V": 1, "GND": 1}
 
         data = model.to_dict()
@@ -728,10 +818,18 @@ class TestTerminalGeometry:
     def test_bjt_rotation_transforms_terminals(self):
         """Rotating a BJT should transform terminal positions."""
         comp_0 = ComponentData(
-            component_id="Q1", component_type="BJT NPN", value="2N3904", position=(0.0, 0.0), rotation=0
+            component_id="Q1",
+            component_type="BJT NPN",
+            value="2N3904",
+            position=(0.0, 0.0),
+            rotation=0,
         )
         comp_90 = ComponentData(
-            component_id="Q1", component_type="BJT NPN", value="2N3904", position=(0.0, 0.0), rotation=90
+            component_id="Q1",
+            component_type="BJT NPN",
+            value="2N3904",
+            position=(0.0, 0.0),
+            rotation=90,
         )
         pos_0 = comp_0.get_terminal_positions()
         pos_90 = comp_90.get_terminal_positions()

@@ -185,7 +185,10 @@ def compute_thd(fft_result: FFTResult, fundamental_freq: float, num_harmonics: i
 
 
 def analyze_signal_spectrum(
-    time: np.ndarray, signal: np.ndarray, signal_name: str = "Signal", window: str = "hanning"
+    time: np.ndarray,
+    signal: np.ndarray,
+    signal_name: str = "Signal",
+    window: str = "hanning",
 ) -> FFTResult:
     """
     Complete spectral analysis including FFT, fundamental detection, and THD.

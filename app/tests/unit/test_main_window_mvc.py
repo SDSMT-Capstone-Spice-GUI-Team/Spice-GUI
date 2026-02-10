@@ -422,7 +422,9 @@ class TestMainWindowIntegrationPoints:
 
         # Simulation returns result object
         result = SimulationResult(
-            success=True, analysis_type="DC Operating Point", raw_output="v(node1) = 5.0\nv(node2) = 3.3"
+            success=True,
+            analysis_type="DC Operating Point",
+            raw_output="v(node1) = 5.0\nv(node2) = 3.3",
         )
 
         # MainWindow formats for display

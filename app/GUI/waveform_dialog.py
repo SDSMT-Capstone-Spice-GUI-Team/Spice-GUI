@@ -340,7 +340,11 @@ class WaveformDialog(QDialog):
         self.canvas.axes.clear()
         if not data:
             self.canvas.axes.text(
-                0.5, 0.5, "No data to display.", horizontalalignment="center", verticalalignment="center"
+                0.5,
+                0.5,
+                "No data to display.",
+                horizontalalignment="center",
+                verticalalignment="center",
             )
             self.canvas.draw()
             return
@@ -349,7 +353,11 @@ class WaveformDialog(QDialog):
         time_key = "time"
         if time_key not in headers:
             self.canvas.axes.text(
-                0.5, 0.5, 'No "time" column found in data.', horizontalalignment="center", verticalalignment="center"
+                0.5,
+                0.5,
+                'No "time" column found in data.',
+                horizontalalignment="center",
+                verticalalignment="center",
             )
             self.canvas.draw()
             return
@@ -451,7 +459,11 @@ class WaveformDialog(QDialog):
     def _show_fft_analysis(self):
         """Show FFT analysis dialog for transient results."""
         if not self.full_data or len(self.full_data) < 4:
-            QMessageBox.warning(self, "Insufficient Data", "Need at least 4 data points for FFT analysis.")
+            QMessageBox.warning(
+                self,
+                "Insufficient Data",
+                "Need at least 4 data points for FFT analysis.",
+            )
             return
 
         # Extract time array
@@ -461,7 +473,11 @@ class WaveformDialog(QDialog):
         signal_names = [k for k in self.voltage_keys if self.column_visibility.get(k, True)]
 
         if not signal_names:
-            QMessageBox.warning(self, "No Signals", "No visible signals to analyze. Enable at least one signal.")
+            QMessageBox.warning(
+                self,
+                "No Signals",
+                "No visible signals to analyze. Enable at least one signal.",
+            )
             return
 
         # Show FFT dialog with signal selection

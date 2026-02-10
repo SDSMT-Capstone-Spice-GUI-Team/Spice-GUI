@@ -10,8 +10,18 @@ def _valid_data():
     """Return minimal valid circuit data dict."""
     return {
         "components": [
-            {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0.0, "y": 0.0}},
-            {"id": "GND1", "type": "Ground", "value": "0V", "pos": {"x": 100.0, "y": 100.0}},
+            {
+                "id": "R1",
+                "type": "Resistor",
+                "value": "1k",
+                "pos": {"x": 0.0, "y": 0.0},
+            },
+            {
+                "id": "GND1",
+                "type": "Ground",
+                "value": "0V",
+                "pos": {"x": 100.0, "y": 100.0},
+            },
         ],
         "wires": [
             {"start_comp": "R1", "start_term": 0, "end_comp": "GND1", "end_term": 0},

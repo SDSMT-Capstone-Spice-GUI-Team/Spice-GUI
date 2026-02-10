@@ -39,7 +39,14 @@ class DCSweepPlotDialog(QDialog):
         headers = data.get("headers", [])
         rows = data.get("data", [])
         if not rows or len(headers) < 3:
-            ax.text(0.5, 0.5, "No sweep data available", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "No sweep data available",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
             return
 
         # Column 0 = index, column 1 = sweep value, columns 2+ = node voltages
@@ -87,7 +94,14 @@ class ACSweepPlotDialog(QDialog):
         phase = data.get("phase", {})
 
         if not frequencies or (not magnitude and not phase):
-            ax_mag.text(0.5, 0.5, "No AC data available", ha="center", va="center", transform=ax_mag.transAxes)
+            ax_mag.text(
+                0.5,
+                0.5,
+                "No AC data available",
+                ha="center",
+                va="center",
+                transform=ax_mag.transAxes,
+            )
             return
 
         cmap = plt.get_cmap("tab10")
@@ -101,7 +115,12 @@ class ACSweepPlotDialog(QDialog):
         # Plot any phase-only signals not in magnitude
         for i, (node, ph_vals) in enumerate(sorted(phase.items())):
             if node not in magnitude:
-                ax_phase.semilogx(frequencies, ph_vals, label=node, color=cmap((len(magnitude) + i) % 10))
+                ax_phase.semilogx(
+                    frequencies,
+                    ph_vals,
+                    label=node,
+                    color=cmap((len(magnitude) + i) % 10),
+                )
 
         ax_mag.set_ylabel("Magnitude")
         ax_mag.set_title("Bode Plot")

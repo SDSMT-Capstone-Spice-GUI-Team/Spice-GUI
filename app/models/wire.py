@@ -34,7 +34,10 @@ class WireData:
         Returns:
             List of two (component_id, terminal_index) tuples.
         """
-        return [(self.start_component_id, self.start_terminal), (self.end_component_id, self.end_terminal)]
+        return [
+            (self.start_component_id, self.start_terminal),
+            (self.end_component_id, self.end_terminal),
+        ]
 
     def connects_component(self, component_id: str) -> bool:
         """Check if this wire connects to the given component."""

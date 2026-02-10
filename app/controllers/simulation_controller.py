@@ -173,7 +173,12 @@ class SimulationController:
         return result
 
     def _parse_results(
-        self, output_file: str, wrdata_filepath: str, netlist: str, raw_output: str, warnings: list[str]
+        self,
+        output_file: str,
+        wrdata_filepath: str,
+        netlist: str,
+        raw_output: str,
+        warnings: list[str],
     ) -> SimulationResult:
         """Parse simulation results based on analysis type."""
         from simulation import ResultParser
