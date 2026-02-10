@@ -28,12 +28,6 @@ format-check:  ## Check formatting without modifying files
 		echo "✓ All files correctly formatted" || \
 		(echo "⚠️  Formatting issues found. Run 'make format' to fix." && false)
 
-format-check:  ## Check formatting without modifying files
-	@black --check --line-length=120 app/ && \
-		isort --check-only --profile=black --line-length=120 app/ && \
-		echo "✓ All files correctly formatted" || \
-		(echo "⚠️  Formatting issues found. Run 'make format' to fix." && false)
-
 check:  ## Run all checks (lint + test)
 	@echo "Running linting checks..."
 	@$(MAKE) lint

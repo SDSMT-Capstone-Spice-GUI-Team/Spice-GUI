@@ -35,6 +35,8 @@ make format-check             # verify formatting without modifying files
 - Use `qtbot` fixture for Qt widget tests
 - Test count should increase by ≥5 for new features
 - Run tests from repo root: `python -m pytest` or `make test`
+- **MainWindow cannot be instantiated in offscreen test mode** — it hangs. Test with lower-level components (QGraphicsScene, QPrinter, keybinding registries) instead
+- Pre-existing GUI test errors (~46) in headless environments are expected (Qt display server issues)
 
 ## Project Structure
 ```
@@ -64,10 +66,12 @@ app/
 gh project view 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json
 # Get field IDs and status option IDs:
 gh project field-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json
-# Get all board items (issue-to-item ID mapping):
-gh project item-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json --limit 100
+# Get all board items (issue-to-item ID mapping) — always use --limit 200:
+gh project item-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json --limit 200
 ```
 Parse the JSON to find: project ID, Status field ID, Hours field ID, and the option IDs for each status (Backlog, Ready, In progress, Blocked, In review, Done).
+
+**Important**: The default `--limit` is 30, which silently truncates results. The board has 100+ items — always use `--limit 200`.
 
 **Caching**: IDs may be cached in MEMORY.md for speed. If a board mutation fails, re-query all IDs before retrying.
 
@@ -85,11 +89,34 @@ gh api graphql -f query='mutation {
   }) { projectV2Item { id } }
 }'
 
-# Add issue to board:
+# Add issue to board (NOTE: does NOT set status — item gets null status):
 gh project item-add 2 --owner SDSMT-Capstone-Spice-GUI-Team --url <ISSUE_URL>
+# MUST follow with item-edit to set status, otherwise item is invisible in column views
 
 # View issue details (use --json to avoid Projects Classic deprecation errors):
 gh issue view <N> --repo SDSMT-Capstone-Spice-GUI-Team/Spice-GUI --json title,body,labels,comments
+```
+
+### Board Query Patterns (--jq)
+
+Use `--jq` instead of piping to python — avoids broken-pipe race conditions on Linux.
+
+```bash
+# Get Ready items (compact output for token efficiency):
+gh project item-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json --limit 200 \
+  --jq '.items[] | select(.status == "Ready") | {n: .content.number, id: .id, t: .content.title}'
+
+# Get item IDs for specific issue numbers:
+gh project item-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json --limit 200 \
+  --jq '.items[] | select(.content.number == 42) | {id: .id, s: .status}'
+
+# Find items with no status (newly added, need column assignment):
+gh project item-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json --limit 200 \
+  --jq '.items[] | select(.status == null) | {n: .content.number, id: .id}'
+
+# Compact board overview:
+gh project item-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json --limit 200 \
+  --jq '.items[] | {n: .content.number, s: .status}'
 ```
 
 ## Environment Setup
@@ -183,8 +210,8 @@ Before starting implementation on any issue, verify:
 **Shortcut**: After creating your feature branch, run `make preflight` to verify all checks at once.
 
 ### Work Loop
-1. Discover board IDs (see above)
-2. Query board for next **Ready** item (prefer higher priority, lower issue number)
+1. Discover board IDs (see above — use `--jq` patterns from Board Query Patterns section)
+2. Query board for next **Ready** item (prefer P0 > P1 > P2, then lower issue number). If an item is already **In Progress**, skip it (another agent may own it).
 3. **Triage**: Check issue comments and state (`gh issue view <N> --json state,comments`). If already resolved or closed, move to In Review/Done and skip to next Ready item.
 4. Move issue to **In Progress**
 5. Create branch `issue-<N>-short-description` from `main`
@@ -316,6 +343,42 @@ For sessions working on >3 issues or >4 hours of work:
 - Helps prioritize if session must stop early
 
 **Recovery**: If session interrupted, read MEMORY.md → latest checkpoint comment → resume from "Next" issue.
+
+## Multi-Agent Coordination
+
+Multiple Claude Code instances may run concurrently across different directories and machines.
+
+### Coordination Model
+- **Each directory is an independent process** with its own git checkout, venv, and MEMORY.md
+- **GitHub board is the shared state** — board status is the coordination mechanism
+- **CLAUDE.md is shared read-only** — the "program" all agents follow (changes require a PR)
+- **MEMORY.md is thread-local** — ephemeral session state, never shared between directories
+- **Agents communicate via GitHub** — issue comments, PR reviews, board status changes
+
+### Issue Locking (Mutual Exclusion)
+- Moving an issue to **In Progress** = acquiring the lock
+- If an issue is already **In Progress**, **skip it** (another agent owns it)
+- Moving to **In Review** = releasing the lock
+- **Never hold two issues simultaneously** — complete one before starting the next
+
+### Work Partitioning
+To avoid race conditions where two agents claim the same Ready issue:
+- Assign agents to different **Epics** or **priority tiers** (P0 vs P1 vs P2)
+- Or partition by issue number (odd/even) when Epics aren't set up
+- PR monitor agents never claim issues — they only merge and fix PRs
+
+### PR Merge Ordering
+Only merge one PR at a time to prevent cascading rebase conflicts:
+- PR monitor merges one PR → waits for CI → merges next
+- Or enable GitHub merge queue for automatic ordering
+- `main_window.py` is the #1 merge conflict hotspot (~1700 lines) — prefer changes to other files when possible
+
+### Agent Roles
+| Role | Responsibilities |
+|------|-----------------|
+| **Authoring** | Pick Ready issues, implement, create PRs |
+| **PR Monitor** | Merge green PRs, fix formatting, resolve conflicts |
+| **Review** (human) | Approve PRs, manage board priorities, steer Epics |
 
 ## Platform Notes
 - **Windows**: Avoid piping `gh` output directly to `python` (fails with "pipe is being closed"). Write to a temp file first, then read it.
