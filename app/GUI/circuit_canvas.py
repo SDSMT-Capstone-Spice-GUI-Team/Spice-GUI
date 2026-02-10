@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
 logger = logging.getLogger(__name__)
 from models.clipboard import ClipboardData
 
-from .algorithm_layers import AlgorithmLayerManager
 from .annotation_item import AnnotationItem
 from .circuit_node import Node
 from .component_item import ComponentGraphicsItem
@@ -68,10 +67,6 @@ class CircuitCanvasView(QGraphicsView):
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
-
-        # Multi-algorithm layer management
-        self.layer_manager = AlgorithmLayerManager()
-        self.multi_algorithm_mode = False  # Disable multi-algorithm mode - use only IDA*
 
         # Simulation results storage
         self.node_voltages = {}  # node_label -> voltage value
@@ -256,7 +251,6 @@ class CircuitCanvasView(QGraphicsView):
         self.terminal_to_node = {}
         self.annotations = []
         Node._node_counter = 0
-        self.layer_manager.clear_all_wires()
 
     def _handle_nodes_rebuilt(self, data: None) -> None:
         """Rebuild node visualization from model"""
@@ -505,59 +499,29 @@ class CircuitCanvasView(QGraphicsView):
                             target_term = clicked_term_index
 
                         if can_connect:
-                            # Create wire(s) with multi-algorithm routing
-                            if self.multi_algorithm_mode:
-                                # Create a wire for each active algorithm
-                                for algorithm in self.layer_manager.active_algorithms:
-                                    layer = self.layer_manager.get_layer(algorithm)
-                                    wire = WireItem(
-                                        self.wire_start_comp,
-                                        self.wire_start_term,
-                                        clicked_component,
-                                        target_term,
-                                        canvas=self,
-                                        algorithm=algorithm,
-                                        layer_color=layer.color,
-                                    )
-                                    self.scene.addItem(wire)
-                                    self.wires.append(wire)
-
-                                    # Add wire to layer and track performance
-                                    self.layer_manager.add_wire_to_layer(wire, algorithm, wire.runtime, wire.iterations)
-
-                                    # UPDATE NODE CONNECTIVITY (only for first wire to avoid duplicates)
-                                    if algorithm == self.layer_manager.active_algorithms[0]:
-                                        self.update_nodes_for_wire(wire)
-                                pass
+                            if self.controller:
+                                # Controller creates wire, observer creates graphics item
+                                self.controller.add_wire(
+                                    self.wire_start_comp.component_id,
+                                    self.wire_start_term,
+                                    clicked_component.component_id,
+                                    target_term,
+                                )
+                                self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
                             else:
-                                # Single algorithm mode - Phase 5: use controller
-                                if self.controller:
-                                    # Controller creates wire, observer creates graphics item
-                                    self.controller.add_wire(
-                                        self.wire_start_comp.component_id,
-                                        self.wire_start_term,
-                                        clicked_component.component_id,
-                                        target_term,
-                                    )
-                                    self.wireAdded.emit(
-                                        self.wire_start_comp.component_id, clicked_component.component_id
-                                    )
-                                else:
-                                    # Fallback to old method if no controller (shouldn't happen)
-                                    wire = WireItem(
-                                        self.wire_start_comp,
-                                        self.wire_start_term,
-                                        clicked_component,
-                                        target_term,
-                                        canvas=self,
-                                        algorithm="idastar",
-                                    )
-                                    self.scene.addItem(wire)
-                                    self.wires.append(wire)
-                                    self.update_nodes_for_wire(wire)
-                                    self.wireAdded.emit(
-                                        self.wire_start_comp.component_id, clicked_component.component_id
-                                    )
+                                # Fallback to old method if no controller (shouldn't happen)
+                                wire = WireItem(
+                                    self.wire_start_comp,
+                                    self.wire_start_term,
+                                    clicked_component,
+                                    target_term,
+                                    canvas=self,
+                                    algorithm="idastar",
+                                )
+                                self.scene.addItem(wire)
+                                self.wires.append(wire)
+                                self.update_nodes_for_wire(wire)
+                                self.wireAdded.emit(self.wire_start_comp.component_id, clicked_component.component_id)
 
                     # Clean up temporary wire line
                     if self.temp_wire_line:
@@ -1327,37 +1291,6 @@ class CircuitCanvasView(QGraphicsView):
         self.annotations = []
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
         Node._node_counter = 0
-        self.layer_manager.clear_all_wires()
-
-    def toggle_multi_algorithm_mode(self, enabled=None):
-        """
-        Toggle or set multi-algorithm routing mode
-
-        Args:
-            enabled: If None, toggle; if bool, set to that value
-
-        Returns:
-            bool: New state of multi-algorithm mode
-        """
-        if enabled is None:
-            self.multi_algorithm_mode = not self.multi_algorithm_mode
-            pass
-        else:
-            self.multi_algorithm_mode = enabled
-        return self.multi_algorithm_mode
-
-    def set_active_algorithms(self, algorithm_list):
-        """
-        Set which algorithms should be used for routing
-
-        Args:
-            algorithm_list: List of algorithm names ('astar', 'idastar', 'dijkstra')
-        """
-        self.layer_manager.set_active_algorithms(algorithm_list)
-
-    def get_performance_report(self):
-        """Get performance comparison report for all algorithms"""
-        return self.layer_manager.get_performance_report()
 
     def toggle_obstacle_boundaries(self, show=None):
         """

@@ -1,24 +1,20 @@
-"""Tests for path_finding.py — wire routing algorithms."""
+"""Tests for path_finding.py — IDA* wire routing algorithm."""
 
 import pytest
-from GUI.path_finding import (
-    AStarPathfinder,
-    DijkstraPathfinder,
-    IDAStarPathfinder,
-)
+from GUI.path_finding import IDAStarPathfinder
 from PyQt6.QtCore import QPointF
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
-GRID = 20  # default grid size used in all pathfinders
+GRID = 20  # default grid size used in pathfinder
 
 
-@pytest.fixture(params=[AStarPathfinder, DijkstraPathfinder, IDAStarPathfinder], ids=["astar", "dijkstra", "idastar"])
-def pathfinder(request):
-    """Yield each pathfinder implementation so every test runs against all three."""
-    return request.param(grid_size=GRID)
+@pytest.fixture
+def pathfinder():
+    """Yield the IDA* pathfinder implementation."""
+    return IDAStarPathfinder(grid_size=GRID)
 
 
 # Small bounds that keep tests fast
@@ -31,7 +27,7 @@ BOUNDS = (-200, -200, 400, 400)
 
 
 def _grid(gx, gy):
-    """Shorthand: grid coords → QPointF in scene coordinates."""
+    """Shorthand: grid coords -> QPointF in scene coordinates."""
     return QPointF(gx * GRID, gy * GRID)
 
 
@@ -46,27 +42,23 @@ def _to_grid_tuples(waypoints):
 
 
 class TestGridConversion:
-    def test_pos_to_grid(self):
-        pf = AStarPathfinder(grid_size=GRID)
-        assert pf._pos_to_grid(QPointF(0, 0)) == (0, 0)
-        assert pf._pos_to_grid(QPointF(40, 60)) == (2, 3)
+    def test_pos_to_grid(self, pathfinder):
+        assert pathfinder._pos_to_grid(QPointF(0, 0)) == (0, 0)
+        assert pathfinder._pos_to_grid(QPointF(40, 60)) == (2, 3)
 
-    def test_grid_to_pos(self):
-        pf = AStarPathfinder(grid_size=GRID)
-        pos = pf._grid_to_pos((2, 3))
+    def test_grid_to_pos(self, pathfinder):
+        pos = pathfinder._grid_to_pos((2, 3))
         assert pos.x() == 40
         assert pos.y() == 60
 
-    def test_round_trip(self):
-        pf = AStarPathfinder(grid_size=GRID)
+    def test_round_trip(self, pathfinder):
         for gx, gy in [(0, 0), (5, -3), (-10, 7)]:
-            assert pf._pos_to_grid(pf._grid_to_pos((gx, gy))) == (gx, gy)
+            assert pathfinder._pos_to_grid(pathfinder._grid_to_pos((gx, gy))) == (gx, gy)
 
-    def test_pos_to_grid_rounds(self):
+    def test_pos_to_grid_rounds(self, pathfinder):
         """Positions that aren't exactly on grid should round to nearest cell."""
-        pf = AStarPathfinder(grid_size=GRID)
-        assert pf._pos_to_grid(QPointF(11, 29)) == (1, 1)
-        assert pf._pos_to_grid(QPointF(9, 31)) == (0, 2)
+        assert pathfinder._pos_to_grid(QPointF(11, 29)) == (1, 1)
+        assert pathfinder._pos_to_grid(QPointF(9, 31)) == (0, 2)
 
 
 # ===========================================================================
@@ -75,14 +67,12 @@ class TestGridConversion:
 
 
 class TestHeuristic:
-    def test_same_point(self):
-        pf = AStarPathfinder(grid_size=GRID)
-        assert pf._heuristic((0, 0), (0, 0)) == 0
+    def test_same_point(self, pathfinder):
+        assert pathfinder._heuristic((0, 0), (0, 0)) == 0
 
-    def test_manhattan_distance(self):
-        pf = AStarPathfinder(grid_size=GRID)
-        assert pf._heuristic((0, 0), (3, 4)) == 7
-        assert pf._heuristic((-2, -3), (2, 3)) == 10
+    def test_manhattan_distance(self, pathfinder):
+        assert pathfinder._heuristic((0, 0), (3, 4)) == 7
+        assert pathfinder._heuristic((-2, -3), (2, 3)) == 10
 
 
 # ===========================================================================
@@ -91,25 +81,22 @@ class TestHeuristic:
 
 
 class TestSimplifyPath:
-    def test_two_points_unchanged(self):
-        pf = AStarPathfinder(grid_size=GRID)
+    def test_two_points_unchanged(self, pathfinder):
         pts = [_grid(0, 0), _grid(5, 0)]
-        assert pf._simplify_path(pts) == pts
+        assert pathfinder._simplify_path(pts) == pts
 
-    def test_collinear_points_removed(self):
-        pf = AStarPathfinder(grid_size=GRID)
+    def test_collinear_points_removed(self, pathfinder):
         # Three horizontal points — middle one should be removed
         pts = [_grid(0, 0), _grid(1, 0), _grid(2, 0)]
-        result = pf._simplify_path(pts)
+        result = pathfinder._simplify_path(pts)
         assert len(result) == 2
         assert result[0] == pts[0]
         assert result[-1] == pts[-1]
 
-    def test_bend_preserved(self):
-        pf = AStarPathfinder(grid_size=GRID)
+    def test_bend_preserved(self, pathfinder):
         # L-shaped path — corner must stay
         pts = [_grid(0, 0), _grid(3, 0), _grid(3, 3)]
-        result = pf._simplify_path(pts)
+        result = pathfinder._simplify_path(pts)
         assert len(result) == 3
 
 
@@ -119,21 +106,18 @@ class TestSimplifyPath:
 
 
 class TestSameDirection:
-    def test_same(self):
-        pf = AStarPathfinder(grid_size=GRID)
-        assert pf._same_direction(1, 0, 1, 0) is True
+    def test_same(self, pathfinder):
+        assert pathfinder._same_direction(1, 0, 1, 0) is True
 
-    def test_different(self):
-        pf = AStarPathfinder(grid_size=GRID)
-        assert pf._same_direction(1, 0, 0, 1) is False
+    def test_different(self, pathfinder):
+        assert pathfinder._same_direction(1, 0, 0, 1) is False
 
-    def test_opposite(self):
-        pf = AStarPathfinder(grid_size=GRID)
-        assert pf._same_direction(1, 0, -1, 0) is False
+    def test_opposite(self, pathfinder):
+        assert pathfinder._same_direction(1, 0, -1, 0) is False
 
 
 # ===========================================================================
-# 5. Basic routing (parametrized over all algorithms)
+# 5. Basic routing
 # ===========================================================================
 
 
@@ -228,31 +212,7 @@ class TestOrthogonalPaths:
 
 
 # ===========================================================================
-# 8. Fallback on unreachable target
-# ===========================================================================
-
-
-class TestUnreachable:
-    @pytest.mark.parametrize("pf_class", [AStarPathfinder, DijkstraPathfinder], ids=["astar", "dijkstra"])
-    def test_surrounded_target_returns_fallback(self, pf_class):
-        """If the target is fully surrounded, return a direct fallback line.
-
-        IDA* is excluded because it's too slow for unreachable targets
-        on large grids (expected algorithmic limitation).
-        """
-        pf = pf_class(grid_size=GRID)
-        target = (3, 3)
-        # Block all 4 neighbors of target
-        obstacles = {(3, 2), (3, 4), (2, 3), (4, 3)}
-        tiny_bounds = (-100, -100, 200, 200)
-        start, end = _grid(0, 0), _grid(*target)
-        waypoints, _, _ = pf.find_path(start, end, obstacles, bounds=tiny_bounds)
-        # Fallback is [start_pos, end_pos] — 2 points
-        assert len(waypoints) == 2
-
-
-# ===========================================================================
-# 9. Performance
+# 8. Performance
 # ===========================================================================
 
 
@@ -272,18 +232,16 @@ class TestPerformance:
 
 
 # ===========================================================================
-# 10. Reconstruct path helper
+# 9. Reconstruct path helper
 # ===========================================================================
 
 
 class TestReconstructPath:
-    def test_single_node(self):
-        pf = AStarPathfinder(grid_size=GRID)
-        path = pf._reconstruct_path({}, (0, 0))
+    def test_single_node(self, pathfinder):
+        path = pathfinder._reconstruct_path({}, (0, 0))
         assert path == [(0, 0)]
 
-    def test_chain(self):
-        pf = AStarPathfinder(grid_size=GRID)
+    def test_chain(self, pathfinder):
         came_from = {(1, 0): (0, 0), (2, 0): (1, 0)}
-        path = pf._reconstruct_path(came_from, (2, 0))
+        path = pathfinder._reconstruct_path(came_from, (2, 0))
         assert path == [(0, 0), (1, 0), (2, 0)]

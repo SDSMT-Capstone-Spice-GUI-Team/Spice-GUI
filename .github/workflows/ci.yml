@@ -74,6 +74,8 @@ jobs:
       - name: Run tests with coverage (Linux)
         if: runner.os == 'Linux'
         working-directory: app
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: xvfb-run python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
 
       - name: Run tests with coverage (Windows)

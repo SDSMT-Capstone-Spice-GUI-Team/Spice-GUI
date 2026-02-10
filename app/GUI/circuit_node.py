@@ -1,15 +1,5 @@
 from PyQt6.QtCore import QPointF
 
-# Component definitions
-COMPONENTS = {
-    "Resistor": {"symbol": "R", "terminals": 2, "color": "#2196F3"},
-    "Capacitor": {"symbol": "C", "terminals": 2, "color": "#4CAF50"},
-    "Inductor": {"symbol": "L", "terminals": 2, "color": "#FF9800"},
-    "Voltage Source": {"symbol": "V", "terminals": 2, "color": "#F44336"},
-    "Current Source": {"symbol": "I", "terminals": 2, "color": "#9C27B0"},
-    "Ground": {"symbol": "GND", "terminals": 1, "color": "#000000"},
-}
-
 
 class Node:
     """Represents an electrical node - a set of electrically connected terminals"""
