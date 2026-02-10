@@ -4,6 +4,8 @@
       "Bash(python -m pytest:*)",
       "Bash(python -m py_compile:*)",
       "Bash(python -c:*)",
+      "Bash(python3:*)",
+      "Bash(QT_QPA_PLATFORM=offscreen python -m pytest:*)",
       "Bash(ruff check:*)",
       "Bash(ruff format:*)",
       "Bash(pip install:*)",
@@ -24,6 +26,7 @@
       "Bash(git branch:*)",
       "Bash(git fetch:*)",
       "Bash(git merge:*)",
+      "Bash(git merge-tree:*)",
       "Bash(git rebase:*)",
       "Bash(git stash:*)",
       "Bash(git status:*)",
@@ -32,11 +35,12 @@
       "Bash(git remote:*)",
       "Bash(git worktree:*)",
       "Bash(git pull:*)",
+      "Bash(git rm:*)",
       "Bash(ls:*)",
       "Bash(rm:*)",
       "Bash(wc:*)",
       "Bash(mkdir:*)",
-      "Bash(git rm:*)",
+      "Bash(find:*)",
       "Bash(source:*)",
       "Bash(make test:*)",
       "Bash(make lint:*)",
@@ -46,10 +50,11 @@
       "Bash(make preflight:*)",
       "Bash(make install-dev:*)",
       "Bash(make install-hooks:*)",
-      "Bash(pre-commit install:*)",
-      "Bash(pre-commit run:*)",
+      "Bash(make help:*)",
+      "Bash(pre-commit:*)",
       "Bash(black:*)",
       "Bash(isort:*)",
+      "Bash(bandit:*)",
       "Bash(cat .git/hooks/pre-commit:*)"
     ],
     "deny": [
@@ -60,5 +65,8 @@
       "Bash(git branch -D:*)",
       "Bash(rm -rf:*)"
     ]
-  }
+  },
+  "additionalDirectories": [
+    "/tmp"
+  ]
 }
