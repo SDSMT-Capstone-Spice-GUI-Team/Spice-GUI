@@ -20,7 +20,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("SDM-Spice")
         self.showMaximized()
 
-        #Setup Menubar (TODO: MAKE OWN FUNCTION)
+        #Setup Menubar
+        self.__init_menubar()
+
+        #Set PLACEHOLDER button
+        button = QtWidgets.QPushButton("Press Me!")
+
+        self.setCentralWidget(button)
+
+    def __init_menubar(self):
         menu = self.menuBar()
         file_menu = menu.addMenu("&File")
         new_circuit_action = QAction("&New Circuit", self)
@@ -67,11 +75,6 @@ class MainWindow(QtWidgets.QMainWindow):
         about_sdm_spice_action = QAction("&About SDM-Spice", self)
         help_menu.addAction(about_sdm_spice_action)
 
-        #Set PLACEHOLDER button
-        button = QtWidgets.QPushButton("Press Me!")
-
-        self.setCentralWidget(button)
-
 class MyWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -100,10 +103,6 @@ class MyWidget(QtWidgets.QWidget):
         centerPoint = QtWidgets.QApplication.primaryScreen().geometry().center()
         desktopScreen.moveCenter(centerPoint)
         self.move(desktopScreen.topLeft())
-
-    #@QtCore.Slot()
-    #def magic(self):
-        #self.text.setText(random.choice(self.hello))
 
 
 def main():
