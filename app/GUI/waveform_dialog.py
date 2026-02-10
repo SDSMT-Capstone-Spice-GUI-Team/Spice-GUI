@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 from simulation.fft_analysis import analyze_signal_spectrum
 
 from .format_utils import format_value, parse_value
+from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .styles import SCROLL_LOAD_COUNT
 
 matplotlib.use("QtAgg")
@@ -152,6 +153,11 @@ class WaveformDialog(QDialog):
         fft_button.clicked.connect(self._show_fft_analysis)
         right_layout.addWidget(fft_button)
 
+        # Measurement cursors
+        self._cursor_readout = CursorReadoutPanel()
+        right_layout.addWidget(self._cursor_readout)
+        self._cursors = None  # initialized in plot_data when axes are ready
+
         # Data Table
         right_layout.addWidget(QLabel("Simulation Data"))
         self.table = QTableWidget()
@@ -170,6 +176,10 @@ class WaveformDialog(QDialog):
         """Updates overlay trace visibility and refreshes the view."""
         self._overlay_visibility[overlay_key] = is_checked
         self.update_view()
+
+    def _on_cursor_moved(self, a_x, b_x):
+        """Callback when measurement cursors are dragged."""
+        self._cursor_readout.update_readout(self._cursors)
 
     def add_dataset(self, data, label=None):
         """Add an overlay dataset from a previous simulation run.
@@ -517,6 +527,15 @@ class WaveformDialog(QDialog):
         self.canvas.axes.legend(fontsize="small")
         self.canvas.axes.grid(True)
         self.canvas.figure.tight_layout()
+
+        # Set up measurement cursors (re-attach after axes clear)
+        if self._cursors is not None:
+            self._cursors.remove()
+        self._cursors = MeasurementCursors(self.canvas.axes, self.canvas, on_cursor_moved=self._on_cursor_moved)
+        self._cursor_readout.set_cursors(self._cursors)
+        if time_full:
+            self._cursors.set_data(time_full)
+
         self.canvas.draw()
 
     def _export_csv(self):
