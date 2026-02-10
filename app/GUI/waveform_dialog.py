@@ -167,7 +167,7 @@ class WaveformDialog(QDialog):
         export_button.clicked.connect(self._export_csv)
         right_layout.addWidget(export_button)
 
-        fft_button = QPushButton("Analyze FFT")
+        fft_button = QPushButton("Show Spectrum")
         fft_button.clicked.connect(self._show_fft_analysis)
         right_layout.addWidget(fft_button)
 
@@ -613,22 +613,31 @@ class WaveformDialog(QDialog):
 
 
 class FFTAnalysisDialog(QDialog):
-    """Dialog for displaying FFT analysis of transient simulation signals."""
+    """Dialog for displaying FFT analysis of transient simulation signals.
+
+    Features:
+    - Signal and windowing function selection
+    - dB / linear magnitude toggle
+    - Log / linear frequency scale toggle
+    - Harmonic identification and labeling (first 5 harmonics)
+    - Fundamental frequency and THD display
+    """
 
     def __init__(self, time: np.ndarray, data: list, signal_names: list, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("FFT Analysis")
+        self.setWindowTitle("Spectrum Analysis")
         self.setMinimumSize(1000, 700)
 
         self.time = time
         self.data = data
         self.signal_names = signal_names
+        self._fft_result = None
 
         # Main layout
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        # Controls
+        # Controls row 1: signal and window
         controls_layout = QHBoxLayout()
 
         controls_layout.addWidget(QLabel("Signal:"))
@@ -645,6 +654,27 @@ class FFTAnalysisDialog(QDialog):
 
         controls_layout.addStretch()
         layout.addLayout(controls_layout)
+
+        # Controls row 2: toggles
+        toggle_layout = QHBoxLayout()
+
+        self._db_checkbox = QCheckBox("dB scale")
+        self._db_checkbox.setChecked(True)
+        self._db_checkbox.toggled.connect(self._replot)
+        toggle_layout.addWidget(self._db_checkbox)
+
+        self._log_freq_checkbox = QCheckBox("Log frequency")
+        self._log_freq_checkbox.setChecked(True)
+        self._log_freq_checkbox.toggled.connect(self._replot)
+        toggle_layout.addWidget(self._log_freq_checkbox)
+
+        self._harmonics_checkbox = QCheckBox("Show harmonics")
+        self._harmonics_checkbox.setChecked(True)
+        self._harmonics_checkbox.toggled.connect(self._replot)
+        toggle_layout.addWidget(self._harmonics_checkbox)
+
+        toggle_layout.addStretch()
+        layout.addLayout(toggle_layout)
 
         # Info label for fundamental frequency and THD
         self.info_label = QLabel("")
@@ -666,50 +696,107 @@ class FFTAnalysisDialog(QDialog):
         # Initial plot
         self._update_fft()
 
+    def _format_freq(self, freq_hz):
+        """Format frequency with appropriate SI prefix."""
+        if freq_hz >= 1e6:
+            return f"{freq_hz / 1e6:.2f} MHz"
+        elif freq_hz >= 1e3:
+            return f"{freq_hz / 1e3:.2f} kHz"
+        else:
+            return f"{freq_hz:.2f} Hz"
+
     def _update_fft(self):
-        """Compute and display FFT for selected signal."""
+        """Compute FFT for selected signal and replot."""
         signal_name = self.signal_combo.currentText()
         window_type = self.window_combo.currentText().lower()
 
-        # Extract signal data
         signal = np.array([row.get(signal_name, 0) for row in self.data])
 
         try:
-            # Compute FFT
-            fft_result = analyze_signal_spectrum(self.time, signal, signal_name, window_type)
-
-            # Update info label
-            info_text = f"<b>Signal:</b> {signal_name} | <b>Window:</b> {window_type.title()}"
-            if fft_result.fundamental_freq is not None and fft_result.fundamental_freq > 0:
-                info_text += f" | <b>Fundamental:</b> {fft_result.fundamental_freq:.2f} Hz"
-            if fft_result.thd_percent is not None:
-                info_text += f" | <b>THD:</b> {fft_result.thd_percent:.3f}%"
-            self.info_label.setText(info_text)
-
-            # Plot magnitude spectrum
-            self.mag_canvas.axes.clear()
-            self.mag_canvas.axes.semilogx(fft_result.frequencies, fft_result.magnitude_db, linewidth=1.5)
-            self.mag_canvas.axes.set_title(f"Magnitude Spectrum - {signal_name}")
-            self.mag_canvas.axes.set_xlabel("Frequency (Hz)")
-            self.mag_canvas.axes.set_ylabel("Magnitude (dB)")
-            self.mag_canvas.axes.grid(True, which="both", alpha=0.3)
-            _apply_mpl_theme(self.mag_canvas.figure)
-            self.mag_canvas.figure.tight_layout()
-            self.mag_canvas.draw()
-
-            # Plot phase spectrum
-            self.phase_canvas.axes.clear()
-            self.phase_canvas.axes.semilogx(fft_result.frequencies, fft_result.phase, linewidth=1.5, color="orange")
-            self.phase_canvas.axes.set_title("Phase Spectrum")
-            self.phase_canvas.axes.set_xlabel("Frequency (Hz)")
-            self.phase_canvas.axes.set_ylabel("Phase (degrees)")
-            self.phase_canvas.axes.grid(True, which="both", alpha=0.3)
-            _apply_mpl_theme(self.phase_canvas.figure)
-            self.phase_canvas.figure.tight_layout()
-            self.phase_canvas.draw()
-
+            self._fft_result = analyze_signal_spectrum(self.time, signal, signal_name, window_type)
+            self._replot()
         except Exception as e:
             QMessageBox.critical(self, "FFT Error", f"Failed to compute FFT: {e}")
+
+    def _replot(self):
+        """Redraw plots using current FFT result and toggle settings."""
+        fft_result = self._fft_result
+        if fft_result is None:
+            return
+
+        use_db = self._db_checkbox.isChecked()
+        use_log_freq = self._log_freq_checkbox.isChecked()
+        show_harmonics = self._harmonics_checkbox.isChecked()
+
+        signal_name = fft_result.signal_name
+
+        # Update info label
+        info_text = f"<b>Signal:</b> {signal_name}"
+        info_text += f" | <b>Window:</b> {fft_result.window_type.title()}"
+        if fft_result.fundamental_freq is not None and fft_result.fundamental_freq > 0:
+            info_text += f" | <b>Fundamental:</b> {self._format_freq(fft_result.fundamental_freq)}"
+        if fft_result.thd_percent is not None:
+            info_text += f" | <b>THD:</b> {fft_result.thd_percent:.3f}%"
+        self.info_label.setText(info_text)
+
+        # --- Magnitude plot ---
+        ax = self.mag_canvas.axes
+        ax.clear()
+
+        freqs = fft_result.frequencies
+        mag_data = fft_result.magnitude_db if use_db else fft_result.magnitude
+
+        if use_log_freq:
+            ax.semilogx(freqs, mag_data, linewidth=1.5)
+        else:
+            ax.plot(freqs, mag_data, linewidth=1.5)
+
+        # Draw harmonic markers
+        if show_harmonics and fft_result.harmonics:
+            for h in fft_result.harmonics:
+                h_freq = h["frequency"]
+                h_mag = h["magnitude_db"] if use_db else h["magnitude"]
+                ordinal = h["harmonic"]
+                if ordinal == 1:
+                    label = "F0"
+                else:
+                    label = f"H{ordinal}"
+                ax.axvline(h_freq, color="red", alpha=0.3, linewidth=0.8)
+                ax.annotate(
+                    f"{label}\n{self._format_freq(h_freq)}",
+                    xy=(h_freq, h_mag),
+                    xytext=(0, 10),
+                    textcoords="offset points",
+                    fontsize=7,
+                    ha="center",
+                    color="red",
+                    arrowprops={"arrowstyle": "->", "color": "red", "lw": 0.8},
+                )
+
+        ax.set_title(f"Magnitude Spectrum — {signal_name}")
+        ax.set_xlabel("Frequency (Hz)")
+        ax.set_ylabel("Magnitude (dB)" if use_db else "Magnitude")
+        ax.grid(True, which="both", alpha=0.3)
+        _apply_mpl_theme(self.mag_canvas.figure)
+        self.mag_canvas.figure.tight_layout()
+        self.mag_canvas.draw()
+
+        # --- Phase plot ---
+        pax = self.phase_canvas.axes
+        pax.clear()
+
+        if use_log_freq:
+            pax.semilogx(freqs, fft_result.phase, linewidth=1.5, color="orange")
+        else:
+            pax.plot(freqs, fft_result.phase, linewidth=1.5, color="orange")
+
+        pax.set_title("Phase Spectrum")
+        pax.set_xlabel("Frequency (Hz)")
+        pax.set_ylabel("Phase (degrees)")
+        pax.grid(True, which="both", alpha=0.3)
+        _apply_mpl_theme(self.phase_canvas.figure)
+        self.phase_canvas.figure.tight_layout()
+        self.phase_canvas.draw()
 
     def closeEvent(self, event):
         """Clean up matplotlib figures."""

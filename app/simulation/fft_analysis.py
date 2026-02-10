@@ -32,6 +32,7 @@ class FFTResult:
         self.window_type = window_type
         self.fundamental_freq: Optional[float] = None
         self.thd_percent: Optional[float] = None
+        self.harmonics: list = []
 
 
 def compute_fft(
@@ -184,6 +185,53 @@ def compute_thd(fft_result: FFTResult, fundamental_freq: float, num_harmonics: i
     return thd
 
 
+def find_harmonics(fft_result: FFTResult, fundamental_freq: float, num_harmonics: int = 5) -> list:
+    """
+    Identify harmonic frequencies and their magnitudes.
+
+    Args:
+        fft_result: FFT analysis result
+        fundamental_freq: Fundamental frequency in Hz
+        num_harmonics: Number of harmonics to find (default 5)
+
+    Returns:
+        List of dicts with 'harmonic' (int), 'frequency' (Hz),
+        'magnitude' (linear), and 'magnitude_db' (dB) keys.
+        The first entry (harmonic=1) is the fundamental.
+    """
+    if fundamental_freq <= 0:
+        return []
+
+    freq_resolution = fft_result.sample_rate / (2 * len(fft_result.frequencies))
+    tolerance = 2 * freq_resolution
+
+    harmonics = []
+    for n in range(1, num_harmonics + 1):
+        target_freq = n * fundamental_freq
+        if target_freq > fft_result.frequencies[-1]:
+            break
+
+        mask = np.abs(fft_result.frequencies - target_freq) < tolerance
+        if not np.any(mask):
+            continue
+
+        idx = np.argmax(fft_result.magnitude[mask])
+        mag = fft_result.magnitude[mask][idx]
+        mag_db = fft_result.magnitude_db[mask][idx]
+        freq = fft_result.frequencies[mask][idx]
+
+        harmonics.append(
+            {
+                "harmonic": n,
+                "frequency": float(freq),
+                "magnitude": float(mag),
+                "magnitude_db": float(mag_db),
+            }
+        )
+
+    return harmonics
+
+
 def analyze_signal_spectrum(
     time: np.ndarray,
     signal: np.ndarray,
@@ -209,9 +257,10 @@ def analyze_signal_spectrum(
     fundamental = find_fundamental_frequency(fft_result)
     fft_result.fundamental_freq = fundamental
 
-    # Compute THD if we found a fundamental
+    # Compute THD and find harmonics if we found a fundamental
     if fundamental > 0:
         thd = compute_thd(fft_result, fundamental)
         fft_result.thd_percent = thd
+        fft_result.harmonics = find_harmonics(fft_result, fundamental)
 
     return fft_result
