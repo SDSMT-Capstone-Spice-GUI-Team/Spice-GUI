@@ -6,10 +6,11 @@ and notifies views of changes through an observer pattern.
 """
 
 import logging
-from typing import Callable, Any, Optional
+from typing import Any, Callable, Optional
+
 from models.circuit import CircuitModel
 from models.clipboard import ClipboardData
-from models.component import ComponentData, SPICE_SYMBOLS, DEFAULT_VALUES
+from models.component import DEFAULT_VALUES, SPICE_SYMBOLS, ComponentData
 from models.wire import WireData
 
 logger = logging.getLogger(__name__)
@@ -65,8 +66,7 @@ class CircuitController:
 
     # --- Component operations ---
 
-    def add_component(self, component_type: str,
-                      position: tuple[float, float]) -> ComponentData:
+    def add_component(self, component_type: str, position: tuple[float, float]) -> ComponentData:
         """
         Create and add a new component to the circuit.
 
@@ -75,7 +75,7 @@ class CircuitController:
         Returns:
             The newly created ComponentData.
         """
-        symbol = SPICE_SYMBOLS.get(component_type, 'X')
+        symbol = SPICE_SYMBOLS.get(component_type, "X")
         count = self.model.component_counter.get(symbol, 0) + 1
         self.model.component_counter[symbol] = count
         component_id = f"{symbol}{count}"
@@ -87,7 +87,7 @@ class CircuitController:
             position=position,
         )
         self.model.add_component(component)
-        self._notify('component_added', component)
+        self._notify("component_added", component)
         return component
 
     def remove_component(self, component_id: str) -> None:
@@ -99,8 +99,8 @@ class CircuitController:
         wire_indices = self.model.remove_component(component_id)
         for idx in sorted(wire_indices, reverse=True):
             self.model.remove_wire(idx)
-            self._notify('wire_removed', idx)
-        self._notify('component_removed', component_id)
+            self._notify("wire_removed", idx)
+        self._notify("component_removed", component_id)
 
     def rotate_component(self, component_id: str, clockwise: bool = True) -> None:
         """Rotate a component 90 degrees."""
@@ -109,7 +109,7 @@ class CircuitController:
             return
         delta = 90 if clockwise else -90
         component.rotation = (component.rotation + delta) % 360
-        self._notify('component_rotated', component)
+        self._notify("component_rotated", component)
 
     def flip_component(self, component_id: str, horizontal: bool = True) -> None:
         """Flip (mirror) a component horizontally or vertically."""
@@ -128,22 +128,26 @@ class CircuitController:
         if component is None:
             return
         component.value = value
-        self._notify('component_value_changed', component)
+        self._notify("component_value_changed", component)
 
-    def move_component(self, component_id: str,
-                       position: tuple[float, float]) -> None:
+    def move_component(self, component_id: str, position: tuple[float, float]) -> None:
         """Move a component to a new position."""
         component = self.model.components.get(component_id)
         if component is None:
             return
         component.position = position
-        self._notify('component_moved', component)
+        self._notify("component_moved", component)
 
     # --- Wire operations ---
 
-    def add_wire(self, start_comp_id: str, start_term: int,
-                 end_comp_id: str, end_term: int,
-                 waypoints: Optional[list[tuple[float, float]]] = None) -> WireData:
+    def add_wire(
+        self,
+        start_comp_id: str,
+        start_term: int,
+        end_comp_id: str,
+        end_term: int,
+        waypoints: Optional[list[tuple[float, float]]] = None,
+    ) -> WireData:
         """
         Create and add a new wire connection.
 
@@ -158,34 +162,33 @@ class CircuitController:
             waypoints=waypoints or [],
         )
         self.model.add_wire(wire)
-        self._notify('wire_added', wire)
+        self._notify("wire_added", wire)
         return wire
 
     def remove_wire(self, wire_index: int) -> None:
         """Remove a wire by index."""
         if 0 <= wire_index < len(self.model.wires):
             self.model.remove_wire(wire_index)
-            self._notify('wire_removed', wire_index)
+            self._notify("wire_removed", wire_index)
 
-    def update_wire_waypoints(self, wire_index: int,
-                              waypoints: list[tuple[float, float]]) -> None:
+    def update_wire_waypoints(self, wire_index: int, waypoints: list[tuple[float, float]]) -> None:
         """Update a wire's routing path."""
         if 0 <= wire_index < len(self.model.wires):
             wire = self.model.wires[wire_index]
             wire.waypoints = waypoints
-            self._notify('wire_routed', (wire_index, wire))
+            self._notify("wire_routed", (wire_index, wire))
 
     # --- Circuit operations ---
 
     def clear_circuit(self) -> None:
         """Clear the entire circuit."""
         self.model.clear()
-        self._notify('circuit_cleared', None)
+        self._notify("circuit_cleared", None)
 
     def rebuild_nodes(self) -> None:
         """Rebuild the node graph from current wires."""
         self.model.rebuild_nodes()
-        self._notify('nodes_rebuilt', None)
+        self._notify("nodes_rebuilt", None)
 
     # --- Clipboard operations ---
 
@@ -212,8 +215,7 @@ class CircuitController:
 
         wire_dicts = []
         for wire in self.model.wires:
-            if (wire.start_component_id in selected_set
-                    and wire.end_component_id in selected_set):
+            if wire.start_component_id in selected_set and wire.end_component_id in selected_set:
                 wire_dicts.append(wire.to_dict())
 
         self._clipboard = ClipboardData(
@@ -250,7 +252,7 @@ class CircuitController:
         for comp_dict in self._clipboard.components:
             comp_data = ComponentData.from_dict(comp_dict)
 
-            symbol = SPICE_SYMBOLS.get(comp_data.component_type, 'X')
+            symbol = SPICE_SYMBOLS.get(comp_data.component_type, "X")
             count = self.model.component_counter.get(symbol, 0) + 1
             self.model.component_counter[symbol] = count
             new_id = f"{symbol}{count}"
@@ -262,33 +264,31 @@ class CircuitController:
                 component_id=new_id,
                 component_type=comp_data.component_type,
                 value=comp_data.value,
-                position=(comp_data.position[0] + dx,
-                          comp_data.position[1] + dy),
+                position=(comp_data.position[0] + dx, comp_data.position[1] + dy),
                 rotation=comp_data.rotation,
                 waveform_type=comp_data.waveform_type,
-                waveform_params=(comp_data.waveform_params.copy()
-                                 if comp_data.waveform_params else None),
+                waveform_params=(comp_data.waveform_params.copy() if comp_data.waveform_params else None),
             )
             self.model.add_component(new_comp)
-            self._notify('component_added', new_comp)
+            self._notify("component_added", new_comp)
             new_components.append(new_comp)
 
         new_wires: list[WireData] = []
         for wire_dict in self._clipboard.wires:
-            new_start = id_map.get(wire_dict['start_comp'])
-            new_end = id_map.get(wire_dict['end_comp'])
+            new_start = id_map.get(wire_dict["start_comp"])
+            new_end = id_map.get(wire_dict["end_comp"])
 
             if new_start is None or new_end is None:
                 continue
 
             wire = WireData(
                 start_component_id=new_start,
-                start_terminal=wire_dict['start_term'],
+                start_terminal=wire_dict["start_term"],
                 end_component_id=new_end,
-                end_terminal=wire_dict['end_term'],
+                end_terminal=wire_dict["end_term"],
             )
             self.model.add_wire(wire)
-            self._notify('wire_added', wire)
+            self._notify("wire_added", wire)
             new_wires.append(wire)
 
         return (new_components, new_wires)

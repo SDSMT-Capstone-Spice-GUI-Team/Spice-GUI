@@ -11,6 +11,7 @@ import heapq
 import time
 from abc import ABC, abstractmethod
 from typing import Dict, List, Set, Tuple
+
 from PyQt6.QtCore import QPointF
 
 
@@ -42,8 +43,8 @@ class WeightedPathfinder(ABC):
         self.bend_penalty_base = 2  # Exponential base for bend penalties (2^n)
         self.crossing_penalty = 20  # Penalty for crossing different nets
         self.same_net_cost = 0.1  # Low cost for same-net bundling
-        self.body_crossing_penalty = float('inf')  # Component body crossing (blocked)
-        self.non_net_crossing_penalty = float('inf')  # Non-net terminal crossing (blocked)
+        self.body_crossing_penalty = float("inf")  # Component body crossing (blocked)
+        self.non_net_crossing_penalty = float("inf")  # Non-net terminal crossing (blocked)
 
         # Performance tracking
         self.last_runtime = 0
@@ -51,8 +52,16 @@ class WeightedPathfinder(ABC):
         self.last_nodes_explored = 0
 
     @abstractmethod
-    def find_path(self, start_pos, end_pos, obstacles, bounds=(-500, -500, 1000, 1000),
-                  algorithm='astar', existing_wires=None, current_net=None) -> Tuple[List[Tuple[int,int]], float, int]:
+    def find_path(
+        self,
+        start_pos,
+        end_pos,
+        obstacles,
+        bounds=(-500, -500, 1000, 1000),
+        algorithm="astar",
+        existing_wires=None,
+        current_net=None,
+    ) -> Tuple[List[Tuple[int, int]], float, int]:
         """
         Find path from start_pos to end_pos avoiding obstacles.
 
@@ -74,8 +83,9 @@ class WeightedPathfinder(ABC):
         ...
 
     @abstractmethod
-    def _calculate_edge_cost(self, current, neighbor, direction, bend_count,
-                            existing_wires=None, current_net=None) -> int:
+    def _calculate_edge_cost(
+        self, current, neighbor, direction, bend_count, existing_wires=None, current_net=None
+    ) -> int:
         """
         Calculate the cost of traversing an edge in the grid.
 
@@ -104,7 +114,7 @@ class WeightedPathfinder(ABC):
         """
         return QPointF(grid_coord[0] * self.grid_size, grid_coord[1] * self.grid_size)
 
-    def _pos_to_grid(self, pos)-> Tuple[int,int]:
+    def _pos_to_grid(self, pos) -> Tuple[int, int]:
         """
         Convert scene position to grid coordinates.
 
@@ -191,6 +201,7 @@ class WeightedPathfinder(ABC):
         Returns:
             bool: True if directions are the same
         """
+
         def sign(x):
             return 0 if x == 0 else (1 if x > 0 else -1)
 
@@ -204,8 +215,16 @@ class AStarPathfinder(WeightedPathfinder):
         super().__init__(grid_size)
         self.last_g_score = {}  # Store g_score from last pathfinding run for visualization
 
-    def find_path(self, start_pos, end_pos, obstacles, bounds=(-500, -500, 1000, 1000),
-                  algorithm='astar', existing_wires=None, current_net=None):
+    def find_path(
+        self,
+        start_pos,
+        end_pos,
+        obstacles,
+        bounds=(-500, -500, 1000, 1000),
+        algorithm="astar",
+        existing_wires=None,
+        current_net=None,
+    ):
         """
         Find path using A* algorithm.
 
@@ -222,13 +241,11 @@ class AStarPathfinder(WeightedPathfinder):
             tuple: (waypoints, runtime, iterations)
         """
         start_time = time.time()
-        waypoints = self._find_path_impl(start_pos, end_pos, obstacles, bounds,
-                                         existing_wires, current_net)
+        waypoints = self._find_path_impl(start_pos, end_pos, obstacles, bounds, existing_wires, current_net)
         self.last_runtime = time.time() - start_time
         return waypoints, self.last_runtime, self.last_iterations
 
-    def _calculate_edge_cost(self, current, neighbor, direction, bend_count,
-                            existing_wires=None, current_net=None):
+    def _calculate_edge_cost(self, current, neighbor, direction, bend_count, existing_wires=None, current_net=None):
         """
         Calculate edge cost with bend penalties.
 
@@ -268,7 +285,9 @@ class AStarPathfinder(WeightedPathfinder):
         came_from = {}
         g_score = {start_grid: 0}
         f_score = {start_grid: self._heuristic(start_grid, end_grid)}
-        direction_map: Dict[tuple[int, int], tuple[int, int]|None] = {start_grid: None}  # Track direction for bend penalty
+        direction_map: Dict[tuple[int, int], tuple[int, int] | None] = {
+            start_grid: None
+        }  # Track direction for bend penalty
         bend_count = {start_grid: 0}  # Track number of bends
 
         min_x, min_y, width, height = bounds
@@ -301,8 +320,7 @@ class AStarPathfinder(WeightedPathfinder):
 
                 # Check bounds
                 neighbor_pos = self._grid_to_pos(neighbor)
-                if not (min_x <= neighbor_pos.x() <= max_x and
-                       min_y <= neighbor_pos.y() <= max_y):
+                if not (min_x <= neighbor_pos.x() <= max_x and min_y <= neighbor_pos.y() <= max_y):
                     continue
 
                 # Check if blocked by obstacle
@@ -316,7 +334,7 @@ class AStarPathfinder(WeightedPathfinder):
                 # Add bend penalty if direction changes
                 if current_dir is not None and current_dir != new_direction:
                     new_bend_count += 1
-                    edge_cost += self.bend_penalty_base ** new_bend_count
+                    edge_cost += self.bend_penalty_base**new_bend_count
 
                 # Calculate tentative g_score
                 tentative_g_score = g_score[current] + edge_cost
@@ -342,8 +360,16 @@ class DijkstraPathfinder(WeightedPathfinder):
     def __init__(self, grid_size=20):
         super().__init__(grid_size)
 
-    def find_path(self, start_pos, end_pos, obstacles, bounds=(-500, -500, 1000, 1000),
-                  algorithm='dijkstra', existing_wires=None, current_net=None):
+    def find_path(
+        self,
+        start_pos,
+        end_pos,
+        obstacles,
+        bounds=(-500, -500, 1000, 1000),
+        algorithm="dijkstra",
+        existing_wires=None,
+        current_net=None,
+    ):
         """
         Find path using Dijkstra's algorithm.
 
@@ -351,13 +377,11 @@ class DijkstraPathfinder(WeightedPathfinder):
             tuple: (waypoints, runtime, iterations)
         """
         start_time = time.time()
-        waypoints = self._find_path_impl(start_pos, end_pos, obstacles, bounds,
-                                         existing_wires, current_net)
+        waypoints = self._find_path_impl(start_pos, end_pos, obstacles, bounds, existing_wires, current_net)
         self.last_runtime = time.time() - start_time
         return waypoints, self.last_runtime, self.last_iterations
 
-    def _calculate_edge_cost(self, current, neighbor, direction, bend_count,
-                            existing_wires=None, current_net=None):
+    def _calculate_edge_cost(self, current, neighbor, direction, bend_count, existing_wires=None, current_net=None):
         """Calculate edge cost (same as A* but without heuristic)"""
         return 1  # Base cost
 
@@ -407,8 +431,7 @@ class DijkstraPathfinder(WeightedPathfinder):
                 new_direction = (dx, dy)
 
                 neighbor_pos = self._grid_to_pos(neighbor)
-                if not (min_x <= neighbor_pos.x() <= max_x and
-                       min_y <= neighbor_pos.y() <= max_y):
+                if not (min_x <= neighbor_pos.x() <= max_x and min_y <= neighbor_pos.y() <= max_y):
                     continue
 
                 if neighbor in obstacles:
@@ -419,7 +442,7 @@ class DijkstraPathfinder(WeightedPathfinder):
 
                 if current_dir is not None and current_dir != new_direction:
                     new_bend_count += 1
-                    edge_cost += self.bend_penalty_base ** new_bend_count
+                    edge_cost += self.bend_penalty_base**new_bend_count
 
                 tentative_cost = current_cost + edge_cost
 
@@ -439,8 +462,16 @@ class IDAStarPathfinder(WeightedPathfinder):
     def __init__(self, grid_size=20):
         super().__init__(grid_size)
 
-    def find_path(self, start_pos, end_pos, obstacles, bounds=(-500, -500, 1000, 1000),
-                  algorithm='idastar', existing_wires=None, current_net=None):
+    def find_path(
+        self,
+        start_pos,
+        end_pos,
+        obstacles,
+        bounds=(-500, -500, 1000, 1000),
+        algorithm="idastar",
+        existing_wires=None,
+        current_net=None,
+    ):
         """
         Find path using IDA* algorithm.
 
@@ -448,13 +479,11 @@ class IDAStarPathfinder(WeightedPathfinder):
             tuple: (waypoints, runtime, iterations)
         """
         start_time = time.time()
-        waypoints = self._find_path_impl(start_pos, end_pos, obstacles, bounds,
-                                         existing_wires, current_net)
+        waypoints = self._find_path_impl(start_pos, end_pos, obstacles, bounds, existing_wires, current_net)
         self.last_runtime = time.time() - start_time
         return waypoints, self.last_runtime, self.last_iterations
 
-    def _calculate_edge_cost(self, current, neighbor, direction, bend_count,
-                            existing_wires=None, current_net=None):
+    def _calculate_edge_cost(self, current, neighbor, direction, bend_count, existing_wires=None, current_net=None):
         """Calculate edge cost"""
         return 1  # Base cost
 
@@ -479,8 +508,9 @@ class IDAStarPathfinder(WeightedPathfinder):
         threshold = self._heuristic(start_grid, end_grid)
 
         while iterations < max_iterations:
-            result = self._idastar_search(start_grid, end_grid, 0, threshold, None, 0,
-                                         obstacles, min_x, max_x, min_y, max_y, {})
+            result = self._idastar_search(
+                start_grid, end_grid, 0, threshold, None, 0, obstacles, min_x, max_x, min_y, max_y, {}
+            )
             iterations += 1
 
             if isinstance(result, list):
@@ -489,7 +519,7 @@ class IDAStarPathfinder(WeightedPathfinder):
                 waypoints = self._simplify_path(waypoints)
                 self.last_iterations = iterations
                 return waypoints
-            elif result == float('inf'):
+            elif result == float("inf"):
                 # No path exists
                 break
                 pass
@@ -500,8 +530,9 @@ class IDAStarPathfinder(WeightedPathfinder):
         self.last_iterations = iterations
         return [start_pos, end_pos]
 
-    def _idastar_search(self, current, goal, g_score, threshold, direction, bend_count,
-                       obstacles, min_x, max_x, min_y, max_y, visited):
+    def _idastar_search(
+        self, current, goal, g_score, threshold, direction, bend_count, obstacles, min_x, max_x, min_y, max_y, visited
+    ):
         """
         Recursive depth-first search for IDA*
 
@@ -520,18 +551,17 @@ class IDAStarPathfinder(WeightedPathfinder):
 
         visited_key = (current, direction)
         if visited_key in visited and visited[visited_key] <= g_score:
-            return float('inf')
+            return float("inf")
         visited[visited_key] = g_score
 
-        min_threshold = float('inf')
+        min_threshold = float("inf")
 
         for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
             neighbor = (current[0] + dx, current[1] + dy)
             new_direction = (dx, dy)
 
             neighbor_pos = self._grid_to_pos(neighbor)
-            if not (min_x <= neighbor_pos.x() <= max_x and
-                   min_y <= neighbor_pos.y() <= max_y):
+            if not (min_x <= neighbor_pos.x() <= max_x and min_y <= neighbor_pos.y() <= max_y):
                 continue
 
             if neighbor in obstacles:
@@ -542,11 +572,22 @@ class IDAStarPathfinder(WeightedPathfinder):
 
             if direction is not None and direction != new_direction:
                 new_bend_count += 1
-                edge_cost += self.bend_penalty_base ** new_bend_count
+                edge_cost += self.bend_penalty_base**new_bend_count
 
-            result = self._idastar_search(neighbor, goal, g_score + edge_cost, threshold,
-                                         new_direction, new_bend_count, obstacles,
-                                         min_x, max_x, min_y, max_y, visited)
+            result = self._idastar_search(
+                neighbor,
+                goal,
+                g_score + edge_cost,
+                threshold,
+                new_direction,
+                new_bend_count,
+                obstacles,
+                min_x,
+                max_x,
+                min_y,
+                max_y,
+                visited,
+            )
 
             if isinstance(result, list):
                 return [current] + result
@@ -556,12 +597,14 @@ class IDAStarPathfinder(WeightedPathfinder):
         return min_threshold
 
 
-
 # ============================================================================
 # Standalone Helper Functions
 # ============================================================================
 
-def polygon_to_grid_filled(polygon_points, position, rotation_angle, grid_size, inset=0, active_terminal_positions=None):
+
+def polygon_to_grid_filled(
+    polygon_points, position, rotation_angle, grid_size, inset=0, active_terminal_positions=None
+):
     """
     Convert a polygon shape to grid cells filling the entire interior.
     Used for connected components to block wires from passing through.
@@ -598,7 +641,7 @@ def polygon_to_grid_filled(polygon_points, position, rotation_angle, grid_size, 
             center_y = sum(p[1] for p in polygon_points) / len(polygon_points)
             dx = center_x - x
             dy = center_y - y
-            dist = math.sqrt(dx*dx + dy*dy)
+            dist = math.sqrt(dx * dx + dy * dy)
             if dist > 0:
                 x += (dx / dist) * inset_px
                 y += (dy / dist) * inset_px
@@ -711,7 +754,7 @@ def polygon_to_grid_frame(polygon_points, position, rotation_angle, grid_size, i
     if active_terminal_positions is None:
         active_terminal_positions = set()
 
-    obstacles: Set[Tuple[int,int]] = set()
+    obstacles: Set[Tuple[int, int]] = set()
 
     # Rotate and translate polygon points to world coordinates
     rad = math.radians(rotation_angle)
@@ -729,7 +772,7 @@ def polygon_to_grid_frame(polygon_points, position, rotation_angle, grid_size, i
             center_y = sum(p[1] for p in polygon_points) / len(polygon_points)
             dx = center_x - x
             dy = center_y - y
-            dist = math.sqrt(dx*dx + dy*dy)
+            dist = math.sqrt(dx * dx + dy * dy)
             if dist > 0:
                 x += (dx / dist) * inset_px
                 y += (dy / dist) * inset_px
@@ -841,7 +884,16 @@ def get_wire_obstacles(wires, current_node, grid_size=20):
     return obstacles
 
 
-def get_component_obstacles(components, grid_size=20, padding=2, exclude_ids=None, terminal_clearance_only=None, active_terminals=None, existing_wires=None, current_node=None):
+def get_component_obstacles(
+    components,
+    grid_size=20,
+    padding=2,
+    exclude_ids=None,
+    terminal_clearance_only=None,
+    active_terminals=None,
+    existing_wires=None,
+    current_node=None,
+):
     """
     Get set of grid cells blocked by components and wires from other nodes.
 
@@ -882,26 +934,26 @@ def get_component_obstacles(components, grid_size=20, padding=2, exclude_ids=Non
             term_grid = (round(term_pos.x() / grid_size), round(term_pos.y() / grid_size))
             terminal_key = (comp.component_id, i)
             is_active = terminal_key in active_terminals_set
-            terminal_info.append({
-                'grid': term_grid,
-                'pos': term_pos,
-                'is_active': is_active
-            })
+            terminal_info.append({"grid": term_grid, "pos": term_pos, "is_active": is_active})
 
         # Get active terminal positions for exclusion from body obstacles
-        active_terminal_positions = {t['grid'] for t in terminal_info if t['is_active']}
+        active_terminal_positions = {t["grid"] for t in terminal_info if t["is_active"]}
 
         # ALL COMPONENTS get FILLED body obstacles
         # This prevents wires from routing through ANY component body
-        if hasattr(comp, 'get_obstacle_shape'):
+        if hasattr(comp, "get_obstacle_shape"):
             # Use custom polygon shape from component
             polygon_points = comp.get_obstacle_shape()
 
             # ALWAYS use filled interior for all components
             # This ensures wires cannot pass through component bodies
             shape_obstacles = polygon_to_grid_filled(
-                polygon_points, pos, comp.rotation_angle, grid_size,
-                inset=0, active_terminal_positions=active_terminal_positions
+                polygon_points,
+                pos,
+                comp.rotation_angle,
+                grid_size,
+                inset=0,
+                active_terminal_positions=active_terminal_positions,
             )
 
             obstacles.update(shape_obstacles)
@@ -909,8 +961,8 @@ def get_component_obstacles(components, grid_size=20, padding=2, exclude_ids=Non
             # IMPORTANT: Add ALL non-active terminals as obstacles (infinite cost)
             # This prevents wires from routing through terminals not being used by this wire
             for t in terminal_info:
-                if not t['is_active']:
-                    obstacles.add(t['grid'])
+                if not t["is_active"]:
+                    obstacles.add(t["grid"])
 
     # Add wire obstacles from OTHER nodes (different nets)
     # Wires from the same node are skipped to allow bundling

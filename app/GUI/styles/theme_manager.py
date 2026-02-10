@@ -3,10 +3,12 @@ theme_manager.py - Singleton theme manager.
 
 Provides global access to the current theme and enables runtime theme switching.
 """
+
 import logging
-from typing import Optional, Callable, List
-from .theme import ThemeProtocol
+from typing import Callable, List, Optional
+
 from .light_theme import LightTheme
+from .theme import ThemeProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +31,11 @@ class ThemeManager:
         theme_manager.on_theme_changed(my_callback)
     """
 
-    _instance: Optional['ThemeManager'] = None
+    _instance: Optional["ThemeManager"] = None
     _theme: ThemeProtocol
     _listeners: List[Callable[[ThemeProtocol], None]]
 
-    def __new__(cls) -> 'ThemeManager':
+    def __new__(cls) -> "ThemeManager":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._theme = LightTheme()

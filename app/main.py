@@ -14,10 +14,10 @@ This prototype implements:
 - Results display
 """
 
-
 import sys
-from PyQt6.QtWidgets import (QApplication)
+
 from GUI.main_window import MainWindow
+from PyQt6.QtWidgets import QApplication
 
 
 def main():

@@ -1,11 +1,25 @@
 """Main application window with MVC architecture"""
+import json
 import logging
 import os
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QFileDialog, QMessageBox, QTextEdit,
-                             QSplitter, QLabel, QDialog, QStackedWidget)
-from PyQt6.QtGui import QAction, QKeySequence, QActionGroup
+from pathlib import Path
+
 from PyQt6.QtCore import Qt, QSettings
+from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
+from PyQt6.QtWidgets import (
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QStackedWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 from models.circuit import CircuitModel
 from controllers.circuit_controller import CircuitController
@@ -202,6 +216,10 @@ class MainWindow(QMainWindow):
         open_action.triggered.connect(self._on_load)
         file_menu.addAction(open_action)
 
+        # Open Example submenu
+        self.examples_menu = file_menu.addMenu("Open &Example")
+        self._populate_examples_menu()
+
         save_action = QAction("&Save", self)
         save_action.setShortcut("Ctrl+S")
         save_action.triggered.connect(self._on_save)
@@ -369,17 +387,24 @@ class MainWindow(QMainWindow):
         tran_action.triggered.connect(self.set_analysis_transient)
         analysis_menu.addAction(tran_action)
 
+        temp_action = QAction("Te&mperature Sweep", self)
+        temp_action.setCheckable(True)
+        temp_action.triggered.connect(self.set_analysis_temp_sweep)
+        analysis_menu.addAction(temp_action)
+
         # Create action group for mutually exclusive analysis types
         self.analysis_group = QActionGroup(self)
         self.analysis_group.addAction(op_action)
         self.analysis_group.addAction(dc_action)
         self.analysis_group.addAction(ac_action)
         self.analysis_group.addAction(tran_action)
+        self.analysis_group.addAction(temp_action)
 
         self.op_action = op_action
         self.dc_action = dc_action
         self.ac_action = ac_action
         self.tran_action = tran_action
+        self.temp_action = temp_action
 
     # File Operations (delegated to FileController)
 
@@ -470,6 +495,87 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 logger.error("Error loading last session: %s", e)
 
+    def _populate_examples_menu(self):
+        """Populate the Open Example submenu with example circuits"""
+        # Get path to examples directory (relative to this file)
+        examples_dir = Path(__file__).parent.parent / "examples"
+
+        if not examples_dir.exists():
+            no_examples_action = QAction("(No examples available)", self)
+            no_examples_action.setEnabled(False)
+            self.examples_menu.addAction(no_examples_action)
+            return
+
+        # Load and categorize examples
+        examples_by_category = {}
+        example_files = sorted(examples_dir.glob("*.json"))
+
+        for example_file in example_files:
+            try:
+                with open(example_file, "r") as f:
+                    data = json.load(f)
+
+                name = data.get("name", example_file.stem)
+                description = data.get("description", "")
+                category = data.get("category", "Other")
+
+                if category not in examples_by_category:
+                    examples_by_category[category] = []
+
+                examples_by_category[category].append(
+                    {"name": name, "description": description, "filepath": example_file}
+                )
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Failed to load example {example_file}: {e}")
+
+        # Create menu entries organized by category
+        if not examples_by_category:
+            no_examples_action = QAction("(No examples available)", self)
+            no_examples_action.setEnabled(False)
+            self.examples_menu.addAction(no_examples_action)
+            return
+
+        # Sort categories: Basic first, then alphabetically
+        category_order = sorted(examples_by_category.keys(), key=lambda c: (c != "Basic", c))
+
+        for i, category in enumerate(category_order):
+            if i > 0:
+                self.examples_menu.addSeparator()
+
+            # Add category label
+            category_label = QAction(f"─── {category} ───", self)
+            category_label.setEnabled(False)
+            self.examples_menu.addAction(category_label)
+
+            # Add examples in this category
+            for example in examples_by_category[category]:
+                action = QAction(example["name"], self)
+                action.setToolTip(example["description"])
+                action.triggered.connect(lambda checked, path=example["filepath"]: self._open_example(path))
+                self.examples_menu.addAction(action)
+
+    def _open_example(self, filepath: Path):
+        """Open an example circuit file"""
+        # Warn if there's unsaved work
+        if len(self.canvas.components) > 0:
+            reply = QMessageBox.question(
+                self,
+                "Open Example",
+                "Opening an example will replace your current circuit. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        try:
+            self.file_ctrl.load_circuit(filepath)
+            self.setWindowTitle(f"Circuit Design GUI - {filepath.name} (Example)")
+            self._sync_analysis_menu()
+            # Don't set as current file (keep it as example, not saved)
+            self.file_ctrl.current_file = None
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load example: {e}")
+
     # Simulation Operations (delegated to SimulationController)
 
     def generate_netlist(self):
@@ -506,24 +612,32 @@ class MainWindow(QMainWindow):
         self.results_text.append("=" * 70)
 
         if not result.success:
-            self.results_text.append("\nERROR: Simulation failed!")
+            # Show validation / simulation errors in the results panel
+            self.results_text.append("\nSIMULATION COULD NOT RUN")
+            self.results_text.append("=" * 40)
             if result.errors:
-                self.results_text.append("\nErrors:")
+                self.results_text.append("\nPlease fix the following issues:\n")
                 for error in result.errors:
                     self.results_text.append(f"  - {error}")
-            if result.error:
-                self.results_text.append(f"\nError message: {result.error}")
-            return
-
-        if result.errors:
-            self.results_text.append("\nCIRCUIT VALIDATION FAILED")
-            self.results_text.append("=" * 40)
-            for error in result.errors:
-                self.results_text.append(f"  - {error}")
             if result.warnings:
-                self.results_text.append("\nWarnings:")
+                self.results_text.append("\nAdditional notes:\n")
                 for warning in result.warnings:
                     self.results_text.append(f"  - {warning}")
+            if result.error and not result.errors:
+                self.results_text.append(f"\n{result.error}")
+
+            # Also show a popup so the user notices immediately
+            popup_lines = list(result.errors or [])
+            if result.warnings:
+                popup_lines.append("")
+                popup_lines.extend(result.warnings)
+            if not popup_lines and result.error:
+                popup_lines.append(result.error)
+            QMessageBox.warning(
+                self,
+                "Circuit Validation",
+                "\n\n".join(popup_lines),
+            )
             return
 
         if self.model.analysis_type == "DC Operating Point":
@@ -586,6 +700,31 @@ class MainWindow(QMainWindow):
                 self._waveform_dialog.show()
             else:
                 self.results_text.append("\nNo transient data found in output.")
+            self.canvas.clear_node_voltages()
+
+        elif self.model.analysis_type == "Temperature Sweep":
+            node_voltages = result.data if result.data else {}
+            if node_voltages:
+                self._last_results = node_voltages
+                self.results_text.append("\nTEMPERATURE SWEEP RESULTS:")
+                self.results_text.append("-" * 40)
+                params = self.model.analysis_params
+                self.results_text.append(
+                    f"Temperature range: {params.get('tempStart', '?')}\u00b0C "
+                    f"to {params.get('tempStop', '?')}\u00b0C "
+                    f"(step {params.get('tempStep', '?')}\u00b0C)"
+                )
+                self.results_text.append("")
+                for node, voltage in sorted(node_voltages.items()):
+                    self.results_text.append(
+                        f"  {node:15s} : {voltage:12.6f} V")
+                self.results_text.append("-" * 40)
+                self.results_text.append(
+                    "Note: values shown are from the final temperature step."
+                )
+            else:
+                self.results_text.append(
+                    "\nNo results found. Check raw output below.")
             self.canvas.clear_node_voltages()
 
         self.results_text.append("=" * 70)
@@ -698,6 +837,29 @@ class MainWindow(QMainWindow):
         else:
             self.op_action.setChecked(True)
 
+    def set_analysis_temp_sweep(self):
+        """Set analysis type to Temperature Sweep with parameters"""
+        dialog = AnalysisDialog("Temperature Sweep", self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.simulation_ctrl.set_analysis("Temperature Sweep", params)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(
+                        f"Analysis: Temperature Sweep "
+                        f"({params['tempStart']}\u00b0C to "
+                        f"{params['tempStop']}\u00b0C, step "
+                        f"{params['tempStep']}\u00b0C)",
+                        3000
+                    )
+            else:
+                QMessageBox.warning(self, "Invalid Parameters",
+                                    "Please enter valid numeric values.")
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
+
     def _sync_analysis_menu(self):
         """Update Analysis menu checkboxes to match model state."""
         analysis_type = self.model.analysis_type
@@ -709,6 +871,8 @@ class MainWindow(QMainWindow):
             self.ac_action.setChecked(True)
         elif analysis_type == "Transient":
             self.tran_action.setChecked(True)
+        elif analysis_type == "Temperature Sweep":
+            self.temp_action.setChecked(True)
 
     # View Operations
 

@@ -9,7 +9,6 @@ same voltage).
 from dataclasses import dataclass, field
 from typing import Optional
 
-
 # Module-level counter for generating unique node labels
 _node_counter = 0
 
@@ -31,12 +30,12 @@ def _generate_label(index: int) -> str:
         A string label like "nodeA", "nodeB", etc.
     """
     if index < 26:
-        return "node" + chr(ord('A') + index)
+        return "node" + chr(ord("A") + index)
     else:
         # For more than 26 nodes, use AA, AB, AC...
         first = (index // 26) - 1
         second = index % 26
-        return "node" + chr(ord('A') + first) + chr(ord('A') + second)
+        return "node" + chr(ord("A") + first) + chr(ord("A") + second)
 
 
 @dataclass
@@ -47,6 +46,7 @@ class NodeData:
     A node is a set of component terminals that are electrically connected.
     This is the fundamental unit of circuit topology for netlist generation.
     """
+
     # Set of (component_id, terminal_index) tuples in this node
     terminals: set[tuple[str, int]] = field(default_factory=set)
 
@@ -106,7 +106,7 @@ class NodeData:
         """Remove a wire index from this node."""
         self.wire_indices.discard(wire_index)
 
-    def merge_with(self, other: 'NodeData') -> None:
+    def merge_with(self, other: "NodeData") -> None:
         """
         Merge another node into this one.
 

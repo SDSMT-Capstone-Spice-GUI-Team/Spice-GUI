@@ -4,6 +4,7 @@ algorithm_layers.py
 Layer management system for multi-algorithm wire routing visualization.
 Each algorithm gets its own layer with distinct visual appearance.
 """
+
 from .styles import theme_manager
 
 
@@ -79,9 +80,11 @@ class AlgorithmLayer:
         if self.wire_count == 0:
             return f"{self.name}: No wires"
 
-        return (f"{self.name}: {self.wire_count} wires, "
-                f"Avg Runtime: {self.avg_runtime*1000:.2f}ms, "
-                f"Avg Iterations: {self.avg_iterations:.0f}")
+        return (
+            f"{self.name}: {self.wire_count} wires, "
+            f"Avg Runtime: {self.avg_runtime * 1000:.2f}ms, "
+            f"Avg Iterations: {self.avg_iterations:.0f}"
+        )
 
 
 class AlgorithmLayerManager:
@@ -98,34 +101,34 @@ class AlgorithmLayerManager:
     def _create_default_layers(self):
         """Create the default algorithm layers"""
         # A* - Primary algorithm (Blue)
-        self.layers['astar'] = AlgorithmLayer(
+        self.layers["astar"] = AlgorithmLayer(
             name="A*",
-            algorithm_type='astar',
-            color=theme_manager.get_algorithm_color('astar'),
+            algorithm_type="astar",
+            color=theme_manager.get_algorithm_color("astar"),
             z_value=10,
-            visible=True
+            visible=True,
         )
 
         # IDA* - Memory-efficient variant (Green)
-        self.layers['idastar'] = AlgorithmLayer(
+        self.layers["idastar"] = AlgorithmLayer(
             name="IDA*",
-            algorithm_type='idastar',
-            color=theme_manager.get_algorithm_color('idastar'),
+            algorithm_type="idastar",
+            color=theme_manager.get_algorithm_color("idastar"),
             z_value=9,
-            visible=True
+            visible=True,
         )
 
         # Dijkstra - Guaranteed shortest path (Orange)
-        self.layers['dijkstra'] = AlgorithmLayer(
+        self.layers["dijkstra"] = AlgorithmLayer(
             name="Dijkstra",
-            algorithm_type='dijkstra',
-            color=theme_manager.get_algorithm_color('dijkstra'),
+            algorithm_type="dijkstra",
+            color=theme_manager.get_algorithm_color("dijkstra"),
             z_value=8,
-            visible=True
+            visible=True,
         )
 
         # Set all algorithms as active by default
-        self.active_algorithms = ['astar', 'idastar', 'dijkstra']
+        self.active_algorithms = ["astar", "idastar", "dijkstra"]
 
     def get_layer(self, algorithm_type):
         """Get a layer by algorithm type"""
@@ -182,11 +185,13 @@ class AlgorithmLayerManager:
 
             # Find fastest average runtime
             fastest = min(layers_with_data, key=lambda x: x.avg_runtime)
-            report_lines.append(f"Fastest Avg Runtime: {fastest.name} ({fastest.avg_runtime*1000:.2f}ms)")
+            report_lines.append(f"Fastest Avg Runtime: {fastest.name} ({fastest.avg_runtime * 1000:.2f}ms)")
 
             # Find fewest average iterations
             least_iterations = min(layers_with_data, key=lambda x: x.avg_iterations)
-            report_lines.append(f"Fewest Avg Iterations: {least_iterations.name} ({least_iterations.avg_iterations:.0f})")
+            report_lines.append(
+                f"Fewest Avg Iterations: {least_iterations.name} ({least_iterations.avg_iterations:.0f})"
+            )
 
         return "\n".join(report_lines)
 
