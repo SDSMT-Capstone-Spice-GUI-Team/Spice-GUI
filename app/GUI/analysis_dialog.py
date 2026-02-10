@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
+
 from .format_utils import parse_value
 
 

@@ -55,9 +55,9 @@ def test_gui_module_exports_both_names():
 
 def test_app_subpackage_imports():
     """Test that classes are importable from their subpackages"""
-    from GUI.main_window import MainWindow
     from GUI.circuit_canvas import CircuitCanvasView
     from GUI.component_item import ComponentGraphicsItem
+    from GUI.main_window import MainWindow
     from GUI.wire_item import WireGraphicsItem
 
     assert MainWindow is not None

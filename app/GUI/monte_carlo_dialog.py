@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
+
 # Base analysis types available for Monte Carlo
 MC_BASE_ANALYSIS_TYPES = [
     "DC Operating Point",
