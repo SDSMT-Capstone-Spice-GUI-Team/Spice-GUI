@@ -48,6 +48,19 @@ app/
 └── tests/           # pytest suite (unit/ and integration/)
 ```
 
+## Model API Quick Reference
+
+Constructor signatures for test fixtures (all are `@dataclass`):
+
+```python
+ComponentData(component_id, component_type, value, position, rotation=0, flip_h=False, flip_v=False, waveform_type=None, waveform_params=None)
+WireData(start_component_id, start_terminal, end_component_id, end_terminal, waypoints=[], algorithm="idastar")
+NodeData(terminals=set(), wire_indices=set(), is_ground=False, custom_label=None, auto_label="")
+CircuitModel(components={}, wires=[], nodes=[], terminal_to_node={}, component_counter={}, analysis_type="DC Operating Point", analysis_params={})
+```
+
+**Common mistakes**: `value` not `properties`, `start_terminal` not `start_terminal_index`, `component_id` not `id`.
+
 ## Git Conventions
 - Branch naming: `issue-<N>-short-description` (e.g. `issue-75-csv-export`)
 - Commit messages: lowercase imperative (e.g. "add CSV export", "fix wire rendering")
@@ -259,9 +272,7 @@ Before starting implementation on any issue, verify:
 - [ ] MEMORY.md updated with issue/PR number
 
 ### Hours Estimates
-- Small fix/tweak: **0.5h**
-- Medium feature/refactor: **1–2h**
-- Large feature/multi-file: **3h+**
+Small: **0.5h** | Medium: **1–2h** | Large: **3h+**
 
 ### Stop Conditions
 - **Blocked**: Move issue to Blocked with explanatory comment. Pick next Ready item.
@@ -286,61 +297,19 @@ Before starting implementation on any issue, verify:
 
 ### Agent Feedback (required on every issue/PR)
 
-After completing work on an issue, post a structured feedback comment on the issue:
+Post structured feedback as a comment on each completed issue and reviewed PR:
 
-```markdown
-### Agent Feedback
-- **Issue clarity**: X/5 — [what was clear/unclear]
-- **Blockers**: [what slowed you down, or "None"]
-- **Confidence**: [High/Medium/Low] — [what you're confident about, what needs human review]
-- **Assumptions made**: [any judgment calls, or "None"]
-- **Review focus**: [specific areas the reviewer should check]
-```
+**Issue feedback fields**: Issue clarity (X/5), Blockers, Confidence (High/Med/Low), Assumptions made, Review focus areas.
 
-After reviewing a PR, post feedback on the PR:
-
-```markdown
-### Review Feedback
-- **Issue scope**: [too broad / too narrow / just right]
-- **Code quality**: [follows patterns / introduces new conventions / concerns]
-- **Test coverage**: [adequate / gaps in X]
-- **Suggestion for issue writing**: [what would have made this easier]
-```
-
-This feedback improves future issue quality and agent effectiveness over time.
+**PR review fields**: Issue scope, Code quality, Test coverage, Suggestion for issue writing.
 
 ## Session Management
 
 ### Checkpointing (for long autonomous sessions)
 
 For sessions working on >3 issues or >4 hours of work:
-
-**After each issue completion**:
-1. Post checkpoint comment on the completed issue:
-   ```markdown
-   ### 🏁 Checkpoint - Issue #{N} Complete
-
-   **Completed**: Issue #{N} - {title}
-   **PR**: #{PR_number}
-   **Status**: Tests passing, moved to In Review
-   **Next**: Issue #{next_number} - {next_title}
-   **Session time**: ~{hours}h elapsed, estimated {remaining}h remaining
-   ```
-
-2. Update session progress in MEMORY.md:
-   ```markdown
-   ## Current Session (YYYY-MM-DD)
-   - [x] Issue #X - {title} (PR #{PR}, {hours}h)
-   - [ ] Issue #Y - {title} (In Progress)
-   - [ ] Issue #Z - {title} (Next)
-
-   Total: {completed}/{planned} issues, {hours_spent}/{hours_estimated}h
-   ```
-
-**Benefits**:
-- Easy recovery if context window reached
-- Clear progress tracking for user
-- Helps prioritize if session must stop early
+1. After each issue, post a checkpoint comment: completed issue/PR, next issue, elapsed time
+2. Update MEMORY.md with session progress: `[x] Issue #X (PR #Y, Zh)` / `[ ] Issue #N (Next)`
 
 **Recovery**: If session interrupted, read MEMORY.md → latest checkpoint comment → resume from "Next" issue.
 
@@ -383,28 +352,3 @@ Only merge one PR at a time to prevent cascading rebase conflicts:
 ## Platform Notes
 - **Windows**: Avoid piping `gh` output directly to `python` (fails with "pipe is being closed"). Write to a temp file first, then read it.
 - **Board field updates**: `updateProjectV2Field` with `singleSelectOptions` regenerates all option IDs. Always re-query IDs after modifying field options.
-
-### Legacy Branch Handling
-
-> **Note**: This section applies to branches created before PR #138 (2026-02-09). New branches from main already include `.pre-commit-config.yaml`.
-
-**Problem**: Feature branches created before Issue #106 (pre-commit hooks) lack `.pre-commit-config.yaml`.
-
-**Symptoms**:
-- `git commit` fails with "No .pre-commit-config.yaml file was found"
-- Hook suggests `PRE_COMMIT_ALLOW_NO_CONFIG=1` or `--allow-missing-config`
-
-**Solution A - Bypass hooks** (quick fix):
-```bash
-PRE_COMMIT_ALLOW_NO_CONFIG=1 git commit -m "message"
-```
-
-**Solution B - Add config** (proper fix):
-```bash
-# Copy pre-commit config from main
-git show main:.pre-commit-config.yaml > .pre-commit-config.yaml
-git add .pre-commit-config.yaml
-git commit -m "Add pre-commit config"
-```
-
-**Prevention**: Pre-flight checklist (above) ensures you're on a current feature branch.
