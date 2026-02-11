@@ -389,3 +389,158 @@ class TestSerialization:
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source
+
+
+class TestIncrementalWireRemoval:
+    """Tests for incremental node updates on wire deletion (#159)."""
+
+    def test_remove_wire_splits_node(self):
+        """Removing a bridge wire should split the node into two."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        # Both wires share R2[0], forming one node: {R1[1], R2[0], R3[0]}
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 0
+        model.add_wire(_wire("R3", 0, "R2", 0))  # wire 1
+        assert len(model.nodes) == 1
+
+        model.remove_wire(0)  # Remove R1-R2 bridge
+
+        # R1[1] is orphaned; remaining node: {R3[0], R2[0]}
+        assert len(model.nodes) == 1
+        remaining_node = model.nodes[0]
+        assert ("R2", 0) in remaining_node.terminals
+        assert ("R3", 0) in remaining_node.terminals
+        assert ("R1", 1) not in remaining_node.terminals
+
+    def test_remove_wire_preserves_unrelated_nodes(self):
+        """Removing a wire should not affect unrelated nodes."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        model.add_component(_resistor("R4"))
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 0: node A
+        model.add_wire(_wire("R3", 1, "R4", 0))  # wire 1: node B
+        assert len(model.nodes) == 2
+
+        # Save node B's terminals for comparison
+        node_b_terms = set(model.terminal_to_node[("R3", 1)].terminals)
+
+        model.remove_wire(0)  # Remove wire in node A
+
+        # Node B should still exist with same terminals
+        assert len(model.nodes) == 1
+        remaining = model.nodes[0]
+        assert remaining.terminals == node_b_terms
+
+    def test_remove_wire_updates_indices(self):
+        """Wire indices in nodes must be shifted after removal."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        model.add_component(_resistor("R4"))
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 0
+        model.add_wire(_wire("R3", 1, "R4", 0))  # wire 1
+
+        model.remove_wire(0)  # Remove wire 0; wire 1 becomes wire 0
+
+        remaining_node = model.terminal_to_node[("R3", 1)]
+        assert 0 in remaining_node.wire_indices
+        assert 1 not in remaining_node.wire_indices
+
+    def test_remove_wire_preserves_ground_node(self):
+        """Removing a non-ground wire preserves the ground node."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_ground("GND1"))
+        model.add_wire(_wire("R1", 0, "GND1", 0))  # wire 0: ground connection
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 1: non-ground
+        assert any(n.is_ground for n in model.nodes)
+
+        model.remove_wire(1)  # Remove non-ground wire
+
+        ground_nodes = [n for n in model.nodes if n.is_ground]
+        assert len(ground_nodes) == 1
+        assert ("R1", 0) in ground_nodes[0].terminals
+        assert ("GND1", 0) in ground_nodes[0].terminals
+
+    def test_remove_last_wire_empties_node(self):
+        """Removing the only wire should remove the node entirely."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        assert len(model.nodes) == 1
+
+        model.remove_wire(0)
+
+        assert len(model.nodes) == 0
+        assert len(model.terminal_to_node) == 0
+
+    def test_incremental_matches_full_rebuild(self):
+        """Incremental removal must produce identical state to a full rebuild."""
+        # Build a circuit: GND1-R1[0], R1[1]-R2[0], R2[0]-R3[0]
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        model.add_component(_ground("GND1"))
+        model.add_wire(_wire("R1", 0, "GND1", 0))  # wire 0
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 1
+        model.add_wire(_wire("R3", 0, "R2", 0))  # wire 2 (shares R2[0] with wire 1)
+
+        # Incremental removal of wire 1 (R1[1]-R2[0])
+        model.remove_wire(1)
+
+        # Build reference model with same components and remaining wires
+        ref = CircuitModel()
+        ref.add_component(_resistor("R1"))
+        ref.add_component(_resistor("R2"))
+        ref.add_component(_resistor("R3"))
+        ref.add_component(_ground("GND1"))
+        ref.add_wire(_wire("R1", 0, "GND1", 0))
+        ref.add_wire(_wire("R3", 0, "R2", 0))
+
+        # Compare node structure
+        assert len(model.nodes) == len(ref.nodes)
+        for ref_node in ref.nodes:
+            matching = [n for n in model.nodes if n.terminals == ref_node.terminals]
+            assert len(matching) == 1, f"No match for terminals {ref_node.terminals}"
+            assert matching[0].is_ground == ref_node.is_ground
+
+    def test_remove_wire_preserves_custom_label(self):
+        """Custom net labels should survive incremental wire removal."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        # All share R2[0]: one node {R1[1], R2[0], R3[0]}
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 0
+        model.add_wire(_wire("R3", 0, "R2", 0))  # wire 1
+        assert len(model.nodes) == 1
+
+        model.nodes[0].set_custom_label("Vmid")
+
+        model.remove_wire(0)  # Remove R1-R2; remaining: {R2[0], R3[0]}
+
+        remaining = model.terminal_to_node.get(("R2", 0))
+        assert remaining is not None
+        assert remaining.custom_label == "Vmid"
+
+    def test_remove_ground_wire_keeps_ground_standalone(self):
+        """Removing a wire to ground should leave the ground node intact."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_ground("GND1"))
+        model.add_wire(_wire("R1", 0, "GND1", 0))
+
+        model.remove_wire(0)
+
+        # Ground node should still exist (ground components always have a node)
+        ground_nodes = [n for n in model.nodes if n.is_ground]
+        assert len(ground_nodes) == 1
+        assert ("GND1", 0) in ground_nodes[0].terminals

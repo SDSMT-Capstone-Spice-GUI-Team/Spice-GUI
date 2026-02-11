@@ -63,10 +63,70 @@ class CircuitModel:
         self._update_nodes_for_wire(wire)
 
     def remove_wire(self, wire_index: int) -> None:
-        """Remove a wire by index and rebuild the node graph."""
-        if 0 <= wire_index < len(self.wires):
-            del self.wires[wire_index]
-            self.rebuild_nodes()
+        """Remove a wire by index and incrementally update affected nodes."""
+        if not (0 <= wire_index < len(self.wires)):
+            return
+
+        wire = self.wires[wire_index]
+        start_terminal = (wire.start_component_id, wire.start_terminal)
+        end_terminal = (wire.end_component_id, wire.end_terminal)
+
+        # Find the affected node (both terminals should be in the same node)
+        affected_node = self.terminal_to_node.get(start_terminal) or self.terminal_to_node.get(end_terminal)
+
+        del self.wires[wire_index]
+
+        # Shift wire indices in all nodes: decrement indices > wire_index,
+        # remove wire_index itself
+        for node in self.nodes:
+            new_indices = set()
+            for idx in node.wire_indices:
+                if idx == wire_index:
+                    continue
+                elif idx > wire_index:
+                    new_indices.add(idx - 1)
+                else:
+                    new_indices.add(idx)
+            node.wire_indices = new_indices
+
+        if affected_node is None:
+            return
+
+        # Save state from affected node before removing it
+        affected_terminals = set(affected_node.terminals)
+        saved_label = affected_node.custom_label
+
+        # Remove affected node and its terminal mappings
+        if affected_node in self.nodes:
+            self.nodes.remove(affected_node)
+        for term in affected_terminals:
+            self.terminal_to_node.pop(term, None)
+
+        # Collect remaining wires that connect terminals within the affected set
+        relevant_wires = []
+        for i, w in enumerate(self.wires):
+            st = (w.start_component_id, w.start_terminal)
+            et = (w.end_component_id, w.end_terminal)
+            if st in affected_terminals or et in affected_terminals:
+                relevant_wires.append(i)
+
+        # Re-add ground terminals for the affected set
+        for term in affected_terminals:
+            comp = self.components.get(term[0])
+            if comp and comp.component_type == "Ground":
+                self._handle_ground_added(comp)
+
+        # Re-process relevant wires to rebuild only affected nodes
+        for wire_idx in relevant_wires:
+            self._update_nodes_for_wire(self.wires[wire_idx], wire_idx)
+
+        # Restore custom label on rebuilt nodes
+        if saved_label:
+            for term in affected_terminals:
+                node = self.terminal_to_node.get(term)
+                if node and not node.custom_label:
+                    node.set_custom_label(saved_label)
+                    break
 
     # --- Node graph operations ---
 
@@ -87,8 +147,17 @@ class CircuitModel:
         ground_node.add_terminal(ground_comp.component_id, 0)
         self.terminal_to_node[terminal_key] = ground_node
 
-    def _update_nodes_for_wire(self, wire: WireData) -> None:
-        """Update node connectivity when a wire is added."""
+    def _update_nodes_for_wire(self, wire: WireData, wire_index: int | None = None) -> None:
+        """Update node connectivity when a wire is added.
+
+        Args:
+            wire: The wire data to process.
+            wire_index: Explicit index of this wire in self.wires.
+                        Defaults to len(self.wires) - 1 (last appended).
+        """
+        if wire_index is None:
+            wire_index = len(self.wires) - 1
+
         start_terminal = (wire.start_component_id, wire.start_terminal)
         end_terminal = (wire.end_component_id, wire.end_terminal)
 
@@ -102,7 +171,7 @@ class CircuitModel:
             new_node = NodeData()
             new_node.add_terminal(*start_terminal)
             new_node.add_terminal(*end_terminal)
-            new_node.add_wire(len(self.wires) - 1)
+            new_node.add_wire(wire_index)
 
             self.nodes.append(new_node)
             self.terminal_to_node[start_terminal] = new_node
@@ -115,7 +184,7 @@ class CircuitModel:
 
         elif start_node is None and end_node is not None:
             end_node.add_terminal(*start_terminal)
-            end_node.add_wire(len(self.wires) - 1)
+            end_node.add_wire(wire_index)
             self.terminal_to_node[start_terminal] = end_node
 
             if start_comp and start_comp.component_type == "Ground":
@@ -123,7 +192,7 @@ class CircuitModel:
 
         elif end_node is None and start_node is not None:
             start_node.add_terminal(*end_terminal)
-            start_node.add_wire(len(self.wires) - 1)
+            start_node.add_wire(wire_index)
             self.terminal_to_node[end_terminal] = start_node
 
             if end_comp and end_comp.component_type == "Ground":
@@ -131,7 +200,7 @@ class CircuitModel:
 
         elif start_node is not None and end_node is not None and start_node != end_node:
             start_node.merge_with(end_node)
-            start_node.add_wire(len(self.wires) - 1)
+            start_node.add_wire(wire_index)
 
             for terminal in end_node.terminals:
                 self.terminal_to_node[terminal] = start_node
