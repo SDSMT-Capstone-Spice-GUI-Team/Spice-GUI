@@ -5,6 +5,7 @@ Allows users to set number of runs, per-component tolerances and
 distribution, and select the base analysis type.
 """
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -88,6 +89,7 @@ class MonteCarloDialog(QDialog):
             self.tol_table = None
         else:
             self.tol_table = QTableWidget()
+            self.tol_table.setToolTip("Set tolerance and distribution for each component")
             self.tol_table.setColumnCount(4)
             self.tol_table.setHorizontalHeaderLabels(["Component", "Type", "Tolerance (%)", "Distribution"])
             self.tol_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -96,12 +98,12 @@ class MonteCarloDialog(QDialog):
             for row, (cid, comp) in enumerate(sorted(self._eligible.items())):
                 # Component ID
                 id_item = QTableWidgetItem(f"{cid} ({comp.value})")
-                id_item.setFlags(id_item.flags() & ~(id_item.flags() & 0x2))  # not editable
+                id_item.setFlags(id_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.tol_table.setItem(row, 0, id_item)
 
                 # Type
                 type_item = QTableWidgetItem(comp.component_type)
-                type_item.setFlags(type_item.flags() & ~(type_item.flags() & 0x2))
+                type_item.setFlags(type_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.tol_table.setItem(row, 1, type_item)
 
                 # Tolerance spin
@@ -111,6 +113,7 @@ class MonteCarloDialog(QDialog):
                 tol_spin.setRange(0.0, 50.0)
                 tol_spin.setSuffix("%")
                 tol_spin.setDecimals(1)
+                tol_spin.setToolTip("Component value tolerance as a percentage (0-50%)")
                 default_tol = DEFAULT_TOLERANCES.get(comp.component_type, 5.0)
                 tol_spin.setValue(default_tol)
                 self.tol_table.setCellWidget(row, 2, tol_spin)
@@ -118,6 +121,7 @@ class MonteCarloDialog(QDialog):
                 # Distribution combo
                 dist_combo = QComboBox()
                 dist_combo.addItems(["Gaussian", "Uniform"])
+                dist_combo.setToolTip("Gaussian: normal distribution; Uniform: equal probability across range")
                 self.tol_table.setCellWidget(row, 3, dist_combo)
 
             tol_layout.addWidget(self.tol_table)
@@ -146,6 +150,7 @@ class MonteCarloDialog(QDialog):
         analysis_type = self.analysis_combo.currentText()
         config = AnalysisDialog.ANALYSIS_CONFIGS.get(analysis_type, {})
 
+        tooltips = config.get("tooltips", {})
         for field_config in config.get("fields", []):
             if field_config[2] == "combo":
                 label, key, _, options, default = field_config
@@ -155,6 +160,10 @@ class MonteCarloDialog(QDialog):
             else:
                 label, key, field_type, default = field_config
                 widget = QLineEdit(str(default))
+
+            tooltip = tooltips.get(key)
+            if tooltip:
+                widget.setToolTip(tooltip)
 
             self._base_field_widgets[key] = (widget, field_config[2])
             self._base_form.addRow(f"{label}:", widget)

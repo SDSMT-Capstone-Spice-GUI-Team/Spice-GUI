@@ -23,6 +23,7 @@ class AnalysisDialog(QDialog):
         "DC Operating Point": {
             "fields": [],
             "description": "Calculate DC operating point of the circuit",
+            "tooltips": {},
         },
         "DC Sweep": {
             "fields": [
@@ -32,6 +33,12 @@ class AnalysisDialog(QDialog):
                 ("Step Size (V)", "step", "float", "0.1"),
             ],
             "description": "Sweep a voltage source and measure circuit response",
+            "tooltips": {
+                "source": "Name of the voltage source to sweep (e.g., V1)",
+                "min": "Starting voltage for the DC sweep (V)",
+                "max": "Ending voltage for the DC sweep (V)",
+                "step": "Voltage increment between sweep points (V)",
+            },
         },
         "AC Sweep": {
             "fields": [
@@ -41,6 +48,12 @@ class AnalysisDialog(QDialog):
                 ("Sweep Type", "sweepType", "combo", ["dec", "oct", "lin"], "dec"),
             ],
             "description": "Frequency domain analysis",
+            "tooltips": {
+                "fStart": "Starting frequency for the AC sweep (Hz)",
+                "fStop": "Ending frequency for the AC sweep (Hz)",
+                "points": "Number of frequency points per decade (log scale)",
+                "sweepType": "Frequency scale: dec (decade/log), oct (octave), lin (linear)",
+            },
         },
         "Transient": {
             "fields": [
@@ -49,6 +62,11 @@ class AnalysisDialog(QDialog):
                 ("Start Time", "startTime", "float", "0"),
             ],
             "description": "Time domain analysis",
+            "tooltips": {
+                "duration": "Total simulation time (supports SI prefixes: 10m = 10 ms, 100u = 100 \u00b5s)",
+                "step": "Maximum time step for the simulation (supports SI prefixes: 1u = 1 \u00b5s)",
+                "startTime": "Time at which to start recording output data (default: 0)",
+            },
         },
         "Temperature Sweep": {
             "fields": [
@@ -60,6 +78,11 @@ class AnalysisDialog(QDialog):
                 "Sweep temperature and run a DC operating point analysis "
                 "at each temperature to see how circuit behavior changes"
             ),
+            "tooltips": {
+                "tempStart": "Starting temperature in degrees Celsius",
+                "tempStop": "Ending temperature in degrees Celsius",
+                "tempStep": "Temperature increment between sweep points (\u00b0C)",
+            },
         },
     }
 
@@ -81,6 +104,7 @@ class AnalysisDialog(QDialog):
         # Analysis type selector (if not provided)
         if self.analysis_type is None:
             self.type_combo = QComboBox()
+            self.type_combo.setToolTip("Select the type of circuit analysis to perform")
             self.type_combo.addItems(self.ANALYSIS_CONFIGS.keys())
             self.type_combo.currentTextChanged.connect(self._on_type_changed)
             layout.addWidget(QLabel("Analysis Type:"))
@@ -96,6 +120,7 @@ class AnalysisDialog(QDialog):
         preset_layout = QHBoxLayout()
         preset_layout.addWidget(QLabel("Preset:"))
         self.preset_combo = QComboBox()
+        self.preset_combo.setToolTip("Load a saved parameter preset")
         self.preset_combo.setMinimumWidth(180)
         self.preset_combo.currentIndexChanged.connect(self._on_preset_selected)
         preset_layout.addWidget(self.preset_combo, 1)
@@ -146,6 +171,7 @@ class AnalysisDialog(QDialog):
         self.desc_label.setText(config["description"])
 
         # Build fields
+        tooltips = config.get("tooltips", {})
         for field_config in config["fields"]:
             # Unpack based on field type
             if field_config[2] == "combo":  # (label, key, "combo", options, default)
@@ -156,6 +182,10 @@ class AnalysisDialog(QDialog):
             else:  # (label, key, type, default)
                 label, key, field_type, default = field_config
                 widget = QLineEdit(str(default))
+
+            tooltip = tooltips.get(key)
+            if tooltip:
+                widget.setToolTip(tooltip)
 
             self.field_widgets[key] = (widget, field_type)
             self.form_layout.addRow(f"{label}:", widget)

@@ -160,6 +160,7 @@ class ParameterSweepDialog(QDialog):
         analysis_type = self.analysis_combo.currentText()
         config = AnalysisDialog.ANALYSIS_CONFIGS.get(analysis_type, {})
 
+        tooltips = config.get("tooltips", {})
         for field_config in config.get("fields", []):
             if field_config[2] == "combo":
                 label, key, _, options, default = field_config
@@ -169,6 +170,10 @@ class ParameterSweepDialog(QDialog):
             else:
                 label, key, field_type, default = field_config
                 widget = QLineEdit(str(default))
+
+            tooltip = tooltips.get(key)
+            if tooltip:
+                widget.setToolTip(tooltip)
 
             self._base_field_widgets[key] = (widget, field_config[2])
             self._base_form.addRow(f"{label}:", widget)
