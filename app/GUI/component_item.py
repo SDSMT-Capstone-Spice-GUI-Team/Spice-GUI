@@ -371,7 +371,6 @@ class ComponentGraphicsItem(QGraphicsItem):
         """Sync model position immediately, debounce wire rerouting (Phase 5)"""
         if self._position_update_timer:
             self._position_update_timer.stop()
-
         # Get canvas controller
         if not self.scene() or not self.scene().views():
             return
@@ -386,10 +385,12 @@ class ComponentGraphicsItem(QGraphicsItem):
             if comp:
                 comp.position = self._pending_position
 
-        # Debounce observer notification (triggers expensive wire rerouting)
-        self._position_update_timer = QTimer()
-        self._position_update_timer.setSingleShot(True)
-        self._position_update_timer.timeout.connect(self._notify_controller_position)
+        # Debounce observer notification (triggers expensive wire rerouting).
+        # Reuse a single timer to avoid QTimer object churn (#194).
+        if self._position_update_timer is None:
+            self._position_update_timer = QTimer()
+            self._position_update_timer.setSingleShot(True)
+            self._position_update_timer.timeout.connect(self._notify_controller_position)
         self._position_update_timer.start(50)  # 50ms debounce
 
     def _notify_controller_position(self):
