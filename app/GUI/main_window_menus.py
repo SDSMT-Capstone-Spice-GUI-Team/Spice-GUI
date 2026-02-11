@@ -67,6 +67,11 @@ class MenuBarMixin:
         export_pdf_action.triggered.connect(self._on_export_pdf)
         file_menu.addAction(export_pdf_action)
 
+        export_latex_action = QAction("Export as &LaTeX...", self)
+        export_latex_action.setToolTip("Export circuit as CircuiTikZ LaTeX code (.tex file)")
+        export_latex_action.triggered.connect(self.export_circuitikz)
+        file_menu.addAction(export_latex_action)
+
         file_menu.addSeparator()
 
         print_action = QAction("&Print...", self)
@@ -132,6 +137,13 @@ class MenuBarMixin:
         select_all_action.setShortcut(kb.get("edit.select_all"))
         select_all_action.triggered.connect(self.canvas.select_all)
         edit_menu.addAction(select_all_action)
+
+        edit_menu.addSeparator()
+
+        copy_latex_action = QAction("Copy as La&TeX", self)
+        copy_latex_action.setToolTip("Copy the CircuiTikZ environment block to the clipboard")
+        copy_latex_action.triggered.connect(self.copy_circuitikz)
+        edit_menu.addAction(copy_latex_action)
 
         edit_menu.addSeparator()
 

@@ -1,6 +1,6 @@
 """View operations: theme, visibility toggles, probe tool, zoom, and image export for MainWindow."""
 
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
+from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
 from .styles import DarkTheme, LightTheme, theme_manager
@@ -256,3 +256,93 @@ class ViewOperationsMixin:
             image.save(filename)
 
         QMessageBox.information(self, "Export Image", f"Circuit exported to:\n{filename}")
+
+    def export_circuitikz(self):
+        """Export the circuit as a CircuiTikZ LaTeX file."""
+        import os
+
+        from simulation.circuitikz_exporter import generate
+
+        from .circuitikz_options_dialog import CircuiTikZOptionsDialog
+
+        model = self.circuit_ctrl.model
+        if not model.components:
+            QMessageBox.information(self, "Export LaTeX", "Nothing to export — the canvas is empty.")
+            return
+
+        # Show options dialog
+        dialog = CircuiTikZOptionsDialog(self)
+        if dialog.exec() != CircuiTikZOptionsDialog.DialogCode.Accepted:
+            return
+        opts = dialog.get_options()
+
+        model.rebuild_nodes()
+
+        try:
+            tikz_code = generate(
+                components=model.components,
+                wires=model.wires,
+                nodes=model.nodes,
+                terminal_to_node=model.terminal_to_node,
+                standalone=opts["standalone"],
+                circuit_name=os.path.basename(self.file_ctrl.current_file) if self.file_ctrl.current_file else "",
+                scale=opts["scale"],
+                include_ids=opts["include_ids"],
+                include_values=opts["include_values"],
+                include_net_labels=opts["include_net_labels"],
+                style=opts["style"],
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
+            return
+
+        default_name = ""
+        if hasattr(self, "file_ctrl") and self.file_ctrl.current_file:
+            base = os.path.splitext(os.path.basename(str(self.file_ctrl.current_file)))[0]
+            default_name = base + ".tex"
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export as CircuiTikZ",
+            default_name,
+            "LaTeX Files (*.tex);;All Files (*)",
+        )
+        if not filename:
+            return
+        if not filename.lower().endswith(".tex"):
+            filename += ".tex"
+
+        try:
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(tikz_code)
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"CircuiTikZ exported to {filename}", 3000)
+        except OSError as e:
+            QMessageBox.critical(self, "Error", f"Failed to export: {e}")
+
+    def copy_circuitikz(self):
+        """Copy the CircuiTikZ environment block to the clipboard."""
+        from simulation.circuitikz_exporter import generate
+
+        model = self.circuit_ctrl.model
+        if not model.components:
+            self.statusBar().showMessage("Nothing to copy — the canvas is empty.", 3000)
+            return
+
+        model.rebuild_nodes()
+
+        try:
+            tikz_code = generate(
+                components=model.components,
+                wires=model.wires,
+                nodes=model.nodes,
+                terminal_to_node=model.terminal_to_node,
+                standalone=False,
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
+            return
+
+        QApplication.clipboard().setText(tikz_code)
+        self.statusBar().showMessage("CircuiTikZ code copied to clipboard.", 3000)
