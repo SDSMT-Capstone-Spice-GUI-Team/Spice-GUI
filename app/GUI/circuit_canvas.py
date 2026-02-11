@@ -1488,10 +1488,11 @@ class CircuitCanvasView(QGraphicsView):
 
         if ok:
             new_label = text.strip() if text else None
-            node.set_custom_label(new_label)
-            # Notify controller so dirty flag is updated
+            # Use public controller API to set net name and notify observers
             if self.controller:
-                self.controller._notify("net_name_changed", node)
+                self.controller.set_net_name(node, new_label)
+            else:
+                node.set_custom_label(new_label)
             self.scene.update()
             viewPort = self.viewport()
             if viewPort is None:

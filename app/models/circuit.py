@@ -139,7 +139,18 @@ class CircuitModel:
             self.nodes.remove(end_node)
 
     def rebuild_nodes(self) -> None:
-        """Rebuild all nodes from scratch based on current wires."""
+        """Rebuild all nodes from scratch based on current wires.
+
+        Custom labels are preserved by snapshotting them (keyed by terminal)
+        before clearing, then restoring them on the rebuilt nodes.
+        """
+        # Snapshot custom labels keyed by terminal tuple
+        saved_labels: dict[tuple[str, int], str] = {}
+        for node in self.nodes:
+            if node.custom_label:
+                for terminal in node.terminals:
+                    saved_labels[terminal] = node.custom_label
+
         self.nodes.clear()
         self.terminal_to_node.clear()
         reset_node_counter()
@@ -150,6 +161,14 @@ class CircuitModel:
 
         for wire in self.wires:
             self._update_nodes_for_wire(wire)
+
+        # Restore custom labels on rebuilt nodes
+        for node in self.nodes:
+            if not node.custom_label:
+                for terminal in node.terminals:
+                    if terminal in saved_labels:
+                        node.set_custom_label(saved_labels[terminal])
+                        break
 
     # --- Circuit operations ---
 

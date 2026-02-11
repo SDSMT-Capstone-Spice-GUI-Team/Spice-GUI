@@ -112,9 +112,14 @@ class NodeData:
 
         All terminals and wires from the other node are added to this node.
         If the other node is ground, this node becomes ground.
+        Custom labels are preserved: keep self's label, or adopt other's if self has none.
         """
         self.terminals.update(other.terminals)
         self.wire_indices.update(other.wire_indices)
+
+        # Preserve custom label from other node if self has none
+        if other.custom_label and not self.custom_label:
+            self.custom_label = other.custom_label
 
         # Handle ground merging - ground status propagates
         if other.is_ground:
