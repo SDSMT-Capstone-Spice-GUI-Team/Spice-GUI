@@ -52,7 +52,8 @@ class MenuBarMixin:
         file_menu.addAction(import_netlist_action)
 
         export_netlist_action = QAction("Export &Netlist...", self)
-        export_netlist_action.setToolTip("Export the SPICE netlist to a .cir file")
+        export_netlist_action.setShortcut(kb.get("file.export_netlist"))
+        export_netlist_action.setToolTip("Export the generated SPICE netlist to a .cir file")
         export_netlist_action.triggered.connect(self.export_netlist)
         file_menu.addAction(export_netlist_action)
 
@@ -347,6 +348,7 @@ class MenuBarMixin:
             "file.print": print_action,
             "file.print_preview": print_preview_action,
             "file.export_pdf": export_pdf_action,
+            "file.export_netlist": export_netlist_action,
             "file.exit": exit_action,
             "edit.undo": undo_action,
             "edit.redo": redo_action,

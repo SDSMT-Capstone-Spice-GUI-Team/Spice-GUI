@@ -21,6 +21,7 @@ DEFAULTS = {
     "file.print": "Ctrl+P",
     "file.print_preview": "",
     "file.export_pdf": "",
+    "file.export_netlist": "",
     "file.exit": "Ctrl+Q",
     # Edit
     "edit.undo": "Ctrl+Z",
@@ -57,6 +58,7 @@ ACTION_LABELS = {
     "file.print": "Print...",
     "file.print_preview": "Print Preview",
     "file.export_pdf": "Export as PDF...",
+    "file.export_netlist": "Export Netlist...",
     "file.exit": "Exit",
     "edit.undo": "Undo",
     "edit.redo": "Redo",
