@@ -26,6 +26,37 @@ class SimulationMixin:
         except (ValueError, KeyError, TypeError) as e:
             QMessageBox.critical(self, "Error", f"Failed to generate netlist: {e}")
 
+    def export_netlist(self):
+        """Export SPICE netlist to a .cir file."""
+        try:
+            netlist = self.simulation_ctrl.generate_netlist()
+        except (ValueError, KeyError, TypeError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to generate netlist: {e}")
+            return
+
+        default_name = ""
+        if hasattr(self, "file_ctrl") and self.file_ctrl.current_file:
+            base = os.path.splitext(os.path.basename(str(self.file_ctrl.current_file)))[0]
+            default_name = base + ".cir"
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Netlist",
+            default_name,
+            "SPICE Netlist (*.cir);;SPICE Files (*.spice *.sp);;All Files (*)",
+        )
+        if not filename:
+            return
+
+        try:
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(netlist)
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Netlist exported to {filename}", 3000)
+        except OSError as e:
+            QMessageBox.critical(self, "Error", f"Failed to export netlist: {e}")
+
     def run_simulation(self):
         """Run SPICE simulation"""
         try:
