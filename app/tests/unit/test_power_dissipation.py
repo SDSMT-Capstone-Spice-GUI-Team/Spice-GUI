@@ -134,6 +134,70 @@ class TestCalculatePowerSpecialCases:
         assert "R1" not in result
 
 
+class TestCalculatePowerDictInput:
+    """Regression tests for #206: components dict passed instead of list."""
+
+    def test_dict_values_work_as_components(self):
+        """calculate_power should work with dict_values (components.values())."""
+        r1 = ComponentData("R1", "Resistor", "1k", (0, 0))
+        r2 = ComponentData("R2", "Resistor", "2k", (100, 0))
+        comp_dict = {"R1": r1, "R2": r2}
+        nodeA = _make_node([("R1", 0), ("R2", 0)], "nodeA")
+        nodeB = _make_node([("R1", 1)], "nodeB")
+        nodeC = _make_node([("R2", 1)], "nodeC")
+        voltages = {"nodeA": 10.0, "nodeB": 0.0, "nodeC": 0.0}
+
+        result = calculate_power(list(comp_dict.values()), [nodeA, nodeB, nodeC], voltages)
+        assert "R1" in result
+        assert "R2" in result
+        assert result["R1"] == pytest.approx(0.1)  # 10V^2 / 1k = 0.1W
+        assert result["R2"] == pytest.approx(0.05)  # 10V^2 / 2k = 0.05W
+
+    def test_raw_dict_raises_attribute_error(self):
+        """Passing a dict directly (not .values()) should fail with AttributeError."""
+        r1 = ComponentData("R1", "Resistor", "1k", (0, 0))
+        comp_dict = {"R1": r1}
+        nodeA = _make_node([("R1", 0)], "nodeA")
+        nodeB = _make_node([("R1", 1)], "nodeB")
+        voltages = {"nodeA": 5.0, "nodeB": 0.0}
+
+        with pytest.raises(AttributeError, match="component_id"):
+            calculate_power(comp_dict, [nodeA, nodeB], voltages)
+
+    def test_multiple_components_power_sum(self):
+        """Verify total power sums correctly with dict_values input."""
+        r1 = ComponentData("R1", "Resistor", "1k", (0, 0))
+        v1 = ComponentData("V1", "Voltage Source", "5V", (0, 100))
+        comp_dict = {"R1": r1, "V1": v1}
+        node_pos = _make_node([("V1", 0), ("R1", 0)], "nodeA")
+        node_gnd = _make_node([("V1", 1), ("R1", 1)], "0", is_ground=True)
+        voltages = {"nodeA": 5.0, "0": 0.0}
+        currents = {"v1": -0.005}
+
+        result = calculate_power(list(comp_dict.values()), [node_pos, node_gnd], voltages, currents)
+        assert result["R1"] == pytest.approx(0.025)
+        assert result["V1"] == pytest.approx(-0.025)
+        assert total_power(result) == pytest.approx(0.0)
+
+    def test_single_component_dict_values(self):
+        """Single-element dict_values works correctly."""
+        r1 = ComponentData("R1", "Resistor", "100", (0, 0))
+        comp_dict = {"R1": r1}
+        nodeA = _make_node([("R1", 0)], "nodeA")
+        nodeB = _make_node([("R1", 1)], "nodeB")
+        voltages = {"nodeA": 1.0, "nodeB": 0.0}
+
+        result = calculate_power(list(comp_dict.values()), [nodeA, nodeB], voltages)
+        assert result["R1"] == pytest.approx(0.01)  # 1V^2 / 100 = 0.01W
+
+    def test_empty_dict_values(self):
+        """Empty dict_values produces empty result."""
+        comp_dict = {}
+        voltages = {"nodeA": 5.0}
+        result = calculate_power(list(comp_dict.values()), [], voltages)
+        assert result == {}
+
+
 class TestTotalPower:
     """Test total power calculation."""
 
