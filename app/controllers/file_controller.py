@@ -136,6 +136,7 @@ class FileController:
         self.model.component_counter = new_model.component_counter
         self.model.analysis_type = new_model.analysis_type
         self.model.analysis_params = new_model.analysis_params
+        self.model.annotations = new_model.annotations
 
         self.current_file = filepath
         self._save_session()
