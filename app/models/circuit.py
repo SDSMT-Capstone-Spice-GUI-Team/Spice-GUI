@@ -7,6 +7,7 @@ This module contains no Qt dependencies. It holds all circuit data
 
 from dataclasses import dataclass, field
 
+from .annotation import AnnotationData
 from .component import ComponentData
 from .node import NodeData, reset_node_counter
 from .wire import WireData
@@ -26,6 +27,8 @@ class CircuitModel:
     nodes: list[NodeData] = field(default_factory=list)
     terminal_to_node: dict[tuple[str, int], NodeData] = field(default_factory=dict)
     component_counter: dict[str, int] = field(default_factory=dict)
+
+    annotations: list[AnnotationData] = field(default_factory=list)
 
     # Analysis configuration
     analysis_type: str = "DC Operating Point"
@@ -248,6 +251,7 @@ class CircuitModel:
         self.nodes.clear()
         self.terminal_to_node.clear()
         self.component_counter.clear()
+        self.annotations.clear()
         self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
 
@@ -273,6 +277,9 @@ class CircuitModel:
                 net_names[f"{rep[0]}:{rep[1]}"] = node.custom_label
         if net_names:
             data["net_names"] = net_names
+
+        if self.annotations:
+            data["annotations"] = [a.to_dict() for a in self.annotations]
 
         return data
 
@@ -305,5 +312,8 @@ class CircuitModel:
             node = model.terminal_to_node.get(terminal_key)
             if node:
                 node.set_custom_label(label)
+
+        for ann_data in data.get("annotations", []):
+            model.annotations.append(AnnotationData.from_dict(ann_data))
 
         return model

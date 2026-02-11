@@ -155,6 +155,9 @@ class CircuitCanvasView(QGraphicsView):
             "circuit_cleared": self._handle_circuit_cleared,
             "nodes_rebuilt": self._handle_nodes_rebuilt,
             "model_loaded": self._handle_model_loaded,
+            "annotation_added": self._handle_annotation_added,
+            "annotation_removed": self._handle_annotation_removed,
+            "annotation_updated": self._handle_annotation_updated,
         }
 
         handler = handlers.get(event)
@@ -312,6 +315,39 @@ class CircuitCanvasView(QGraphicsView):
                 if hasattr(wire, "update_path"):
                     wire.update_path()
 
+    def _handle_annotation_added(self, annotation_data) -> None:
+        """Create AnnotationItem when annotation added to model."""
+        ann = AnnotationItem(
+            text=annotation_data.text,
+            x=annotation_data.x,
+            y=annotation_data.y,
+            font_size=annotation_data.font_size,
+            bold=annotation_data.bold,
+            color=annotation_data.color,
+        )
+        self.scene.addItem(ann)
+        self.annotations.append(ann)
+        self.scene.update()
+
+    def _handle_annotation_removed(self, index: int) -> None:
+        """Remove AnnotationItem when annotation removed from model."""
+        if 0 <= index < len(self.annotations):
+            ann = self.annotations.pop(index)
+            self.scene.removeItem(ann)
+            self.scene.update()
+
+    def _handle_annotation_updated(self, annotation_data) -> None:
+        """Update AnnotationItem text when annotation updated in model."""
+        # Find matching annotation by position
+        idx = None
+        for i, ann_data in enumerate(self.controller.model.annotations):
+            if ann_data is annotation_data:
+                idx = i
+                break
+        if idx is not None and idx < len(self.annotations):
+            self.annotations[idx].setPlainText(annotation_data.text)
+            self.scene.update()
+
     def _handle_circuit_cleared(self, data: None) -> None:
         """Clear all graphics items when circuit cleared"""
         self.scene.clear()
@@ -370,6 +406,10 @@ class CircuitCanvasView(QGraphicsView):
 
         # Rebuild nodes
         self._handle_nodes_rebuilt(None)
+
+        # Restore annotations
+        for ann_data in self.controller.model.annotations:
+            self._handle_annotation_added(ann_data)
 
         # Restore component counter
         self.component_counter = self.controller.model.component_counter.copy()
@@ -1082,28 +1122,44 @@ class CircuitCanvasView(QGraphicsView):
 
         text, ok = QInputDialog.getText(None, "Add Annotation", "Text:")
         if ok and text:
-            from controllers.commands import AddAnnotationCommand
+            if self.controller:
+                from controllers.commands import AddAnnotationCommand
+                from models.annotation import AnnotationData
 
-            annotation_data = {"text": text, "x": x, "y": y}
-            cmd = AddAnnotationCommand(self, annotation_data)
-            self.controller.execute_command(cmd)
+                ann_data = AnnotationData(text=text, x=x, y=y)
+                cmd = AddAnnotationCommand(self.controller, ann_data)
+                self.controller.execute_command(cmd)
+            else:
+                ann = AnnotationItem(text=text, x=x, y=y)
+                self.scene.addItem(ann)
+                self.annotations.append(ann)
 
     def _delete_annotation(self, ann):
         """Remove an annotation from the canvas via undo-able command."""
-        from controllers.commands import DeleteAnnotationCommand
+        if self.controller and ann in self.annotations:
+            from controllers.commands import DeleteAnnotationCommand
 
-        cmd = DeleteAnnotationCommand(self, ann)
-        self.controller.execute_command(cmd)
+            index = self.annotations.index(ann)
+            cmd = DeleteAnnotationCommand(self.controller, index)
+            self.controller.execute_command(cmd)
+        else:
+            self.scene.removeItem(ann)
+            if ann in self.annotations:
+                self.annotations.remove(ann)
 
     def _edit_annotation(self, ann):
         """Edit an annotation's text via undo-able command."""
         old_text = ann.toPlainText()
         text, ok = QInputDialog.getText(None, "Edit Annotation", "Text:", text=old_text)
         if ok and text and text != old_text:
-            from controllers.commands import EditAnnotationCommand
+            if self.controller and ann in self.annotations:
+                from controllers.commands import EditAnnotationCommand
 
-            cmd = EditAnnotationCommand(ann, old_text, text)
-            self.controller.execute_command(cmd)
+                index = self.annotations.index(ann)
+                cmd = EditAnnotationCommand(self.controller, index, text)
+                self.controller.execute_command(cmd)
+            else:
+                ann.setPlainText(text)
 
     def select_all(self):
         """Select all components and wires on the canvas."""

@@ -9,6 +9,7 @@ import logging
 from typing import Any, Callable, Optional
 
 from controllers.undo_manager import UndoManager
+from models.annotation import AnnotationData
 from models.circuit import CircuitModel
 from models.clipboard import ClipboardData
 from models.component import DEFAULT_VALUES, SPICE_SYMBOLS, ComponentData
@@ -231,6 +232,31 @@ class CircuitController:
         """Set a custom net name on a node and notify observers."""
         node.set_custom_label(label)
         self._notify("net_name_changed", node)
+
+    # --- Annotation operations ---
+
+    def add_annotation(self, annotation: AnnotationData) -> int:
+        """Add an annotation to the model and notify observers.
+
+        Returns:
+            The index of the newly added annotation.
+        """
+        self.model.annotations.append(annotation)
+        idx = len(self.model.annotations) - 1
+        self._notify("annotation_added", annotation)
+        return idx
+
+    def remove_annotation(self, index: int) -> None:
+        """Remove an annotation by index."""
+        if 0 <= index < len(self.model.annotations):
+            del self.model.annotations[index]
+            self._notify("annotation_removed", index)
+
+    def update_annotation_text(self, index: int, text: str) -> None:
+        """Update the text of an annotation."""
+        if 0 <= index < len(self.model.annotations):
+            self.model.annotations[index].text = text
+            self._notify("annotation_updated", self.model.annotations[index])
 
     # --- Clipboard operations ---
 

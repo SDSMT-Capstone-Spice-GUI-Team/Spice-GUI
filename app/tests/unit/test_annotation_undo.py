@@ -1,179 +1,162 @@
 """Tests for annotation undo/redo commands (issue #229).
 
 Annotations should support undo/redo for add, delete, and edit operations.
+These tests validate the model-layer command pattern where commands operate
+through the CircuitController rather than directly on the canvas.
 """
 
 import inspect
-from unittest.mock import MagicMock, patch
+
+from controllers.circuit_controller import CircuitController
+from controllers.commands import (
+    AddAnnotationCommand,
+    DeleteAnnotationCommand,
+    EditAnnotationCommand,
+)
+from models.annotation import AnnotationData
+from models.circuit import CircuitModel
 
 
-def _make_mock_canvas():
-    """Create a mock canvas with scene and annotations list."""
-    canvas = MagicMock()
-    canvas.annotations = []
-    canvas.scene = MagicMock()
-    return canvas
-
-
-def _make_mock_annotation(text="Test note", x=100.0, y=200.0):
-    """Create a mock annotation with to_dict/toPlainText support."""
-    ann = MagicMock()
-    ann.toPlainText.return_value = text
-    ann.to_dict.return_value = {"text": text, "x": x, "y": y}
-    return ann
+def _make_controller():
+    """Create a CircuitController with a fresh CircuitModel."""
+    model = CircuitModel()
+    return CircuitController(model)
 
 
 class TestAddAnnotationCommand:
-    """AddAnnotationCommand should add an annotation to the canvas."""
+    """AddAnnotationCommand should add an annotation via the controller."""
 
-    @patch("controllers.commands.AddAnnotationCommand.execute")
-    def test_command_exists(self, mock_exec):
-        """AddAnnotationCommand should be importable."""
-        from controllers.commands import AddAnnotationCommand
-
-        canvas = _make_mock_canvas()
-        cmd = AddAnnotationCommand(canvas, {"text": "X", "x": 0, "y": 0})
+    def test_command_exists(self):
+        """AddAnnotationCommand should be importable and constructable."""
+        ctrl = _make_controller()
+        cmd = AddAnnotationCommand(ctrl, AnnotationData(text="X"))
         assert cmd is not None
 
-    def test_execute_adds_to_scene_and_list(self):
-        """execute() should add the annotation to scene and canvas.annotations."""
-        from controllers.commands import AddAnnotationCommand
+    def test_execute_adds_to_model(self):
+        """execute() should add the annotation to the model."""
+        ctrl = _make_controller()
+        cmd = AddAnnotationCommand(ctrl, AnnotationData(text="Hello", x=50.0, y=75.0))
+        cmd.execute()
+        assert len(ctrl.model.annotations) == 1
+        assert ctrl.model.annotations[0].text == "Hello"
+        assert ctrl.model.annotations[0].x == 50.0
 
-        canvas = _make_mock_canvas()
-        data = {"text": "Hello", "x": 50.0, "y": 75.0}
-        cmd = AddAnnotationCommand(canvas, data)
-
-        mock_ann = MagicMock()
-        with patch("GUI.annotation_item.AnnotationItem") as MockAnnotationItem:
-            MockAnnotationItem.from_dict.return_value = mock_ann
-            cmd.execute()
-
-        canvas.scene.addItem.assert_called_once_with(mock_ann)
-        assert mock_ann in canvas.annotations
-
-    def test_undo_removes_from_scene_and_list(self):
-        """undo() should remove the annotation from scene and canvas.annotations."""
-        from controllers.commands import AddAnnotationCommand
-
-        canvas = _make_mock_canvas()
-        data = {"text": "Hello", "x": 50.0, "y": 75.0}
-        cmd = AddAnnotationCommand(canvas, data)
-
-        mock_ann = MagicMock()
-        with patch("GUI.annotation_item.AnnotationItem") as MockAnnotationItem:
-            MockAnnotationItem.from_dict.return_value = mock_ann
-            cmd.execute()
-
-        assert len(canvas.annotations) == 1
+    def test_undo_removes_from_model(self):
+        """undo() should remove the annotation from the model."""
+        ctrl = _make_controller()
+        cmd = AddAnnotationCommand(ctrl, AnnotationData(text="Hello"))
+        cmd.execute()
+        assert len(ctrl.model.annotations) == 1
         cmd.undo()
-        canvas.scene.removeItem.assert_called_once_with(mock_ann)
-        assert len(canvas.annotations) == 0
+        assert len(ctrl.model.annotations) == 0
 
     def test_undo_without_execute_is_noop(self):
         """undo() before execute() should not error."""
-        from controllers.commands import AddAnnotationCommand
-
-        canvas = _make_mock_canvas()
-        cmd = AddAnnotationCommand(canvas, {"text": "X", "x": 0, "y": 0})
-        cmd.undo()
-        canvas.scene.removeItem.assert_not_called()
+        ctrl = _make_controller()
+        cmd = AddAnnotationCommand(ctrl, AnnotationData(text="X"))
+        cmd.undo()  # should not crash
+        assert len(ctrl.model.annotations) == 0
 
     def test_description(self):
         """Should return a meaningful description."""
-        from controllers.commands import AddAnnotationCommand
+        ctrl = _make_controller()
+        cmd = AddAnnotationCommand(ctrl, AnnotationData(text="X"))
+        assert "annotation" in cmd.get_description().lower()
 
-        canvas = _make_mock_canvas()
-        cmd = AddAnnotationCommand(canvas, {"text": "X", "x": 0, "y": 0})
-        assert "Annotation" in cmd.get_description()
+    def test_execute_fires_event(self):
+        """execute() should fire annotation_added event."""
+        ctrl = _make_controller()
+        events = []
+        ctrl.add_observer(lambda e, d: events.append(e))
+        cmd = AddAnnotationCommand(ctrl, AnnotationData(text="Event"))
+        cmd.execute()
+        assert "annotation_added" in events
 
 
 class TestDeleteAnnotationCommand:
-    """DeleteAnnotationCommand should remove an annotation from the canvas."""
+    """DeleteAnnotationCommand should remove an annotation via the controller."""
 
-    def test_execute_removes_from_scene_and_list(self):
-        """execute() should remove annotation from scene and list."""
-        from controllers.commands import DeleteAnnotationCommand
-
-        canvas = _make_mock_canvas()
-        ann = _make_mock_annotation()
-        canvas.annotations.append(ann)
-
-        cmd = DeleteAnnotationCommand(canvas, ann)
+    def test_execute_removes_from_model(self):
+        """execute() should remove annotation from model."""
+        ctrl = _make_controller()
+        ctrl.add_annotation(AnnotationData(text="ToDelete"))
+        cmd = DeleteAnnotationCommand(ctrl, 0)
         cmd.execute()
-
-        canvas.scene.removeItem.assert_called_once_with(ann)
-        assert ann not in canvas.annotations
+        assert len(ctrl.model.annotations) == 0
 
     def test_undo_restores_annotation(self):
-        """undo() should re-add the annotation to scene and list."""
-        from controllers.commands import DeleteAnnotationCommand
-
-        canvas = _make_mock_canvas()
-        ann = _make_mock_annotation()
-        canvas.annotations.append(ann)
-
-        cmd = DeleteAnnotationCommand(canvas, ann)
+        """undo() should re-add the annotation to model."""
+        ctrl = _make_controller()
+        ctrl.add_annotation(AnnotationData(text="ToRestore"))
+        cmd = DeleteAnnotationCommand(ctrl, 0)
         cmd.execute()
-        assert len(canvas.annotations) == 0
-
-        with patch("GUI.annotation_item.AnnotationItem") as MockAnnotationItem:
-            MockAnnotationItem.from_dict.return_value = MagicMock()
-            cmd.undo()
-
-        canvas.scene.addItem.assert_called_once()
-        assert len(canvas.annotations) == 1
+        assert len(ctrl.model.annotations) == 0
+        cmd.undo()
+        assert len(ctrl.model.annotations) == 1
+        assert ctrl.model.annotations[0].text == "ToRestore"
 
     def test_description(self):
         """Should return a meaningful description."""
-        from controllers.commands import DeleteAnnotationCommand
-
-        canvas = _make_mock_canvas()
-        ann = _make_mock_annotation()
-        cmd = DeleteAnnotationCommand(canvas, ann)
-        assert "Annotation" in cmd.get_description()
+        ctrl = _make_controller()
+        cmd = DeleteAnnotationCommand(ctrl, 0)
+        assert "annotation" in cmd.get_description().lower()
 
     def test_stores_annotation_data(self):
-        """Should serialize annotation data on construction for undo."""
-        from controllers.commands import DeleteAnnotationCommand
+        """Should store annotation data on execute for undo restoration."""
+        ctrl = _make_controller()
+        ctrl.add_annotation(AnnotationData(text="My note", x=50.0, y=75.0))
+        cmd = DeleteAnnotationCommand(ctrl, 0)
+        cmd.execute()
+        assert cmd.annotation_data is not None
+        assert cmd.annotation_data.text == "My note"
+        assert cmd.annotation_data.x == 50.0
 
-        canvas = _make_mock_canvas()
-        ann = _make_mock_annotation("My note", 50.0, 75.0)
-        cmd = DeleteAnnotationCommand(canvas, ann)
-
-        assert cmd.annotation_data == {"text": "My note", "x": 50.0, "y": 75.0}
+    def test_execute_fires_event(self):
+        """execute() should fire annotation_removed event."""
+        ctrl = _make_controller()
+        ctrl.add_annotation(AnnotationData(text="ToDelete"))
+        events = []
+        ctrl.add_observer(lambda e, d: events.append(e))
+        cmd = DeleteAnnotationCommand(ctrl, 0)
+        cmd.execute()
+        assert "annotation_removed" in events
 
 
 class TestEditAnnotationCommand:
-    """EditAnnotationCommand should change annotation text."""
+    """EditAnnotationCommand should change annotation text via the controller."""
 
     def test_execute_sets_new_text(self):
         """execute() should set the new text."""
-        from controllers.commands import EditAnnotationCommand
-
-        ann = _make_mock_annotation("Old text")
-        cmd = EditAnnotationCommand(ann, "Old text", "New text")
-
+        ctrl = _make_controller()
+        ctrl.add_annotation(AnnotationData(text="Old text"))
+        cmd = EditAnnotationCommand(ctrl, 0, "New text")
         cmd.execute()
-        ann.setPlainText.assert_called_with("New text")
+        assert ctrl.model.annotations[0].text == "New text"
 
     def test_undo_restores_old_text(self):
         """undo() should restore the old text."""
-        from controllers.commands import EditAnnotationCommand
-
-        ann = _make_mock_annotation("Old text")
-        cmd = EditAnnotationCommand(ann, "Old text", "New text")
-
+        ctrl = _make_controller()
+        ctrl.add_annotation(AnnotationData(text="Old text"))
+        cmd = EditAnnotationCommand(ctrl, 0, "New text")
         cmd.execute()
         cmd.undo()
-        ann.setPlainText.assert_called_with("Old text")
+        assert ctrl.model.annotations[0].text == "Old text"
 
     def test_description(self):
         """Should return a meaningful description."""
-        from controllers.commands import EditAnnotationCommand
+        ctrl = _make_controller()
+        cmd = EditAnnotationCommand(ctrl, 0, "new")
+        assert "annotation" in cmd.get_description().lower()
 
-        ann = _make_mock_annotation()
-        cmd = EditAnnotationCommand(ann, "a", "b")
-        assert "Annotation" in cmd.get_description()
+    def test_execute_fires_event(self):
+        """execute() should fire annotation_updated event."""
+        ctrl = _make_controller()
+        ctrl.add_annotation(AnnotationData(text="Before"))
+        events = []
+        ctrl.add_observer(lambda e, d: events.append(e))
+        cmd = EditAnnotationCommand(ctrl, 0, "After")
+        cmd.execute()
+        assert "annotation_updated" in events
 
 
 class TestAnnotationDoubleClickDelegation:

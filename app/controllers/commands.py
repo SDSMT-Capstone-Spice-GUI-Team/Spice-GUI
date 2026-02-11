@@ -8,6 +8,7 @@ Commands are executed through the CircuitController to maintain consistency.
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from models.annotation import AnnotationData
 from models.component import ComponentData
 from models.wire import WireData
 
@@ -295,6 +296,70 @@ class PasteCommand(Command):
         return f"Paste {len(self.pasted_component_ids)} components"
 
 
+class AddAnnotationCommand(Command):
+    """Command to add a text annotation."""
+
+    def __init__(self, controller, annotation_data: AnnotationData):
+        self.controller = controller
+        self.annotation_data = annotation_data
+        self.annotation_index: Optional[int] = None
+
+    def execute(self) -> None:
+        self.annotation_index = self.controller.add_annotation(self.annotation_data)
+
+    def undo(self) -> None:
+        if self.annotation_index is not None:
+            self.controller.remove_annotation(self.annotation_index)
+
+    def get_description(self) -> str:
+        return "Add annotation"
+
+
+class DeleteAnnotationCommand(Command):
+    """Command to delete a text annotation."""
+
+    def __init__(self, controller, annotation_index: int):
+        self.controller = controller
+        self.annotation_index = annotation_index
+        self.annotation_data: Optional[AnnotationData] = None
+
+    def execute(self) -> None:
+        if self.annotation_index < len(self.controller.model.annotations):
+            ann = self.controller.model.annotations[self.annotation_index]
+            self.annotation_data = AnnotationData.from_dict(ann.to_dict())
+            self.controller.remove_annotation(self.annotation_index)
+
+    def undo(self) -> None:
+        if self.annotation_data:
+            self.controller.model.annotations.insert(self.annotation_index, self.annotation_data)
+            self.controller._notify("annotation_added", self.annotation_data)
+
+    def get_description(self) -> str:
+        return "Delete annotation"
+
+
+class EditAnnotationCommand(Command):
+    """Command to edit a text annotation's text."""
+
+    def __init__(self, controller, annotation_index: int, new_text: str):
+        self.controller = controller
+        self.annotation_index = annotation_index
+        self.new_text = new_text
+        self.old_text: Optional[str] = None
+
+    def execute(self) -> None:
+        if self.annotation_index < len(self.controller.model.annotations):
+            self.old_text = self.controller.model.annotations[self.annotation_index].text
+            self.controller.update_annotation_text(self.annotation_index, self.new_text)
+
+    def undo(self) -> None:
+        if self.old_text is not None:
+            self.controller.update_annotation_text(self.annotation_index, self.old_text)
+
+    def get_description(self) -> str:
+        return "Edit annotation"
+
+
 class CompoundCommand(Command):
     """Command that groups multiple commands into a single undo step."""
 
@@ -314,70 +379,3 @@ class CompoundCommand(Command):
 
     def get_description(self) -> str:
         return self.description
-
-
-class AddAnnotationCommand(Command):
-    """Command to add a text annotation to the canvas."""
-
-    def __init__(self, canvas, annotation_data: dict):
-        self.canvas = canvas
-        self.annotation_data = annotation_data
-        self.annotation = None
-
-    def execute(self) -> None:
-        from GUI.annotation_item import AnnotationItem
-
-        self.annotation = AnnotationItem.from_dict(self.annotation_data)
-        self.canvas.scene.addItem(self.annotation)
-        self.canvas.annotations.append(self.annotation)
-
-    def undo(self) -> None:
-        if self.annotation is not None:
-            self.canvas.scene.removeItem(self.annotation)
-            if self.annotation in self.canvas.annotations:
-                self.canvas.annotations.remove(self.annotation)
-
-    def get_description(self) -> str:
-        return "Add Annotation"
-
-
-class DeleteAnnotationCommand(Command):
-    """Command to delete a text annotation from the canvas."""
-
-    def __init__(self, canvas, annotation):
-        self.canvas = canvas
-        self.annotation = annotation
-        self.annotation_data = annotation.to_dict()
-
-    def execute(self) -> None:
-        self.canvas.scene.removeItem(self.annotation)
-        if self.annotation in self.canvas.annotations:
-            self.canvas.annotations.remove(self.annotation)
-
-    def undo(self) -> None:
-        from GUI.annotation_item import AnnotationItem
-
-        self.annotation = AnnotationItem.from_dict(self.annotation_data)
-        self.canvas.scene.addItem(self.annotation)
-        self.canvas.annotations.append(self.annotation)
-
-    def get_description(self) -> str:
-        return "Delete Annotation"
-
-
-class EditAnnotationCommand(Command):
-    """Command to edit the text of an annotation."""
-
-    def __init__(self, annotation, old_text: str, new_text: str):
-        self.annotation = annotation
-        self.old_text = old_text
-        self.new_text = new_text
-
-    def execute(self) -> None:
-        self.annotation.setPlainText(self.new_text)
-
-    def undo(self) -> None:
-        self.annotation.setPlainText(self.old_text)
-
-    def get_description(self) -> str:
-        return "Edit Annotation"
