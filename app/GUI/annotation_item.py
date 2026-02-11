@@ -32,7 +32,13 @@ class AnnotationItem(QGraphicsTextItem):
     # -- Editing ---------------------------------------------------------------
 
     def mouseDoubleClickEvent(self, event):
-        """Open a dialog to edit the annotation text."""
+        """Open a dialog to edit the annotation text (via canvas for undo support)."""
+        if self.scene() and self.scene().views():
+            canvas = self.scene().views()[0]
+            if hasattr(canvas, "_edit_annotation"):
+                canvas._edit_annotation(self)
+                return
+        # Fallback: direct edit without undo
         text, ok = QInputDialog.getText(None, "Edit Annotation", "Text:", text=self.toPlainText())
         if ok and text:
             self.setPlainText(text)

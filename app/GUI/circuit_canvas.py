@@ -902,7 +902,7 @@ class CircuitCanvasView(QGraphicsView):
             menu.addAction(delete_action)
 
             edit_action = QAction("Edit Annotation", self)
-            edit_action.triggered.connect(lambda: item.mouseDoubleClickEvent(None))
+            edit_action.triggered.connect(lambda: self._edit_annotation(item))
             menu.addAction(edit_action)
 
         elif isinstance(item, WireItem):
@@ -1002,9 +1002,7 @@ class CircuitCanvasView(QGraphicsView):
                 self.delete_wire(wire)
 
         for ann in annotations_to_delete:
-            self.scene.removeItem(ann)
-            if ann in self.annotations:
-                self.annotations.remove(ann)
+            self._delete_annotation(ann)
 
     def delete_component(self, component):
         """Delete a component and all connected wires via undo/redo command."""
@@ -1084,15 +1082,28 @@ class CircuitCanvasView(QGraphicsView):
 
         text, ok = QInputDialog.getText(None, "Add Annotation", "Text:")
         if ok and text:
-            ann = AnnotationItem(text=text, x=x, y=y)
-            self.scene.addItem(ann)
-            self.annotations.append(ann)
+            from controllers.commands import AddAnnotationCommand
+
+            annotation_data = {"text": text, "x": x, "y": y}
+            cmd = AddAnnotationCommand(self, annotation_data)
+            self.controller.execute_command(cmd)
 
     def _delete_annotation(self, ann):
-        """Remove an annotation from the canvas."""
-        self.scene.removeItem(ann)
-        if ann in self.annotations:
-            self.annotations.remove(ann)
+        """Remove an annotation from the canvas via undo-able command."""
+        from controllers.commands import DeleteAnnotationCommand
+
+        cmd = DeleteAnnotationCommand(self, ann)
+        self.controller.execute_command(cmd)
+
+    def _edit_annotation(self, ann):
+        """Edit an annotation's text via undo-able command."""
+        old_text = ann.toPlainText()
+        text, ok = QInputDialog.getText(None, "Edit Annotation", "Text:", text=old_text)
+        if ok and text and text != old_text:
+            from controllers.commands import EditAnnotationCommand
+
+            cmd = EditAnnotationCommand(ann, old_text, text)
+            self.controller.execute_command(cmd)
 
     def select_all(self):
         """Select all components and wires on the canvas."""
