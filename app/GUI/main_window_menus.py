@@ -51,6 +51,11 @@ class MenuBarMixin:
         import_netlist_action.triggered.connect(self._on_import_netlist)
         file_menu.addAction(import_netlist_action)
 
+        export_netlist_action = QAction("Export &Netlist...", self)
+        export_netlist_action.setToolTip("Export the SPICE netlist to a .cir file")
+        export_netlist_action.triggered.connect(self.export_netlist)
+        file_menu.addAction(export_netlist_action)
+
         export_img_action = QAction("Export &Image...", self)
         export_img_action.setShortcut(kb.get("file.export_image"))
         export_img_action.triggered.connect(self.export_image)
