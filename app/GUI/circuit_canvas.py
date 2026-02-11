@@ -603,23 +603,14 @@ class CircuitCanvasView(QGraphicsView):
                                 )
 
                     # Clean up temporary wire line
-                    if self.temp_wire_line:
-                        self.scene.removeItem(self.temp_wire_line)
-                        self.temp_wire_line = None
-
-                    self.wire_start_comp = None
-                    self.wire_start_term = None
+                    self.cancel_wire_drawing()
 
                     # Wire completed, allow normal behavior to continue
                     # Don't accept - let event propagate for other handling
 
             # If we're in wire drawing mode but clicked elsewhere, cancel it
             elif self.wire_start_comp is not None:
-                if self.temp_wire_line:
-                    self.scene.removeItem(self.temp_wire_line)
-                    self.temp_wire_line = None
-                self.wire_start_comp = None
-                self.wire_start_term = None
+                self.cancel_wire_drawing()
 
             # If we didn't click a terminal, check if we clicked an empty area
             else:
@@ -684,6 +675,19 @@ class CircuitCanvasView(QGraphicsView):
 
         super().mouseReleaseEvent(event)
 
+    def cancel_wire_drawing(self):
+        """Cancel any in-progress wire drawing and clean up the preview line."""
+        if self.temp_wire_line:
+            self.scene.removeItem(self.temp_wire_line)
+            self.temp_wire_line = None
+        self.wire_start_comp = None
+        self.wire_start_term = None
+
+    def focusOutEvent(self, event):
+        """Cancel wire drawing when the canvas loses focus (e.g. modal dialog opens)."""
+        self.cancel_wire_drawing()
+        super().focusOutEvent(event)
+
     def keyPressEvent(self, event):
         """Handle Escape to cancel wire drawing; forward other keys.
 
@@ -704,11 +708,7 @@ class CircuitCanvasView(QGraphicsView):
                 event.accept()
                 return
             if self.wire_start_comp is not None:
-                if self.temp_wire_line:
-                    self.scene.removeItem(self.temp_wire_line)
-                    self.temp_wire_line = None
-                self.wire_start_comp = None
-                self.wire_start_term = None
+                self.cancel_wire_drawing()
                 event.accept()
                 return
             # Deselect all if not wiring
