@@ -163,6 +163,7 @@ class SimulationMixin:
             "AC Sweep": self._display_ac_sweep_results,
             "Transient": self._display_transient_results,
             "Temperature Sweep": self._display_temp_sweep_results,
+            "Noise": self._display_noise_results,
             "Parameter Sweep": self._display_param_sweep_results,
             "Monte Carlo": self._display_monte_carlo_results,
         }
@@ -323,6 +324,40 @@ class SimulationMixin:
                 self._waveform_dialog.show()
         else:
             self.results_text.append("\nNo transient data found in output.")
+        self.canvas.clear_op_results()
+        self.properties_panel.clear_simulation_results()
+
+    def _display_noise_results(self, result):
+        """Display Noise analysis results."""
+        noise_data = result.data if result.data else None
+        if noise_data:
+            self._last_results = noise_data
+            freqs = noise_data.get("frequencies", [])
+            onoise = noise_data.get("onoise_spectrum", [])
+            inoise = noise_data.get("inoise_spectrum", [])
+
+            self.results_text.append("\nNOISE ANALYSIS RESULTS:")
+            self.results_text.append("-" * 40)
+            self.results_text.append(f"  Frequency points: {len(freqs)}")
+            if freqs:
+                self.results_text.append(f"  Range: {freqs[0]:.4g} Hz \u2014 {freqs[-1]:.4g} Hz")
+            if onoise:
+                self.results_text.append(f"  Output noise (last): {onoise[-1]:.4e} V/sqrt(Hz)")
+            if inoise:
+                self.results_text.append(f"  Input noise (last):  {inoise[-1]:.4e} V/sqrt(Hz)")
+            self.results_text.append("-" * 40)
+
+            # Show tabular preview (first 20 rows)
+            if freqs:
+                self.results_text.append(f"  {'Freq (Hz)':>12s}  {'onoise V/rtHz':>14s}  {'inoise V/rtHz':>14s}")
+                for i, f in enumerate(freqs[:20]):
+                    o_val = f"{onoise[i]:.4e}" if i < len(onoise) else "N/A"
+                    i_val = f"{inoise[i]:.4e}" if i < len(inoise) else "N/A"
+                    self.results_text.append(f"  {f:12.4g}  {o_val:>14s}  {i_val:>14s}")
+                if len(freqs) > 20:
+                    self.results_text.append(f"  ... ({len(freqs)} total rows)")
+        else:
+            self.results_text.append("\nNo noise data found in output.")
         self.canvas.clear_op_results()
         self.properties_panel.clear_simulation_results()
 
@@ -506,6 +541,7 @@ class SimulationMixin:
         from simulation.csv_exporter import (
             export_ac_results,
             export_dc_sweep_results,
+            export_noise_results,
             export_op_results,
             export_transient_results,
             write_csv,
@@ -521,6 +557,8 @@ class SimulationMixin:
             csv_content = export_ac_results(self._last_results, circuit_name)
         elif self._last_results_type == "Transient":
             csv_content = export_transient_results(self._last_results, circuit_name)
+        elif self._last_results_type == "Noise":
+            csv_content = export_noise_results(self._last_results, circuit_name)
         else:
             return
 

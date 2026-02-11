@@ -39,6 +39,32 @@ BUILTIN_PRESETS = [
         "builtin": True,
         "params": {"tempStart": -40, "tempStop": 85, "tempStep": 25},
     },
+    {
+        "name": "Audio Band Noise",
+        "analysis_type": "Noise",
+        "builtin": True,
+        "params": {
+            "output_node": "out",
+            "source": "V1",
+            "fStart": 20,
+            "fStop": 20000,
+            "points": 100,
+            "sweepType": "dec",
+        },
+    },
+    {
+        "name": "Wideband Noise",
+        "analysis_type": "Noise",
+        "builtin": True,
+        "params": {
+            "output_node": "out",
+            "source": "V1",
+            "fStart": 1,
+            "fStop": 1e9,
+            "points": 100,
+            "sweepType": "dec",
+        },
+    },
 ]
 
 

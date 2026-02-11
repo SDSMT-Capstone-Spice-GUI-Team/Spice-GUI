@@ -201,6 +201,9 @@ class SimulationController:
                 # Temperature sweep runs DC OP at each temp; parse as OP
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_op_results(output)
+            elif analysis == "Noise":
+                output = self.runner.read_output(output_file)
+                data = ResultParser.parse_noise_results(output)
             else:
                 return SimulationResult(
                     success=False,
