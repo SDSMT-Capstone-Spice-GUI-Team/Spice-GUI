@@ -336,12 +336,15 @@ class ComponentGraphicsItem(QGraphicsItem):
 
             # Move other selected items by the same delta (group drag)
             if not self._group_moving:
-                delta = snapped_pos - self.pos()
-                if delta.x() != 0 or delta.y() != 0:
+                snapped_delta = snapped_pos - self.pos()
+                if snapped_delta.x() != 0 or snapped_delta.y() != 0:
+                    # Use raw (unsnapped) delta so each follower snaps
+                    # independently to its nearest grid point (#193).
+                    raw_delta = new_pos - self.pos()
                     for item in self.scene().selectedItems():
                         if item is not self and isinstance(item, ComponentGraphicsItem):
                             item._group_moving = True
-                            item.setPos(item.pos() + delta)
+                            item.setPos(item.pos() + raw_delta)
                             item._group_moving = False
 
             # Phase 5: Schedule debounced controller update instead of direct model write
