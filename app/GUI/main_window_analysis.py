@@ -96,6 +96,25 @@ class AnalysisSettingsMixin:
         else:
             self.op_action.setChecked(True)
 
+    def set_analysis_noise(self):
+        """Set analysis type to Noise with parameters"""
+        dialog = AnalysisDialog("Noise", self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.simulation_ctrl.set_analysis("Noise", params)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(
+                        f"Analysis: Noise (v({params['output_node']}), {params['fStart']}Hz to {params['fStop']}Hz)",
+                        3000,
+                    )
+            else:
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
+
     def set_analysis_parameter_sweep(self):
         """Set analysis type to Parameter Sweep with configuration dialog"""
         if not self.model.components:
@@ -176,5 +195,7 @@ class AnalysisSettingsMixin:
             self.tran_action.setChecked(True)
         elif analysis_type == "Temperature Sweep":
             self.temp_action.setChecked(True)
+        elif analysis_type == "Noise":
+            self.noise_action.setChecked(True)
         elif analysis_type == "Parameter Sweep":
             self.sweep_action.setChecked(True)

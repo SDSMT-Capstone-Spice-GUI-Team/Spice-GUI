@@ -84,6 +84,25 @@ class AnalysisDialog(QDialog):
                 "tempStep": "Temperature increment between sweep points (\u00b0C)",
             },
         },
+        "Noise": {
+            "fields": [
+                ("Output Node", "output_node", "text", "out"),
+                ("Input Source", "source", "text", "V1"),
+                ("Start Frequency (Hz)", "fStart", "float", "1"),
+                ("Stop Frequency (Hz)", "fStop", "float", "1e6"),
+                ("Points per Decade", "points", "int", "100"),
+                ("Sweep Type", "sweepType", "combo", ["dec", "oct", "lin"], "dec"),
+            ],
+            "description": ("Noise spectral density analysis — computes output and input-referred noise vs. frequency"),
+            "tooltips": {
+                "output_node": "Node name (or number) where output noise is measured, e.g. 'out' or '2'",
+                "source": "Name of the input source used as noise reference (e.g. V1)",
+                "fStart": "Starting frequency for the noise sweep (Hz)",
+                "fStop": "Ending frequency for the noise sweep (Hz)",
+                "points": "Number of frequency points per decade (log scale)",
+                "sweepType": "Frequency scale: dec (decade/log), oct (octave), lin (linear)",
+            },
+        },
     }
 
     def __init__(self, analysis_type=None, parent=None, preset_manager=None):
@@ -247,6 +266,15 @@ class AnalysisDialog(QDialog):
             tstop = params.get("tempStop", 85)
             tstep = params.get("tempStep", 25)
             return f".step temp {tstart} {tstop} {tstep}"
+
+        elif self.analysis_type == "Noise":
+            output = params.get("output_node", "out")
+            source = params.get("source", "V1")
+            fstart = params.get("fStart", 1)
+            fstop = params.get("fStop", 1e6)
+            points = params.get("points", 100)
+            sweep_type = params.get("sweepType", "dec")
+            return f".noise v({output}) {source} {sweep_type} {points} {fstart} {fstop}"
 
         return ""
 

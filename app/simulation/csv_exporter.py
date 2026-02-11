@@ -150,6 +150,48 @@ def export_transient_results(tran_data, circuit_name=""):
     return output.getvalue()
 
 
+def export_noise_results(noise_data, circuit_name=""):
+    """
+    Export Noise analysis results to CSV string.
+
+    Args:
+        noise_data: dict with 'frequencies', 'onoise_spectrum', 'inoise_spectrum'
+        circuit_name: optional circuit filename
+
+    Returns:
+        str: CSV content
+    """
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["# Analysis Type", "Noise"])
+    writer.writerow(["# Date", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+    if circuit_name:
+        writer.writerow(["# Circuit", circuit_name])
+    writer.writerow([])
+
+    frequencies = noise_data.get("frequencies", [])
+    onoise = noise_data.get("onoise_spectrum", [])
+    inoise = noise_data.get("inoise_spectrum", [])
+
+    headers = ["Frequency (Hz)"]
+    if onoise:
+        headers.append("Output Noise (V/sqrt(Hz))")
+    if inoise:
+        headers.append("Input Noise (V/sqrt(Hz))")
+    writer.writerow(headers)
+
+    for i, freq in enumerate(frequencies):
+        row = [freq]
+        if onoise:
+            row.append(onoise[i] if i < len(onoise) else "")
+        if inoise:
+            row.append(inoise[i] if i < len(inoise) else "")
+        writer.writerow(row)
+
+    return output.getvalue()
+
+
 def write_csv(csv_content, filepath):
     """
     Write CSV content string to a file.

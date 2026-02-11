@@ -213,6 +213,51 @@ class ResultParser:
             return None
 
     @staticmethod
+    def parse_noise_results(output):
+        """Parse noise analysis results.
+
+        Looks for onoise_spectrum and inoise_spectrum data in the ngspice
+        print output.  Returns a dict with frequencies and spectral density
+        arrays, or None if no data found.
+        """
+        try:
+            lines = output.split("\n")
+            noise_data = {"frequencies": [], "onoise_spectrum": [], "inoise_spectrum": []}
+
+            header_found = False
+            headers = []
+
+            for line in lines:
+                if "frequency" in line.lower() and ("onoise" in line.lower() or "inoise" in line.lower()):
+                    headers = line.split()
+                    header_found = True
+                    continue
+
+                if header_found and line.strip():
+                    parts = line.strip().split()
+                    if len(parts) >= 2:
+                        try:
+                            # Index column + frequency + noise values
+                            freq = float(parts[1]) if len(parts) > 2 else float(parts[0])
+                            noise_data["frequencies"].append(freq)
+
+                            for j, header in enumerate(headers):
+                                if j < len(parts):
+                                    h_lower = header.lower()
+                                    if "onoise" in h_lower:
+                                        noise_data["onoise_spectrum"].append(float(parts[j]))
+                                    elif "inoise" in h_lower:
+                                        noise_data["inoise_spectrum"].append(float(parts[j]))
+                        except (ValueError, IndexError):
+                            continue
+
+            return noise_data if noise_data["frequencies"] else None
+
+        except (ValueError, IndexError, KeyError) as e:
+            logger.error("Error parsing noise results: %s", e)
+            return None
+
+    @staticmethod
     def parse_transient_results(filepath):
         """
         Parses a wrdata output file from ngspice, which has a clean,

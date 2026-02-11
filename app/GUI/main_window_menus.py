@@ -304,6 +304,14 @@ class MenuBarMixin:
         sweep_action.triggered.connect(self.set_analysis_parameter_sweep)
         analysis_menu.addAction(sweep_action)
 
+        noise_action = QAction("&Noise...", self)
+        noise_action.setCheckable(True)
+        noise_action.setToolTip("Noise spectral density analysis (.noise)")
+        noise_action.triggered.connect(self.set_analysis_noise)
+        analysis_menu.addAction(noise_action)
+
+        analysis_menu.addSeparator()
+
         mc_action = QAction("&Monte Carlo...", self)
         mc_action.setCheckable(True)
         mc_action.setToolTip("Run Monte Carlo tolerance analysis with randomized component values")
@@ -317,6 +325,7 @@ class MenuBarMixin:
         self.analysis_group.addAction(ac_action)
         self.analysis_group.addAction(tran_action)
         self.analysis_group.addAction(temp_action)
+        self.analysis_group.addAction(noise_action)
         self.analysis_group.addAction(sweep_action)
         self.analysis_group.addAction(mc_action)
 
@@ -325,6 +334,7 @@ class MenuBarMixin:
         self.ac_action = ac_action
         self.tran_action = tran_action
         self.temp_action = temp_action
+        self.noise_action = noise_action
         self.sweep_action = sweep_action
 
         # Store action references for keybinding re-application

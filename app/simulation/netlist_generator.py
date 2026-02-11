@@ -312,6 +312,16 @@ class NetlistGenerator:
             lines.append(".op")
             lines.append(f".step temp {temp_start} {temp_stop} {temp_step}")
 
+        elif self.analysis_type == "Noise":
+            params = self.analysis_params
+            output_node = params.get("output_node", "out")
+            source = params.get("source", "V1")
+            sweep_type = params.get("sweepType", "dec")
+            pts = params.get("points", 100)
+            fstart = params.get("fStart", 1)
+            fstop = params.get("fStop", 1e6)
+            lines.append(f".noise v({output_node}) {source} {sweep_type} {pts} {fstart} {fstop}")
+
         # Add control block for running simulation and getting output
         lines.append("")
         lines.append("* Control block for batch execution")
@@ -363,34 +373,45 @@ class NetlistGenerator:
         lines.append("")
         lines.append("* Print to stdout (for parser)")
 
-        # Generate appropriate print commands, excluding ground node 0.
-        nodes_to_print = set(node_map.values())
-        nodes_to_print.discard(0)
-        labeled_nodes_to_print = {num: label for num, label in node_labels.items() if num != 0}
-
-        all_print_vars = []
-        if labeled_nodes_to_print:
-            all_print_vars.extend([f"v({label})" for label in sorted(labeled_nodes_to_print.values())])
-        elif nodes_to_print:
-            all_print_vars.extend([f"v({node})" for node in sorted(list(nodes_to_print))])
-
-        # Add resistor voltages to the print list
-        all_print_vars.extend(resistor_voltages_print)
-
-        print_vars = " ".join(all_print_vars)
-
-        if print_vars:
-            lines.append(f"print {print_vars}")
-
-        lines.append("")
-        lines.append("* Save to file (for backup)")
-        lines.append("set wr_vecnames")
-        lines.append("set wr_singlescale")
-
-        if print_vars:
-            # Use forward slashes for ngspice compatibility on all platforms
+        if self.analysis_type == "Noise":
+            # Noise analysis prints spectral density vectors
+            lines.append("setplot noise1")
+            lines.append("print onoise_spectrum inoise_spectrum")
+            lines.append("")
+            lines.append("* Save to file (for backup)")
+            lines.append("set wr_vecnames")
+            lines.append("set wr_singlescale")
             wrdata_path = self.wrdata_filepath.replace("\\", "/")
-            lines.append(f"wrdata {wrdata_path} {print_vars}")
+            lines.append(f"wrdata {wrdata_path} onoise_spectrum inoise_spectrum")
+        else:
+            # Generate appropriate print commands, excluding ground node 0.
+            nodes_to_print = set(node_map.values())
+            nodes_to_print.discard(0)
+            labeled_nodes_to_print = {num: label for num, label in node_labels.items() if num != 0}
+
+            all_print_vars = []
+            if labeled_nodes_to_print:
+                all_print_vars.extend([f"v({label})" for label in sorted(labeled_nodes_to_print.values())])
+            elif nodes_to_print:
+                all_print_vars.extend([f"v({node})" for node in sorted(list(nodes_to_print))])
+
+            # Add resistor voltages to the print list
+            all_print_vars.extend(resistor_voltages_print)
+
+            print_vars = " ".join(all_print_vars)
+
+            if print_vars:
+                lines.append(f"print {print_vars}")
+
+            lines.append("")
+            lines.append("* Save to file (for backup)")
+            lines.append("set wr_vecnames")
+            lines.append("set wr_singlescale")
+
+            if print_vars:
+                # Use forward slashes for ngspice compatibility on all platforms
+                wrdata_path = self.wrdata_filepath.replace("\\", "/")
+                lines.append(f"wrdata {wrdata_path} {print_vars}")
 
         lines.append(".endc")
 
