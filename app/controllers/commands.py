@@ -97,17 +97,24 @@ class DeleteComponentCommand(Command):
 class MoveComponentCommand(Command):
     """Command to move a component to a new position."""
 
-    def __init__(self, controller, component_id: str, new_position: tuple[float, float]):
+    def __init__(
+        self,
+        controller,
+        component_id: str,
+        new_position: tuple[float, float],
+        old_position: Optional[tuple[float, float]] = None,
+    ):
         self.controller = controller
         self.component_id = component_id
         self.new_position = new_position
-        self.old_position: Optional[tuple[float, float]] = None
+        self.old_position = old_position
 
     def execute(self) -> None:
         """Move the component and store the old position."""
         component = self.controller.model.components.get(self.component_id)
         if component:
-            self.old_position = component.position
+            if self.old_position is None:
+                self.old_position = component.position
             self.controller.move_component(self.component_id, self.new_position)
 
     def undo(self) -> None:
