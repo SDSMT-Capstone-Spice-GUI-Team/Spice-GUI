@@ -106,6 +106,25 @@ class NetlistGenerator:
                         node_labels[node_num] = node_comp.get_label()
                         break
 
+        # Build diode model name map: (type, value) → shared model name
+        _diode_base = {"Diode": "D_Ideal", "LED": "D_LED", "Zener Diode": "D_Zener"}
+        self._diode_model_map = {}
+        _used_names = set()
+        for comp in sorted(self.components.values(), key=lambda c: c.component_id):
+            if comp.component_type not in _diode_base:
+                continue
+            key = (comp.component_type, comp.value)
+            if key in self._diode_model_map:
+                continue
+            base = _diode_base[comp.component_type]
+            name = base
+            suffix = 2
+            while name in _used_names:
+                name = f"{base}_{suffix}"
+                suffix += 1
+            self._diode_model_map[key] = name
+            _used_names.add(name)
+
         # Generate component lines
         for comp in self.components.values():
             if comp.component_type in ["Ground"]:
@@ -183,7 +202,7 @@ class NetlistGenerator:
             elif comp.component_type in ("Diode", "LED", "Zener Diode"):
                 # D<name> anode cathode model_name
                 # Terminals: 0=anode, 1=cathode
-                model_name = f"D_{comp_id}"
+                model_name = self._diode_model_map.get((comp.component_type, comp.value), f"D_{comp_id}")
                 lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {model_name}")
 
         # Add BJT model directives
@@ -229,14 +248,12 @@ class NetlistGenerator:
                 model_name = f"SW_{sw.component_id}"
                 lines.append(f".model {model_name} SW({sw.value})")
 
-        # Add diode model directives
-        diode_comps = [c for c in self.components.values() if c.component_type in ("Diode", "LED", "Zener Diode")]
-        if diode_comps:
+        # Add diode model directives (deduplicated by type + params)
+        if self._diode_model_map:
             lines.append("")
             lines.append("* Diode Model Definitions")
-            for diode in diode_comps:
-                model_name = f"D_{diode.component_id}"
-                lines.append(f".model {model_name} D({diode.value})")
+            for (_dtype, params), model_name in sorted(self._diode_model_map.items(), key=lambda kv: kv[1]):
+                lines.append(f".model {model_name} D({params})")
 
         # Add comments about labeled nodes
         if node_labels:

@@ -426,32 +426,32 @@ class TestDiodeNetlist:
         netlist = _generate(components, wires, nodes, t2n)
         assert "D1" in netlist
 
-    def test_diode_per_instance_model(self):
+    def test_diode_shared_model(self):
         components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
         netlist = _generate(components, wires, nodes, t2n)
-        assert "D_D1" in netlist
+        assert "D_Ideal" in netlist
 
     def test_diode_model_directive(self):
         components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
         netlist = _generate(components, wires, nodes, t2n)
-        assert ".model D_D1 D(IS=1e-14 N=1)" in netlist
+        assert ".model D_Ideal D(IS=1e-14 N=1)" in netlist
 
     def test_led_component_line(self):
         components, wires, nodes, t2n = _make_2term_circuit("LED", "D2", "IS=1e-20 N=1.8 EG=1.9")
         netlist = _generate(components, wires, nodes, t2n)
         assert "D2" in netlist
-        assert "D_D2" in netlist
+        assert "D_LED" in netlist
 
     def test_led_model_directive(self):
         components, wires, nodes, t2n = _make_2term_circuit("LED", "D2", "IS=1e-20 N=1.8 EG=1.9")
         netlist = _generate(components, wires, nodes, t2n)
-        assert ".model D_D2 D(IS=1e-20 N=1.8 EG=1.9)" in netlist
+        assert ".model D_LED D(IS=1e-20 N=1.8 EG=1.9)" in netlist
 
     def test_zener_component_line(self):
         components, wires, nodes, t2n = _make_2term_circuit("Zener Diode", "D3", "IS=1e-14 N=1 BV=5.1 IBV=1e-3")
         netlist = _generate(components, wires, nodes, t2n)
         assert "D3" in netlist
-        assert "D_D3" in netlist
+        assert "D_Zener" in netlist
 
     def test_zener_model_has_breakdown_voltage(self):
         components, wires, nodes, t2n = _make_2term_circuit("Zener Diode", "D3", "IS=1e-14 N=1 BV=5.1 IBV=1e-3")
@@ -472,10 +472,153 @@ class TestDiodeNetlist:
             if line.startswith("D1 "):
                 parts = line.split()
                 assert parts[0] == "D1"
-                assert parts[-1] == "D_D1"
+                assert parts[-1] == "D_Ideal"
                 break
         else:
             pytest.fail("D1 line not found in netlist")
+
+
+class TestDiodeModelDeduplication:
+    """Tests for #205: multiple diodes share one model definition."""
+
+    def test_multiple_diodes_share_model(self):
+        """Three identical diodes should produce exactly one .model directive."""
+        components = {
+            "D1": make_component("Diode", "D1", "IS=1e-14 N=1", (0, 0)),
+            "D2": make_component("Diode", "D2", "IS=1e-14 N=1", (100, 0)),
+            "D3": make_component("Diode", "D3", "IS=1e-14 N=1", (200, 0)),
+            "V1": make_component("Voltage Source", "V1", "5V", (-100, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (0, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "D1", 0),
+            make_wire("D1", 1, "D2", 0),
+            make_wire("D2", 1, "D3", 0),
+            make_wire("D3", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(terminals={("V1", 0), ("D1", 0)}, wire_indices={0}, auto_label="nodeA")
+        node_b = NodeData(terminals={("D1", 1), ("D2", 0)}, wire_indices={1}, auto_label="nodeB")
+        node_c = NodeData(terminals={("D2", 1), ("D3", 0)}, wire_indices={2}, auto_label="nodeC")
+        node_gnd = NodeData(
+            terminals={("D3", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={3, 4},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_b, node_c, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("D1", 0): node_a,
+            ("D1", 1): node_b,
+            ("D2", 0): node_b,
+            ("D2", 1): node_c,
+            ("D3", 0): node_c,
+            ("D3", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        netlist = _generate(components, wires, nodes, t2n)
+
+        # All three diodes reference the same model
+        assert "D1 nodeA nodeB D_Ideal" in netlist
+        assert "D2 nodeB nodeC D_Ideal" in netlist
+        assert "D3 nodeC 0 D_Ideal" in netlist
+
+        # Only one model directive
+        model_lines = [l for l in netlist.split("\n") if l.startswith(".model D_Ideal")]
+        assert len(model_lines) == 1
+        assert model_lines[0] == ".model D_Ideal D(IS=1e-14 N=1)"
+
+    def test_different_diode_types_get_distinct_models(self):
+        """Diode, LED, and Zener should each get their own model name."""
+        components = {
+            "D1": make_component("Diode", "D1", "IS=1e-14 N=1", (0, 0)),
+            "D2": make_component("LED", "D2", "IS=1e-20 N=1.8 EG=1.9", (100, 0)),
+            "D3": make_component("Zener Diode", "D3", "IS=1e-14 N=1 BV=5.1 IBV=1e-3", (200, 0)),
+            "V1": make_component("Voltage Source", "V1", "5V", (-100, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (0, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "D1", 0),
+            make_wire("D1", 1, "D2", 0),
+            make_wire("D2", 1, "D3", 0),
+            make_wire("D3", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(terminals={("V1", 0), ("D1", 0)}, wire_indices={0}, auto_label="nodeA")
+        node_b = NodeData(terminals={("D1", 1), ("D2", 0)}, wire_indices={1}, auto_label="nodeB")
+        node_c = NodeData(terminals={("D2", 1), ("D3", 0)}, wire_indices={2}, auto_label="nodeC")
+        node_gnd = NodeData(
+            terminals={("D3", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={3, 4},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_b, node_c, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("D1", 0): node_a,
+            ("D1", 1): node_b,
+            ("D2", 0): node_b,
+            ("D2", 1): node_c,
+            ("D3", 0): node_c,
+            ("D3", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        netlist = _generate(components, wires, nodes, t2n)
+
+        assert "D_Ideal" in netlist
+        assert "D_LED" in netlist
+        assert "D_Zener" in netlist
+        # Three distinct model directives
+        model_lines = [l for l in netlist.split("\n") if l.startswith(".model D_")]
+        assert len(model_lines) == 3
+
+    def test_multiple_leds_share_model(self):
+        """Multiple LEDs with same params should share one model."""
+        components, wires, nodes, t2n = _make_2term_circuit("LED", "D1", "IS=1e-20 N=1.8 EG=1.9")
+        # Add a second LED to the circuit
+        components["D2"] = make_component("LED", "D2", "IS=1e-20 N=1.8 EG=1.9", (200, 0))
+        wires.append(make_wire("D2", 0, "V1", 0))
+        wires.append(make_wire("D2", 1, "GND1", 0))
+        nodes[0].terminals.add(("D2", 0))
+        nodes[1].terminals.add(("D2", 1))
+        t2n[("D2", 0)] = nodes[0]
+        t2n[("D2", 1)] = nodes[1]
+
+        netlist = _generate(components, wires, nodes, t2n)
+
+        # Both LEDs reference D_LED
+        model_lines = [l for l in netlist.split("\n") if l.startswith(".model D_LED")]
+        assert len(model_lines) == 1
+
+    def test_no_per_instance_model_names(self):
+        """Model names should not contain component IDs."""
+        components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "D_D1" not in netlist
+
+    def test_diode_with_custom_value_gets_own_model(self):
+        """If one diode has different params, it gets a separate model."""
+        components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
+        # Add a second diode with different params
+        components["D2"] = make_component("Diode", "D2", "IS=1e-12 N=2", (200, 0))
+        wires.append(make_wire("D2", 0, "V1", 0))
+        wires.append(make_wire("D2", 1, "GND1", 0))
+        nodes[0].terminals.add(("D2", 0))
+        nodes[1].terminals.add(("D2", 1))
+        t2n[("D2", 0)] = nodes[0]
+        t2n[("D2", 1)] = nodes[1]
+
+        netlist = _generate(components, wires, nodes, t2n)
+
+        # Two model directives with different names
+        model_lines = [l for l in netlist.split("\n") if l.startswith(".model D_Ideal")]
+        assert len(model_lines) >= 1
+        # Second diode should have a suffixed name
+        assert "IS=1e-12 N=2" in netlist
 
 
 class TestDiodeComponentData:
