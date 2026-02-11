@@ -365,7 +365,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         return super().itemChange(change, value)
 
     def _schedule_controller_update(self):
-        """Schedule debounced position update to controller (Phase 5)"""
+        """Sync model position immediately, debounce wire rerouting (Phase 5)"""
         if self._position_update_timer:
             self._position_update_timer.stop()
 
@@ -377,7 +377,13 @@ class ComponentGraphicsItem(QGraphicsItem):
         if not hasattr(canvas, "controller") or not canvas.controller:
             return
 
-        # Create single-shot timer for debouncing
+        # Sync model position immediately (lightweight attribute assignment)
+        if self._pending_position:
+            comp = canvas.controller.model.components.get(self.component_id)
+            if comp:
+                comp.position = self._pending_position
+
+        # Debounce observer notification (triggers expensive wire rerouting)
         self._position_update_timer = QTimer()
         self._position_update_timer.setSingleShot(True)
         self._position_update_timer.timeout.connect(self._notify_controller_position)
