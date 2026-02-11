@@ -100,6 +100,51 @@ DEFAULT_VALUES = {
     "Zener Diode": "IS=1e-14 N=1 BV=5.1 IBV=1e-3",
 }
 
+# Available op-amp models (value field choices)
+OPAMP_MODELS = ["Ideal", "LM741", "TL081", "LM358"]
+
+# SPICE subcircuit definitions for each op-amp model.
+# Keys match OPAMP_MODELS entries; "Ideal" is the built-in high-gain model.
+OPAMP_SUBCIRCUITS = {
+    "Ideal": (".subckt OPAMP_IDEAL inp inn out\nE_amp out 0 inp inn 1e6\nR_out out 0 1e-3\n.ends"),
+    "LM741": (
+        ".subckt LM741 inp inn out\n"
+        "* Simplified LM741 behavioral model\n"
+        "* GBW ~1 MHz, DC gain ~200k, Rout ~75 ohm\n"
+        "Rin inp inn 2e6\n"
+        "E1 int1 0 inp inn 2e5\n"
+        "R1 int1 int2 1e6\n"
+        "C1 int2 0 159e-12\n"
+        "E2 int3 0 int2 0 1\n"
+        "Rout int3 out 75\n"
+        ".ends"
+    ),
+    "TL081": (
+        ".subckt TL081 inp inn out\n"
+        "* Simplified TL081 JFET-input behavioral model\n"
+        "* GBW ~4 MHz, DC gain ~200k, Rout ~50 ohm\n"
+        "Rin inp inn 1e12\n"
+        "E1 int1 0 inp inn 2e5\n"
+        "R1 int1 int2 1e6\n"
+        "C1 int2 0 39.8e-12\n"
+        "E2 int3 0 int2 0 1\n"
+        "Rout int3 out 50\n"
+        ".ends"
+    ),
+    "LM358": (
+        ".subckt LM358 inp inn out\n"
+        "* Simplified LM358 behavioral model\n"
+        "* GBW ~1 MHz, DC gain ~100k, Rout ~50 ohm\n"
+        "Rin inp inn 2e6\n"
+        "E1 int1 0 inp inn 1e5\n"
+        "R1 int1 int2 1e6\n"
+        "C1 int2 0 159e-12\n"
+        "E2 int3 0 int2 0 1\n"
+        "Rout int3 out 50\n"
+        ".ends"
+    ),
+}
+
 # Component colors (hex strings)
 COMPONENT_COLORS = {
     "Resistor": "#2196F3",

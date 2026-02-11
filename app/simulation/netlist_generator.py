@@ -48,14 +48,16 @@ class NetlistGenerator:
         """Generate complete SPICE netlist"""
         lines = ["My Test Circuit", "* Generated netlist", ""]
 
-        # Check for op-amps to add subcircuit
-        has_opamp = any(c.component_type == "Op-Amp" for c in self.components.values())
-        if has_opamp:
-            lines.append("* Ideal Op-Amp Subcircuit")
-            lines.append(".subckt OPAMP_IDEAL inp inn out")
-            lines.append("E_amp out 0 inp inn 1e6")
-            lines.append("R_out out 0 1e-3")
-            lines.append(".ends")
+        # Add op-amp subcircuit definitions for each model used
+        from models.component import OPAMP_SUBCIRCUITS
+
+        opamp_models_used = set()
+        for c in self.components.values():
+            if c.component_type == "Op-Amp":
+                opamp_models_used.add(c.value if c.value in OPAMP_SUBCIRCUITS else "Ideal")
+        for model_name in sorted(opamp_models_used):
+            lines.append(f"* {model_name} Op-Amp Subcircuit")
+            lines.append(OPAMP_SUBCIRCUITS[model_name])
             lines.append("")
 
         # Build node connectivity map
@@ -159,7 +161,9 @@ class NetlistGenerator:
                 # Map terminals to subcircuit nodes: inp, inn, out
                 # Terminal 1 is non-inverting (inp), 0 is inverting (inn), 2 is output (out)
                 opamp_nodes = [nodes[1], nodes[0], nodes[2]]
-                lines.append(f"X{comp_id} {' '.join(opamp_nodes)} OPAMP_IDEAL")
+                model = comp.value if comp.value in OPAMP_SUBCIRCUITS else "Ideal"
+                subckt_name = "OPAMP_IDEAL" if model == "Ideal" else model
+                lines.append(f"X{comp_id} {' '.join(opamp_nodes)} {subckt_name}")
             elif comp.component_type == "VCVS":
                 # E<name> out+ out- ctrl+ ctrl- gain
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
