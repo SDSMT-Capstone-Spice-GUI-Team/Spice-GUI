@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from models.component import DEFAULT_VALUES, ComponentData
 
 from .format_utils import validate_component_value
-from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, WIRE_UPDATE_DELAY_MS, theme_manager
+from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
 
 
 class ComponentGraphicsItem(QGraphicsItem):
@@ -42,8 +42,6 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.terminals = []  # List[QPointF] - Qt rendering positions
         self.connections = []  # Store wire connections
         self.is_being_dragged = False
-        self.last_position = None
-        self.update_timer = None
         self._group_moving = False  # Guard against recursive group moves
         self._drag_start_positions = {}  # {comp_id: (x, y)} for undo
 
@@ -328,29 +326,6 @@ class ComponentGraphicsItem(QGraphicsItem):
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)
 
-    def schedule_wire_update(self):
-        """Schedule a wire update after a short delay"""
-        if self.update_timer is not None:
-            self.update_timer.stop()
-            self.update_timer = None
-
-        self.update_timer = QTimer()
-        self.update_timer.setSingleShot(True)
-        self.update_timer.timeout.connect(self.update_wires_after_drag)
-        self.update_timer.start(WIRE_UPDATE_DELAY_MS)
-
-    def update_wires_after_drag(self):
-        """Called after drag motion has stopped"""
-        if self.last_position is not None and self.last_position != self.pos():
-            if self.scene():
-                views = self.scene().views()
-                if views:
-                    canvas = views[0]
-                    if hasattr(canvas, "reroute_connected_wires"):
-                        canvas.reroute_connected_wires(self)
-        self.last_position = None
-        self.update_timer = None
-
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
             # Snap to grid
@@ -372,11 +347,6 @@ class ComponentGraphicsItem(QGraphicsItem):
             # Phase 5: Schedule debounced controller update instead of direct model write
             self._pending_position = (grid_x, grid_y)
             self._schedule_controller_update()
-
-            # Track that we're moving and schedule an update
-            if self.last_position is None:
-                self.last_position = self.pos()
-            self.schedule_wire_update()
 
             return snapped_pos
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
