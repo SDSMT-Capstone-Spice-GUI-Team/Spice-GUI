@@ -1,0 +1,377 @@
+"""Menu bar construction and keybinding management for MainWindow."""
+
+from PyQt6.QtGui import QAction, QActionGroup
+from PyQt6.QtWidgets import QDialog
+
+
+class MenuBarMixin:
+    """Mixin providing menu bar construction and keybinding application."""
+
+    def create_menu_bar(self):
+        """Create menu bar with File, Edit, View, Simulation, Analysis, and Settings menus"""
+        menubar = self.menuBar()
+        if menubar is None:
+            return
+
+        # File menu
+        file_menu = menubar.addMenu("&File")
+        if file_menu is None:
+            return
+
+        kb = self.keybindings
+
+        new_action = QAction("&New", self)
+        new_action.setShortcut(kb.get("file.new"))
+        new_action.triggered.connect(self._on_new)
+        file_menu.addAction(new_action)
+
+        open_action = QAction("&Open...", self)
+        open_action.setShortcut(kb.get("file.open"))
+        open_action.triggered.connect(self._on_load)
+        file_menu.addAction(open_action)
+
+        # Open Example submenu
+        self.examples_menu = file_menu.addMenu("Open &Example")
+        self._populate_examples_menu()
+
+        save_action = QAction("&Save", self)
+        save_action.setShortcut(kb.get("file.save"))
+        save_action.triggered.connect(self._on_save)
+        file_menu.addAction(save_action)
+
+        save_as_action = QAction("Save &As...", self)
+        save_as_action.setShortcut(kb.get("file.save_as"))
+        save_as_action.triggered.connect(self._on_save_as)
+        file_menu.addAction(save_as_action)
+
+        file_menu.addSeparator()
+
+        import_netlist_action = QAction("&Import SPICE Netlist...", self)
+        import_netlist_action.setToolTip("Import a SPICE netlist file (.cir, .spice)")
+        import_netlist_action.triggered.connect(self._on_import_netlist)
+        file_menu.addAction(import_netlist_action)
+
+        export_img_action = QAction("Export &Image...", self)
+        export_img_action.setShortcut(kb.get("file.export_image"))
+        export_img_action.triggered.connect(self.export_image)
+        file_menu.addAction(export_img_action)
+
+        export_pdf_action = QAction("Export as &PDF...", self)
+        export_pdf_action.setShortcut(kb.get("file.export_pdf"))
+        export_pdf_action.triggered.connect(self._on_export_pdf)
+        file_menu.addAction(export_pdf_action)
+
+        file_menu.addSeparator()
+
+        print_action = QAction("&Print...", self)
+        print_action.setShortcut(kb.get("file.print"))
+        print_action.triggered.connect(self._on_print)
+        file_menu.addAction(print_action)
+
+        print_preview_action = QAction("Print Pre&view...", self)
+        print_preview_action.setShortcut(kb.get("file.print_preview"))
+        print_preview_action.triggered.connect(self._on_print_preview)
+        file_menu.addAction(print_preview_action)
+
+        file_menu.addSeparator()
+
+        exit_action = QAction("E&xit", self)
+        exit_action.setShortcut(kb.get("file.exit"))
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+
+        # Edit menu
+        edit_menu = menubar.addMenu("&Edit")
+        if edit_menu is None:
+            return
+
+        # Undo/Redo actions
+        undo_action = QAction("&Undo", self)
+        undo_action.setShortcut(kb.get("edit.undo"))
+        undo_action.triggered.connect(self._on_undo)
+        edit_menu.addAction(undo_action)
+        self.undo_action = undo_action  # Store reference to update enabled state
+
+        redo_action = QAction("&Redo", self)
+        redo_action.setShortcut(kb.get("edit.redo"))
+        redo_action.triggered.connect(self._on_redo)
+        edit_menu.addAction(redo_action)
+        self.redo_action = redo_action  # Store reference to update enabled state
+
+        edit_menu.addSeparator()
+
+        copy_action = QAction("&Copy", self)
+        copy_action.setShortcut(kb.get("edit.copy"))
+        copy_action.triggered.connect(self.copy_selected)
+        edit_menu.addAction(copy_action)
+
+        cut_action = QAction("Cu&t", self)
+        cut_action.setShortcut(kb.get("edit.cut"))
+        cut_action.triggered.connect(self.cut_selected)
+        edit_menu.addAction(cut_action)
+
+        paste_action = QAction("&Paste", self)
+        paste_action.setShortcut(kb.get("edit.paste"))
+        paste_action.triggered.connect(self.paste_components)
+        edit_menu.addAction(paste_action)
+
+        edit_menu.addSeparator()
+
+        delete_action = QAction("&Delete Selected", self)
+        delete_action.setShortcut(kb.get("edit.delete"))
+        delete_action.triggered.connect(self.canvas.delete_selected)
+        edit_menu.addAction(delete_action)
+
+        select_all_action = QAction("Select &All", self)
+        select_all_action.setShortcut(kb.get("edit.select_all"))
+        select_all_action.triggered.connect(self.canvas.select_all)
+        edit_menu.addAction(select_all_action)
+
+        edit_menu.addSeparator()
+
+        rotate_cw_action = QAction("Rotate Clockwise", self)
+        rotate_cw_action.setShortcut(kb.get("edit.rotate_cw"))
+        rotate_cw_action.triggered.connect(lambda: self.canvas.rotate_selected(True))
+        edit_menu.addAction(rotate_cw_action)
+
+        rotate_ccw_action = QAction("Rotate Counter-Clockwise", self)
+        rotate_ccw_action.setShortcut(kb.get("edit.rotate_ccw"))
+        rotate_ccw_action.triggered.connect(lambda: self.canvas.rotate_selected(False))
+        edit_menu.addAction(rotate_ccw_action)
+
+        flip_h_action = QAction("Flip Horizontal", self)
+        flip_h_action.setShortcut(kb.get("edit.flip_h"))
+        flip_h_action.triggered.connect(lambda: self.canvas.flip_selected(True))
+        edit_menu.addAction(flip_h_action)
+
+        flip_v_action = QAction("Flip Vertical", self)
+        flip_v_action.setShortcut(kb.get("edit.flip_v"))
+        flip_v_action.triggered.connect(lambda: self.canvas.flip_selected(False))
+        edit_menu.addAction(flip_v_action)
+
+        edit_menu.addSeparator()
+
+        clear_action = QAction("&Clear Canvas", self)
+        clear_action.setShortcut(kb.get("edit.clear"))
+        clear_action.triggered.connect(self.clear_canvas)
+        edit_menu.addAction(clear_action)
+
+        # View menu
+        view_menu = menubar.addMenu("&View")
+        if view_menu is None:
+            return
+
+        self.show_labels_action = QAction("Show Component &Labels", self)
+        self.show_labels_action.setCheckable(True)
+        self.show_labels_action.setChecked(True)
+        self.show_labels_action.triggered.connect(self.toggle_component_labels)
+        view_menu.addAction(self.show_labels_action)
+
+        self.show_values_action = QAction("Show Component &Values", self)
+        self.show_values_action.setCheckable(True)
+        self.show_values_action.setChecked(True)
+        self.show_values_action.triggered.connect(self.toggle_component_values)
+        view_menu.addAction(self.show_values_action)
+
+        self.show_nodes_action = QAction("Show &Node Labels", self)
+        self.show_nodes_action.setCheckable(True)
+        self.show_nodes_action.setChecked(True)
+        self.show_nodes_action.triggered.connect(self.toggle_node_labels)
+        view_menu.addAction(self.show_nodes_action)
+
+        self.show_op_annotations_action = QAction("Show &OP Annotations", self)
+        self.show_op_annotations_action.setCheckable(True)
+        self.show_op_annotations_action.setChecked(True)
+        self.show_op_annotations_action.triggered.connect(self.toggle_op_annotations)
+        view_menu.addAction(self.show_op_annotations_action)
+
+        view_menu.addSeparator()
+
+        self.probe_action = QAction("&Probe Tool", self)
+        self.probe_action.setCheckable(True)
+        self.probe_action.setShortcut(kb.get("tools.probe"))
+        self.probe_action.setToolTip("Click nodes or components to see voltage/current values")
+        self.probe_action.triggered.connect(self._toggle_probe_mode)
+        view_menu.addAction(self.probe_action)
+
+        view_menu.addSeparator()
+
+        self.show_statistics_action = QAction("Circuit &Statistics", self)
+        self.show_statistics_action.setCheckable(True)
+        self.show_statistics_action.setChecked(False)
+        self.show_statistics_action.triggered.connect(self._toggle_statistics_panel)
+        view_menu.addAction(self.show_statistics_action)
+
+        view_menu.addSeparator()
+
+        # Theme submenu
+        theme_menu = view_menu.addMenu("&Theme")
+        self.light_theme_action = QAction("&Light", self)
+        self.light_theme_action.setCheckable(True)
+        self.light_theme_action.setChecked(True)
+        self.light_theme_action.triggered.connect(lambda: self._set_theme("light"))
+        theme_menu.addAction(self.light_theme_action)
+
+        self.dark_theme_action = QAction("&Dark", self)
+        self.dark_theme_action.setCheckable(True)
+        self.dark_theme_action.triggered.connect(lambda: self._set_theme("dark"))
+        theme_menu.addAction(self.dark_theme_action)
+
+        self.theme_group = QActionGroup(self)
+        self.theme_group.addAction(self.light_theme_action)
+        self.theme_group.addAction(self.dark_theme_action)
+
+        view_menu.addSeparator()
+
+        zoom_in_action = QAction("Zoom &In", self)
+        zoom_in_action.setShortcut(kb.get("view.zoom_in"))
+        zoom_in_action.triggered.connect(lambda: self.canvas.zoom_in())
+        view_menu.addAction(zoom_in_action)
+
+        zoom_out_action = QAction("Zoom &Out", self)
+        zoom_out_action.setShortcut(kb.get("view.zoom_out"))
+        zoom_out_action.triggered.connect(lambda: self.canvas.zoom_out())
+        view_menu.addAction(zoom_out_action)
+
+        zoom_fit_action = QAction("&Fit to Circuit", self)
+        zoom_fit_action.setShortcut(kb.get("view.zoom_fit"))
+        zoom_fit_action.triggered.connect(lambda: self.canvas.zoom_fit())
+        view_menu.addAction(zoom_fit_action)
+
+        zoom_reset_action = QAction("&Reset Zoom", self)
+        zoom_reset_action.setShortcut(kb.get("view.zoom_reset"))
+        zoom_reset_action.triggered.connect(lambda: self.canvas.zoom_reset())
+        view_menu.addAction(zoom_reset_action)
+
+        # Simulation menu
+        sim_menu = menubar.addMenu("&Simulation")
+        if sim_menu is None:
+            return
+
+        netlist_action = QAction("Generate &Netlist", self)
+        netlist_action.setShortcut(kb.get("sim.netlist"))
+        netlist_action.triggered.connect(self.generate_netlist)
+        sim_menu.addAction(netlist_action)
+
+        run_action = QAction("&Run Simulation", self)
+        run_action.setShortcut(kb.get("sim.run"))
+        run_action.triggered.connect(self.run_simulation)
+        sim_menu.addAction(run_action)
+
+        # Analysis menu
+        analysis_menu = menubar.addMenu("&Analysis")
+        if analysis_menu is None:
+            return
+
+        op_action = QAction("&DC Operating Point (.op)", self)
+        op_action.setCheckable(True)
+        op_action.setChecked(True)
+        op_action.triggered.connect(self.set_analysis_op)
+        analysis_menu.addAction(op_action)
+
+        dc_action = QAction("&DC Sweep", self)
+        dc_action.setCheckable(True)
+        dc_action.triggered.connect(self.set_analysis_dc)
+        analysis_menu.addAction(dc_action)
+
+        ac_action = QAction("&AC Sweep", self)
+        ac_action.setCheckable(True)
+        ac_action.triggered.connect(self.set_analysis_ac)
+        analysis_menu.addAction(ac_action)
+
+        tran_action = QAction("&Transient", self)
+        tran_action.setCheckable(True)
+        tran_action.triggered.connect(self.set_analysis_transient)
+        analysis_menu.addAction(tran_action)
+
+        temp_action = QAction("Te&mperature Sweep", self)
+        temp_action.setCheckable(True)
+        temp_action.triggered.connect(self.set_analysis_temp_sweep)
+        analysis_menu.addAction(temp_action)
+
+        analysis_menu.addSeparator()
+
+        sweep_action = QAction("&Parameter Sweep...", self)
+        sweep_action.setCheckable(True)
+        sweep_action.setToolTip(
+            "Sweep a component parameter across a range of values and overlay results from each step"
+        )
+        sweep_action.triggered.connect(self.set_analysis_parameter_sweep)
+        analysis_menu.addAction(sweep_action)
+
+        mc_action = QAction("&Monte Carlo...", self)
+        mc_action.setCheckable(True)
+        mc_action.setToolTip("Run Monte Carlo tolerance analysis with randomized component values")
+        mc_action.triggered.connect(self.set_analysis_monte_carlo)
+        analysis_menu.addAction(mc_action)
+
+        # Create action group for mutually exclusive analysis types
+        self.analysis_group = QActionGroup(self)
+        self.analysis_group.addAction(op_action)
+        self.analysis_group.addAction(dc_action)
+        self.analysis_group.addAction(ac_action)
+        self.analysis_group.addAction(tran_action)
+        self.analysis_group.addAction(temp_action)
+        self.analysis_group.addAction(sweep_action)
+        self.analysis_group.addAction(mc_action)
+
+        self.op_action = op_action
+        self.dc_action = dc_action
+        self.ac_action = ac_action
+        self.tran_action = tran_action
+        self.temp_action = temp_action
+        self.sweep_action = sweep_action
+
+        # Store action references for keybinding re-application
+        self._bound_actions = {
+            "file.new": new_action,
+            "file.open": open_action,
+            "file.save": save_action,
+            "file.save_as": save_as_action,
+            "file.export_image": export_img_action,
+            "file.print": print_action,
+            "file.print_preview": print_preview_action,
+            "file.export_pdf": export_pdf_action,
+            "file.exit": exit_action,
+            "edit.undo": undo_action,
+            "edit.redo": redo_action,
+            "edit.copy": copy_action,
+            "edit.cut": cut_action,
+            "edit.paste": paste_action,
+            "edit.delete": delete_action,
+            "edit.select_all": select_all_action,
+            "edit.rotate_cw": rotate_cw_action,
+            "edit.rotate_ccw": rotate_ccw_action,
+            "edit.flip_h": flip_h_action,
+            "edit.flip_v": flip_v_action,
+            "edit.clear": clear_action,
+            "view.zoom_in": zoom_in_action,
+            "view.zoom_out": zoom_out_action,
+            "view.zoom_fit": zoom_fit_action,
+            "view.zoom_reset": zoom_reset_action,
+            "sim.netlist": netlist_action,
+            "sim.run": run_action,
+            "tools.probe": self.probe_action,
+        }
+
+        # Settings menu
+        settings_menu = menubar.addMenu("Se&ttings")
+        if settings_menu:
+            keybindings_action = QAction("&Keybindings...", self)
+            keybindings_action.triggered.connect(self._open_keybindings_dialog)
+            settings_menu.addAction(keybindings_action)
+
+    def _open_keybindings_dialog(self):
+        """Open the keybindings preferences dialog."""
+        from .keybindings_dialog import KeybindingsDialog
+
+        dialog = KeybindingsDialog(self.keybindings, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Re-apply shortcuts to all menu actions
+            self._apply_keybindings()
+
+    def _apply_keybindings(self):
+        """Re-apply shortcuts from the registry to stored actions."""
+        kb = self.keybindings
+        for action_name, qaction in self._bound_actions.items():
+            qaction.setShortcut(kb.get(action_name))
