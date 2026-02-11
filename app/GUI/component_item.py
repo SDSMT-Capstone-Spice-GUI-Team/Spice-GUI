@@ -45,6 +45,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.last_position = None
         self.update_timer = None
         self._group_moving = False  # Guard against recursive group moves
+        self._drag_start_positions = {}  # {comp_id: (x, y)} for undo
 
         # Phase 5: Debounced position updates to controller
         self._position_update_timer = None
@@ -90,16 +91,70 @@ class ComponentGraphicsItem(QGraphicsItem):
     # --- Event handlers ---
 
     def mousePressEvent(self, event):
-        """Track when dragging starts"""
+        """Track when dragging starts and record start positions for undo."""
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_being_dragged = True
+            # Record start positions for undo (self + all selected items)
+            self._drag_start_positions = {}
+            self._drag_start_positions[self.component_id] = (self.pos().x(), self.pos().y())
+            if self.scene():
+                for item in self.scene().selectedItems():
+                    if item is not self and isinstance(item, ComponentGraphicsItem):
+                        self._drag_start_positions[item.component_id] = (
+                            item.pos().x(),
+                            item.pos().y(),
+                        )
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
-        """Handle drag end"""
+        """Handle drag end — push move commands to undo stack."""
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_being_dragged = False
+            self._commit_drag_to_undo()
         super().mouseReleaseEvent(event)
+
+    def _commit_drag_to_undo(self):
+        """Create undo command(s) for the completed drag operation."""
+        if not hasattr(self, "_drag_start_positions") or not self._drag_start_positions:
+            return
+
+        if not self.scene() or not self.scene().views():
+            self._drag_start_positions = {}
+            return
+
+        canvas = self.scene().views()[0]
+        if not hasattr(canvas, "controller") or not canvas.controller:
+            self._drag_start_positions = {}
+            return
+
+        from controllers.commands import CompoundCommand, MoveComponentCommand
+
+        controller = canvas.controller
+        move_commands = []
+
+        for comp_id, old_pos in self._drag_start_positions.items():
+            component = controller.model.components.get(comp_id)
+            if component is None:
+                continue
+            new_pos = component.position
+            # Only create a command if the component actually moved
+            if old_pos[0] != new_pos[0] or old_pos[1] != new_pos[1]:
+                cmd = MoveComponentCommand(controller, comp_id, new_pos, old_position=old_pos)
+                move_commands.append(cmd)
+
+        self._drag_start_positions = {}
+
+        if not move_commands:
+            return
+
+        if len(move_commands) == 1:
+            # Push directly to undo stack (move already happened during drag)
+            controller.undo_manager._undo_stack.append(move_commands[0])
+            controller.undo_manager._redo_stack.clear()
+        else:
+            compound = CompoundCommand(move_commands, f"Move {len(move_commands)} components")
+            controller.undo_manager._undo_stack.append(compound)
+            controller.undo_manager._redo_stack.clear()
 
     def hoverMoveEvent(self, event):
         """Update cursor based on whether hovering over terminal"""
