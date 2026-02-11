@@ -254,11 +254,16 @@ class CircuitCanvasView(QGraphicsView):
             # Note: Node updates handled by nodes_rebuilt event
 
     def _handle_wire_removed(self, wire_index: int) -> None:
-        """Remove wire graphics item (wires removed in reverse order)"""
+        """Remove wire graphics item and reroute neighboring wires."""
         if 0 <= wire_index < len(self.wires):
             wire = self.wires[wire_index]
+            # Save connected components before removing, so we can reroute neighbors
+            affected_components = {wire.start_comp, wire.end_comp}
             self.scene.removeItem(wire)
             del self.wires[wire_index]
+            # Reroute remaining wires connected to the same components —
+            # they may have been routed around the now-deleted wire.
+            self._reroute_wires_near_components(affected_components)
 
     def _handle_wire_routed(self, data) -> None:
         """Update wire waypoints"""
@@ -438,6 +443,20 @@ class CircuitCanvasView(QGraphicsView):
                         f"Rerouted {wire_count} wire{'s' if wire_count != 1 else ''} connected to {component.component_id}",
                         1000,
                     )
+
+    def _reroute_wires_near_components(self, components):
+        """Reroute remaining wires connected to any of the given components.
+
+        Called after wire deletion so that neighboring wires can find
+        shorter paths now that the deleted wire is no longer an obstacle.
+        """
+        rerouted = 0
+        for wire in self.wires:
+            if wire.start_comp in components or wire.end_comp in components:
+                wire.update_position()
+                rerouted += 1
+        if rerouted > 0:
+            self.scene.update()
 
     def dragEnterEvent(self, event):
         if event is None:
