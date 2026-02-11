@@ -419,10 +419,20 @@ class CircuitCanvasView(QGraphicsView):
                 self._grid_items.append(label)
 
     def reroute_connected_wires(self, component):
-        """Reroute all wires connected to a component"""
+        """Reroute all wires connected to a component.
+
+        For wires where both endpoints are selected (co-selected group drag),
+        only the endpoint with the lower component_id triggers the reroute.
+        This prevents the same wire being rerouted twice per drag event.
+        """
         wire_count = 0
         for wire in self.wires:
             if wire.start_comp == component or wire.end_comp == component:
+                # Skip if both endpoints are co-selected and the other has lower ID
+                # (that endpoint's reroute call will handle this wire)
+                other = wire.end_comp if wire.start_comp == component else wire.start_comp
+                if component.isSelected() and other.isSelected() and other.component_id < component.component_id:
+                    continue
                 wire.update_position()
                 wire_count += 1
 

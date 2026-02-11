@@ -1,7 +1,8 @@
-"""Tests for wire rerouting deduplication (#189).
+"""Tests for wire rerouting deduplication (#189, #190).
 
 Verifies that component drags trigger wire rerouting through exactly one
-path (the observer/controller path) instead of two (observer + timer).
+path (the observer/controller path) instead of two (observer + timer),
+and that co-selected wires are only rerouted once.
 """
 
 from unittest.mock import MagicMock, Mock, patch
@@ -103,3 +104,112 @@ class TestSingleReroutePath:
 
         source = inspect.getsource(ComponentGraphicsItem.itemChange)
         assert "_schedule_controller_update" in source
+
+
+class TestCoSelectedRerouteDedup:
+    """Tests for #190: wires between co-selected components rerouted once."""
+
+    def test_reroute_checks_isSelected(self):
+        """reroute_connected_wires should check isSelected on other endpoint."""
+        import inspect
+
+        from GUI.circuit_canvas import CircuitCanvasView
+
+        source = inspect.getsource(CircuitCanvasView.reroute_connected_wires)
+        assert "isSelected" in source
+
+    def test_reroute_uses_component_id_tiebreaker(self):
+        """Deterministic tiebreaker: lower component_id handles the wire."""
+        import inspect
+
+        from GUI.circuit_canvas import CircuitCanvasView
+
+        source = inspect.getsource(CircuitCanvasView.reroute_connected_wires)
+        assert "component_id" in source
+
+    def test_reroute_skips_when_other_has_lower_id(self):
+        """Wire should not be rerouted if other endpoint has lower ID and is selected."""
+        from GUI.circuit_canvas import CircuitCanvasView
+
+        canvas = Mock(spec=CircuitCanvasView)
+        canvas.scene = Mock()
+        canvas.viewport = Mock(return_value=Mock())
+        canvas.window = Mock(return_value=None)
+
+        # Create mock components
+        comp_b = Mock()
+        comp_b.component_id = "R2"
+        comp_b.isSelected = Mock(return_value=True)
+
+        comp_a = Mock()
+        comp_a.component_id = "R1"
+        comp_a.isSelected = Mock(return_value=True)
+
+        # Wire from R1 to R2
+        wire = Mock()
+        wire.start_comp = comp_a
+        wire.end_comp = comp_b
+
+        canvas.wires = [wire]
+
+        # Call for comp_b (higher ID) — should skip since comp_a has lower ID
+        CircuitCanvasView.reroute_connected_wires(canvas, comp_b)
+        wire.update_position.assert_not_called()
+
+    def test_reroute_proceeds_when_caller_has_lower_id(self):
+        """Wire should be rerouted when caller has the lower component ID."""
+        from GUI.circuit_canvas import CircuitCanvasView
+
+        canvas = Mock(spec=CircuitCanvasView)
+        canvas.scene = Mock()
+        canvas.viewport = Mock(return_value=Mock())
+        canvas.window = Mock(return_value=None)
+
+        comp_a = Mock()
+        comp_a.component_id = "R1"
+        comp_a.isSelected = Mock(return_value=True)
+
+        comp_b = Mock()
+        comp_b.component_id = "R2"
+        comp_b.isSelected = Mock(return_value=True)
+
+        wire = Mock()
+        wire.start_comp = comp_a
+        wire.end_comp = comp_b
+
+        canvas.wires = [wire]
+
+        # Call for comp_a (lower ID) — should reroute
+        CircuitCanvasView.reroute_connected_wires(canvas, comp_a)
+        wire.update_position.assert_called_once()
+
+    def test_reroute_proceeds_when_other_not_selected(self):
+        """Wire should always be rerouted if other endpoint is not selected."""
+        from GUI.circuit_canvas import CircuitCanvasView
+
+        canvas = Mock(spec=CircuitCanvasView)
+        canvas.scene = Mock()
+        canvas.viewport = Mock(return_value=Mock())
+        canvas.window = Mock(return_value=None)
+
+        comp_a = Mock()
+        comp_a.component_id = "R1"
+        comp_a.isSelected = Mock(return_value=True)
+
+        comp_b = Mock()
+        comp_b.component_id = "R2"
+        comp_b.isSelected = Mock(return_value=False)  # Not selected
+
+        wire = Mock()
+        wire.start_comp = comp_a
+        wire.end_comp = comp_b
+
+        canvas.wires = [wire]
+
+        # Both directions should reroute since other is not selected
+        CircuitCanvasView.reroute_connected_wires(canvas, comp_a)
+        assert wire.update_position.call_count == 1
+
+        wire.reset_mock()
+        CircuitCanvasView.reroute_connected_wires(canvas, comp_b)
+        assert wire.update_position.call_count == 1
