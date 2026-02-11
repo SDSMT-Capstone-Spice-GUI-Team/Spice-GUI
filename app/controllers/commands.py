@@ -314,3 +314,70 @@ class CompoundCommand(Command):
 
     def get_description(self) -> str:
         return self.description
+
+
+class AddAnnotationCommand(Command):
+    """Command to add a text annotation to the canvas."""
+
+    def __init__(self, canvas, annotation_data: dict):
+        self.canvas = canvas
+        self.annotation_data = annotation_data
+        self.annotation = None
+
+    def execute(self) -> None:
+        from GUI.annotation_item import AnnotationItem
+
+        self.annotation = AnnotationItem.from_dict(self.annotation_data)
+        self.canvas.scene.addItem(self.annotation)
+        self.canvas.annotations.append(self.annotation)
+
+    def undo(self) -> None:
+        if self.annotation is not None:
+            self.canvas.scene.removeItem(self.annotation)
+            if self.annotation in self.canvas.annotations:
+                self.canvas.annotations.remove(self.annotation)
+
+    def get_description(self) -> str:
+        return "Add Annotation"
+
+
+class DeleteAnnotationCommand(Command):
+    """Command to delete a text annotation from the canvas."""
+
+    def __init__(self, canvas, annotation):
+        self.canvas = canvas
+        self.annotation = annotation
+        self.annotation_data = annotation.to_dict()
+
+    def execute(self) -> None:
+        self.canvas.scene.removeItem(self.annotation)
+        if self.annotation in self.canvas.annotations:
+            self.canvas.annotations.remove(self.annotation)
+
+    def undo(self) -> None:
+        from GUI.annotation_item import AnnotationItem
+
+        self.annotation = AnnotationItem.from_dict(self.annotation_data)
+        self.canvas.scene.addItem(self.annotation)
+        self.canvas.annotations.append(self.annotation)
+
+    def get_description(self) -> str:
+        return "Delete Annotation"
+
+
+class EditAnnotationCommand(Command):
+    """Command to edit the text of an annotation."""
+
+    def __init__(self, annotation, old_text: str, new_text: str):
+        self.annotation = annotation
+        self.old_text = old_text
+        self.new_text = new_text
+
+    def execute(self) -> None:
+        self.annotation.setPlainText(self.new_text)
+
+    def undo(self) -> None:
+        self.annotation.setPlainText(self.old_text)
+
+    def get_description(self) -> str:
+        return "Edit Annotation"
