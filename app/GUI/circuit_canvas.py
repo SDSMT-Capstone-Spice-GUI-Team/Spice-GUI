@@ -1,6 +1,6 @@
 import logging
 
-from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsLineItem,
@@ -92,6 +92,10 @@ class CircuitCanvasView(QGraphicsView):
         # Grid drawing deferred to first show for faster startup
         self._grid_drawn = False
         self._grid_items = []  # Track grid lines/labels for export toggling
+
+        # Batched wire rerouting (dedup across group drags)
+        self._pending_reroute_components = set()
+        self._batch_reroute_timer = None
 
         # Text annotations on the canvas
         self.annotations = []
@@ -208,8 +212,38 @@ class CircuitCanvasView(QGraphicsView):
             comp.setPos(*component_data.position)
             comp.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
 
-            # Reroute connected wires
-            self.reroute_connected_wires(comp)
+            # Batch reroute: collect component, defer actual rerouting
+            self._pending_reroute_components.add(comp)
+            self._schedule_batch_reroute()
+
+    def _schedule_batch_reroute(self):
+        """Schedule deferred batch reroute on next event loop iteration."""
+        if self._batch_reroute_timer is not None:
+            return  # Already scheduled
+        self._batch_reroute_timer = QTimer()
+        self._batch_reroute_timer.setSingleShot(True)
+        self._batch_reroute_timer.timeout.connect(self._do_batch_reroute)
+        self._batch_reroute_timer.start(0)  # Fire on next event loop tick
+
+    def _do_batch_reroute(self):
+        """Reroute each unique affected wire exactly once."""
+        components = self._pending_reroute_components
+        self._pending_reroute_components = set()
+        self._batch_reroute_timer = None
+
+        wires_to_reroute = set()
+        for comp in components:
+            for wire in self.wires:
+                if wire.start_comp is comp or wire.end_comp is comp:
+                    wires_to_reroute.add(wire)
+
+        for wire in wires_to_reroute:
+            wire.update_position()
+
+        if wires_to_reroute:
+            self.scene.update()
+            if self.viewport():
+                self.viewport().update()
 
     def _handle_component_rotated(self, component_data) -> None:
         """Update graphics item rotation"""
