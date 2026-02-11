@@ -66,6 +66,7 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         self.setPen(QPen(self.layer_color, 2))
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setZValue(1)  # Render wires above components (z=0)
         self.update_position()
 
     # --- Data delegation properties ---
