@@ -227,6 +227,11 @@ class CircuitController:
         self.model.rebuild_nodes()
         self._notify("nodes_rebuilt", None)
 
+    def set_net_name(self, node, label) -> None:
+        """Set a custom net name on a node and notify observers."""
+        node.set_custom_label(label)
+        self._notify("net_name_changed", node)
+
     # --- Clipboard operations ---
 
     def copy_components(self, component_ids: list[str]) -> bool:
