@@ -1,7 +1,7 @@
 # waveform_dialog imported lazily in configure_waveform() for faster startup
-from models.component import DEFAULT_VALUES
+from models.component import DEFAULT_VALUES, OPAMP_MODELS
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QFormLayout, QGroupBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QComboBox, QFormLayout, QGroupBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from .format_utils import format_value, validate_component_value
 from .styles import theme_manager
@@ -51,6 +51,14 @@ class PropertiesPanel(QWidget):
         self.value_input.setToolTip("Component value with optional SI suffix (e.g., 10k, 100n, 4.7M)")
         self.value_input.textChanged.connect(self.on_value_changed)
         self.form_layout.addRow("Value:", self.value_input)
+
+        # Op-amp model selector (shown only for Op-Amp components)
+        self.opamp_model_combo = QComboBox()
+        self.opamp_model_combo.addItems(OPAMP_MODELS)
+        self.opamp_model_combo.setToolTip("Select the op-amp model (Ideal or a real device)")
+        self.opamp_model_combo.currentTextChanged.connect(self._on_opamp_model_changed)
+        self.opamp_model_combo.setVisible(False)
+        self.form_layout.addRow("Model:", self.opamp_model_combo)
 
         # Validation error label
         self.error_label = QLabel("")
@@ -111,11 +119,13 @@ class PropertiesPanel(QWidget):
         self.id_label.setText("-")
         self.type_label.setText("-")
         self.value_input.clear()
+        self.value_input.setVisible(True)
         self.value_input.setReadOnly(False)
         self.value_input.setPlaceholderText("")
         self.apply_button.setEnabled(False)
         self.error_label.setVisible(False)
         self.waveform_button.setVisible(False)
+        self.opamp_model_combo.setVisible(False)
         self.results_group.setVisible(False)
         self.current_component = None
 
@@ -130,6 +140,7 @@ class PropertiesPanel(QWidget):
         self.apply_button.setEnabled(False)
         self.error_label.setVisible(False)
         self.waveform_button.setVisible(False)
+        self.opamp_model_combo.setVisible(False)
 
     def show_component(self, component):
         """Display properties for the given component"""
@@ -155,15 +166,37 @@ class PropertiesPanel(QWidget):
             self.value_input.setReadOnly(True)
             self.value_input.setPlaceholderText("Use 'Configure Waveform...' button")
             self.waveform_button.setVisible(True)
+            self.opamp_model_combo.setVisible(False)
+        elif component.component_type == "Op-Amp":
+            # Op-amps use a model selector combo instead of free-text input
+            self.value_input.setReadOnly(True)
+            self.value_input.setVisible(False)
+            self.waveform_button.setVisible(False)
+            self.opamp_model_combo.setVisible(True)
+            self.opamp_model_combo.blockSignals(True)
+            model = component.value if component.value in OPAMP_MODELS else "Ideal"
+            self.opamp_model_combo.setCurrentText(model)
+            self.opamp_model_combo.blockSignals(False)
         else:
             self.value_input.setReadOnly(False)
+            self.value_input.setVisible(True)
             self.value_input.setPlaceholderText(f"Default: {DEFAULT_VALUES.get(component.component_type, '')}")
             self.waveform_button.setVisible(False)
+            self.opamp_model_combo.setVisible(False)
 
         self.value_input.blockSignals(False)
 
         # Show simulation results if available
         self._update_results_display()
+
+    def _on_opamp_model_changed(self, model_name):
+        """Handle op-amp model combo change."""
+        if not self.current_component:
+            return
+        if self.current_component.component_type != "Op-Amp":
+            return
+        if model_name != self.current_component.value:
+            self.property_changed.emit(self.current_component.component_id, "value", model_name)
 
     def on_value_changed(self):
         """Handle value input changes"""
