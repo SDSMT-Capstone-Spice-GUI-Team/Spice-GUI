@@ -299,3 +299,48 @@ class TestNoQtInMonteCarloModule:
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source
+
+
+class TestSpiceValueConsolidation:
+    """Verify _format_sweep_value delegates to format_spice_value."""
+
+    def test_sweep_value_matches_spice_format(self):
+        """_format_sweep_value must produce identical output to format_spice_value."""
+        test_values = [0, 1, 1000, 4700, 1e6, 1e-3, 1e-6, 1e-9, 1e-12, 47e3, -5.0]
+        for val in test_values:
+            sweep = SimulationController._format_sweep_value(val)
+            spice = format_spice_value(val)
+            assert sweep == spice, f"Mismatch for {val}: {sweep!r} != {spice!r}"
+
+    def test_parse_format_roundtrip(self):
+        """parse_spice_value(format_spice_value(x)) ≈ x for common values."""
+        test_values = [100, 1e3, 4.7e3, 1e6, 1e-3, 1e-6, 100e-9, 22e-12]
+        for val in test_values:
+            formatted = format_spice_value(val)
+            parsed = parse_spice_value(formatted)
+            assert parsed == pytest.approx(val), f"Round-trip failed: {val} -> {formatted!r} -> {parsed}"
+
+    def test_negative_values(self):
+        """Negative values should format with a minus sign."""
+        assert format_spice_value(-1000) == "-1k"
+        assert parse_spice_value("-1k") == -1000.0
+
+    def test_very_small_values(self):
+        """Values smaller than femto should use scientific notation."""
+        result = format_spice_value(1e-18)
+        assert "e" in result.lower() or result == "0.001f"
+
+    def test_very_large_values(self):
+        """Tera prefix for large values."""
+        assert format_spice_value(1e12) == "1T"
+        assert parse_spice_value("1T") == 1e12
+
+    def test_parse_case_insensitive_k(self):
+        """Both k and K should be recognized as kilo."""
+        assert parse_spice_value("1K") == 1000.0
+        assert parse_spice_value("1k") == 1000.0
+
+    def test_parse_meg_case_insensitive(self):
+        """Both MEG and meg should be recognized."""
+        assert parse_spice_value("4.7MEG") == pytest.approx(4.7e6)
+        assert parse_spice_value("4.7meg") == pytest.approx(4.7e6)

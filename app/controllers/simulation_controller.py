@@ -491,30 +491,10 @@ class SimulationController:
 
     @staticmethod
     def _format_sweep_value(value: float) -> str:
-        """Format a float as a SPICE-compatible value string."""
-        if value == 0:
-            return "0"
+        """Format a float as a SPICE-compatible value string.
 
-        abs_val = abs(value)
-        # SPICE prefixes (MEG for mega to avoid ambiguity with milli)
-        prefixes = [
-            (1e12, "T"),
-            (1e9, "G"),
-            (1e6, "MEG"),
-            (1e3, "k"),
-            (1, ""),
-            (1e-3, "m"),
-            (1e-6, "u"),
-            (1e-9, "n"),
-            (1e-12, "p"),
-            (1e-15, "f"),
-        ]
+        Delegates to the canonical implementation in simulation.monte_carlo.
+        """
+        from simulation.monte_carlo import format_spice_value
 
-        for mult, prefix in prefixes:
-            if abs_val >= mult:
-                scaled = value / mult
-                if scaled == int(scaled):
-                    return f"{int(scaled)}{prefix}"
-                return f"{scaled:.6g}{prefix}"
-
-        return f"{value:.6g}"
+        return format_spice_value(value)
