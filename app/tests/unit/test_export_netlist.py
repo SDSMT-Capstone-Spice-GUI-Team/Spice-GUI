@@ -1,7 +1,7 @@
 """Tests for netlist export to .cir file (issue #228).
 
-Verifies that the generated netlist can be written to a file and
-that the menu infrastructure exists.
+Verifies that the generated netlist can be written to a file,
+that keybindings are registered, and that the menu infrastructure exists.
 """
 
 import inspect
@@ -10,6 +10,8 @@ import pytest
 from controllers.circuit_controller import CircuitController
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
+from models.component import ComponentData
+from models.wire import WireData
 
 
 class TestNetlistGeneration:
@@ -113,6 +115,65 @@ class TestNetlistFileExport:
         content = outfile.read_text(encoding="utf-8")
         assert content == netlist
 
+    def test_exported_netlist_has_analysis_command(self, tmp_path):
+        """Exported netlist should contain the analysis command."""
+        model = CircuitModel()
+        model.analysis_type = "DC Operating Point"
+        model.analysis_params = {}
+        model.components = {
+            "V1": ComponentData("V1", "Voltage Source", "5V", (0, 0)),
+            "GND1": ComponentData("GND1", "Ground", "0", (0, 100)),
+        }
+        model.wires = [WireData("V1", 1, "GND1", 0)]
+        model.rebuild_nodes()
+
+        ctrl = SimulationController(model)
+        netlist = ctrl.generate_netlist()
+
+        output_file = tmp_path / "test.cir"
+        output_file.write_text(netlist)
+
+        content = output_file.read_text()
+        assert ".op" in content
+
+    def test_transient_analysis_netlist(self, tmp_path):
+        """Netlist with transient analysis should contain .tran command."""
+        model = CircuitModel()
+        model.analysis_type = "Transient"
+        model.analysis_params = {"step": "1m", "duration": "10m", "start": 0}
+        model.components = {
+            "V1": ComponentData("V1", "Voltage Source", "5V", (0, 0)),
+            "GND1": ComponentData("GND1", "Ground", "0", (0, 100)),
+        }
+        model.wires = [WireData("V1", 1, "GND1", 0)]
+        model.rebuild_nodes()
+
+        ctrl = SimulationController(model)
+        netlist = ctrl.generate_netlist()
+
+        output_file = tmp_path / "transient.cir"
+        output_file.write_text(netlist)
+
+        content = output_file.read_text()
+        assert ".tran" in content
+
+
+class TestExportNetlistKeybindings:
+    """Verify keybinding and label registration."""
+
+    def test_keybinding_registered(self):
+        """file.export_netlist should be in the keybindings DEFAULTS."""
+        from GUI.keybindings import DEFAULTS
+
+        assert "file.export_netlist" in DEFAULTS
+
+    def test_action_label_registered(self):
+        """file.export_netlist should have a human-readable label."""
+        from GUI.keybindings import ACTION_LABELS
+
+        assert "file.export_netlist" in ACTION_LABELS
+        assert "Netlist" in ACTION_LABELS["file.export_netlist"]
+
 
 class TestExportNetlistMenuInfrastructure:
     """Verify menu and method infrastructure for netlist export."""
@@ -152,3 +213,17 @@ class TestExportNetlistMenuInfrastructure:
 
         source = inspect.getsource(SimulationMixin.export_netlist)
         assert "OSError" in source
+
+    def test_bound_actions_includes_export_netlist(self):
+        """_bound_actions dict should include file.export_netlist."""
+        from GUI.main_window_menus import MenuBarMixin
+
+        source = inspect.getsource(MenuBarMixin.create_menu_bar)
+        assert '"file.export_netlist"' in source
+
+    def test_menu_connects_to_export_netlist(self):
+        """export_netlist_action should connect to export_netlist."""
+        from GUI.main_window_menus import MenuBarMixin
+
+        source = inspect.getsource(MenuBarMixin.create_menu_bar)
+        assert "export_netlist" in source
