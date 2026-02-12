@@ -258,6 +258,185 @@ class ResultParser:
             return None
 
     @staticmethod
+    def parse_sensitivity_results(output):
+        """Parse DC sensitivity analysis results.
+
+        Looks for the sensitivity table that ngspice prints for .sens.
+        The table is preceded by a line like "dc sensitivities of output v(...)".
+        Returns a list of dicts with keys: element, value, sensitivity,
+        normalized_sensitivity.  Returns None if no data found.
+        """
+        try:
+            lines = output.split("\n")
+            results = []
+            in_header_zone = False
+            in_data = False
+
+            for line in lines:
+                stripped = line.strip()
+
+                # Detect "dc sensitivities of output" marker
+                if "dc sensitivities" in stripped.lower():
+                    in_header_zone = True
+                    continue
+
+                if in_header_zone and not in_data:
+                    # Skip header lines (element/name/units) and blanks
+                    if not stripped or "element" in stripped.lower() or "name" in stripped.lower():
+                        continue
+                    if "volts/" in stripped.lower() or "amps/" in stripped.lower():
+                        continue
+                    # First non-header, non-blank line = data
+                    in_data = True
+
+                if in_data:
+                    if not stripped:
+                        # Blank line ends the data section
+                        if results:
+                            break
+                        continue
+
+                    parts = stripped.split()
+                    if len(parts) >= 4:
+                        try:
+                            element = parts[0]
+                            value = float(parts[1])
+                            sensitivity = float(parts[2])
+                            normalized = float(parts[3])
+                            results.append(
+                                {
+                                    "element": element,
+                                    "value": value,
+                                    "sensitivity": sensitivity,
+                                    "normalized_sensitivity": normalized,
+                                }
+                            )
+                        except (ValueError, IndexError):
+                            continue
+                    elif len(parts) >= 3:
+                        try:
+                            element = parts[0]
+                            sensitivity = float(parts[1])
+                            normalized = float(parts[2])
+                            results.append(
+                                {
+                                    "element": element,
+                                    "value": 0.0,
+                                    "sensitivity": sensitivity,
+                                    "normalized_sensitivity": normalized,
+                                }
+                            )
+                        except (ValueError, IndexError):
+                            continue
+
+            return results if results else None
+
+        except (ValueError, IndexError, AttributeError) as e:
+            logger.error("Error parsing sensitivity results: %s", e, exc_info=True)
+            return None
+
+    @staticmethod
+    def parse_tf_results(output):
+        """Parse transfer function (.tf) results.
+
+        ngspice prints three lines like:
+            Transfer function, output/input = 5.000000e-01
+            Output impedance at v(out) = 5.000000e+02
+            v1#Input impedance = 1.000000e+03
+
+        Returns a dict with keys 'transfer_function', 'output_impedance',
+        'input_impedance', or None if nothing was found.
+        """
+        try:
+            results = {}
+            for line in output.split("\n"):
+                # Transfer function line
+                tf_match = re.search(
+                    r"[Tt]ransfer\s+function.*?=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                    line,
+                )
+                if tf_match:
+                    results["transfer_function"] = float(tf_match.group(1))
+                    continue
+
+                # Output impedance line
+                out_z_match = re.search(
+                    r"[Oo]utput\s+impedance.*?=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                    line,
+                )
+                if out_z_match:
+                    results["output_impedance"] = float(out_z_match.group(1))
+                    continue
+
+                # Input impedance line
+                in_z_match = re.search(
+                    r"[Ii]nput\s+impedance.*?=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                    line,
+                )
+                if in_z_match:
+                    results["input_impedance"] = float(in_z_match.group(1))
+                    continue
+
+            return results if results else None
+
+        except (ValueError, IndexError, AttributeError) as e:
+            logger.error("Error parsing TF results: %s", e, exc_info=True)
+            return None
+
+    @staticmethod
+    def parse_pz_results(output):
+        """Parse pole-zero (.pz) analysis results.
+
+        ngspice prints lines like:
+            pole(1) = -1.00000e+03, 0.00000e+00
+            pole(2) = -5.00000e+05, 3.00000e+05
+            zero(1) = -2.00000e+04, 0.00000e+00
+
+        Returns a dict with 'poles' and 'zeros' lists, each containing
+        dicts with 'real', 'imag', 'frequency_hz', and 'is_unstable' keys.
+        Returns None if no data found.
+        """
+        try:
+            poles = []
+            zeros = []
+
+            pz_pattern = re.compile(
+                r"(pole|zero)\(\d+\)\s*=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)\s*,\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                re.IGNORECASE,
+            )
+
+            for line in output.split("\n"):
+                match = pz_pattern.search(line)
+                if not match:
+                    continue
+
+                kind = match.group(1).lower()
+                real = float(match.group(2))
+                imag = float(match.group(3))
+                magnitude = math.sqrt(real**2 + imag**2)
+                freq_hz = magnitude / (2 * math.pi) if magnitude > 0 else 0.0
+                entry = {
+                    "real": real,
+                    "imag": imag,
+                    "frequency_hz": freq_hz,
+                    "is_unstable": real > 0,
+                }
+
+                if kind == "pole":
+                    poles.append(entry)
+                else:
+                    zeros.append(entry)
+
+            if not poles and not zeros:
+                return None
+
+            return {"poles": poles, "zeros": zeros}
+
+        except (ValueError, IndexError, AttributeError) as e:
+            logger.error("Error parsing PZ results: %s", e, exc_info=True)
+            return None
+
+    @staticmethod
     def parse_transient_results(filepath):
         """
         Parses a wrdata output file from ngspice, which has a clean,
@@ -339,3 +518,36 @@ class ResultParser:
             data_rows.append(" | ".join(row_list))
 
         return f"{header_str}\n{separator}\n" + "\n".join(data_rows)
+
+    @staticmethod
+    def parse_measurement_results(stdout):
+        """Parse .meas measurement results from ngspice stdout.
+
+        ngspice prints measurement results in the format:
+            name  =  value
+        or:
+            name  =  failed
+
+        Returns a dict mapping measurement names to float values,
+        or None if no measurements found.  Failed measurements are
+        included with value None.
+        """
+        if not stdout:
+            return None
+
+        results = {}
+        for line in stdout.split("\n"):
+            # Match: "  rise_time  =  1.23456e-06"
+            match = re.match(r"^\s*(\w+)\s*=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)\s*$", line, re.IGNORECASE)
+            if match:
+                name = match.group(1)
+                value = float(match.group(2))
+                results[name] = value
+                continue
+
+            # Match failed measurement: "  rise_time  =  failed"
+            fail_match = re.match(r"^\s*(\w+)\s*=\s*failed\s*$", line, re.IGNORECASE)
+            if fail_match:
+                results[fail_match.group(1)] = None
+
+        return results if results else None

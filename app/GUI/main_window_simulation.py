@@ -23,6 +23,9 @@ class SimulationMixin:
             # Phase 5: No sync needed - model always up to date
             netlist = self.simulation_ctrl.generate_netlist()
             self.results_text.setPlainText("SPICE Netlist:\n\n" + netlist)
+            # Also update the netlist preview tab
+            if hasattr(self, "netlist_preview"):
+                self.netlist_preview.set_netlist(netlist)
         except (ValueError, KeyError, TypeError) as e:
             QMessageBox.critical(self, "Error", f"Failed to generate netlist: {e}")
 
@@ -149,6 +152,10 @@ class SimulationMixin:
         self._last_results_type = self.model.analysis_type
         self.btn_export_csv.setEnabled(False)
 
+        # Update netlist preview with the netlist that was actually used
+        if hasattr(self, "netlist_preview") and result.netlist:
+            self.netlist_preview.set_netlist(result.netlist)
+
         self.results_text.setPlainText("\n" + "=" * 70)
         self.results_text.append(f"SIMULATION COMPLETE - {self.model.analysis_type}")
         self.results_text.append("=" * 70)
@@ -164,12 +171,19 @@ class SimulationMixin:
             "Transient": self._display_transient_results,
             "Temperature Sweep": self._display_temp_sweep_results,
             "Noise": self._display_noise_results,
+            "Sensitivity": self._display_sensitivity_results,
+            "Transfer Function": self._display_tf_results,
+            "Pole-Zero": self._display_pz_results,
             "Parameter Sweep": self._display_param_sweep_results,
             "Monte Carlo": self._display_monte_carlo_results,
         }
         handler = handlers.get(self.model.analysis_type)
         if handler:
             handler(result)
+
+        # Display .meas measurement results if present
+        if result.measurements:
+            self._display_measurement_results(result.measurements)
 
         self.results_text.append("=" * 70)
 
@@ -203,6 +217,20 @@ class SimulationMixin:
             "Circuit Validation",
             "\n\n".join(popup_lines),
         )
+
+    def _display_measurement_results(self, measurements):
+        """Display .meas measurement results."""
+        from simulation.result_parser import format_si
+
+        self.results_text.append("\nMEASUREMENTS:")
+        self.results_text.append("-" * 40)
+        for name, value in sorted(measurements.items()):
+            if value is None:
+                self.results_text.append(f"  {name:20s} : FAILED")
+            else:
+                formatted = format_si(value)
+                self.results_text.append(f"  {name:20s} : {formatted}")
+        self.results_text.append("-" * 40)
 
     def _display_op_results(self, result):
         """Display DC Operating Point results."""
@@ -293,6 +321,13 @@ class SimulationMixin:
             table_string = ResultParser.format_results_as_table(tran_data)
             self.results_text.append(table_string)
 
+            # Power summary for resistors
+            from simulation.power_metrics import compute_transient_power_metrics, format_power_summary
+
+            power_metrics = compute_transient_power_metrics(tran_data, self.model.components)
+            if power_metrics:
+                self.results_text.append(format_power_summary(power_metrics))
+
             self.results_text.append("\n" + "-" * 40)
             self.results_text.append("Waveform plot has also been generated in a new window.")
 
@@ -358,6 +393,106 @@ class SimulationMixin:
                     self.results_text.append(f"  ... ({len(freqs)} total rows)")
         else:
             self.results_text.append("\nNo noise data found in output.")
+        self.canvas.clear_op_results()
+        self.properties_panel.clear_simulation_results()
+
+    def _display_sensitivity_results(self, result):
+        """Display Sensitivity analysis results as a sorted table."""
+        sens_data = result.data if result.data else None
+        if sens_data:
+            self._last_results = sens_data
+            self.results_text.append("\nDC SENSITIVITY ANALYSIS:")
+            self.results_text.append("-" * 70)
+            self.results_text.append(f"  {'Element':20s} {'Value':>14s} {'Sensitivity':>14s} {'Normalized':>14s}")
+            self.results_text.append("-" * 70)
+
+            # Sort by absolute normalized sensitivity (most impactful first)
+            sorted_data = sorted(sens_data, key=lambda r: abs(r["normalized_sensitivity"]), reverse=True)
+            for row in sorted_data:
+                self.results_text.append(
+                    f"  {row['element']:20s} {row['value']:14.4e} "
+                    f"{row['sensitivity']:14.4e} {row['normalized_sensitivity']:14.4e}"
+                )
+            self.results_text.append("-" * 70)
+            self.results_text.append(
+                f"\n  {len(sens_data)} elements analyzed. "
+                "Sorted by absolute normalized sensitivity (most impactful first)."
+            )
+        else:
+            self.results_text.append("\nNo sensitivity data found in output.")
+        self.canvas.clear_op_results()
+        self.properties_panel.clear_simulation_results()
+
+    def _display_tf_results(self, result):
+        """Display Transfer Function (.tf) results."""
+        from simulation.result_parser import format_si
+
+        tf_data = result.data if result.data else None
+        if tf_data:
+            self._last_results = tf_data
+            self.results_text.append("\nTRANSFER FUNCTION RESULTS:")
+            self.results_text.append("-" * 40)
+
+            gain = tf_data.get("transfer_function")
+            z_out = tf_data.get("output_impedance")
+            z_in = tf_data.get("input_impedance")
+
+            if gain is not None:
+                self.results_text.append(f"  {'Transfer function':20s} : {gain:.6g}")
+            if z_in is not None:
+                self.results_text.append(f"  {'Input impedance':20s} : {format_si(z_in, 'Ω')}")
+            if z_out is not None:
+                self.results_text.append(f"  {'Output impedance':20s} : {format_si(z_out, 'Ω')}")
+
+            self.results_text.append("-" * 40)
+        else:
+            self.results_text.append("\nNo transfer function data found in output.")
+        self.canvas.clear_op_results()
+        self.properties_panel.clear_simulation_results()
+
+    def _display_pz_results(self, result):
+        """Display Pole-Zero analysis results."""
+        from simulation.result_parser import format_si
+
+        pz_data = result.data if result.data else None
+        if pz_data:
+            self._last_results = pz_data
+            poles = pz_data.get("poles", [])
+            zeros = pz_data.get("zeros", [])
+
+            self.results_text.append("\nPOLE-ZERO ANALYSIS RESULTS:")
+            self.results_text.append("-" * 70)
+
+            if poles:
+                self.results_text.append(f"\n  POLES ({len(poles)}):")
+                self.results_text.append(
+                    f"  {'#':>3s}  {'Real':>14s}  {'Imaginary':>14s}  {'Freq (Hz)':>12s}  {'Status'}"
+                )
+                for i, p in enumerate(poles, 1):
+                    status = "UNSTABLE" if p["is_unstable"] else "stable"
+                    self.results_text.append(
+                        f"  {i:3d}  {p['real']:14.4e}  {p['imag']:14.4e}  "
+                        f"{format_si(p['frequency_hz'], 'Hz'):>12s}  {status}"
+                    )
+
+            if zeros:
+                self.results_text.append(f"\n  ZEROS ({len(zeros)}):")
+                self.results_text.append(f"  {'#':>3s}  {'Real':>14s}  {'Imaginary':>14s}  {'Freq (Hz)':>12s}")
+                for i, z in enumerate(zeros, 1):
+                    self.results_text.append(
+                        f"  {i:3d}  {z['real']:14.4e}  {z['imag']:14.4e}  {format_si(z['frequency_hz'], 'Hz'):>12s}"
+                    )
+
+            # Stability warning
+            unstable = [p for p in poles if p["is_unstable"]]
+            if unstable:
+                self.results_text.append(
+                    f"\n  WARNING: {len(unstable)} pole(s) with positive real part — circuit may be unstable!"
+                )
+
+            self.results_text.append("-" * 70)
+        else:
+            self.results_text.append("\nNo pole-zero data found in output.")
         self.canvas.clear_op_results()
         self.properties_panel.clear_simulation_results()
 

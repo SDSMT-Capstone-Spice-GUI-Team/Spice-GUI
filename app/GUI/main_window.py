@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSplitter,
     QStackedWidget,
+    QTabWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -175,7 +176,10 @@ class MainWindow(
         canvas_layout.addWidget(self.canvas)
         center_splitter.addWidget(canvas_widget)
 
-        # Results panel
+        # Results / Netlist tabbed panel
+        self.results_tabs = QTabWidget()
+
+        # Tab 1: Simulation Results
         results_widget = QWidget()
         results_layout = QVBoxLayout(results_widget)
         results_header = QHBoxLayout()
@@ -189,7 +193,16 @@ class MainWindow(
         self.results_text = QTextEdit()
         self.results_text.setReadOnly(True)
         results_layout.addWidget(self.results_text)
-        center_splitter.addWidget(results_widget)
+        self.results_tabs.addTab(results_widget, "Results")
+
+        # Tab 2: Netlist Preview
+        from .netlist_preview import NetlistPreviewWidget
+
+        self.netlist_preview = NetlistPreviewWidget()
+        self.netlist_preview.refresh_btn.clicked.connect(self._refresh_netlist_preview)
+        self.results_tabs.addTab(self.netlist_preview, "Netlist")
+
+        center_splitter.addWidget(self.results_tabs)
         center_splitter.setSizes(DEFAULT_SPLITTER_SIZES)
         self.center_splitter = center_splitter
         main_layout.addWidget(center_splitter, 3)
@@ -331,3 +344,18 @@ class MainWindow(
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
+
+        elif property_name == "initial_condition":
+            component.initial_condition = new_value
+            ic_display = new_value if new_value else "none"
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Updated {component_id} initial condition to {ic_display}", 2000)
+
+    def _refresh_netlist_preview(self):
+        """Regenerate and display the netlist in the preview panel."""
+        try:
+            netlist = self.simulation_ctrl.generate_netlist()
+            self.netlist_preview.set_netlist(netlist)
+        except (ValueError, KeyError, TypeError) as e:
+            self.netlist_preview.set_error(str(e))

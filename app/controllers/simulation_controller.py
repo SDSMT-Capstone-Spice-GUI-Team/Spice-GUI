@@ -31,6 +31,7 @@ class SimulationResult:
     raw_output: str = ""
     output_file: str = ""
     wrdata_filepath: str = ""
+    measurements: Optional[dict] = None
 
 
 class SimulationController:
@@ -79,7 +80,12 @@ class SimulationController:
             error="; ".join(errors) if errors else "",
         )
 
-    def generate_netlist(self, wrdata_filepath: Optional[str] = None) -> str:
+    def generate_netlist(
+        self,
+        wrdata_filepath: Optional[str] = None,
+        spice_options: Optional[dict] = None,
+        measurements: Optional[list] = None,
+    ) -> str:
         """Generate a SPICE netlist from the current circuit model."""
         from simulation import NetlistGenerator
 
@@ -92,6 +98,8 @@ class SimulationController:
             analysis_type=self.model.analysis_type,
             analysis_params=self.model.analysis_params,
             wrdata_filepath=wrdata_filepath or "transient_data.txt",
+            spice_options=spice_options,
+            measurements=measurements,
         )
         return generator.generate()
 
@@ -117,9 +125,13 @@ class SimulationController:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_{timestamp}.txt")
 
-        # 3. Generate netlist
+        # 3. Generate netlist (include .meas directives if configured)
+        meas_directives = self.model.analysis_params.get("measurements", [])
         try:
-            netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
+            netlist = self.generate_netlist(
+                wrdata_filepath=wrdata_filepath,
+                measurements=meas_directives,
+            )
         except (ValueError, KeyError, TypeError) as e:
             result = SimulationResult(
                 success=False,
@@ -146,9 +158,41 @@ class SimulationController:
         # 5. Run simulation
         success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
         if not success:
+            # Classify the error and attempt retry with relaxed tolerances
+            from simulation.convergence import RELAXED_OPTIONS, diagnose_error, format_user_message, is_retriable
+
+            diagnosis = diagnose_error(stderr, stdout)
+            friendly_msg = format_user_message(diagnosis)
+
+            if is_retriable(diagnosis.category):
+                # Retry with relaxed tolerances
+                try:
+                    relaxed_netlist = self.generate_netlist(
+                        wrdata_filepath=wrdata_filepath,
+                        spice_options=RELAXED_OPTIONS,
+                    )
+                except (ValueError, KeyError, TypeError):
+                    relaxed_netlist = None
+
+                if relaxed_netlist:
+                    retry_ok, retry_out, retry_stdout, retry_stderr = self.runner.run_simulation(relaxed_netlist)
+                    if retry_ok:
+                        # Parse retried results, add warning about relaxed tolerances
+                        result = self._parse_results(
+                            output_file=retry_out,
+                            wrdata_filepath=wrdata_filepath,
+                            netlist=relaxed_netlist,
+                            raw_output=retry_stdout,
+                            warnings=validation.warnings
+                            + ["Simulation converged with relaxed tolerances (results may be less accurate)."],
+                        )
+                        if self.circuit_ctrl:
+                            self.circuit_ctrl._notify("simulation_completed", result)
+                        return result
+
             result = SimulationResult(
                 success=False,
-                error=stderr or "Simulation failed",
+                error=friendly_msg,
                 netlist=netlist,
                 raw_output=stdout,
             )
@@ -204,11 +248,23 @@ class SimulationController:
             elif analysis == "Noise":
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_noise_results(output)
+            elif analysis == "Sensitivity":
+                output = self.runner.read_output(output_file)
+                data = ResultParser.parse_sensitivity_results(output)
+            elif analysis == "Transfer Function":
+                output = self.runner.read_output(output_file)
+                data = ResultParser.parse_tf_results(output)
+            elif analysis == "Pole-Zero":
+                output = self.runner.read_output(output_file)
+                data = ResultParser.parse_pz_results(output)
             else:
                 return SimulationResult(
                     success=False,
                     error=f"Unknown analysis type: {analysis}",
                 )
+
+            # Parse any .meas measurement results from stdout
+            meas_results = ResultParser.parse_measurement_results(raw_output)
 
             return SimulationResult(
                 success=True,
@@ -219,6 +275,7 @@ class SimulationController:
                 output_file=output_file or "",
                 wrdata_filepath=wrdata_filepath,
                 warnings=warnings,
+                measurements=meas_results,
             )
 
         except (ValueError, IndexError, KeyError, OSError) as e:
