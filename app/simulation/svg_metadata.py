@@ -2,11 +2,13 @@
 simulation/svg_metadata.py
 
 Inject and extract circuit JSON metadata in SVG files.
-No Qt dependencies — SVG manipulation uses stdlib xml.etree.ElementTree.
+No Qt dependencies — uses defusedxml for safe XML parsing.
 """
 
 import json
 import xml.etree.ElementTree as ET
+
+import defusedxml.ElementTree as SafeET
 
 SVG_NS = "http://www.w3.org/2000/svg"
 METADATA_NS = "http://spice-gui.github.io/circuit"
@@ -22,7 +24,7 @@ def inject_metadata(svg_path, circuit_data):
     """
     ET.register_namespace("", SVG_NS)
     ET.register_namespace("spice", METADATA_NS)
-    tree = ET.parse(svg_path)
+    tree = SafeET.parse(svg_path)
     root = tree.getroot()
 
     # Find or create <metadata> element
@@ -57,7 +59,7 @@ def extract_metadata(svg_path):
     Raises:
         json.JSONDecodeError: if metadata exists but is not valid JSON
     """
-    tree = ET.parse(svg_path)
+    tree = SafeET.parse(svg_path)
     root = tree.getroot()
 
     metadata = root.find(f"{{{SVG_NS}}}metadata")
@@ -81,7 +83,7 @@ def has_metadata(svg_path):
         bool: True if circuit metadata is present
     """
     try:
-        tree = ET.parse(svg_path)
+        tree = SafeET.parse(svg_path)
         root = tree.getroot()
         metadata = root.find(f"{{{SVG_NS}}}metadata")
         if metadata is None:
