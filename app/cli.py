@@ -9,9 +9,11 @@ Usage::
     python -m cli simulate circuit.json --format csv --output results.csv
     python -m cli validate circuit.json
     python -m cli export circuit.json --format cir --output circuit.cir
+    python -m cli batch circuits/ --output-dir results/
 """
 
 import argparse
+import glob
 import json
 import sys
 from pathlib import Path
@@ -29,6 +31,33 @@ from simulation.csv_exporter import (
 )
 
 
+def try_load_circuit(filepath: str) -> tuple[CircuitModel | None, str]:
+    """Load and validate a circuit JSON file without exiting.
+
+    Args:
+        filepath: Path to the circuit JSON file.
+
+    Returns:
+        (model, "") on success, or (None, error_message) on failure.
+    """
+    path = Path(filepath)
+    if not path.exists():
+        return None, f"file not found: {filepath}"
+
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        return None, f"invalid JSON in {filepath}: {e}"
+
+    try:
+        validate_circuit_data(data)
+    except ValueError as e:
+        return None, f"invalid circuit file: {e}"
+
+    return CircuitModel.from_dict(data), ""
+
+
 def load_circuit(filepath: str) -> CircuitModel:
     """Load and validate a circuit JSON file.
 
@@ -41,25 +70,11 @@ def load_circuit(filepath: str) -> CircuitModel:
     Raises:
         SystemExit: On file read or validation errors.
     """
-    path = Path(filepath)
-    if not path.exists():
-        print(f"Error: file not found: {filepath}", file=sys.stderr)
+    model, error = try_load_circuit(filepath)
+    if model is None:
+        print(f"Error: {error}", file=sys.stderr)
         sys.exit(1)
-
-    try:
-        with open(path, "r") as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        print(f"Error: invalid JSON in {filepath}: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        validate_circuit_data(data)
-    except ValueError as e:
-        print(f"Error: invalid circuit file: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    return CircuitModel.from_dict(data)
+    return model
 
 
 def cmd_simulate(args: argparse.Namespace) -> int:
@@ -195,6 +210,89 @@ def _result_to_csv(result, circuit_name: str = "") -> str:
         return _result_to_json(result)
 
 
+def cmd_batch(args: argparse.Namespace) -> int:
+    """Run simulations on multiple circuit files."""
+    # Resolve input files
+    pattern = args.path
+    path = Path(pattern)
+    if path.is_dir():
+        files = sorted(path.glob("*.json"))
+    elif "*" in pattern or "?" in pattern:
+        files = sorted(Path(p) for p in glob.glob(pattern))
+    else:
+        print(f"Error: {pattern} is not a directory or glob pattern", file=sys.stderr)
+        return 1
+
+    if not files:
+        print(f"No .json circuit files found matching: {pattern}", file=sys.stderr)
+        return 1
+
+    # Create output directory if specified
+    output_dir = None
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    fmt = args.format
+    results_summary = []
+    any_failed = False
+
+    for filepath in files:
+        name = filepath.stem
+        model, error = try_load_circuit(str(filepath))
+
+        if model is None:
+            results_summary.append({"file": filepath.name, "status": "LOAD_ERROR", "error": error})
+            any_failed = True
+            if args.fail_fast:
+                break
+            continue
+
+        controller = CircuitController(model)
+        sim = SimulationController(model, controller)
+
+        if args.analysis:
+            sim.set_analysis(args.analysis)
+
+        result = sim.run_simulation()
+
+        if not result.success:
+            results_summary.append({"file": filepath.name, "status": "FAIL", "error": result.error})
+            any_failed = True
+            if args.fail_fast:
+                break
+            continue
+
+        results_summary.append(
+            {
+                "file": filepath.name,
+                "status": "OK",
+                "analysis": result.analysis_type,
+            }
+        )
+
+        # Write per-file results if output directory specified
+        if output_dir:
+            ext = "csv" if fmt == "csv" else "json"
+            out_path = output_dir / f"{name}.{ext}"
+            out_path.write_text(_format_result(result, fmt, name))
+
+    # Print summary table
+    print(f"\n{'File':<40} {'Status':<12} {'Details'}")
+    print("-" * 70)
+    for entry in results_summary:
+        status = entry["status"]
+        details = entry.get("analysis", entry.get("error", ""))
+        print(f"{entry['file']:<40} {status:<12} {details}")
+
+    total = len(results_summary)
+    passed = sum(1 for e in results_summary if e["status"] == "OK")
+    failed = total - passed
+    print(f"\n{passed}/{total} succeeded, {failed} failed")
+
+    return 1 if any_failed else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser."""
     parser = argparse.ArgumentParser(
@@ -226,6 +324,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     exp_parser.add_argument("--output", "-o", help="Write output to file instead of stdout")
 
+    # batch
+    batch_parser = subparsers.add_parser("batch", help="Run simulations on multiple circuit files")
+    batch_parser.add_argument("path", help="Directory or glob pattern matching circuit JSON files")
+    batch_parser.add_argument(
+        "--format", choices=["json", "csv"], default="json", help="Output format for per-file results (default: json)"
+    )
+    batch_parser.add_argument("--output-dir", help="Write per-file results to this directory")
+    batch_parser.add_argument(
+        "--analysis",
+        choices=["DC Operating Point", "DC Sweep", "AC Sweep", "Transient", "Temperature Sweep", "Noise"],
+        help="Override the analysis type for all circuits",
+    )
+    batch_parser.add_argument("--fail-fast", action="store_true", help="Stop on first error")
+
     return parser
 
 
@@ -238,6 +350,7 @@ def main(argv=None) -> int:
         "simulate": cmd_simulate,
         "validate": cmd_validate,
         "export": cmd_export,
+        "batch": cmd_batch,
     }
 
     handler = handlers.get(args.command)
