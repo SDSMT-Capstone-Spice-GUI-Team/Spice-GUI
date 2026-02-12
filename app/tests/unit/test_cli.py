@@ -12,10 +12,12 @@ from cli import (
     build_parser,
     build_repl_namespace,
     cmd_batch,
+    cmd_diff,
     cmd_export,
     cmd_import,
     cmd_simulate,
     cmd_validate,
+    diff_circuits,
     load_circuit,
     main,
     try_load_circuit,
@@ -479,3 +481,158 @@ R2 2 0 1k
         # The .op directive should result in DC Operating Point analysis
         if "analysis_type" in data:
             assert data["analysis_type"] == "DC Operating Point"
+
+
+class TestDiffCommand:
+    @pytest.fixture
+    def base_circuit_data(self):
+        return {
+            "components": [
+                {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
+                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
+                {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 0, "y": 200}, "rotation": 0},
+            ],
+            "wires": [
+                {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
+                {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+                {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+            ],
+            "counters": {"R": 1, "V": 1, "GND": 1},
+        }
+
+    @pytest.fixture
+    def circuit_a(self, tmp_path, base_circuit_data):
+        filepath = tmp_path / "circuit_a.json"
+        filepath.write_text(json.dumps(base_circuit_data))
+        return str(filepath)
+
+    @pytest.fixture
+    def circuit_b_identical(self, tmp_path, base_circuit_data):
+        filepath = tmp_path / "circuit_b.json"
+        filepath.write_text(json.dumps(base_circuit_data))
+        return str(filepath)
+
+    @pytest.fixture
+    def circuit_b_value_changed(self, tmp_path, base_circuit_data):
+        data = json.loads(json.dumps(base_circuit_data))
+        data["components"][1]["value"] = "2.2k"
+        filepath = tmp_path / "circuit_b_changed.json"
+        filepath.write_text(json.dumps(data))
+        return str(filepath)
+
+    @pytest.fixture
+    def circuit_b_component_added(self, tmp_path, base_circuit_data):
+        data = json.loads(json.dumps(base_circuit_data))
+        data["components"].append(
+            {"type": "Resistor", "id": "R2", "value": "4.7k", "pos": {"x": 300, "y": 0}, "rotation": 0}
+        )
+        data["counters"]["R"] = 2
+        filepath = tmp_path / "circuit_b_added.json"
+        filepath.write_text(json.dumps(data))
+        return str(filepath)
+
+    @pytest.fixture
+    def circuit_b_wire_changed(self, tmp_path, base_circuit_data):
+        data = json.loads(json.dumps(base_circuit_data))
+        # Remove one wire and add a different one
+        data["wires"] = data["wires"][:2]
+        data["wires"].append({"start_comp": "V1", "start_term": 1, "end_comp": "R1", "end_term": 1})
+        filepath = tmp_path / "circuit_b_wire.json"
+        filepath.write_text(json.dumps(data))
+        return str(filepath)
+
+    @pytest.fixture
+    def circuit_b_analysis_changed(self, tmp_path, base_circuit_data):
+        data = json.loads(json.dumps(base_circuit_data))
+        data["analysis_type"] = "AC Sweep"
+        data["analysis_params"] = {"start_freq": "1", "stop_freq": "1MEG", "points": "100"}
+        filepath = tmp_path / "circuit_b_analysis.json"
+        filepath.write_text(json.dumps(data))
+        return str(filepath)
+
+    def test_identical_circuits(self, circuit_a, circuit_b_identical):
+        model_a = load_circuit(circuit_a)
+        model_b = load_circuit(circuit_b_identical)
+        diff = diff_circuits(model_a, model_b)
+        assert diff["components"] == {}
+        assert diff["wires"] == {}
+        assert diff["analysis"] == {}
+
+    def test_identical_returns_zero(self, circuit_a, circuit_b_identical):
+        args = build_parser().parse_args(["diff", circuit_a, circuit_b_identical])
+        code = cmd_diff(args)
+        assert code == 0
+
+    def test_different_returns_one(self, circuit_a, circuit_b_value_changed):
+        args = build_parser().parse_args(["diff", circuit_a, circuit_b_value_changed])
+        code = cmd_diff(args)
+        assert code == 1
+
+    def test_component_value_change(self, circuit_a, circuit_b_value_changed):
+        model_a = load_circuit(circuit_a)
+        model_b = load_circuit(circuit_b_value_changed)
+        diff = diff_circuits(model_a, model_b)
+        assert len(diff["components"]["changed"]) == 1
+        change = diff["components"]["changed"][0]
+        assert change["id"] == "R1"
+        assert change["changes"]["value"] == {"from": "1k", "to": "2.2k"}
+
+    def test_component_added(self, circuit_a, circuit_b_component_added):
+        model_a = load_circuit(circuit_a)
+        model_b = load_circuit(circuit_b_component_added)
+        diff = diff_circuits(model_a, model_b)
+        assert len(diff["components"]["added"]) == 1
+        assert diff["components"]["added"][0]["id"] == "R2"
+
+    def test_component_removed(self, circuit_a, circuit_b_component_added):
+        # Swap a and b to test removal
+        model_a = load_circuit(circuit_b_component_added)
+        model_b = load_circuit(circuit_a)
+        diff = diff_circuits(model_a, model_b)
+        assert len(diff["components"]["removed"]) == 1
+        assert diff["components"]["removed"][0]["id"] == "R2"
+
+    def test_wire_changes(self, circuit_a, circuit_b_wire_changed):
+        model_a = load_circuit(circuit_a)
+        model_b = load_circuit(circuit_b_wire_changed)
+        diff = diff_circuits(model_a, model_b)
+        assert "added" in diff["wires"]
+        assert "removed" in diff["wires"]
+
+    def test_analysis_change(self, circuit_a, circuit_b_analysis_changed):
+        model_a = load_circuit(circuit_a)
+        model_b = load_circuit(circuit_b_analysis_changed)
+        diff = diff_circuits(model_a, model_b)
+        assert diff["analysis"]["type"] == {"from": "DC Operating Point", "to": "AC Sweep"}
+        assert "params" in diff["analysis"]
+
+    def test_text_format(self, circuit_a, circuit_b_value_changed, capsys):
+        args = build_parser().parse_args(["diff", circuit_a, circuit_b_value_changed])
+        cmd_diff(args)
+        captured = capsys.readouterr()
+        assert "R1" in captured.out
+        assert "1k" in captured.out
+        assert "2.2k" in captured.out
+
+    def test_json_format(self, circuit_a, circuit_b_value_changed, capsys):
+        args = build_parser().parse_args(["diff", circuit_a, circuit_b_value_changed, "-f", "json"])
+        cmd_diff(args)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert "components" in data
+        assert "wires" in data
+        assert "analysis" in data
+
+    def test_identical_text_output(self, circuit_a, circuit_b_identical, capsys):
+        args = build_parser().parse_args(["diff", circuit_a, circuit_b_identical])
+        cmd_diff(args)
+        captured = capsys.readouterr()
+        assert "identical" in captured.out
+
+    def test_via_main(self, circuit_a, circuit_b_value_changed):
+        code = main(["diff", circuit_a, circuit_b_value_changed])
+        assert code == 1
+
+    def test_parser_requires_two_files(self):
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["diff"])

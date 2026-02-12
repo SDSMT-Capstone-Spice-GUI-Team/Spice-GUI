@@ -427,6 +427,146 @@ def cmd_import(args: argparse.Namespace) -> int:
     return 0
 
 
+def diff_circuits(model_a: CircuitModel, model_b: CircuitModel) -> dict:
+    """Compare two circuit models and return a structured diff.
+
+    Args:
+        model_a: The reference (baseline) circuit.
+        model_b: The circuit to compare against the reference.
+
+    Returns:
+        Dict with keys: components, wires, analysis. Each contains
+        lists of added/removed/changed items. Empty if identical.
+    """
+    diff: dict = {"components": {}, "wires": {}, "analysis": {}}
+
+    # --- Components ---
+    ids_a = set(model_a.components.keys())
+    ids_b = set(model_b.components.keys())
+
+    added = sorted(ids_b - ids_a)
+    removed = sorted(ids_a - ids_b)
+    changed = []
+
+    for cid in sorted(ids_a & ids_b):
+        ca = model_a.components[cid]
+        cb = model_b.components[cid]
+        changes = {}
+        if ca.component_type != cb.component_type:
+            changes["type"] = {"from": ca.component_type, "to": cb.component_type}
+        if ca.value != cb.value:
+            changes["value"] = {"from": ca.value, "to": cb.value}
+        if ca.rotation != cb.rotation:
+            changes["rotation"] = {"from": ca.rotation, "to": cb.rotation}
+        if ca.position != cb.position:
+            changes["position"] = {"from": list(ca.position), "to": list(cb.position)}
+        if changes:
+            changed.append({"id": cid, "changes": changes})
+
+    comp_diff = {}
+    if added:
+        comp_diff["added"] = [{"id": cid, "type": model_b.components[cid].component_type} for cid in added]
+    if removed:
+        comp_diff["removed"] = [{"id": cid, "type": model_a.components[cid].component_type} for cid in removed]
+    if changed:
+        comp_diff["changed"] = changed
+    diff["components"] = comp_diff
+
+    # --- Wires ---
+    def wire_key(w):
+        return (w.start_component_id, w.start_terminal, w.end_component_id, w.end_terminal)
+
+    wires_a = {wire_key(w) for w in model_a.wires}
+    wires_b = {wire_key(w) for w in model_b.wires}
+
+    wire_added = sorted(wires_b - wires_a)
+    wire_removed = sorted(wires_a - wires_b)
+
+    wire_diff = {}
+    if wire_added:
+        wire_diff["added"] = [{"start": f"{k[0]}:{k[1]}", "end": f"{k[2]}:{k[3]}"} for k in wire_added]
+    if wire_removed:
+        wire_diff["removed"] = [{"start": f"{k[0]}:{k[1]}", "end": f"{k[2]}:{k[3]}"} for k in wire_removed]
+    diff["wires"] = wire_diff
+
+    # --- Analysis ---
+    analysis_diff = {}
+    if model_a.analysis_type != model_b.analysis_type:
+        analysis_diff["type"] = {"from": model_a.analysis_type, "to": model_b.analysis_type}
+    if model_a.analysis_params != model_b.analysis_params:
+        analysis_diff["params"] = {"from": model_a.analysis_params, "to": model_b.analysis_params}
+    diff["analysis"] = analysis_diff
+
+    return diff
+
+
+def _is_empty_diff(diff: dict) -> bool:
+    """Check if a diff result represents identical circuits."""
+    return not diff["components"] and not diff["wires"] and not diff["analysis"]
+
+
+def _format_diff_text(diff: dict, name_a: str, name_b: str) -> str:
+    """Format a circuit diff as human-readable text."""
+    lines = [f"Comparing {name_a} vs {name_b}", ""]
+
+    if _is_empty_diff(diff):
+        lines.append("Circuits are identical.")
+        return "\n".join(lines)
+
+    # Components
+    comp = diff["components"]
+    if comp:
+        lines.append("Components:")
+        for item in comp.get("added", []):
+            lines.append(f"  + {item['id']} ({item['type']})")
+        for item in comp.get("removed", []):
+            lines.append(f"  - {item['id']} ({item['type']})")
+        for item in comp.get("changed", []):
+            lines.append(f"  ~ {item['id']}:")
+            for field, vals in item["changes"].items():
+                lines.append(f"      {field}: {vals['from']} -> {vals['to']}")
+        lines.append("")
+
+    # Wires
+    wire = diff["wires"]
+    if wire:
+        lines.append("Wires:")
+        for item in wire.get("added", []):
+            lines.append(f"  + {item['start']} -- {item['end']}")
+        for item in wire.get("removed", []):
+            lines.append(f"  - {item['start']} -- {item['end']}")
+        lines.append("")
+
+    # Analysis
+    analysis = diff["analysis"]
+    if analysis:
+        lines.append("Analysis:")
+        if "type" in analysis:
+            lines.append(f"  type: {analysis['type']['from']} -> {analysis['type']['to']}")
+        if "params" in analysis:
+            lines.append(f"  params: {analysis['params']['from']} -> {analysis['params']['to']}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    """Compare two circuit files and report differences."""
+    model_a = load_circuit(args.circuit_a)
+    model_b = load_circuit(args.circuit_b)
+
+    diff = diff_circuits(model_a, model_b)
+    identical = _is_empty_diff(diff)
+
+    fmt = args.format
+    if fmt == "json":
+        print(json.dumps(diff, indent=2, default=str))
+    else:
+        print(_format_diff_text(diff, Path(args.circuit_a).name, Path(args.circuit_b).name))
+
+    return 0 if identical else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser."""
     parser = argparse.ArgumentParser(
@@ -482,6 +622,14 @@ def build_parser() -> argparse.ArgumentParser:
     import_parser.add_argument("netlist", help="Path to SPICE netlist file (.cir, .spice, .sp)")
     import_parser.add_argument("--output", "-o", help="Output JSON file path (default: same name with .json extension)")
 
+    # diff
+    diff_parser = subparsers.add_parser("diff", help="Compare two circuit files and report differences")
+    diff_parser.add_argument("circuit_a", help="Path to reference circuit JSON file")
+    diff_parser.add_argument("circuit_b", help="Path to circuit JSON file to compare")
+    diff_parser.add_argument(
+        "--format", "-f", choices=["text", "json"], default="text", help="Output format (default: text)"
+    )
+
     return parser
 
 
@@ -497,6 +645,7 @@ def main(argv=None) -> int:
         "batch": cmd_batch,
         "repl": cmd_repl,
         "import": cmd_import,
+        "diff": cmd_diff,
     }
 
     handler = handlers.get(args.command)
