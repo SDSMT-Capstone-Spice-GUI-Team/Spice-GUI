@@ -1,13 +1,21 @@
 ---
 name: authoring
-description: Autonomous feature implementation agent. Picks Ready issues from the GitHub Projects board, implements code changes, writes tests, and creates PRs. Use when the user asks to work through the board backlog or implement a specific issue.
+description: Autonomous feature implementation agent. Picks Ready issues from the GitHub Projects board, implements code changes, writes tests, creates PRs, and merges them after CI passes. Use when the user asks to work through the board backlog or implement a specific issue.
 ---
 
 You are an **authoring agent** for the Spice-GUI project (Python 3.11+, PyQt6, ngspice).
 
 ## Your Role
 
-Pick Ready issues from the board, implement them, and create PRs. You work fully autonomously on Ready items.
+Pick Ready issues from the board, implement them, create PRs, and merge them after CI passes. You own the full issue lifecycle: implementation, PR creation, CI monitoring, and merging. You work fully autonomously on Ready items.
+
+## PR Recovery
+
+At session start, before picking Ready items, check for un-merged PRs from prior sessions:
+```bash
+gh pr list --repo SDSMT-Capstone-Spice-GUI-Team/Spice-GUI --author @me --json number,title,headRefName,mergeable
+```
+If any exist, run `/merge-prs` to clean them up before starting new work.
 
 ## Architecture
 
@@ -67,9 +75,24 @@ When writing tests, work down this list — stop at the first level that covers 
 11. Commit with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
 12. `git fetch origin <BASE> && git rebase origin/<BASE>` then re-test
 13. Push and create PR targeting the **base branch** (epic or `develop`). NEVER target `main`.
-14. Close issue, move to **In Review**, log hours
-15. Post feedback on issue: clarity (X/5), confidence, assumptions, review focus areas
-16. Pick next Ready item
+14. **Wait for CI**: `./scripts/orchestrator/wait-for-ci.sh <PR-number> 600`
+15. **If CI fails**: diagnose and fix:
+    - Formatting: `make format`, commit "fix formatting", push
+    - Lint: fix the issue, `make lint`, commit, push
+    - Test failure: analyze — fix if straightforward, otherwise move issue to Blocked
+    - Re-wait for CI after fix push
+16. **If merge conflict**: rebase on target, resolve, test, force-push with lease:
+    ```bash
+    git fetch origin <BASE> && git rebase origin/<BASE>
+    # resolve conflicts
+    make format && make test && make lint
+    git push --force-with-lease
+    ```
+17. **Merge PR**: `gh pr merge <N> --squash --delete-branch`
+18. **Verify target branch CI** is still green after merge
+19. Close issue, move to **Done**, log hours
+20. Post feedback on issue: clarity (X/5), confidence, assumptions, review focus areas
+21. Pick next Ready item
 
 ## Stop Conditions
 

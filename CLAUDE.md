@@ -97,7 +97,7 @@ main                              <- always human-verified, student-safe
 | Branch | Base | PR Target | Who Merges | Protection |
 |--------|------|-----------|------------|------------|
 | `main` | — | — | Jeremy | Require PR, no direct push |
-| `develop` | `main` | `main` (via release) | PR mgmt agents + Jeremy | Require CI pass |
+| `develop` | `main` | `main` (via release) | Authoring agents + Jeremy | Require CI pass |
 | `epic/<name>` | `develop` | `develop` | Jeremy reviews | Require CI pass |
 | `issue-<N>-*` | epic or develop | epic or develop | Coding agents | — |
 
@@ -227,8 +227,7 @@ Format: `- [ ] Brief description (PR #NNN)`
 Claude Code is authorized to work **fully autonomously** on Ready items.
 
 Role-specific workflows and instructions are defined in `.claude/agents/`:
-- `authoring.md` — picks Ready issues, implements code, writes tests, creates PRs
-- `pr-monitor.md` — merges green PRs, fixes CI failures, resolves merge conflicts
+- `authoring.md` — picks Ready issues, implements code, writes tests, creates PRs, merges after CI passes
 - `grooming.md` — labels issues with epic tags, updates epics, maintains board hygiene
 - `orchestrator.md` — monitors workflow health, tracks epic progress, updates process docs
 

@@ -8,10 +8,6 @@ user-invocable: true
 
 !`gh issue view $ARGUMENTS --repo SDSMT-Capstone-Spice-GUI-Team/Spice-GUI --json title,body,labels,state,comments`
 
-## Issue Labels
-
-!`gh issue view $ARGUMENTS --repo SDSMT-Capstone-Spice-GUI-Team/Spice-GUI --json labels --jq "[.labels[].name]"`
-
 ## Implementation Checklist
 
 Follow these steps in order:
@@ -39,7 +35,16 @@ Follow these steps in order:
 13. **Re-test** after rebase: `make test && make lint`
 14. **Push**: `git push -u origin issue-$ARGUMENTS-<description>`
 15. **Create PR** targeting the base branch (epic or `develop`, NEVER `main`)
-16. **Close issue**: `gh issue close $ARGUMENTS`
-17. **Move to In Review** on the board
-18. **Log hours**: comment `⏱️ Xh - description` on the issue
-19. **Post feedback** on the issue: clarity (X/5), confidence, assumptions, review focus areas
+16. **Wait for CI**: `./scripts/orchestrator/wait-for-ci.sh <PR-number> 600`
+17. **Fix CI failures** if any:
+    - Formatting: `make format`, commit "fix formatting", push
+    - Lint: fix issue, `make lint`, commit, push
+    - Test failure: analyze — fix if straightforward, otherwise move issue to Blocked
+    - Re-wait for CI after fix push
+18. **Resolve merge conflicts** if any: `git fetch origin <BASE> && git rebase origin/<BASE>`, resolve, `make format && make test && make lint`, `git push --force-with-lease`
+19. **Merge PR**: `gh pr merge <PR-number> --squash --delete-branch`
+20. **Verify target branch CI** is still green after merge
+21. **Close issue**: `gh issue close $ARGUMENTS`
+22. **Move to Done** on the board
+23. **Log hours**: comment `⏱️ Xh - description` on the issue
+24. **Post feedback** on the issue: clarity (X/5), confidence, assumptions, review focus areas

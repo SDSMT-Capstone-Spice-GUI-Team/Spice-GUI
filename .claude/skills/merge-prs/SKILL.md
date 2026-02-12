@@ -1,6 +1,6 @@
 ---
 name: merge-prs
-description: Review and merge open pull requests. Checks CI status, reviews changes, merges green PRs one at a time. Usage /merge-prs
+description: Review and merge your open pull requests. Checks CI status, fixes failures, merges green PRs one at a time. Use at session start to clean up PRs from prior sessions, or invoke manually when needed. Usage /merge-prs
 user-invocable: true
 ---
 
@@ -39,4 +39,6 @@ user-invocable: true
 
 - NEVER merge directly to `main` — PRs target `develop` or epic branches
 - `main_window.py` is the #1 merge conflict hotspot (~1700 lines)
-- NEVER claim issues or move them to In Progress — that's the authoring agent's job
+- Only merge PRs from branches you created. Leave other agents' PRs alone.
+- Use `./scripts/orchestrator/wait-for-ci.sh <N>` instead of manual `gh pr checks` polling
+- If your PR touches `main_window.py`, merge promptly to reduce the conflict window
