@@ -8,7 +8,9 @@ from unittest.mock import patch
 import pytest
 from cli import (
     __version__,
+    REPL_BANNER,
     build_parser,
+    build_repl_namespace,
     cmd_batch,
     cmd_export,
     cmd_simulate,
@@ -18,6 +20,7 @@ from cli import (
     try_load_circuit,
 )
 from models.circuit import CircuitModel
+from scripting.circuit import Circuit
 
 
 @pytest.fixture
@@ -369,3 +372,41 @@ class TestStdinPipe:
         captured = capsys.readouterr()
         data = json.loads(captured.out)
         assert "components" in data
+class TestReplCommand:
+    def test_repl_namespace_has_circuit(self):
+        ns = build_repl_namespace()
+        assert "Circuit" in ns
+        assert ns["Circuit"] is Circuit
+
+    def test_repl_namespace_has_simulation_result(self):
+        ns = build_repl_namespace()
+        assert "SimulationResult" in ns
+
+    def test_repl_namespace_has_component_types(self):
+        ns = build_repl_namespace()
+        assert "COMPONENT_TYPES" in ns
+        assert "Resistor" in ns["COMPONENT_TYPES"]
+
+    def test_repl_namespace_load_circuit(self, voltage_divider):
+        ns = build_repl_namespace(voltage_divider)
+        assert "circuit" in ns
+        assert isinstance(ns["circuit"], Circuit)
+        assert len(ns["circuit"].components) == 4
+
+    def test_repl_namespace_load_nonexistent(self, capsys):
+        ns = build_repl_namespace("/nonexistent/file.json")
+        assert "circuit" not in ns
+        captured = capsys.readouterr()
+        assert "Warning" in captured.err
+
+    def test_repl_banner_content(self):
+        assert "Circuit" in REPL_BANNER
+        assert "Quick start" in REPL_BANNER
+
+    def test_repl_parser(self, voltage_divider):
+        args = build_parser().parse_args(["repl", "--load", voltage_divider])
+        assert args.load == voltage_divider
+
+    def test_repl_parser_no_args(self):
+        args = build_parser().parse_args(["repl"])
+        assert args.load is None
