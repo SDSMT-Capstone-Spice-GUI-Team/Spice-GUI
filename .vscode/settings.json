@@ -3,6 +3,7 @@
         "mgmt",
         "netlist",
         "ngspice",
+        "pytest",
         "qtbot",
         "venv"
     ],

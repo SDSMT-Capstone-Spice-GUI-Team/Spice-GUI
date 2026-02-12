@@ -1,10 +1,12 @@
 {
+  "defaultMode": "acceptEdits",
   "permissions": {
     "allow": [
       "Bash(python -m pytest:*)",
       "Bash(python -m py_compile:*)",
       "Bash(python -c:*)",
       "Bash(python3:*)",
+      "Bash(python:*)",
       "Bash(QT_QPA_PLATFORM=offscreen python -m pytest:*)",
       "Bash(ruff check:*)",
       "Bash(ruff format:*)",
@@ -36,12 +38,23 @@
       "Bash(git worktree:*)",
       "Bash(git pull:*)",
       "Bash(git rm:*)",
+      "Bash(git mv:*)",
+      "Bash(git config:*)",
+      "Bash(git cherry-pick:*)",
       "Bash(ls:*)",
       "Bash(rm:*)",
       "Bash(wc:*)",
       "Bash(mkdir:*)",
       "Bash(find:*)",
       "Bash(source:*)",
+      "Bash(cd:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+      "Bash(sort:*)",
+      "Bash(for:*)",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "Bash(cygpath:*)",
       "Bash(make test:*)",
       "Bash(make lint:*)",
       "Bash(make format:*)",
@@ -54,8 +67,7 @@
       "Bash(pre-commit:*)",
       "Bash(black:*)",
       "Bash(isort:*)",
-      "Bash(bandit:*)",
-      "Bash(cat .git/hooks/pre-commit:*)"
+      "Bash(bandit:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",
