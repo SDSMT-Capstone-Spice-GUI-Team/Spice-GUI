@@ -313,6 +313,13 @@ class SimulationMixin:
             table_string = ResultParser.format_results_as_table(tran_data)
             self.results_text.append(table_string)
 
+            # Power summary for resistors
+            from simulation.power_metrics import compute_transient_power_metrics, format_power_summary
+
+            power_metrics = compute_transient_power_metrics(tran_data, self.model.components)
+            if power_metrics:
+                self.results_text.append(format_power_summary(power_metrics))
+
             self.results_text.append("\n" + "-" * 40)
             self.results_text.append("Waveform plot has also been generated in a new window.")
 
