@@ -46,6 +46,18 @@ class MenuBarMixin:
 
         file_menu.addSeparator()
 
+        new_from_template_action = QAction("New from &Template...", self)
+        new_from_template_action.setToolTip("Create a new circuit from an assignment template")
+        new_from_template_action.triggered.connect(self._on_new_from_template)
+        file_menu.addAction(new_from_template_action)
+
+        save_as_template_action = QAction("Save as Temp&late...", self)
+        save_as_template_action.setToolTip("Save current circuit as an assignment template with metadata")
+        save_as_template_action.triggered.connect(self._on_save_as_template)
+        file_menu.addAction(save_as_template_action)
+
+        file_menu.addSeparator()
+
         import_netlist_action = QAction("&Import SPICE Netlist...", self)
         import_netlist_action.setToolTip("Import a SPICE netlist file (.cir, .spice)")
         import_netlist_action.triggered.connect(self._on_import_netlist)
