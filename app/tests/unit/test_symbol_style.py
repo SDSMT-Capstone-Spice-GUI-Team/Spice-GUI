@@ -191,9 +191,7 @@ class TestIEEEDrawDispatch:
         called = []
         comp._draw_ieee = lambda painter: called.append(True)
         comp.draw_component_body(None)
-        assert (
-            called
-        ), f"{cls.type_name} draw_component_body did not dispatch to _draw_ieee"
+        assert called, f"{cls.type_name} draw_component_body did not dispatch to _draw_ieee"
 
 
 class TestObstacleShapeDispatch:
