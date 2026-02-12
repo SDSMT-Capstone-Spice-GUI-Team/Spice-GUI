@@ -25,6 +25,7 @@ class NetlistGenerator:
         analysis_type,
         analysis_params,
         wrdata_filepath="transient_data.txt",
+        spice_options=None,
     ):
         """
         Args:
@@ -35,6 +36,7 @@ class NetlistGenerator:
             analysis_type: str
             analysis_params: dict
             wrdata_filepath: str - path for wrdata output file
+            spice_options: Optional[dict[str, str]] - extra .options key=value pairs
         """
         self.components = components
         self.wires = wires
@@ -43,6 +45,7 @@ class NetlistGenerator:
         self.analysis_type = analysis_type
         self.analysis_params = analysis_params
         self.wrdata_filepath = wrdata_filepath
+        self.spice_options = spice_options or {}
 
     def generate(self):
         """Generate complete SPICE netlist"""
@@ -271,6 +274,11 @@ class NetlistGenerator:
         lines.append("* Simulation Options")
         lines.append(".option TEMP=27")
         lines.append(".option TNOM=27")
+
+        # Add extra SPICE options (e.g. relaxed tolerances for convergence retry)
+        if self.spice_options:
+            pairs = " ".join(f"{k}={v}" for k, v in self.spice_options.items())
+            lines.append(f".options {pairs}")
 
         # Add analysis command
         lines.extend(self._generate_analysis_commands(node_labels, node_map))
