@@ -345,6 +345,27 @@ class Circuit:
     def clear(self) -> None:
         """Remove all components and wires from the circuit."""
         self._controller.clear_circuit()
+    # --- Display integration ---
+
+    def _repr_svg_(self) -> str:
+        """Jupyter notebook SVG representation."""
+        from scripting.jupyter import circuit_to_svg
+
+        return circuit_to_svg(self._model)
+
+    def plot_result(self, result: SimulationResult, title: Optional[str] = None):
+        """Generate a matplotlib figure from a simulation result.
+
+        Args:
+            result: A SimulationResult from simulate().
+            title: Optional plot title.
+
+        Returns:
+            A matplotlib Figure, or None if matplotlib is unavailable.
+        """
+        from scripting.jupyter import plot_result
+
+        return plot_result(result, title)
 
     # --- Result export ---
 
