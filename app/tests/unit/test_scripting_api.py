@@ -247,3 +247,123 @@ class TestProperties:
         circuit.add_component("Voltage Source")
         circuit.add_wire("R1", 0, "V1", 0)
         assert len(circuit.wires) == 1
+
+
+class TestFindComponents:
+    def test_find_all(self):
+        circuit = Circuit()
+        circuit.add_component("Resistor", "1k")
+        circuit.add_component("Resistor", "2.2k")
+        circuit.add_component("Voltage Source", "5V")
+        results = circuit.find_components()
+        assert len(results) == 3
+
+    def test_find_by_type(self):
+        circuit = Circuit()
+        circuit.add_component("Resistor", "1k")
+        circuit.add_component("Resistor", "2.2k")
+        circuit.add_component("Voltage Source", "5V")
+        results = circuit.find_components(component_type="Resistor")
+        assert len(results) == 2
+        assert all(c.component_type == "Resistor" for c in results)
+
+    def test_find_by_value(self):
+        circuit = Circuit()
+        circuit.add_component("Resistor", "1k")
+        circuit.add_component("Resistor", "1k")
+        circuit.add_component("Resistor", "2.2k")
+        results = circuit.find_components(value="1k")
+        assert len(results) == 2
+
+    def test_find_by_type_and_value(self):
+        circuit = Circuit()
+        circuit.add_component("Resistor", "1k")
+        circuit.add_component("Capacitor", "1k")  # unlikely but valid
+        results = circuit.find_components(component_type="Resistor", value="1k")
+        assert len(results) == 1
+        assert results[0].component_type == "Resistor"
+
+    def test_find_no_match(self):
+        circuit = Circuit()
+        circuit.add_component("Resistor", "1k")
+        results = circuit.find_components(component_type="Inductor")
+        assert len(results) == 0
+
+
+class TestGetConnections:
+    def test_connections_exist(self):
+        circuit = Circuit()
+        circuit.add_component("Voltage Source", "5V")
+        circuit.add_component("Resistor", "1k")
+        circuit.add_component("Ground")
+        circuit.add_wire("V1", 0, "R1", 0)
+        circuit.add_wire("R1", 1, "GND1", 0)
+        circuit.add_wire("V1", 1, "GND1", 0)
+        connections = circuit.get_connections("R1")
+        assert len(connections) == 2
+
+    def test_connections_none(self):
+        circuit = Circuit()
+        circuit.add_component("Resistor", "1k")
+        connections = circuit.get_connections("R1")
+        assert len(connections) == 0
+
+    def test_connections_for_nonexistent(self):
+        circuit = Circuit()
+        connections = circuit.get_connections("X99")
+        assert len(connections) == 0
+
+
+class TestSummary:
+    def test_summary_content(self):
+        circuit = Circuit()
+        circuit.add_component("Voltage Source", "5V")
+        circuit.add_component("Resistor", "1k")
+        circuit.add_component("Ground")
+        text = circuit.summary()
+        assert "3 components" in text
+        assert "Resistor: 1" in text
+        assert "Voltage Source: 1" in text
+        assert "DC Operating Point" in text
+
+    def test_empty_summary(self):
+        circuit = Circuit()
+        text = circuit.summary()
+        assert "0 components" in text
+
+
+class TestUndoRedo:
+    def test_undo_empty_returns_false(self):
+        circuit = Circuit()
+        assert circuit.undo() is False
+
+    def test_redo_empty_returns_false(self):
+        circuit = Circuit()
+        assert circuit.redo() is False
+
+    def test_can_undo_initially_false(self):
+        circuit = Circuit()
+        assert circuit.can_undo() is False
+
+    def test_can_redo_initially_false(self):
+        circuit = Circuit()
+        assert circuit.can_redo() is False
+
+
+class TestClear:
+    def test_clear_removes_all(self):
+        circuit = Circuit()
+        circuit.add_component("Voltage Source", "5V")
+        circuit.add_component("Resistor", "1k")
+        circuit.add_component("Ground")
+        circuit.add_wire("V1", 0, "R1", 0)
+        assert len(circuit.components) == 3
+        assert len(circuit.wires) == 1
+        circuit.clear()
+        assert len(circuit.components) == 0
+        assert len(circuit.wires) == 0
+
+    def test_clear_empty_circuit(self):
+        circuit = Circuit()
+        circuit.clear()  # Should not raise
+        assert len(circuit.components) == 0

@@ -264,6 +264,88 @@ class Circuit:
         """List of all supported component types."""
         return list(COMPONENT_TYPES)
 
+    # --- Query helpers ---
+
+    def find_components(
+        self,
+        component_type: Optional[str] = None,
+        value: Optional[str] = None,
+    ) -> list[ComponentData]:
+        """Find components matching the given criteria.
+
+        Args:
+            component_type: Filter by component type (e.g. "Resistor").
+            value: Filter by value (e.g. "1k").
+
+        Returns:
+            List of matching ComponentData objects.
+        """
+        results = list(self._model.components.values())
+        if component_type is not None:
+            results = [c for c in results if c.component_type == component_type]
+        if value is not None:
+            results = [c for c in results if c.value == value]
+        return results
+
+    def get_connections(self, component_id: str) -> list:
+        """Get all wires connected to a component.
+
+        Args:
+            component_id: The component ID (e.g. "R1").
+
+        Returns:
+            List of WireData objects connected to the component.
+        """
+        return [w for w in self._model.wires if w.connects_component(component_id)]
+
+    def summary(self) -> str:
+        """Return a human-readable summary of the circuit."""
+        n_comp = len(self._model.components)
+        n_wire = len(self._model.wires)
+        n_node = len(self._model.nodes)
+        lines = [
+            f"Circuit: {n_comp} components, {n_wire} wires, {n_node} nodes",
+            f"Analysis: {self._model.analysis_type}",
+        ]
+        type_counts: dict[str, int] = {}
+        for c in self._model.components.values():
+            type_counts[c.component_type] = type_counts.get(c.component_type, 0) + 1
+        for ctype, count in sorted(type_counts.items()):
+            lines.append(f"  {ctype}: {count}")
+        return "\n".join(lines)
+
+    # --- Undo/Redo ---
+
+    def undo(self) -> bool:
+        """Undo the last operation.
+
+        Returns:
+            True if an action was undone, False if nothing to undo.
+        """
+        return self._controller.undo()
+
+    def redo(self) -> bool:
+        """Redo the last undone operation.
+
+        Returns:
+            True if an action was redone, False if nothing to redo.
+        """
+        return self._controller.redo()
+
+    def can_undo(self) -> bool:
+        """Check if there are operations to undo."""
+        return self._controller.can_undo()
+
+    def can_redo(self) -> bool:
+        """Check if there are operations to redo."""
+        return self._controller.can_redo()
+
+    # --- Circuit management ---
+
+    def clear(self) -> None:
+        """Remove all components and wires from the circuit."""
+        self._controller.clear_circuit()
+
     # --- Result export ---
 
     @staticmethod
