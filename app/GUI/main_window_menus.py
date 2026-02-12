@@ -437,6 +437,11 @@ class MenuBarMixin:
             grade_action.triggered.connect(self._toggle_grading_panel)
             instructor_menu.addAction(grade_action)
 
+            batch_grade_action = QAction("&Batch Grade...", self)
+            batch_grade_action.setToolTip("Grade a folder of student submissions")
+            batch_grade_action.triggered.connect(self._on_batch_grade)
+            instructor_menu.addAction(batch_grade_action)
+
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")
         if settings_menu:

@@ -86,6 +86,13 @@ class ViewOperationsMixin:
         visible = not self.grading_panel.isVisible()
         self.grading_panel.setVisible(visible)
 
+    def _on_batch_grade(self):
+        """Open the batch grading dialog."""
+        from .batch_grading_dialog import BatchGradingDialog
+
+        dialog = BatchGradingDialog(reference_circuit=self.model, parent=self)
+        dialog.exec()
+
     # Dirty flag (unsaved changes indicator)
 
     def _on_dirty_change(self, event: str, data) -> None:
