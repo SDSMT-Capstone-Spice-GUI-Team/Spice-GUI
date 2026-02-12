@@ -251,3 +251,77 @@ class TestDrawDispatchIEC:
         comp._draw_iec = lambda painter: iec_called.append(True)
         comp.draw_component_body(None)
         assert iec_called
+
+
+# ── IEC symbol implementations (#284) ──────────────────────────────
+
+IEC_COMPONENTS = [Resistor, Capacitor, Inductor]
+
+
+class TestIECDrawMethods:
+    """Verify IEC draw methods exist and dispatch correctly."""
+
+    @pytest.mark.parametrize("cls", IEC_COMPONENTS, ids=lambda c: c.type_name)
+    def test_has_draw_iec(self, cls):
+        assert hasattr(cls, "_draw_iec"), f"{cls.type_name} missing _draw_iec"
+
+    @pytest.mark.parametrize("cls", IEC_COMPONENTS, ids=lambda c: c.type_name)
+    def test_iec_dispatches_to_draw_iec(self, cls):
+        """Setting style to IEC should call _draw_iec on these components."""
+        theme_manager.set_symbol_style("iec")
+        comp = cls("T1")
+        called = []
+        comp._draw_iec = lambda painter: called.append(True)
+        comp.draw_component_body(None)
+        assert called
+
+    def test_resistor_iec_different_from_ieee(self):
+        """Resistor IEC (rectangle) should differ from IEEE (zigzag)."""
+        r = Resistor("R1")
+        assert hasattr(r, "_draw_iec")
+        assert r._draw_iec is not r._draw_ieee
+
+    def test_inductor_iec_different_from_ieee(self):
+        """Inductor IEC (rectangular humps) should differ from IEEE (arcs)."""
+        l = Inductor("L1")
+        assert hasattr(l, "_draw_iec")
+        assert l._draw_iec is not l._draw_ieee
+
+
+class TestIECObstacleShapes:
+    """Verify IEC obstacle shapes for components that differ from IEEE."""
+
+    def test_resistor_iec_obstacle_shape(self):
+        theme_manager.set_symbol_style("iec")
+        r = Resistor("R1")
+        shape = r.get_obstacle_shape()
+        assert isinstance(shape, list)
+        assert len(shape) == 4
+        # IEC resistor is a rectangle — should return the IEC-specific shape
+        assert shape == r._get_obstacle_shape_iec()
+
+    def test_inductor_iec_obstacle_shape(self):
+        theme_manager.set_symbol_style("iec")
+        l = Inductor("L1")
+        shape = l.get_obstacle_shape()
+        assert isinstance(shape, list)
+        assert len(shape) == 4
+        assert shape == l._get_obstacle_shape_iec()
+
+    def test_capacitor_falls_back_to_ieee_obstacle(self):
+        """Capacitor is the same in both standards — should fall back."""
+        theme_manager.set_symbol_style("iec")
+        c = Capacitor("C1")
+        assert c.get_obstacle_shape() == c._get_obstacle_shape_ieee()
+
+    def test_resistor_iec_and_ieee_obstacles_differ(self):
+        r = Resistor("R1")
+        ieee = r._get_obstacle_shape_ieee()
+        iec = r._get_obstacle_shape_iec()
+        assert ieee != iec
+
+    def test_inductor_iec_and_ieee_obstacles_differ(self):
+        l = Inductor("L1")
+        ieee = l._get_obstacle_shape_ieee()
+        iec = l._get_obstacle_shape_iec()
+        assert ieee != iec

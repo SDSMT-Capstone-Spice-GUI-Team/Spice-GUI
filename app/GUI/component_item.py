@@ -503,8 +503,17 @@ class Resistor(ComponentGraphicsItem):
         painter.drawLine(5, 8, 10, -8)
         painter.drawLine(10, -8, 15, 0)
 
+    def _draw_iec(self, painter):
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -15, 0)
+            painter.drawLine(15, 0, 30, 0)
+        painter.drawRect(-15, -8, 30, 16)
+
     def _get_obstacle_shape_ieee(self):
         return [(-18.0, -11.0), (18.0, -11.0), (18.0, 11.0), (-18.0, 11.0)]
+
+    def _get_obstacle_shape_iec(self):
+        return [(-18.0, -10.0), (18.0, -10.0), (18.0, 10.0), (-18.0, 10.0)]
 
 
 class Capacitor(ComponentGraphicsItem):
@@ -519,6 +528,14 @@ class Capacitor(ComponentGraphicsItem):
         if self.scene() is not None:
             painter.drawLine(-30, 0, -5, 0)
             painter.drawLine(5, 0, 30, 0)
+        painter.drawLine(-5, -12, -5, 12)
+        painter.drawLine(5, -12, 5, 12)
+
+    def _draw_iec(self, painter):
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -5, 0)
+            painter.drawLine(5, 0, 30, 0)
+        # IEC non-polarized: two parallel lines (same as IEEE)
         painter.drawLine(-5, -12, -5, 12)
         painter.drawLine(5, -12, 5, 12)
 
@@ -541,8 +558,19 @@ class Inductor(ComponentGraphicsItem):
         for i in range(-20, 20, 8):
             painter.drawArc(i, -5, 8, 10, 0, 180 * 16)
 
+    def _draw_iec(self, painter):
+        if self.scene() is not None:
+            painter.drawLine(-30, 0, -18, 0)
+            painter.drawLine(18, 0, 30, 0)
+        # IEC inductor: filled rectangular humps
+        painter.drawRect(-18, -8, 36, 8)
+        painter.drawLine(-18, 0, 18, 0)
+
     def _get_obstacle_shape_ieee(self):
         return [(-18.0, -11.0), (18.0, -11.0), (18.0, 11.0), (-18.0, 11.0)]
+
+    def _get_obstacle_shape_iec(self):
+        return [(-20.0, -10.0), (20.0, -10.0), (20.0, 2.0), (-20.0, 2.0)]
 
 
 class VoltageSource(ComponentGraphicsItem):
