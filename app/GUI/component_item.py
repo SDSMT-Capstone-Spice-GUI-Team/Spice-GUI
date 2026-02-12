@@ -94,7 +94,10 @@ class ComponentGraphicsItem(QGraphicsItem):
             self.is_being_dragged = True
             # Record start positions for undo (self + all selected items)
             self._drag_start_positions = {}
-            self._drag_start_positions[self.component_id] = (self.pos().x(), self.pos().y())
+            self._drag_start_positions[self.component_id] = (
+                self.pos().x(),
+                self.pos().y(),
+            )
             if self.scene():
                 for item in self.scene().selectedItems():
                     if item is not self and isinstance(item, ComponentGraphicsItem):
@@ -137,7 +140,9 @@ class ComponentGraphicsItem(QGraphicsItem):
             new_pos = component.position
             # Only create a command if the component actually moved
             if old_pos[0] != new_pos[0] or old_pos[1] != new_pos[1]:
-                cmd = MoveComponentCommand(controller, comp_id, new_pos, old_position=old_pos)
+                cmd = MoveComponentCommand(
+                    controller, comp_id, new_pos, old_position=old_pos
+                )
                 move_commands.append(cmd)
 
         self._drag_start_positions = {}
@@ -150,7 +155,9 @@ class ComponentGraphicsItem(QGraphicsItem):
             controller.undo_manager._undo_stack.append(move_commands[0])
             controller.undo_manager._redo_stack.clear()
         else:
-            compound = CompoundCommand(move_commands, f"Move {len(move_commands)} components")
+            compound = CompoundCommand(
+                move_commands, f"Move {len(move_commands)} components"
+            )
             controller.undo_manager._undo_stack.append(compound)
             controller.undo_manager._redo_stack.clear()
 
@@ -202,7 +209,9 @@ class ComponentGraphicsItem(QGraphicsItem):
         )
 
         if ok and new_value:
-            is_valid, error_msg = validate_component_value(new_value, self.component_type)
+            is_valid, error_msg = validate_component_value(
+                new_value, self.component_type
+            )
             if not is_valid:
                 QMessageBox.warning(None, "Invalid Value", error_msg)
                 return
@@ -219,15 +228,23 @@ class ComponentGraphicsItem(QGraphicsItem):
         return QRectF(-40, -30, 80, 60)
 
     def get_obstacle_shape(self):
-        """
-        Return the obstacle boundary shape for pathfinding.
+        """Return the obstacle boundary for pathfinding, respecting symbol style.
 
-        Returns a list of (x, y) points defining a polygon in LOCAL coordinates
-        (relative to component center, before rotation).
+        Tries ``_get_obstacle_shape_<style>()`` first, then falls back to
+        ``_get_obstacle_shape_ieee()``.
 
         Returns:
-            List of (x, y) tuples forming a closed polygon
+            List of (x, y) tuples forming a closed polygon in local coords.
         """
+        style = theme_manager.symbol_style
+        if style != "ieee":
+            method = getattr(self, f"_get_obstacle_shape_{style}", None)
+            if method:
+                return method()
+        return self._get_obstacle_shape_ieee()
+
+    def _get_obstacle_shape_ieee(self):
+        """Default IEEE obstacle shape — bounding rect."""
         rect = self.boundingRect()
         return [
             (rect.left(), rect.top()),
@@ -274,7 +291,21 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.update()
 
     def draw_component_body(self, painter):
-        """Override this method in child classes to draw component-specific shape"""
+        """Dispatch to the style-specific drawing method.
+
+        Subclasses implement ``_draw_ieee(painter)`` (required) and optionally
+        ``_draw_<style>(painter)`` for other styles (e.g. ``_draw_iec``).
+        """
+        style = theme_manager.symbol_style
+        if style != "ieee":
+            method = getattr(self, f"_draw_{style}", None)
+            if method:
+                method(painter)
+                return
+        self._draw_ieee(painter)
+
+    def _draw_ieee(self, painter):
+        """IEEE/ANSI drawing — override in subclasses."""
         pass
 
     def paint(self, painter, option=None, widget=None):
@@ -305,9 +336,19 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.draw_component_body(painter)
 
         # Draw label (check canvas visibility settings)
-        canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
-        show_label = canvas.show_component_labels if canvas and hasattr(canvas, "show_component_labels") else True
-        show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
+        canvas = (
+            self.scene().views()[0] if self.scene() and self.scene().views() else None
+        )
+        show_label = (
+            canvas.show_component_labels
+            if canvas and hasattr(canvas, "show_component_labels")
+            else True
+        )
+        show_value = (
+            canvas.show_component_values
+            if canvas and hasattr(canvas, "show_component_values")
+            else True
+        )
 
         if show_label or show_value:
             painter.setPen(QPen(Qt.GlobalColor.black))
@@ -327,7 +368,10 @@ class ComponentGraphicsItem(QGraphicsItem):
             painter.drawEllipse(terminal, 3, 3)
 
     def itemChange(self, change, value):
-        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
+        if (
+            change == QGraphicsItem.GraphicsItemChange.ItemPositionChange
+            and self.scene()
+        ):
             # Snap to grid
             new_pos = value
             grid_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
@@ -390,7 +434,9 @@ class ComponentGraphicsItem(QGraphicsItem):
         if self._position_update_timer is None:
             self._position_update_timer = QTimer()
             self._position_update_timer.setSingleShot(True)
-            self._position_update_timer.timeout.connect(self._notify_controller_position)
+            self._position_update_timer.timeout.connect(
+                self._notify_controller_position
+            )
         self._position_update_timer.start(50)  # 50ms debounce
 
     def _notify_controller_position(self):
@@ -446,7 +492,7 @@ class Resistor(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, 0, -15, 0)
             painter.drawLine(15, 0, 30, 0)
@@ -457,7 +503,7 @@ class Resistor(ComponentGraphicsItem):
         painter.drawLine(5, 8, 10, -8)
         painter.drawLine(10, -8, 15, 0)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -11.0), (18.0, -11.0), (18.0, 11.0), (-18.0, 11.0)]
 
 
@@ -469,14 +515,14 @@ class Capacitor(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, 0, -5, 0)
             painter.drawLine(5, 0, 30, 0)
         painter.drawLine(-5, -12, -5, 12)
         painter.drawLine(5, -12, 5, 12)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -14.0), (18.0, -14.0), (18.0, 14.0), (-18.0, 14.0)]
 
 
@@ -488,14 +534,14 @@ class Inductor(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, 0, -20, 0)
             painter.drawLine(20, 0, 30, 0)
         for i in range(-20, 20, 8):
             painter.drawArc(i, -5, 8, 10, 0, 180 * 16)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -11.0), (18.0, -11.0), (18.0, 11.0), (-18.0, 11.0)]
 
 
@@ -507,7 +553,7 @@ class VoltageSource(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, 0, -15, 0)
             painter.drawLine(15, 0, 30, 0)
@@ -516,7 +562,7 @@ class VoltageSource(ComponentGraphicsItem):
         painter.drawLine(-12, 0, -8, 0)
         painter.drawLine(12, 0, 8, 0)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
@@ -528,14 +574,14 @@ class CurrentSource(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, 0, -15, 0)
             painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
         painter.drawText(-5, 5, "I")
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
@@ -564,7 +610,7 @@ class WaveformVoltageSource(ComponentGraphicsItem):
     def waveform_params(self, v):
         self.model.waveform_params = v
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, 0, -15, 0)
             painter.drawLine(15, 0, 30, 0)
@@ -572,7 +618,9 @@ class WaveformVoltageSource(ComponentGraphicsItem):
         # Draw sine wave symbol
         from models.component import COMPONENT_COLORS
 
-        painter.setPen(QPen(QColor(COMPONENT_COLORS.get(self.component_type, "#E91E63")), 2))
+        painter.setPen(
+            QPen(QColor(COMPONENT_COLORS.get(self.component_type, "#E91E63")), 2)
+        )
         from PyQt6.QtGui import QPainterPath
 
         path = QPainterPath()
@@ -585,9 +633,6 @@ class WaveformVoltageSource(ComponentGraphicsItem):
     def get_spice_value(self):
         """Generate SPICE waveform specification (delegates to model)"""
         return self.model.get_spice_value()
-
-    def get_obstacle_shape(self):
-        return super().get_obstacle_shape()
 
 
 class Ground(ComponentGraphicsItem):
@@ -615,9 +660,19 @@ class Ground(ComponentGraphicsItem):
         painter.setBrush(QBrush(color.lighter(150)))
         self.draw_component_body(painter)
 
-        canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
-        show_label = canvas.show_component_labels if canvas and hasattr(canvas, "show_component_labels") else True
-        show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
+        canvas = (
+            self.scene().views()[0] if self.scene() and self.scene().views() else None
+        )
+        show_label = (
+            canvas.show_component_labels
+            if canvas and hasattr(canvas, "show_component_labels")
+            else True
+        )
+        show_value = (
+            canvas.show_component_values
+            if canvas and hasattr(canvas, "show_component_values")
+            else True
+        )
 
         if show_label or show_value:
             painter.setPen(QPen(Qt.GlobalColor.black))
@@ -634,7 +689,7 @@ class Ground(ComponentGraphicsItem):
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(0, -10, 0, 0)
         painter.drawLine(0, 0, 0, 10)
@@ -642,7 +697,7 @@ class Ground(ComponentGraphicsItem):
         painter.drawLine(-10, 15, 10, 15)
         painter.drawLine(-5, 20, 5, 20)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-17.0, 1.0), (17.0, 1.0), (17.0, 22.0), (-17.0, 22.0)]
 
 
@@ -654,7 +709,7 @@ class OpAmp(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, -10, -20, -10)
             painter.drawLine(-30, 10, -20, 10)
@@ -683,7 +738,7 @@ class VCVS(ComponentGraphicsItem):
     def boundingRect(self):
         return QRectF(-40, -25, 80, 50)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         # Control and output lines
         if self.scene() is not None:
             painter.drawLine(-30, -10, -15, -10)
@@ -701,7 +756,7 @@ class VCVS(ComponentGraphicsItem):
         painter.drawLine(7, -8, 7, -4)
         painter.drawLine(5, 6, 9, 6)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
@@ -716,7 +771,7 @@ class CCVS(ComponentGraphicsItem):
     def boundingRect(self):
         return QRectF(-40, -25, 80, 50)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, -10, -15, -10)
             painter.drawLine(-30, 10, -15, 10)
@@ -737,7 +792,7 @@ class CCVS(ComponentGraphicsItem):
         painter.drawLine(-9, -4, -8, -2)
         painter.drawLine(-9, 0, -8, -2)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
@@ -752,7 +807,7 @@ class VCCS(ComponentGraphicsItem):
     def boundingRect(self):
         return QRectF(-40, -25, 80, 50)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, -10, -15, -10)
             painter.drawLine(-30, 10, -15, 10)
@@ -769,7 +824,7 @@ class VCCS(ComponentGraphicsItem):
         painter.drawLine(2, -4, 4, -6)
         painter.drawLine(6, -4, 4, -6)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
@@ -784,7 +839,7 @@ class CCCS(ComponentGraphicsItem):
     def boundingRect(self):
         return QRectF(-40, -25, 80, 50)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         if self.scene() is not None:
             painter.drawLine(-30, -10, -15, -10)
             painter.drawLine(-30, 10, -15, 10)
@@ -805,7 +860,7 @@ class CCCS(ComponentGraphicsItem):
         painter.drawLine(-9, -4, -8, -2)
         painter.drawLine(-9, 0, -8, -2)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
@@ -820,7 +875,7 @@ class BJTNPN(ComponentGraphicsItem):
     def boundingRect(self):
         return QRectF(-30, -30, 60, 60)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         # Terminal leads
         if self.scene() is not None:
             painter.drawLine(-20, 0, -8, 0)  # Base lead
@@ -840,7 +895,7 @@ class BJTNPN(ComponentGraphicsItem):
         painter.drawLine(8, 12, 4, 7)
         painter.drawLine(8, 12, 3, 12)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
@@ -855,7 +910,7 @@ class BJTPNP(ComponentGraphicsItem):
     def boundingRect(self):
         return QRectF(-30, -30, 60, 60)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         # Terminal leads
         if self.scene() is not None:
             painter.drawLine(-20, 0, -8, 0)  # Base lead
@@ -875,7 +930,7 @@ class BJTPNP(ComponentGraphicsItem):
         painter.drawLine(-8, 6, -3, 2)
         painter.drawLine(-8, 6, -3, 7)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
@@ -887,7 +942,7 @@ class MOSFETNMOS(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         # Terminal lines: Drain (top-right), Gate (left), Source (bottom-right)
         if self.scene() is not None:
             painter.drawLine(20, -20, 20, -10)  # Drain terminal line
@@ -913,7 +968,7 @@ class MOSFETNMOS(ComponentGraphicsItem):
         painter.drawLine(-5, 10, -1, 7)
         painter.drawLine(-5, 10, -1, 13)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
@@ -925,7 +980,7 @@ class MOSFETPMOS(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         # Terminal lines: Drain (top-right), Gate (left), Source (bottom-right)
         if self.scene() is not None:
             painter.drawLine(20, -20, 20, -10)  # Drain terminal line
@@ -954,7 +1009,7 @@ class MOSFETPMOS(ComponentGraphicsItem):
         # Circle on gate to indicate PMOS (inversion bubble)
         painter.drawEllipse(-8, -2, 4, 4)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
 
 
@@ -969,7 +1024,7 @@ class VCSwitch(ComponentGraphicsItem):
     def boundingRect(self):
         return QRectF(-40, -25, 80, 50)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         # Control and switch path terminal lines
         if self.scene() is not None:
             painter.drawLine(-30, -10, -15, -10)  # ctrl+ terminal
@@ -992,7 +1047,7 @@ class VCSwitch(ComponentGraphicsItem):
         painter.drawLine(-7, -2, -5, 0)
         painter.drawLine(-7, 2, -5, 0)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
@@ -1004,7 +1059,7 @@ class Diode(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         # Terminal lines (anode left, cathode right)
         if self.scene() is not None:
             painter.drawLine(-30, 0, -10, 0)
@@ -1016,7 +1071,7 @@ class Diode(ComponentGraphicsItem):
         # Cathode bar
         painter.drawLine(10, -10, 10, 10)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-12.0, -12.0), (12.0, -12.0), (12.0, 12.0), (-12.0, 12.0)]
 
 
@@ -1028,7 +1083,7 @@ class LEDComponent(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         # Terminal lines
         if self.scene() is not None:
             painter.drawLine(-30, 0, -10, 0)
@@ -1047,7 +1102,7 @@ class LEDComponent(ComponentGraphicsItem):
         painter.drawLine(9, -14, 11, -14)
         painter.drawLine(11, -12, 11, -14)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-12.0, -18.0), (14.0, -18.0), (14.0, 12.0), (-12.0, 12.0)]
 
 
@@ -1059,7 +1114,7 @@ class ZenerDiode(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def draw_component_body(self, painter):
+    def _draw_ieee(self, painter):
         # Terminal lines
         if self.scene() is not None:
             painter.drawLine(-30, 0, -10, 0)
@@ -1073,7 +1128,7 @@ class ZenerDiode(ComponentGraphicsItem):
         painter.drawLine(10, -10, 7, -13)
         painter.drawLine(10, 10, 13, 13)
 
-    def get_obstacle_shape(self):
+    def _get_obstacle_shape_ieee(self):
         return [(-12.0, -15.0), (15.0, -15.0), (15.0, 15.0), (-12.0, 15.0)]
 
 

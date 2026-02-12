@@ -26,6 +26,8 @@ class SettingsMixin:
             settings.setValue("autosave/enabled", True)
         settings.setValue("view/show_statistics", self.statistics_panel.isVisible())
         settings.setValue("view/theme", theme_manager.current_theme.name)
+        settings.setValue("view/symbol_style", theme_manager.symbol_style)
+        settings.setValue("view/color_mode", theme_manager.color_mode)
 
     def _restore_settings(self):
         """Restore user preferences from QSettings"""
@@ -79,6 +81,14 @@ class SettingsMixin:
         if saved_theme == "Dark Theme":
             self._set_theme("dark")
 
+        saved_symbol_style = settings.value("view/symbol_style")
+        if saved_symbol_style in ("ieee", "iec"):
+            self._set_symbol_style(saved_symbol_style)
+
+        saved_color_mode = settings.value("view/color_mode")
+        if saved_color_mode in ("color", "monochrome"):
+            self._set_color_mode(saved_color_mode)
+
     def closeEvent(self, event):
         """Save settings before closing"""
         self._save_settings()
@@ -117,7 +127,11 @@ class SettingsMixin:
         if reply == QMessageBox.StandardButton.Yes:
             source = self.file_ctrl.load_auto_save()
             if source is not None:
-                title = f"Circuit Design GUI - {source}" if source else "Circuit Design GUI - (Recovered)"
+                title = (
+                    f"Circuit Design GUI - {source}"
+                    if source
+                    else "Circuit Design GUI - (Recovered)"
+                )
                 self.setWindowTitle(title)
                 self._sync_analysis_menu()
                 statusBar = self.statusBar()
