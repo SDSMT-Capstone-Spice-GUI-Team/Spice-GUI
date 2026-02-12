@@ -13,6 +13,10 @@ from PyQt6.QtWidgets import (
 )
 
 from .format_utils import parse_value
+from .meas_dialog import ANALYSIS_DOMAIN_MAP, MeasurementDialog
+
+# Analysis types that support .meas directives
+_MEAS_SUPPORTED_TYPES = set(ANALYSIS_DOMAIN_MAP.keys())
 
 
 class AnalysisDialog(QDialog):
@@ -139,6 +143,7 @@ class AnalysisDialog(QDialog):
         super().__init__(parent)
         self.analysis_type = analysis_type
         self.field_widgets = {}
+        self._measurements = []  # list of measurement entry dicts
         if preset_manager is None:
             from simulation.preset_manager import PresetManager
 
@@ -190,6 +195,17 @@ class AnalysisDialog(QDialog):
         self.form_layout = QFormLayout()
         layout.addLayout(self.form_layout)
 
+        # Measurements button (shown only for supported analysis types)
+        meas_layout = QHBoxLayout()
+        self.meas_btn = QPushButton("Measurements...")
+        self.meas_btn.setToolTip("Configure automated .meas directives for this analysis")
+        self.meas_btn.clicked.connect(self._open_meas_dialog)
+        meas_layout.addWidget(self.meas_btn)
+        self.meas_label = QLabel("No measurements configured")
+        self.meas_label.setStyleSheet("color: gray;")
+        meas_layout.addWidget(self.meas_label, 1)
+        layout.addLayout(meas_layout)
+
         # Buttons
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept)
@@ -239,6 +255,14 @@ class AnalysisDialog(QDialog):
             self.field_widgets[key] = (widget, field_type)
             self.form_layout.addRow(f"{label}:", widget)
 
+        # Show/hide measurements button based on analysis type
+        meas_visible = self.analysis_type in _MEAS_SUPPORTED_TYPES
+        self.meas_btn.setVisible(meas_visible)
+        self.meas_label.setVisible(meas_visible)
+        if not meas_visible:
+            self._measurements.clear()
+        self._update_meas_label()
+
         # Refresh preset dropdown for this analysis type
         self._refresh_preset_combo()
 
@@ -256,6 +280,10 @@ class AnalysisDialog(QDialog):
                     params[key] = int(parse_value(widget.text()))
                 else:  # text
                     params[key] = widget.text()
+
+            # Include measurement directives if any are configured
+            if self._measurements:
+                params["measurements"] = [e["directive"] for e in self._measurements if e.get("directive")]
 
             return params
 
@@ -316,6 +344,33 @@ class AnalysisDialog(QDialog):
             return f".tf {output_var} {input_source}"
 
         return ""
+
+    # --- Measurement management ---
+
+    def _open_meas_dialog(self):
+        """Open the measurement configuration dialog."""
+        domain = ANALYSIS_DOMAIN_MAP.get(self.analysis_type, "tran")
+        dialog = MeasurementDialog(
+            domain=domain,
+            parent=self,
+            measurements=self._measurements,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._measurements = dialog.get_entries()
+            self._update_meas_label()
+
+    def _update_meas_label(self):
+        """Update the label showing measurement count."""
+        count = len(self._measurements)
+        if count == 0:
+            self.meas_label.setText("No measurements configured")
+            self.meas_label.setStyleSheet("color: gray;")
+        elif count == 1:
+            self.meas_label.setText("1 measurement configured")
+            self.meas_label.setStyleSheet("")
+        else:
+            self.meas_label.setText(f"{count} measurements configured")
+            self.meas_label.setStyleSheet("")
 
     # --- Preset management ---
 
