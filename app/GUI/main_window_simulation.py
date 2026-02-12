@@ -171,6 +171,10 @@ class SimulationMixin:
         if handler:
             handler(result)
 
+        # Display .meas measurement results if present
+        if result.measurements:
+            self._display_measurement_results(result.measurements)
+
         self.results_text.append("=" * 70)
 
         if self._last_results is not None:
@@ -203,6 +207,20 @@ class SimulationMixin:
             "Circuit Validation",
             "\n\n".join(popup_lines),
         )
+
+    def _display_measurement_results(self, measurements):
+        """Display .meas measurement results."""
+        from simulation.result_parser import format_si
+
+        self.results_text.append("\nMEASUREMENTS:")
+        self.results_text.append("-" * 40)
+        for name, value in sorted(measurements.items()):
+            if value is None:
+                self.results_text.append(f"  {name:20s} : FAILED")
+            else:
+                formatted = format_si(value)
+                self.results_text.append(f"  {name:20s} : {formatted}")
+        self.results_text.append("-" * 40)
 
     def _display_op_results(self, result):
         """Display DC Operating Point results."""
