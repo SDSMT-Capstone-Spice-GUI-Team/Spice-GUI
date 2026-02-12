@@ -125,7 +125,8 @@ class TestOkPersist:
 
         settings = QSettings("SDSMT", "SDM Spice")
         assert settings.value("autosave/interval") == 120
-        assert settings.value("autosave/enabled") is True
+        enabled = settings.value("autosave/enabled")
+        assert enabled is True or enabled == "true"  # Windows registry stores as string
         mock_main_window._start_autosave_timer.assert_called()
 
 
