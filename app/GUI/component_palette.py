@@ -27,6 +27,7 @@ COMPONENT_TOOLTIPS = {
     "Diode": "Diode (D) — Allows current in one direction",
     "LED": "LED (D) — Light-emitting diode",
     "Zener Diode": "Zener Diode (D) — Voltage-regulating diode",
+    "Transformer": "Transformer (K) — Coupled inductors / ideal transformer",
 }
 
 
