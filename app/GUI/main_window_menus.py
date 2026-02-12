@@ -420,9 +420,27 @@ class MenuBarMixin:
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")
         if settings_menu:
+            preferences_action = QAction("&Preferences...", self)
+            preferences_action.triggered.connect(self._open_preferences_dialog)
+            settings_menu.addAction(preferences_action)
+
+            settings_menu.addSeparator()
+
             keybindings_action = QAction("&Keybindings...", self)
             keybindings_action.triggered.connect(self._open_keybindings_dialog)
             settings_menu.addAction(keybindings_action)
+
+    def _open_preferences_dialog(self):
+        """Open the unified preferences dialog (single-instance, non-modal)."""
+        from .preferences_dialog import PreferencesDialog
+
+        existing = getattr(self, "_preferences_dialog", None)
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            return
+        self._preferences_dialog = PreferencesDialog(self)
+        self._preferences_dialog.show()
 
     def _open_keybindings_dialog(self):
         """Open the keybindings preferences dialog."""
