@@ -24,6 +24,8 @@ from controllers.circuit_controller import CircuitController
 from controllers.file_controller import validate_circuit_data
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
+
+__version__ = "0.1.0"
 from simulation.csv_exporter import (
     export_ac_results,
     export_dc_sweep_results,
@@ -37,20 +39,41 @@ def try_load_circuit(filepath: str) -> tuple[CircuitModel | None, str]:
     """Load and validate a circuit JSON file without exiting.
 
     Args:
-        filepath: Path to the circuit JSON file.
+        filepath: Path to the circuit JSON file, or "-" to read from stdin.
 
     Returns:
         (model, "") on success, or (None, error_message) on failure.
     """
+    if filepath == "-":
+        return _load_circuit_from_text(sys.stdin.read(), "<stdin>")
+
     path = Path(filepath)
     if not path.exists():
         return None, f"file not found: {filepath}"
 
     try:
         with open(path, "r") as f:
-            data = json.load(f)
+            text = f.read()
+    except OSError as e:
+        return None, f"error reading {filepath}: {e}"
+
+    return _load_circuit_from_text(text, filepath)
+
+
+def _load_circuit_from_text(text: str, source: str) -> tuple[CircuitModel | None, str]:
+    """Parse and validate circuit JSON text.
+
+    Args:
+        text: Raw JSON text.
+        source: Source name for error messages.
+
+    Returns:
+        (model, "") on success, or (None, error_message) on failure.
+    """
+    try:
+        data = json.loads(text)
     except json.JSONDecodeError as e:
-        return None, f"invalid JSON in {filepath}: {e}"
+        return None, f"invalid JSON in {source}: {e}"
 
     try:
         validate_circuit_data(data)
@@ -371,11 +394,12 @@ def build_parser() -> argparse.ArgumentParser:
         prog="spice-gui-cli",
         description="Spice-GUI batch operations — simulate, validate, and export circuits from the command line.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # simulate
     sim_parser = subparsers.add_parser("simulate", help="Run simulation and output results")
-    sim_parser.add_argument("circuit", help="Path to circuit JSON file")
+    sim_parser.add_argument("circuit", help="Path to circuit JSON file (use '-' for stdin)")
     sim_parser.add_argument("--format", choices=["json", "csv"], default="json", help="Output format (default: json)")
     sim_parser.add_argument("--output", "-o", help="Write results to file instead of stdout")
     sim_parser.add_argument(
@@ -386,11 +410,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     # validate
     val_parser = subparsers.add_parser("validate", help="Check circuit for errors without simulating")
-    val_parser.add_argument("circuit", help="Path to circuit JSON file")
+    val_parser.add_argument("circuit", help="Path to circuit JSON file (use '-' for stdin)")
 
     # export
     exp_parser = subparsers.add_parser("export", help="Export circuit in specified format")
-    exp_parser.add_argument("circuit", help="Path to circuit JSON file")
+    exp_parser.add_argument("circuit", help="Path to circuit JSON file (use '-' for stdin)")
     exp_parser.add_argument(
         "--format", "-f", choices=["cir", "json"], default="cir", help="Export format (default: cir)"
     )

@@ -1,11 +1,14 @@
 """Tests for the CLI batch operations (app/cli.py)."""
 
+import io
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from cli import (
     REPL_BANNER,
+    __version__,
     build_parser,
     build_repl_namespace,
     cmd_batch,
@@ -325,6 +328,50 @@ class TestBatchCommand:
         if code == 0:
             csv_files = list(Path(out_dir).glob("*.csv"))
             assert len(csv_files) == 3
+
+
+class TestVersion:
+    def test_version_flag(self, capsys):
+        with pytest.raises(SystemExit) as exc_info:
+            build_parser().parse_args(["--version"])
+        assert exc_info.value.code == 0
+
+    def test_version_string(self):
+        assert __version__
+        parts = __version__.split(".")
+        assert len(parts) == 3
+
+
+class TestStdinPipe:
+    def test_load_from_stdin(self, voltage_divider):
+        """Reading from '-' reads stdin."""
+        circuit_json = Path(voltage_divider).read_text()
+        with patch("sys.stdin", io.StringIO(circuit_json)):
+            model, error = try_load_circuit("-")
+        assert model is not None
+        assert error == ""
+        assert len(model.components) == 4
+
+    def test_load_invalid_stdin(self):
+        with patch("sys.stdin", io.StringIO("not json")):
+            model, error = try_load_circuit("-")
+        assert model is None
+        assert "invalid JSON" in error
+
+    def test_validate_from_stdin(self, voltage_divider, capsys):
+        circuit_json = Path(voltage_divider).read_text()
+        with patch("sys.stdin", io.StringIO(circuit_json)):
+            code = main(["validate", "-"])
+        assert code == 0
+
+    def test_export_from_stdin(self, voltage_divider, capsys):
+        circuit_json = Path(voltage_divider).read_text()
+        with patch("sys.stdin", io.StringIO(circuit_json)):
+            code = main(["export", "-", "--format", "json"])
+        assert code == 0
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert "components" in data
 
 
 class TestReplCommand:
