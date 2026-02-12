@@ -23,6 +23,9 @@ class SimulationMixin:
             # Phase 5: No sync needed - model always up to date
             netlist = self.simulation_ctrl.generate_netlist()
             self.results_text.setPlainText("SPICE Netlist:\n\n" + netlist)
+            # Also update the netlist preview tab
+            if hasattr(self, "netlist_preview"):
+                self.netlist_preview.set_netlist(netlist)
         except (ValueError, KeyError, TypeError) as e:
             QMessageBox.critical(self, "Error", f"Failed to generate netlist: {e}")
 
@@ -148,6 +151,10 @@ class SimulationMixin:
         self._last_results = None
         self._last_results_type = self.model.analysis_type
         self.btn_export_csv.setEnabled(False)
+
+        # Update netlist preview with the netlist that was actually used
+        if hasattr(self, "netlist_preview") and result.netlist:
+            self.netlist_preview.set_netlist(result.netlist)
 
         self.results_text.setPlainText("\n" + "=" * 70)
         self.results_text.append(f"SIMULATION COMPLETE - {self.model.analysis_type}")
