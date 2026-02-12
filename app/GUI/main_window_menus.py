@@ -46,6 +46,18 @@ class MenuBarMixin:
 
         file_menu.addSeparator()
 
+        new_from_template_action = QAction("New from &Template...", self)
+        new_from_template_action.setToolTip("Create a new circuit from an assignment template")
+        new_from_template_action.triggered.connect(self._on_new_from_template)
+        file_menu.addAction(new_from_template_action)
+
+        save_as_template_action = QAction("Save as Temp&late...", self)
+        save_as_template_action.setToolTip("Save current circuit as an assignment template with metadata")
+        save_as_template_action.triggered.connect(self._on_save_as_template)
+        file_menu.addAction(save_as_template_action)
+
+        file_menu.addSeparator()
+
         import_netlist_action = QAction("&Import SPICE Netlist...", self)
         import_netlist_action.setToolTip("Import a SPICE netlist file (.cir, .spice)")
         import_netlist_action.triggered.connect(self._on_import_netlist)
@@ -239,6 +251,40 @@ class MenuBarMixin:
         self.theme_group.addAction(self.light_theme_action)
         self.theme_group.addAction(self.dark_theme_action)
 
+        # Symbol Style submenu
+        symbol_style_menu = view_menu.addMenu("&Symbol Style")
+        self.ieee_style_action = QAction("&IEEE / ANSI (American)", self)
+        self.ieee_style_action.setCheckable(True)
+        self.ieee_style_action.setChecked(True)
+        self.ieee_style_action.triggered.connect(lambda: self._set_symbol_style("ieee"))
+        symbol_style_menu.addAction(self.ieee_style_action)
+
+        self.iec_style_action = QAction("I&EC (European)", self)
+        self.iec_style_action.setCheckable(True)
+        self.iec_style_action.triggered.connect(lambda: self._set_symbol_style("iec"))
+        symbol_style_menu.addAction(self.iec_style_action)
+
+        self.symbol_style_group = QActionGroup(self)
+        self.symbol_style_group.addAction(self.ieee_style_action)
+        self.symbol_style_group.addAction(self.iec_style_action)
+
+        # Component Colors submenu
+        color_mode_menu = view_menu.addMenu("Component &Colors")
+        self.color_mode_action = QAction("&Color (per component type)", self)
+        self.color_mode_action.setCheckable(True)
+        self.color_mode_action.setChecked(True)
+        self.color_mode_action.triggered.connect(lambda: self._set_color_mode("color"))
+        color_mode_menu.addAction(self.color_mode_action)
+
+        self.monochrome_mode_action = QAction("&Monochrome", self)
+        self.monochrome_mode_action.setCheckable(True)
+        self.monochrome_mode_action.triggered.connect(lambda: self._set_color_mode("monochrome"))
+        color_mode_menu.addAction(self.monochrome_mode_action)
+
+        self.color_mode_group = QActionGroup(self)
+        self.color_mode_group.addAction(self.color_mode_action)
+        self.color_mode_group.addAction(self.monochrome_mode_action)
+
         view_menu.addSeparator()
 
         zoom_in_action = QAction("Zoom &In", self)
@@ -382,6 +428,19 @@ class MenuBarMixin:
             "sim.run": run_action,
             "tools.probe": self.probe_action,
         }
+
+        # Instructor menu
+        instructor_menu = menubar.addMenu("&Instructor")
+        if instructor_menu:
+            grade_action = QAction("&Grade Student Circuit...", self)
+            grade_action.setToolTip("Open the grading panel to grade a student submission")
+            grade_action.triggered.connect(self._toggle_grading_panel)
+            instructor_menu.addAction(grade_action)
+
+            batch_grade_action = QAction("&Batch Grade...", self)
+            batch_grade_action.setToolTip("Grade a folder of student submissions")
+            batch_grade_action.triggered.connect(self._on_batch_grade)
+            instructor_menu.addAction(batch_grade_action)
 
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")

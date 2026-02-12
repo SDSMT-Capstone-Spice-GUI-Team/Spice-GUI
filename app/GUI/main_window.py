@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 from .circuit_canvas import CircuitCanvasView
 from .circuit_statistics_panel import CircuitStatisticsPanel
 from .component_palette import ComponentPalette
+from .grading_panel import GradingPanel
 from .keybindings import KeybindingsRegistry
 from .main_window_analysis import AnalysisSettingsMixin
 from .main_window_file_ops import FileOperationsMixin
@@ -208,6 +209,11 @@ class MainWindow(
         self.statistics_panel = CircuitStatisticsPanel(self.model, self.circuit_ctrl, self.simulation_ctrl)
         self.statistics_panel.setVisible(False)
         right_panel_layout.addWidget(self.statistics_panel)
+
+        # Instructor grading panel
+        self.grading_panel = GradingPanel(self.model, self)
+        self.grading_panel.setVisible(False)
+        right_panel_layout.addWidget(self.grading_panel)
 
         right_panel_layout.addStretch()
         right_panel_layout.addWidget(QLabel("Actions"))

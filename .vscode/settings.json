@@ -1,7 +1,10 @@
 {
     "cSpell.words": [
+        "mgmt",
         "netlist",
         "ngspice",
+        "pytest",
+        "qtbot",
         "venv"
     ],
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe"

@@ -118,6 +118,105 @@ class FileOperationsMixin:
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to load: {e}")
 
+    def _on_new_from_template(self):
+        """Create a new circuit from an assignment template"""
+        from controllers.template_controller import TEMPLATE_EXTENSION
+
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Assignment Template",
+            "",
+            f"Templates (*{TEMPLATE_EXTENSION});;All Files (*)",
+        )
+        if not filename:
+            return
+
+        # Warn if there's unsaved work
+        if len(self.canvas.components) > 0:
+            reply = QMessageBox.question(
+                self,
+                "New from Template",
+                "Opening a template will replace your current circuit. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        try:
+            from controllers.template_controller import TemplateController
+
+            template_ctrl = TemplateController()
+            template = template_ctrl.load_template(filename)
+            model = template_ctrl.create_circuit_from_template(template)
+
+            # Update current model in place
+            self.model.clear()
+            self.model.components = model.components
+            self.model.wires = model.wires
+            self.model.nodes = model.nodes
+            self.model.terminal_to_node = model.terminal_to_node
+            self.model.component_counter = model.component_counter
+            self.model.analysis_type = model.analysis_type
+            self.model.analysis_params = model.analysis_params
+            self.model.annotations = model.annotations
+
+            title = template.metadata.title or Path(filename).stem
+            self.setWindowTitle(f"Circuit Design GUI - {title} (Template)")
+            self.file_ctrl.current_file = None
+            self._sync_analysis_menu()
+
+            if self.circuit_ctrl:
+                self.circuit_ctrl._notify("model_loaded", None)
+
+            info = f"Template: {title}"
+            if template.instructions:
+                info += f"\n\nInstructions:\n{template.instructions}"
+            QMessageBox.information(self, "Template Loaded", info)
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load template:\n{e}")
+
+    def _on_save_as_template(self):
+        """Save current circuit as an assignment template"""
+        from controllers.template_controller import TEMPLATE_EXTENSION
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save as Assignment Template",
+            "",
+            f"Templates (*{TEMPLATE_EXTENSION});;All Files (*)",
+        )
+        if not filename:
+            return
+
+        if not filename.endswith(TEMPLATE_EXTENSION):
+            filename += TEMPLATE_EXTENSION
+
+        try:
+            from controllers.template_controller import TemplateController
+
+            from .template_metadata_dialog import TemplateMetadataDialog
+
+            dialog = TemplateMetadataDialog(self)
+            if dialog.exec() != dialog.DialogCode.Accepted:
+                return
+
+            metadata = dialog.get_metadata()
+            instructions = dialog.get_instructions()
+
+            template_ctrl = TemplateController()
+            template_ctrl.save_as_template(
+                filepath=filename,
+                metadata=metadata,
+                starter_circuit=self.model,
+                instructions=instructions,
+            )
+
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Template saved to {filename}", 3000)
+        except (OSError, TypeError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to save template:\n{e}")
+
     def _on_import_netlist(self):
         """Import a SPICE netlist file"""
         filename, _ = QFileDialog.getOpenFileName(

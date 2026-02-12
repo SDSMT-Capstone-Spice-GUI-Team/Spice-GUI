@@ -57,11 +57,41 @@ class ViewOperationsMixin:
         # Refresh canvas (grid + components)
         self.canvas.refresh_theme()
 
+    def _set_symbol_style(self, style: str):
+        """Switch the component symbol drawing style."""
+        theme_manager.set_symbol_style(style)
+        if style == "iec":
+            self.iec_style_action.setChecked(True)
+        else:
+            self.ieee_style_action.setChecked(True)
+        self.canvas.scene.update()
+
+    def _set_color_mode(self, mode: str):
+        """Switch between per-type color and monochrome rendering."""
+        theme_manager.set_color_mode(mode)
+        if mode == "monochrome":
+            self.monochrome_mode_action.setChecked(True)
+        else:
+            self.color_mode_action.setChecked(True)
+        self.canvas.scene.update()
+
     def _toggle_statistics_panel(self, checked):
         """Toggle the circuit statistics panel visibility."""
         self.statistics_panel.setVisible(checked)
         if checked:
             self.statistics_panel.refresh()
+
+    def _toggle_grading_panel(self):
+        """Toggle the instructor grading panel visibility."""
+        visible = not self.grading_panel.isVisible()
+        self.grading_panel.setVisible(visible)
+
+    def _on_batch_grade(self):
+        """Open the batch grading dialog."""
+        from .batch_grading_dialog import BatchGradingDialog
+
+        dialog = BatchGradingDialog(reference_circuit=self.model, parent=self)
+        dialog.exec()
 
     # Dirty flag (unsaved changes indicator)
 
@@ -285,7 +315,7 @@ class ViewOperationsMixin:
                 nodes=model.nodes,
                 terminal_to_node=model.terminal_to_node,
                 standalone=opts["standalone"],
-                circuit_name=os.path.basename(self.file_ctrl.current_file) if self.file_ctrl.current_file else "",
+                circuit_name=(os.path.basename(self.file_ctrl.current_file) if self.file_ctrl.current_file else ""),
                 scale=opts["scale"],
                 include_ids=opts["include_ids"],
                 include_values=opts["include_values"],
