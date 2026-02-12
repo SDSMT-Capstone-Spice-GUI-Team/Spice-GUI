@@ -345,6 +345,7 @@ class Circuit:
     def clear(self) -> None:
         """Remove all components and wires from the circuit."""
         self._controller.clear_circuit()
+
     # --- Display integration ---
 
     def _repr_svg_(self) -> str:
