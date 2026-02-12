@@ -25,6 +25,7 @@ class SettingsMixin:
         if settings.value("autosave/enabled") is None:
             settings.setValue("autosave/enabled", True)
         settings.setValue("view/show_statistics", self.statistics_panel.isVisible())
+        settings.setValue("view/theme_key", theme_manager.get_theme_key())
         settings.setValue("view/theme", theme_manager.current_theme.name)
         settings.setValue("view/symbol_style", theme_manager.symbol_style)
         settings.setValue("view/color_mode", theme_manager.color_mode)
@@ -77,9 +78,17 @@ class SettingsMixin:
             self.statistics_panel.setVisible(checked)
             self.show_statistics_action.setChecked(checked)
 
-        saved_theme = settings.value("view/theme")
-        if saved_theme == "Dark Theme":
-            self._set_theme("dark")
+        saved_theme_key = settings.value("view/theme_key")
+        if saved_theme_key and saved_theme_key != "light":
+            theme_manager.set_theme_by_key(saved_theme_key)
+            self._apply_theme()
+            if hasattr(self, "_refresh_theme_menu"):
+                self._refresh_theme_menu()
+        else:
+            # Legacy fallback: check old theme name
+            saved_theme = settings.value("view/theme")
+            if saved_theme == "Dark Theme":
+                self._set_theme("dark")
 
         saved_symbol_style = settings.value("view/symbol_style")
         if saved_symbol_style in ("ieee", "iec"):
