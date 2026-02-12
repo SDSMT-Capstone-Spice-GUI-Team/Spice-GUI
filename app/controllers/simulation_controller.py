@@ -254,6 +254,9 @@ class SimulationController:
             elif analysis == "Transfer Function":
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_tf_results(output)
+            elif analysis == "Pole-Zero":
+                output = self.runner.read_output(output_file)
+                data = ResultParser.parse_pz_results(output)
             else:
                 return SimulationResult(
                     success=False,

@@ -137,6 +137,28 @@ class AnalysisDialog(QDialog):
                 "input_source": "Name of the independent source to vary (e.g. V1, I1)",
             },
         },
+        "Pole-Zero": {
+            "fields": [
+                ("Input Node (+)", "input_pos", "text", "1"),
+                ("Input Node (-)", "input_neg", "text", "0"),
+                ("Output Node (+)", "output_pos", "text", "2"),
+                ("Output Node (-)", "output_neg", "text", "0"),
+                ("Transfer Type", "transfer_type", "combo", ["vol", "cur"], "vol"),
+                ("Analysis", "pz_type", "combo", ["pz", "pol", "zer"], "pz"),
+            ],
+            "description": (
+                "Pole-Zero analysis — computes poles and zeros of the circuit "
+                "transfer function for stability and frequency response analysis"
+            ),
+            "tooltips": {
+                "input_pos": "Positive input port node (number or name)",
+                "input_neg": "Negative input port node (number or name, 0 for ground)",
+                "output_pos": "Positive output port node (number or name)",
+                "output_neg": "Negative output port node (number or name, 0 for ground)",
+                "transfer_type": "Transfer type: vol (voltage gain) or cur (current gain)",
+                "pz_type": "Analysis scope: pz (poles and zeros), pol (poles only), zer (zeros only)",
+            },
+        },
     }
 
     def __init__(self, analysis_type=None, parent=None, preset_manager=None):
@@ -342,6 +364,15 @@ class AnalysisDialog(QDialog):
             output_var = params.get("output_var", "v(out)")
             input_source = params.get("input_source", "V1")
             return f".tf {output_var} {input_source}"
+
+        elif self.analysis_type == "Pole-Zero":
+            inp = params.get("input_pos", "1")
+            inn = params.get("input_neg", "0")
+            outp = params.get("output_pos", "2")
+            outn = params.get("output_neg", "0")
+            tf_type = params.get("transfer_type", "vol")
+            pz_type = params.get("pz_type", "pz")
+            return f".pz {inp} {inn} {outp} {outn} {tf_type} {pz_type}"
 
         return ""
 
