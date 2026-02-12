@@ -53,7 +53,9 @@ class MenuBarMixin:
 
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
-        export_netlist_action.setToolTip("Export the generated SPICE netlist to a .cir file")
+        export_netlist_action.setToolTip(
+            "Export the generated SPICE netlist to a .cir file"
+        )
         export_netlist_action.triggered.connect(self.export_netlist)
         file_menu.addAction(export_netlist_action)
 
@@ -68,7 +70,9 @@ class MenuBarMixin:
         file_menu.addAction(export_pdf_action)
 
         export_latex_action = QAction("Export as &LaTeX...", self)
-        export_latex_action.setToolTip("Export circuit as CircuiTikZ LaTeX code (.tex file)")
+        export_latex_action.setToolTip(
+            "Export circuit as CircuiTikZ LaTeX code (.tex file)"
+        )
         export_latex_action.triggered.connect(self.export_circuitikz)
         file_menu.addAction(export_latex_action)
 
@@ -141,7 +145,9 @@ class MenuBarMixin:
         edit_menu.addSeparator()
 
         copy_latex_action = QAction("Copy as La&TeX", self)
-        copy_latex_action.setToolTip("Copy the CircuiTikZ environment block to the clipboard")
+        copy_latex_action.setToolTip(
+            "Copy the CircuiTikZ environment block to the clipboard"
+        )
         copy_latex_action.triggered.connect(self.copy_circuitikz)
         edit_menu.addAction(copy_latex_action)
 
@@ -208,7 +214,9 @@ class MenuBarMixin:
         self.probe_action = QAction("&Probe Tool", self)
         self.probe_action.setCheckable(True)
         self.probe_action.setShortcut(kb.get("tools.probe"))
-        self.probe_action.setToolTip("Click nodes or components to see voltage/current values")
+        self.probe_action.setToolTip(
+            "Click nodes or components to see voltage/current values"
+        )
         self.probe_action.triggered.connect(self._toggle_probe_mode)
         view_menu.addAction(self.probe_action)
 
@@ -238,6 +246,42 @@ class MenuBarMixin:
         self.theme_group = QActionGroup(self)
         self.theme_group.addAction(self.light_theme_action)
         self.theme_group.addAction(self.dark_theme_action)
+
+        # Symbol Style submenu
+        symbol_style_menu = view_menu.addMenu("&Symbol Style")
+        self.ieee_style_action = QAction("&IEEE / ANSI (American)", self)
+        self.ieee_style_action.setCheckable(True)
+        self.ieee_style_action.setChecked(True)
+        self.ieee_style_action.triggered.connect(lambda: self._set_symbol_style("ieee"))
+        symbol_style_menu.addAction(self.ieee_style_action)
+
+        self.iec_style_action = QAction("I&EC (European)", self)
+        self.iec_style_action.setCheckable(True)
+        self.iec_style_action.triggered.connect(lambda: self._set_symbol_style("iec"))
+        symbol_style_menu.addAction(self.iec_style_action)
+
+        self.symbol_style_group = QActionGroup(self)
+        self.symbol_style_group.addAction(self.ieee_style_action)
+        self.symbol_style_group.addAction(self.iec_style_action)
+
+        # Component Colors submenu
+        color_mode_menu = view_menu.addMenu("Component &Colors")
+        self.color_mode_action = QAction("&Color (per component type)", self)
+        self.color_mode_action.setCheckable(True)
+        self.color_mode_action.setChecked(True)
+        self.color_mode_action.triggered.connect(lambda: self._set_color_mode("color"))
+        color_mode_menu.addAction(self.color_mode_action)
+
+        self.monochrome_mode_action = QAction("&Monochrome", self)
+        self.monochrome_mode_action.setCheckable(True)
+        self.monochrome_mode_action.triggered.connect(
+            lambda: self._set_color_mode("monochrome")
+        )
+        color_mode_menu.addAction(self.monochrome_mode_action)
+
+        self.color_mode_group = QActionGroup(self)
+        self.color_mode_group.addAction(self.color_mode_action)
+        self.color_mode_group.addAction(self.monochrome_mode_action)
 
         view_menu.addSeparator()
 
@@ -327,7 +371,9 @@ class MenuBarMixin:
 
         mc_action = QAction("&Monte Carlo...", self)
         mc_action.setCheckable(True)
-        mc_action.setToolTip("Run Monte Carlo tolerance analysis with randomized component values")
+        mc_action.setToolTip(
+            "Run Monte Carlo tolerance analysis with randomized component values"
+        )
         mc_action.triggered.connect(self.set_analysis_monte_carlo)
         analysis_menu.addAction(mc_action)
 
