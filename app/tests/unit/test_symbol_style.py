@@ -1,4 +1,5 @@
-"""Tests for symbol style system (#283), IEC symbols (#284), and color modes (#285)."""
+"""Tests for symbol style system (#283), IEC symbols (#284), color modes (#285),
+and renderer strategy pattern (#327)."""
 
 import pytest
 from GUI.component_item import (
@@ -23,9 +24,9 @@ from GUI.component_item import (
     WaveformVoltageSource,
     ZenerDiode,
 )
+from GUI.renderers import get_renderer
 from GUI.styles import LightTheme, theme_manager
 from GUI.styles.theme_manager import COLOR_MODES, SYMBOL_STYLES
-from PyQt6.QtGui import QColor
 
 
 @pytest.fixture(autouse=True)
@@ -150,7 +151,7 @@ class TestMonochromeColors:
         assert r_hex != c_hex
 
 
-# ── Component draw dispatch (IEEE default) ──────────────────────────
+# ── Component class list ────────────────────────────────────────────
 
 
 ALL_COMPONENT_CLASSES = [
@@ -177,119 +178,142 @@ ALL_COMPONENT_CLASSES = [
 ]
 
 
-class TestIEEEDrawDispatch:
-    """Verify every component has a _draw_ieee method reachable via dispatch."""
+# ── Renderer registry coverage ──────────────────────────────────────
+
+
+class TestRendererRegistry:
+    """Verify every component type is registered for both IEEE and IEC."""
 
     @pytest.mark.parametrize("cls", ALL_COMPONENT_CLASSES, ids=lambda c: c.type_name)
-    def test_has_draw_ieee(self, cls):
-        assert hasattr(cls, "_draw_ieee"), f"{cls.type_name} missing _draw_ieee"
+    def test_all_component_types_registered_for_ieee(self, cls):
+        renderer = get_renderer(cls.type_name, "ieee")
+        assert renderer is not None
+
+    @pytest.mark.parametrize("cls", ALL_COMPONENT_CLASSES, ids=lambda c: c.type_name)
+    def test_all_component_types_registered_for_iec(self, cls):
+        renderer = get_renderer(cls.type_name, "iec")
+        assert renderer is not None
+
+    def test_unregistered_type_raises_key_error(self):
+        with pytest.raises(KeyError):
+            get_renderer("Nonexistent", "ieee")
+
+    def test_unregistered_style_raises_key_error(self):
+        with pytest.raises(KeyError):
+            get_renderer("Resistor", "bogus")
+
+
+# ── Draw dispatch via renderers ─────────────────────────────────────
+
+
+class TestDrawDispatch:
+    """Verify draw_component_body delegates to the renderer."""
 
     @pytest.mark.parametrize("cls", ALL_COMPONENT_CLASSES, ids=lambda c: c.type_name)
     def test_draw_component_body_dispatches_ieee(self, cls):
-        """draw_component_body should call _draw_ieee when style is 'ieee'."""
+        """draw_component_body should invoke the IEEE renderer's draw."""
         comp = cls("T1")
         called = []
-        comp._draw_ieee = lambda painter: called.append(True)
-        comp.draw_component_body(None)
-        assert (
-            called
-        ), f"{cls.type_name} draw_component_body did not dispatch to _draw_ieee"
+        renderer = get_renderer(cls.type_name, "ieee")
+        orig_draw = renderer.draw
+        renderer.draw = lambda painter, component: called.append(True)
+        try:
+            comp.draw_component_body(None)
+            assert called, f"{cls.type_name} did not dispatch to IEEE renderer"
+        finally:
+            renderer.draw = orig_draw
+
+    @pytest.mark.parametrize("cls", ALL_COMPONENT_CLASSES, ids=lambda c: c.type_name)
+    def test_draw_component_body_dispatches_iec(self, cls):
+        """draw_component_body should invoke the IEC renderer's draw."""
+        theme_manager.set_symbol_style("iec")
+        comp = cls("T1")
+        called = []
+        renderer = get_renderer(cls.type_name, "iec")
+        orig_draw = renderer.draw
+        renderer.draw = lambda painter, component: called.append(True)
+        try:
+            comp.draw_component_body(None)
+            assert called, f"{cls.type_name} did not dispatch to IEC renderer"
+        finally:
+            renderer.draw = orig_draw
+
+    def test_renderer_receives_component(self):
+        """The renderer's draw method receives the component instance."""
+        comp = Resistor("R1")
+        received = []
+        renderer = get_renderer("Resistor", "ieee")
+        orig_draw = renderer.draw
+        renderer.draw = lambda painter, component: received.append(component)
+        try:
+            comp.draw_component_body(None)
+            assert received[0] is comp
+        finally:
+            renderer.draw = orig_draw
+
+
+# ── Obstacle shape dispatch ─────────────────────────────────────────
 
 
 class TestObstacleShapeDispatch:
-    """Verify obstacle shapes dispatch correctly."""
+    """Verify obstacle shapes dispatch via renderers."""
 
     @pytest.mark.parametrize("cls", ALL_COMPONENT_CLASSES, ids=lambda c: c.type_name)
     def test_obstacle_shape_returns_polygon(self, cls):
         comp = cls("T1")
         shape = comp.get_obstacle_shape()
         assert isinstance(shape, list)
-        assert len(shape) >= 3, "Obstacle polygon must have ≥3 points"
+        assert len(shape) >= 3, "Obstacle polygon must have >=3 points"
         for pt in shape:
             assert len(pt) == 2, "Each point must be (x, y)"
 
-    def test_ieee_obstacle_shape_fallback(self):
-        """Unknown style falls back to _get_obstacle_shape_ieee."""
+    def test_ieee_obstacle_shape_matches_renderer(self):
+        """Component obstacle shape matches the IEEE renderer directly."""
         r = Resistor("R1")
-        ieee_shape = r._get_obstacle_shape_ieee()
-        theme_manager._symbol_style = "ieee"
-        assert r.get_obstacle_shape() == ieee_shape
+        renderer = get_renderer("Resistor", "ieee")
+        assert r.get_obstacle_shape() == renderer.get_obstacle_shape(r)
 
-    def test_obstacle_dispatch_tries_style_specific(self):
-        """If a style-specific method exists, it's used."""
+    def test_iec_obstacle_shape_matches_renderer(self):
+        """Component obstacle shape matches the IEC renderer directly."""
+        theme_manager.set_symbol_style("iec")
         r = Resistor("R1")
-        custom = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
-        r._get_obstacle_shape_iec = lambda: custom
-        theme_manager.set_symbol_style("iec")
-        assert r.get_obstacle_shape() == custom
-
-    def test_obstacle_fallback_when_no_style_method(self):
-        """When no style-specific method exists, IEEE is used."""
-        d = Diode("D1")
-        theme_manager.set_symbol_style("iec")
-        # Diode has no _get_obstacle_shape_iec, so should fall back to ieee
-        assert d.get_obstacle_shape() == d._get_obstacle_shape_ieee()
+        renderer = get_renderer("Resistor", "iec")
+        assert r.get_obstacle_shape() == renderer.get_obstacle_shape(r)
 
 
-class TestDrawDispatchIEC:
-    """Verify draw dispatch falls back to IEEE when IEC is not implemented."""
-
-    def test_fallback_to_ieee_when_no_iec_method(self):
-        """Components without _draw_iec should use _draw_ieee."""
-        theme_manager.set_symbol_style("iec")
-        comp = Diode("D1")
-        called = []
-        comp._draw_ieee = lambda painter: called.append(True)
-        comp.draw_component_body(None)
-        assert called
-
-    def test_iec_method_used_when_available(self):
-        """If _draw_iec exists, it should be called."""
-        theme_manager.set_symbol_style("iec")
-        comp = Resistor("R1")
-        iec_called = []
-        comp._draw_iec = lambda painter: iec_called.append(True)
-        comp.draw_component_body(None)
-        assert iec_called
+# ── IEC-specific renderer behavior ──────────────────────────────────
 
 
-# ── IEC symbol implementations (#284) ──────────────────────────────
+class TestIECRenderers:
+    """Verify IEC renderers differ from IEEE where expected."""
 
-IEC_COMPONENTS = [Resistor, Capacitor, Inductor]
+    def test_iec_resistor_differs_from_ieee(self):
+        """Resistor IEC renderer is a different instance from IEEE."""
+        ieee = get_renderer("Resistor", "ieee")
+        iec = get_renderer("Resistor", "iec")
+        assert ieee is not iec
 
+    def test_iec_capacitor_differs_from_ieee(self):
+        ieee = get_renderer("Capacitor", "ieee")
+        iec = get_renderer("Capacitor", "iec")
+        assert ieee is not iec
 
-class TestIECDrawMethods:
-    """Verify IEC draw methods exist and dispatch correctly."""
+    def test_iec_inductor_differs_from_ieee(self):
+        ieee = get_renderer("Inductor", "ieee")
+        iec = get_renderer("Inductor", "iec")
+        assert ieee is not iec
 
-    @pytest.mark.parametrize("cls", IEC_COMPONENTS, ids=lambda c: c.type_name)
-    def test_has_draw_iec(self, cls):
-        assert hasattr(cls, "_draw_iec"), f"{cls.type_name} missing _draw_iec"
-
-    @pytest.mark.parametrize("cls", IEC_COMPONENTS, ids=lambda c: c.type_name)
-    def test_iec_dispatches_to_draw_iec(self, cls):
-        """Setting style to IEC should call _draw_iec on these components."""
-        theme_manager.set_symbol_style("iec")
-        comp = cls("T1")
-        called = []
-        comp._draw_iec = lambda painter: called.append(True)
-        comp.draw_component_body(None)
-        assert called
-
-    def test_resistor_iec_different_from_ieee(self):
-        """Resistor IEC (rectangle) should differ from IEEE (zigzag)."""
+    def test_resistor_iec_and_ieee_obstacles_differ(self):
         r = Resistor("R1")
-        assert hasattr(r, "_draw_iec")
-        assert r._draw_iec is not r._draw_ieee
+        ieee = get_renderer("Resistor", "ieee").get_obstacle_shape(r)
+        iec = get_renderer("Resistor", "iec").get_obstacle_shape(r)
+        assert ieee != iec
 
-    def test_inductor_iec_different_from_ieee(self):
-        """Inductor IEC (rectangular humps) should differ from IEEE (arcs)."""
-        l = Inductor("L1")
-        assert hasattr(l, "_draw_iec")
-        assert l._draw_iec is not l._draw_ieee
-
-
-class TestIECObstacleShapes:
-    """Verify IEC obstacle shapes for components that differ from IEEE."""
+    def test_inductor_iec_and_ieee_obstacles_differ(self):
+        ind = Inductor("L1")
+        ieee = get_renderer("Inductor", "ieee").get_obstacle_shape(ind)
+        iec = get_renderer("Inductor", "iec").get_obstacle_shape(ind)
+        assert ieee != iec
 
     def test_resistor_iec_obstacle_shape(self):
         theme_manager.set_symbol_style("iec")
@@ -297,31 +321,19 @@ class TestIECObstacleShapes:
         shape = r.get_obstacle_shape()
         assert isinstance(shape, list)
         assert len(shape) == 4
-        # IEC resistor is a rectangle — should return the IEC-specific shape
-        assert shape == r._get_obstacle_shape_iec()
+        assert shape == get_renderer("Resistor", "iec").get_obstacle_shape(r)
 
     def test_inductor_iec_obstacle_shape(self):
         theme_manager.set_symbol_style("iec")
-        l = Inductor("L1")
-        shape = l.get_obstacle_shape()
+        ind = Inductor("L1")
+        shape = ind.get_obstacle_shape()
         assert isinstance(shape, list)
         assert len(shape) == 4
-        assert shape == l._get_obstacle_shape_iec()
+        assert shape == get_renderer("Inductor", "iec").get_obstacle_shape(ind)
 
-    def test_capacitor_falls_back_to_ieee_obstacle(self):
-        """Capacitor is the same in both standards — should fall back."""
-        theme_manager.set_symbol_style("iec")
+    def test_capacitor_iec_same_obstacle_as_ieee(self):
+        """Capacitor IEC and IEEE have the same obstacle shape."""
         c = Capacitor("C1")
-        assert c.get_obstacle_shape() == c._get_obstacle_shape_ieee()
-
-    def test_resistor_iec_and_ieee_obstacles_differ(self):
-        r = Resistor("R1")
-        ieee = r._get_obstacle_shape_ieee()
-        iec = r._get_obstacle_shape_iec()
-        assert ieee != iec
-
-    def test_inductor_iec_and_ieee_obstacles_differ(self):
-        l = Inductor("L1")
-        ieee = l._get_obstacle_shape_ieee()
-        iec = l._get_obstacle_shape_iec()
-        assert ieee != iec
+        ieee_shape = get_renderer("Capacitor", "ieee").get_obstacle_shape(c)
+        iec_shape = get_renderer("Capacitor", "iec").get_obstacle_shape(c)
+        assert ieee_shape == iec_shape
