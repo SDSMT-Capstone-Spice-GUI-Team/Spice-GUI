@@ -26,6 +26,7 @@ class NetlistGenerator:
         analysis_params,
         wrdata_filepath="transient_data.txt",
         spice_options=None,
+        measurements=None,
     ):
         """
         Args:
@@ -37,6 +38,7 @@ class NetlistGenerator:
             analysis_params: dict
             wrdata_filepath: str - path for wrdata output file
             spice_options: Optional[dict[str, str]] - extra .options key=value pairs
+            measurements: Optional[list[str]] - .meas directive strings
         """
         self.components = components
         self.wires = wires
@@ -46,6 +48,7 @@ class NetlistGenerator:
         self.analysis_params = analysis_params
         self.wrdata_filepath = wrdata_filepath
         self.spice_options = spice_options or {}
+        self.measurements = measurements or []
 
     def generate(self):
         """Generate complete SPICE netlist"""
@@ -279,6 +282,16 @@ class NetlistGenerator:
         if self.spice_options:
             pairs = " ".join(f"{k}={v}" for k, v in self.spice_options.items())
             lines.append(f".options {pairs}")
+
+        # Add .meas measurement directives
+        if self.measurements:
+            lines.append("")
+            lines.append("* Measurement Directives")
+            for meas in self.measurements:
+                directive = meas.strip()
+                if not directive.lower().startswith(".meas"):
+                    directive = f".meas {directive}"
+                lines.append(directive)
 
         # Add analysis command
         lines.extend(self._generate_analysis_commands(node_labels, node_map))

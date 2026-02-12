@@ -417,3 +417,36 @@ class ResultParser:
             data_rows.append(" | ".join(row_list))
 
         return f"{header_str}\n{separator}\n" + "\n".join(data_rows)
+
+    @staticmethod
+    def parse_measurement_results(stdout):
+        """Parse .meas measurement results from ngspice stdout.
+
+        ngspice prints measurement results in the format:
+            name  =  value
+        or:
+            name  =  failed
+
+        Returns a dict mapping measurement names to float values,
+        or None if no measurements found.  Failed measurements are
+        included with value None.
+        """
+        if not stdout:
+            return None
+
+        results = {}
+        for line in stdout.split("\n"):
+            # Match: "  rise_time  =  1.23456e-06"
+            match = re.match(r"^\s*(\w+)\s*=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)\s*$", line, re.IGNORECASE)
+            if match:
+                name = match.group(1)
+                value = float(match.group(2))
+                results[name] = value
+                continue
+
+            # Match failed measurement: "  rise_time  =  failed"
+            fail_match = re.match(r"^\s*(\w+)\s*=\s*failed\s*$", line, re.IGNORECASE)
+            if fail_match:
+                results[fail_match.group(1)] = None
+
+        return results if results else None
