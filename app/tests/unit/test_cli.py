@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 from cli import (
-    __version__,
     REPL_BANNER,
+    __version__,
     build_parser,
     build_repl_namespace,
     cmd_batch,
@@ -372,6 +372,8 @@ class TestStdinPipe:
         captured = capsys.readouterr()
         data = json.loads(captured.out)
         assert "components" in data
+
+
 class TestReplCommand:
     def test_repl_namespace_has_circuit(self):
         ns = build_repl_namespace()
