@@ -14,7 +14,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QPushButton, QTextEdit, QVBoxLayout
+from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QPushButton, QTextEdit, QVBoxLayout
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .styles import theme_manager
@@ -44,6 +44,29 @@ def _apply_mpl_theme(fig):
                 spine.set_edgecolor("#555555")
 
 
+def save_plot(fig, parent=None):
+    """Save a matplotlib figure to PNG or SVG via a file dialog.
+
+    Returns the file path saved to, or empty string if cancelled.
+    """
+    path, _ = QFileDialog.getSaveFileName(
+        parent,
+        "Save Plot",
+        "",
+        "PNG Image (*.png);;SVG Image (*.svg);;All Files (*)",
+    )
+    if not path:
+        return ""
+    fig.savefig(
+        path,
+        dpi=300,
+        facecolor="white",
+        edgecolor="none",
+        bbox_inches="tight",
+    )
+    return path
+
+
 class DCSweepPlotDialog(QDialog):
     """Plot dialog for DC Sweep results (voltage vs. sweep variable).
 
@@ -67,10 +90,14 @@ class DCSweepPlotDialog(QDialog):
         plot_layout = QVBoxLayout()
 
         toolbar = QHBoxLayout()
+        save_btn = QPushButton("Save Plot...")
+        save_btn.setToolTip("Export the plot as a PNG or SVG image file")
+        save_btn.clicked.connect(lambda: save_plot(self._fig, self))
+        toolbar.addWidget(save_btn)
+        toolbar.addStretch()
         clear_btn = QPushButton("Clear All")
         clear_btn.setToolTip("Remove all overlaid results and clear the plot")
         clear_btn.clicked.connect(self.clear_all)
-        toolbar.addStretch()
         toolbar.addWidget(clear_btn)
         plot_layout.addLayout(toolbar)
 
@@ -246,6 +273,10 @@ class ACSweepPlotDialog(QDialog):
         plot_layout = QVBoxLayout()
 
         toolbar = QHBoxLayout()
+        save_btn = QPushButton("Save Plot...")
+        save_btn.setToolTip("Export the plot as a PNG or SVG image file")
+        save_btn.clicked.connect(lambda: save_plot(self._fig, self))
+        toolbar.addWidget(save_btn)
         self._markers_cb = QCheckBox("Show Markers")
         self._markers_cb.setChecked(True)
         self._markers_cb.setToolTip("Show -3dB cutoff, bandwidth, gain/phase margin markers")
