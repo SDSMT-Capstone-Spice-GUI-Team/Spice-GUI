@@ -1,0 +1,67 @@
+{
+  "name": "Half-Wave Rectifier",
+  "description": "Diode half-wave rectifier with filter capacitor. Converts AC to pulsating DC. Use transient analysis to see the waveform.",
+  "category": "Power",
+  "analysis_type": "Transient",
+  "analysis_params": {
+    "step_time": "10u",
+    "stop_time": "50m"
+  },
+  "components": [
+    {
+      "type": "WaveformVoltageSource",
+      "id": "VW1",
+      "value": "SIN(0 10 60)",
+      "pos": {"x": 100.0, "y": 200.0},
+      "rotation": 0,
+      "waveform_type": "SIN",
+      "waveform_params": {
+        "SIN": {
+          "offset": "0",
+          "amplitude": "10",
+          "frequency": "60",
+          "delay": "0",
+          "theta": "0",
+          "phase": "0"
+        }
+      }
+    },
+    {
+      "type": "Diode",
+      "id": "D1",
+      "value": "IS=1e-14 N=1",
+      "pos": {"x": 250.0, "y": 100.0},
+      "rotation": 0
+    },
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "1k",
+      "pos": {"x": 400.0, "y": 200.0},
+      "rotation": 90
+    },
+    {
+      "type": "Capacitor",
+      "id": "C1",
+      "value": "100u",
+      "pos": {"x": 550.0, "y": 200.0},
+      "rotation": 90
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "0V",
+      "pos": {"x": 300.0, "y": 340.0},
+      "rotation": 0
+    }
+  ],
+  "wires": [
+    {"start_comp": "VW1", "start_term": 0, "end_comp": "D1", "end_term": 0},
+    {"start_comp": "D1", "start_term": 1, "end_comp": "R1", "end_term": 0},
+    {"start_comp": "D1", "start_term": 1, "end_comp": "C1", "end_term": 0},
+    {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "C1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "VW1", "start_term": 1, "end_comp": "GND1", "end_term": 0}
+  ],
+  "counters": {"VW": 1, "D": 1, "R": 1, "C": 1, "GND": 1}
+}
