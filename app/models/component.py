@@ -35,6 +35,7 @@ COMPONENT_TYPES = [
     "Diode",
     "LED",
     "Zener Diode",
+    "Transformer",
 ]
 
 # Mapping of component types to SPICE symbols
@@ -59,6 +60,7 @@ SPICE_SYMBOLS = {
     "Diode": "D",
     "LED": "D",
     "Zener Diode": "D",
+    "Transformer": "K",
 }
 
 # Number of terminals per component type (default is 2)
@@ -74,6 +76,7 @@ TERMINAL_COUNTS = {
     "MOSFET NMOS": 3,
     "MOSFET PMOS": 3,
     "VC Switch": 4,
+    "Transformer": 4,
 }
 
 # Default values per component type
@@ -98,6 +101,7 @@ DEFAULT_VALUES = {
     "Diode": "IS=1e-14 N=1",
     "LED": "IS=1e-20 N=1.8 EG=1.9",
     "Zener Diode": "IS=1e-14 N=1 BV=5.1 IBV=1e-3",
+    "Transformer": "10mH 10mH 0.99",
 }
 
 # Available op-amp models (value field choices)
@@ -167,6 +171,7 @@ COMPONENT_COLORS = {
     "Diode": "#607D8B",
     "LED": "#FFEB3B",
     "Zener Diode": "#8D6E63",
+    "Transformer": "#6F42C1",
 }
 
 # Terminal geometry configuration per component type
@@ -194,6 +199,7 @@ TERMINAL_GEOMETRY = {
     "Diode": (10, 20, None),
     "LED": (10, 20, None),
     "Zener Diode": (10, 20, None),
+    "Transformer": (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
 }
 
 # Mapping from serialized class names to canonical display names
@@ -254,6 +260,9 @@ class ComponentData:
     # Waveform source parameters (only used for Waveform Source)
     waveform_type: Optional[str] = None
     waveform_params: Optional[dict] = field(default_factory=lambda: None)
+
+    # Initial condition (Capacitor: voltage, Inductor: current). None = use default.
+    initial_condition: Optional[str] = None
 
     def __post_init__(self):
         """Initialize waveform parameters for waveform sources."""
@@ -410,6 +419,10 @@ class ComponentData:
             data["waveform_type"] = self.waveform_type
             data["waveform_params"] = self.waveform_params
 
+        # Add initial condition for capacitors/inductors
+        if self.initial_condition:
+            data["initial_condition"] = self.initial_condition
+
         return data
 
     @classmethod
@@ -439,6 +452,10 @@ class ComponentData:
             component.waveform_type = data["waveform_type"]
         if "waveform_params" in data:
             component.waveform_params = data["waveform_params"]
+
+        # Load initial condition if present
+        if "initial_condition" in data:
+            component.initial_condition = data["initial_condition"]
 
         return component
 

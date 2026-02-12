@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSplitter,
     QStackedWidget,
+    QTabWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -33,6 +34,7 @@ from PyQt6.QtWidgets import (
 from .circuit_canvas import CircuitCanvasView
 from .circuit_statistics_panel import CircuitStatisticsPanel
 from .component_palette import ComponentPalette
+from .grading_panel import GradingPanel
 from .keybindings import KeybindingsRegistry
 from .main_window_analysis import AnalysisSettingsMixin
 from .main_window_file_ops import FileOperationsMixin
@@ -174,7 +176,10 @@ class MainWindow(
         canvas_layout.addWidget(self.canvas)
         center_splitter.addWidget(canvas_widget)
 
-        # Results panel
+        # Results / Netlist tabbed panel
+        self.results_tabs = QTabWidget()
+
+        # Tab 1: Simulation Results
         results_widget = QWidget()
         results_layout = QVBoxLayout(results_widget)
         results_header = QHBoxLayout()
@@ -183,12 +188,25 @@ class MainWindow(
         self.btn_export_csv.setEnabled(False)
         self.btn_export_csv.clicked.connect(self.export_results_csv)
         results_header.addWidget(self.btn_export_csv)
+        self.btn_export_excel = QPushButton("Export Excel")
+        self.btn_export_excel.setEnabled(False)
+        self.btn_export_excel.clicked.connect(self.export_results_excel)
+        results_header.addWidget(self.btn_export_excel)
         results_header.addStretch()
         results_layout.addLayout(results_header)
         self.results_text = QTextEdit()
         self.results_text.setReadOnly(True)
         results_layout.addWidget(self.results_text)
-        center_splitter.addWidget(results_widget)
+        self.results_tabs.addTab(results_widget, "Results")
+
+        # Tab 2: Netlist Preview
+        from .netlist_preview import NetlistPreviewWidget
+
+        self.netlist_preview = NetlistPreviewWidget()
+        self.netlist_preview.refresh_btn.clicked.connect(self._refresh_netlist_preview)
+        self.results_tabs.addTab(self.netlist_preview, "Netlist")
+
+        center_splitter.addWidget(self.results_tabs)
         center_splitter.setSizes(DEFAULT_SPLITTER_SIZES)
         self.center_splitter = center_splitter
         main_layout.addWidget(center_splitter, 3)
@@ -208,6 +226,11 @@ class MainWindow(
         self.statistics_panel = CircuitStatisticsPanel(self.model, self.circuit_ctrl, self.simulation_ctrl)
         self.statistics_panel.setVisible(False)
         right_panel_layout.addWidget(self.statistics_panel)
+
+        # Instructor grading panel
+        self.grading_panel = GradingPanel(self.model, self)
+        self.grading_panel.setVisible(False)
+        right_panel_layout.addWidget(self.grading_panel)
 
         right_panel_layout.addStretch()
         right_panel_layout.addWidget(QLabel("Actions"))
@@ -325,3 +348,18 @@ class MainWindow(
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
+
+        elif property_name == "initial_condition":
+            component.initial_condition = new_value
+            ic_display = new_value if new_value else "none"
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Updated {component_id} initial condition to {ic_display}", 2000)
+
+    def _refresh_netlist_preview(self):
+        """Regenerate and display the netlist in the preview panel."""
+        try:
+            netlist = self.simulation_ctrl.generate_netlist()
+            self.netlist_preview.set_netlist(netlist)
+        except (ValueError, KeyError, TypeError) as e:
+            self.netlist_preview.set_error(str(e))

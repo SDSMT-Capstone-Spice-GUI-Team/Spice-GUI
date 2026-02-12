@@ -25,6 +25,8 @@ class NetlistGenerator:
         analysis_type,
         analysis_params,
         wrdata_filepath="transient_data.txt",
+        spice_options=None,
+        measurements=None,
     ):
         """
         Args:
@@ -35,6 +37,8 @@ class NetlistGenerator:
             analysis_type: str
             analysis_params: dict
             wrdata_filepath: str - path for wrdata output file
+            spice_options: Optional[dict[str, str]] - extra .options key=value pairs
+            measurements: Optional[list[str]] - .meas directive strings
         """
         self.components = components
         self.wires = wires
@@ -43,6 +47,8 @@ class NetlistGenerator:
         self.analysis_type = analysis_type
         self.analysis_params = analysis_params
         self.wrdata_filepath = wrdata_filepath
+        self.spice_options = spice_options or {}
+        self.measurements = measurements or []
 
     def generate(self):
         """Generate complete SPICE netlist"""
@@ -143,9 +149,11 @@ class NetlistGenerator:
             if comp.component_type == "Resistor":
                 lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
             elif comp.component_type == "Capacitor":
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
+                ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
+                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
             elif comp.component_type == "Inductor":
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
+                ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
+                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
             elif comp.component_type == "Voltage Source":
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
             elif comp.component_type == "Current Source":
@@ -208,6 +216,19 @@ class NetlistGenerator:
                 # Terminals: 0=anode, 1=cathode
                 model_name = self._diode_model_map.get((comp.component_type, comp.value), f"D_{comp_id}")
                 lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {model_name}")
+            elif comp.component_type == "Transformer":
+                # Transformer modeled as two coupled inductors + K coupling
+                # value = "Lprimary Lsecondary coupling" e.g. "10mH 10mH 0.99"
+                # Terminals: 0=prim+, 1=prim-, 2=sec+, 3=sec-
+                parts = comp.value.split()
+                l_prim = parts[0] if len(parts) > 0 else "10mH"
+                l_sec = parts[1] if len(parts) > 1 else "10mH"
+                coupling = parts[2] if len(parts) > 2 else "0.99"
+                prim_name = f"L_prim_{comp_id}"
+                sec_name = f"L_sec_{comp_id}"
+                lines.append(f"{prim_name} {nodes[0]} {nodes[1]} {l_prim}")
+                lines.append(f"{sec_name} {nodes[2]} {nodes[3]} {l_sec}")
+                lines.append(f"K_{comp_id} {prim_name} {sec_name} {coupling}")
 
         # Add BJT model directives
         bjt_models = set()
@@ -272,6 +293,21 @@ class NetlistGenerator:
         lines.append(".option TEMP=27")
         lines.append(".option TNOM=27")
 
+        # Add extra SPICE options (e.g. relaxed tolerances for convergence retry)
+        if self.spice_options:
+            pairs = " ".join(f"{k}={v}" for k, v in self.spice_options.items())
+            lines.append(f".options {pairs}")
+
+        # Add .meas measurement directives
+        if self.measurements:
+            lines.append("")
+            lines.append("* Measurement Directives")
+            for meas in self.measurements:
+                directive = meas.strip()
+                if not directive.lower().startswith(".meas"):
+                    directive = f".meas {directive}"
+                lines.append(directive)
+
         # Add analysis command
         lines.extend(self._generate_analysis_commands(node_labels, node_map))
 
@@ -325,6 +361,27 @@ class NetlistGenerator:
             fstart = params.get("fStart", 1)
             fstop = params.get("fStop", 1e6)
             lines.append(f".noise v({output_node}) {source} {sweep_type} {pts} {fstart} {fstop}")
+
+        elif self.analysis_type == "Sensitivity":
+            params = self.analysis_params
+            output_node = params.get("output_node", "out")
+            lines.append(f".sens v({output_node})")
+
+        elif self.analysis_type == "Transfer Function":
+            params = self.analysis_params
+            output_var = params.get("output_var", "v(out)")
+            input_source = params.get("input_source", "V1")
+            lines.append(f".tf {output_var} {input_source}")
+
+        elif self.analysis_type == "Pole-Zero":
+            params = self.analysis_params
+            inp = params.get("input_pos", "1")
+            inn = params.get("input_neg", "0")
+            outp = params.get("output_pos", "2")
+            outn = params.get("output_neg", "0")
+            tf_type = params.get("transfer_type", "vol")
+            pz_type = params.get("pz_type", "pz")
+            lines.append(f".pz {inp} {inn} {outp} {outn} {tf_type} {pz_type}")
 
         # Add control block for running simulation and getting output
         lines.append("")

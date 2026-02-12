@@ -1,0 +1,49 @@
+{
+  "name": "RC High-Pass Filter",
+  "description": "First-order RC high-pass filter. Cutoff frequency fc = 1/(2*pi*R*C). With R=1k and C=1uF, fc ~ 159 Hz. Attenuates frequencies below the cutoff.",
+  "category": "Filters",
+  "analysis_type": "AC Sweep",
+  "analysis_params": {
+    "start_freq": "1",
+    "stop_freq": "100k",
+    "points": "100",
+    "variation": "Decade"
+  },
+  "components": [
+    {
+      "type": "VoltageSource",
+      "id": "V1",
+      "value": "1V",
+      "pos": {"x": 100.0, "y": 200.0},
+      "rotation": 0
+    },
+    {
+      "type": "Capacitor",
+      "id": "C1",
+      "value": "1u",
+      "pos": {"x": 250.0, "y": 100.0},
+      "rotation": 0
+    },
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "1k",
+      "pos": {"x": 400.0, "y": 200.0},
+      "rotation": 90
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "0V",
+      "pos": {"x": 250.0, "y": 340.0},
+      "rotation": 0
+    }
+  ],
+  "wires": [
+    {"start_comp": "V1", "start_term": 0, "end_comp": "C1", "end_term": 0},
+    {"start_comp": "C1", "start_term": 1, "end_comp": "R1", "end_term": 0},
+    {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0}
+  ],
+  "counters": {"V": 1, "R": 1, "C": 1, "GND": 1}
+}

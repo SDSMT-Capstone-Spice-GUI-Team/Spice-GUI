@@ -34,6 +34,10 @@ class MenuBarMixin:
         self.examples_menu = file_menu.addMenu("Open &Example")
         self._populate_examples_menu()
 
+        # Templates
+        self.templates_menu = file_menu.addMenu("New from &Template")
+        self._populate_templates_menu()
+
         save_action = QAction("&Save", self)
         save_action.setShortcut(kb.get("file.save"))
         save_action.triggered.connect(self._on_save)
@@ -44,12 +48,33 @@ class MenuBarMixin:
         save_as_action.triggered.connect(self._on_save_as)
         file_menu.addAction(save_as_action)
 
+        save_template_action = QAction("Save as Tem&plate...", self)
+        save_template_action.triggered.connect(self._on_save_as_template)
+        file_menu.addAction(save_template_action)
+
+        file_menu.addSeparator()
+
+        new_from_template_action = QAction("New from &Template...", self)
+        new_from_template_action.setToolTip("Create a new circuit from an assignment template")
+        new_from_template_action.triggered.connect(self._on_new_from_template)
+        file_menu.addAction(new_from_template_action)
+
+        save_as_template_action = QAction("Save as Temp&late...", self)
+        save_as_template_action.setToolTip("Save current circuit as an assignment template with metadata")
+        save_as_template_action.triggered.connect(self._on_save_as_template)
+        file_menu.addAction(save_as_template_action)
+
         file_menu.addSeparator()
 
         import_netlist_action = QAction("&Import SPICE Netlist...", self)
         import_netlist_action.setToolTip("Import a SPICE netlist file (.cir, .spice)")
         import_netlist_action.triggered.connect(self._on_import_netlist)
         file_menu.addAction(import_netlist_action)
+
+        import_asc_action = QAction("Import &LTspice Schematic...", self)
+        import_asc_action.setToolTip("Import an LTspice schematic file (.asc)")
+        import_asc_action.triggered.connect(self._on_import_asc)
+        file_menu.addAction(import_asc_action)
 
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
@@ -71,6 +96,16 @@ class MenuBarMixin:
         export_latex_action.setToolTip("Export circuit as CircuiTikZ LaTeX code (.tex file)")
         export_latex_action.triggered.connect(self.export_circuitikz)
         file_menu.addAction(export_latex_action)
+
+        export_asc_action = QAction("Export as LTspice (.&asc)...", self)
+        export_asc_action.setToolTip("Export circuit as LTspice .asc schematic file")
+        export_asc_action.triggered.connect(self._on_export_asc)
+        file_menu.addAction(export_asc_action)
+
+        generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
+        generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
+        generate_report_action.triggered.connect(self._on_generate_report)
+        file_menu.addAction(generate_report_action)
 
         file_menu.addSeparator()
 
@@ -144,6 +179,16 @@ class MenuBarMixin:
         copy_latex_action.setToolTip("Copy the CircuiTikZ environment block to the clipboard")
         copy_latex_action.triggered.connect(self.copy_circuitikz)
         edit_menu.addAction(copy_latex_action)
+
+        copy_json_action = QAction("Copy Circuit as &JSON", self)
+        copy_json_action.setToolTip("Copy entire circuit to system clipboard as JSON")
+        copy_json_action.triggered.connect(self.copy_circuit_json)
+        edit_menu.addAction(copy_json_action)
+
+        paste_json_action = QAction("Paste Circuit from JS&ON", self)
+        paste_json_action.setToolTip("Replace current circuit with JSON from clipboard")
+        paste_json_action.triggered.connect(self.paste_circuit_json)
+        edit_menu.addAction(paste_json_action)
 
         edit_menu.addSeparator()
 
@@ -419,6 +464,19 @@ class MenuBarMixin:
             "sim.run": run_action,
             "tools.probe": self.probe_action,
         }
+
+        # Instructor menu
+        instructor_menu = menubar.addMenu("&Instructor")
+        if instructor_menu:
+            grade_action = QAction("&Grade Student Circuit...", self)
+            grade_action.setToolTip("Open the grading panel to grade a student submission")
+            grade_action.triggered.connect(self._toggle_grading_panel)
+            instructor_menu.addAction(grade_action)
+
+            batch_grade_action = QAction("&Batch Grade...", self)
+            batch_grade_action.setToolTip("Grade a folder of student submissions")
+            batch_grade_action.triggered.connect(self._on_batch_grade)
+            instructor_menu.addAction(batch_grade_action)
 
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")

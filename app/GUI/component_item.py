@@ -86,6 +86,14 @@ class ComponentGraphicsItem(QGraphicsItem):
     def rotation_angle(self, v):
         self.model.rotation = v
 
+    @property
+    def initial_condition(self):
+        return self.model.initial_condition
+
+    @initial_condition.setter
+    def initial_condition(self, v):
+        self.model.initial_condition = v
+
     # --- Event handlers ---
 
     def mousePressEvent(self, event):
@@ -700,6 +708,46 @@ class ZenerDiode(ComponentGraphicsItem):
         super().__init__(component_id, self.type_name, model=model)
 
 
+class Transformer(ComponentGraphicsItem):
+    """Transformer — two coupled inductors (K element)"""
+
+    type_name = "Transformer"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+    def draw_component_body(self, painter):
+        # Terminal connection lines
+        if self.scene() is not None:
+            painter.drawLine(-30, -10, -18, -10)  # Primary +
+            painter.drawLine(-30, 10, -18, 10)  # Primary -
+            painter.drawLine(18, -10, 30, -10)  # Secondary +
+            painter.drawLine(18, 10, 30, 10)  # Secondary -
+
+        # Primary coil (left, 3 arcs)
+        for y in range(-10, 8, 6):
+            painter.drawArc(-18, y, 10, 6, 0, 180 * 16)
+
+        # Secondary coil (right, 3 arcs)
+        for y in range(-10, 8, 6):
+            painter.drawArc(8, y, 10, 6, 0, -180 * 16)
+
+        # Core lines (two vertical lines between coils)
+        painter.drawLine(-3, -12, -3, 12)
+        painter.drawLine(3, -12, 3, 12)
+
+        # Dot convention (polarity markers)
+        painter.setBrush(painter.pen().color())
+        painter.drawEllipse(-16, -14, 3, 3)  # Primary dot
+        painter.drawEllipse(13, -14, 3, 3)  # Secondary dot
+
+    def get_obstacle_shape(self):
+        return [(-20.0, -18.0), (20.0, -18.0), (20.0, 18.0), (-20.0, 18.0)]
+
+
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
     "Resistor": Resistor,
@@ -734,6 +782,7 @@ COMPONENT_CLASSES = {
     "LED": LEDComponent,
     "Zener Diode": ZenerDiode,
     "ZenerDiode": ZenerDiode,
+    "Transformer": Transformer,
 }
 
 
