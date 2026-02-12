@@ -146,6 +146,26 @@ class FileController:
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("model_loaded", None)
 
+    def load_from_dict(self, data: dict) -> None:
+        """Load circuit from a pre-validated dict (e.g. from clipboard).
+
+        Updates the model in place (preserving the reference so views stay connected).
+        Does not update current_file or session tracking.
+        """
+        new_model = CircuitModel.from_dict(data)
+        self.model.clear()
+        self.model.components = new_model.components
+        self.model.wires = new_model.wires
+        self.model.nodes = new_model.nodes
+        self.model.terminal_to_node = new_model.terminal_to_node
+        self.model.component_counter = new_model.component_counter
+        self.model.analysis_type = new_model.analysis_type
+        self.model.analysis_params = new_model.analysis_params
+        self.model.annotations = new_model.annotations
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify("model_loaded", None)
+
     def has_file(self) -> bool:
         """Return whether a current file path is set (for quick-save)."""
         return self.current_file is not None

@@ -163,6 +163,16 @@ class MenuBarMixin:
         copy_latex_action.triggered.connect(self.copy_circuitikz)
         edit_menu.addAction(copy_latex_action)
 
+        copy_json_action = QAction("Copy Circuit as &JSON", self)
+        copy_json_action.setToolTip("Copy entire circuit to system clipboard as JSON")
+        copy_json_action.triggered.connect(self.copy_circuit_json)
+        edit_menu.addAction(copy_json_action)
+
+        paste_json_action = QAction("Paste Circuit from JS&ON", self)
+        paste_json_action.setToolTip("Replace current circuit with JSON from clipboard")
+        paste_json_action.triggered.connect(self.paste_circuit_json)
+        edit_menu.addAction(paste_json_action)
+
         edit_menu.addSeparator()
 
         rotate_cw_action = QAction("Rotate Clockwise", self)

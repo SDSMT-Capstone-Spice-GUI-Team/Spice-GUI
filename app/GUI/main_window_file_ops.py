@@ -46,6 +46,61 @@ class FileOperationsMixin:
         """Paste components from internal clipboard."""
         self.canvas.paste_components()
 
+    def copy_circuit_json(self):
+        """Copy the entire circuit to system clipboard as JSON."""
+        from PyQt6.QtWidgets import QApplication
+
+        try:
+            data = self.model.to_dict()
+            json_str = json.dumps(data, indent=2)
+            clipboard = QApplication.clipboard()
+            if clipboard:
+                clipboard.setText(json_str)
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage("Circuit copied to clipboard as JSON", 3000)
+        except (TypeError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to copy circuit: {e}")
+
+    def paste_circuit_json(self):
+        """Paste a circuit from system clipboard JSON."""
+        from controllers.file_controller import validate_circuit_data
+        from PyQt6.QtWidgets import QApplication
+
+        clipboard = QApplication.clipboard()
+        if not clipboard:
+            return
+        json_str = clipboard.text()
+        if not json_str:
+            QMessageBox.warning(self, "Paste Circuit", "Clipboard is empty.")
+            return
+
+        try:
+            data = json.loads(json_str)
+            validate_circuit_data(data)
+        except (json.JSONDecodeError, ValueError) as e:
+            QMessageBox.critical(self, "Invalid Circuit Data", f"Clipboard does not contain valid circuit JSON:\n{e}")
+            return
+
+        if self.model.components:
+            reply = QMessageBox.question(
+                self,
+                "Paste Circuit",
+                "This will replace your current circuit. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        try:
+            self.file_ctrl.load_from_dict(data)
+            self._sync_analysis_menu()
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage("Circuit pasted from clipboard", 3000)
+        except (ValueError, KeyError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to paste circuit: {e}")
+
     def _on_undo(self):
         """Undo the last action."""
         if self.circuit_ctrl.undo():
