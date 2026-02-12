@@ -2,7 +2,7 @@ name: AI PR Review
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop, 'epic/**']
     types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
