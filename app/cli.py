@@ -10,6 +10,8 @@ Usage::
     python -m cli validate circuit.json
     python -m cli export circuit.json --format cir --output circuit.cir
     python -m cli batch circuits/ --output-dir results/
+    python -m cli repl
+    python -m cli repl --load circuit.json
 """
 
 import argparse
@@ -293,6 +295,76 @@ def cmd_batch(args: argparse.Namespace) -> int:
     return 1 if any_failed else 0
 
 
+REPL_BANNER = """\
+Spice-GUI Interactive REPL
+==========================
+
+Available objects:
+  Circuit          - create and manipulate circuits
+  SimulationResult - simulation result type
+  COMPONENT_TYPES  - list of all supported component types
+
+Quick start:
+  c = Circuit()
+  c.add_component("Voltage Source", "5V")
+  c.add_component("Resistor", "1k")
+  c.add_component("Ground")
+  c.add_wire("V1", 0, "R1", 0)
+  c.add_wire("R1", 1, "V1", 1)
+  c.add_wire("V1", 1, "GND1", 0)
+  result = c.simulate()
+  print(result.data)
+"""
+
+
+def build_repl_namespace(load_path: str | None = None) -> dict:
+    """Build the namespace dict for the interactive REPL.
+
+    Args:
+        load_path: Optional path to a circuit JSON file to pre-load.
+
+    Returns:
+        Dict of names to inject into the REPL namespace.
+    """
+    from controllers.simulation_controller import SimulationResult
+    from models.component import COMPONENT_TYPES
+    from scripting.circuit import Circuit
+
+    namespace = {
+        "Circuit": Circuit,
+        "SimulationResult": SimulationResult,
+        "COMPONENT_TYPES": COMPONENT_TYPES,
+    }
+
+    if load_path:
+        model, error = try_load_circuit(load_path)
+        if model is None:
+            print(f"Warning: could not load {load_path}: {error}", file=sys.stderr)
+        else:
+            namespace["circuit"] = Circuit(model)
+            print(f"Loaded circuit from {load_path} as 'circuit'", file=sys.stderr)
+
+    return namespace
+
+
+def cmd_repl(args: argparse.Namespace) -> int:
+    """Launch an interactive Python REPL with the scripting API."""
+    namespace = build_repl_namespace(getattr(args, "load", None))
+
+    try:
+        from IPython import start_ipython
+
+        start_ipython(argv=[], user_ns=namespace, display_banner=False)
+        return 0
+    except ImportError:
+        pass
+
+    import code
+
+    code.interact(banner=REPL_BANNER, local=namespace)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser."""
     parser = argparse.ArgumentParser(
@@ -338,6 +410,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     batch_parser.add_argument("--fail-fast", action="store_true", help="Stop on first error")
 
+    # repl
+    repl_parser = subparsers.add_parser("repl", help="Launch interactive Python REPL with scripting API")
+    repl_parser.add_argument("--load", help="Pre-load a circuit JSON file as 'circuit' variable")
+
     return parser
 
 
@@ -351,6 +427,7 @@ def main(argv=None) -> int:
         "validate": cmd_validate,
         "export": cmd_export,
         "batch": cmd_batch,
+        "repl": cmd_repl,
     }
 
     handler = handlers.get(args.command)
