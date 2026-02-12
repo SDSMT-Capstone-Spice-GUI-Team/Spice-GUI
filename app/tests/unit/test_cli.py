@@ -1,9 +1,10 @@
 """Tests for the CLI batch operations (app/cli.py)."""
 
 import json
+from pathlib import Path
 
 import pytest
-from cli import build_parser, cmd_export, cmd_simulate, cmd_validate, load_circuit, main
+from cli import build_parser, cmd_batch, cmd_export, cmd_simulate, cmd_validate, load_circuit, main, try_load_circuit
 from models.circuit import CircuitModel
 
 
@@ -173,3 +174,142 @@ class TestParser:
     def test_simulate_analysis_override(self, voltage_divider):
         args = build_parser().parse_args(["simulate", voltage_divider, "--analysis", "DC Operating Point"])
         assert args.analysis == "DC Operating Point"
+
+    def test_batch_requires_path(self):
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["batch"])
+
+
+class TestTryLoadCircuit:
+    def test_success(self, voltage_divider):
+        model, error = try_load_circuit(voltage_divider)
+        assert model is not None
+        assert error == ""
+
+    def test_nonexistent(self):
+        model, error = try_load_circuit("/nonexistent/file.json")
+        assert model is None
+        assert "not found" in error
+
+    def test_invalid_json(self, tmp_path):
+        bad = tmp_path / "bad.json"
+        bad.write_text("not json")
+        model, error = try_load_circuit(str(bad))
+        assert model is None
+        assert "invalid JSON" in error
+
+
+class TestBatchCommand:
+    @pytest.fixture
+    def circuit_dir(self, tmp_path):
+        """Create a directory with multiple circuit files."""
+        base = {
+            "components": [
+                {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
+                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
+                {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 0, "y": 200}, "rotation": 0},
+            ],
+            "wires": [
+                {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
+                {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+                {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+            ],
+            "counters": {"R": 1, "V": 1, "GND": 1},
+        }
+        circuits_dir = tmp_path / "circuits"
+        circuits_dir.mkdir()
+
+        # Write three valid circuits with different values
+        for i, val in enumerate(["1k", "2.2k", "4.7k"], 1):
+            c = json.loads(json.dumps(base))
+            c["components"][1]["value"] = val
+            (circuits_dir / f"circuit_{i}.json").write_text(json.dumps(c))
+
+        return str(circuits_dir)
+
+    @pytest.fixture
+    def mixed_dir(self, tmp_path):
+        """Create a directory with valid and invalid circuit files."""
+        circuits_dir = tmp_path / "mixed"
+        circuits_dir.mkdir()
+
+        # Valid circuit
+        valid = {
+            "components": [
+                {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
+                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
+                {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 0, "y": 200}, "rotation": 0},
+            ],
+            "wires": [
+                {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
+                {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+                {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+            ],
+            "counters": {"R": 1, "V": 1, "GND": 1},
+        }
+        (circuits_dir / "good.json").write_text(json.dumps(valid))
+
+        # Invalid circuit (empty)
+        (circuits_dir / "bad.json").write_text(json.dumps({"components": [], "wires": [], "counters": {}}))
+
+        return str(circuits_dir)
+
+    def test_batch_directory(self, circuit_dir, capsys):
+        args = build_parser().parse_args(["batch", circuit_dir])
+        cmd_batch(args)
+        captured = capsys.readouterr()
+        # Should print summary table
+        assert "circuit_1.json" in captured.out
+        assert "circuit_2.json" in captured.out
+        assert "circuit_3.json" in captured.out
+
+    def test_batch_with_output_dir(self, circuit_dir, tmp_path):
+        out_dir = str(tmp_path / "results")
+        args = build_parser().parse_args(["batch", circuit_dir, "--output-dir", out_dir])
+        cmd_batch(args)
+        # Output directory should be created
+        assert Path(out_dir).exists()
+
+    def test_batch_mixed_results(self, mixed_dir, capsys):
+        """Batch continues on error by default."""
+        args = build_parser().parse_args(["batch", mixed_dir])
+        cmd_batch(args)
+        captured = capsys.readouterr()
+        # Should have processed both files
+        assert "good.json" in captured.out
+        assert "bad.json" in captured.out
+
+    def test_batch_fail_fast(self, mixed_dir, capsys):
+        """--fail-fast stops after first failure."""
+        args = build_parser().parse_args(["batch", mixed_dir, "--fail-fast"])
+        code = cmd_batch(args)
+        assert code == 1
+
+    def test_batch_empty_dir(self, tmp_path, capsys):
+        """Empty directory returns error."""
+        empty_dir = tmp_path / "empty"
+        empty_dir.mkdir()
+        args = build_parser().parse_args(["batch", str(empty_dir)])
+        code = cmd_batch(args)
+        assert code == 1
+
+    def test_batch_via_main(self, circuit_dir, capsys):
+        main(["batch", circuit_dir])
+        captured = capsys.readouterr()
+        assert "succeeded" in captured.out
+
+    def test_batch_glob_pattern(self, circuit_dir, capsys):
+        pattern = str(Path(circuit_dir) / "circuit_*.json")
+        args = build_parser().parse_args(["batch", pattern])
+        cmd_batch(args)
+        captured = capsys.readouterr()
+        assert "circuit_1.json" in captured.out
+
+    def test_batch_csv_format(self, circuit_dir, tmp_path):
+        out_dir = str(tmp_path / "csv_results")
+        args = build_parser().parse_args(["batch", circuit_dir, "--format", "csv", "--output-dir", out_dir])
+        code = cmd_batch(args)
+        # If simulations succeeded, check CSV files exist
+        if code == 0:
+            csv_files = list(Path(out_dir).glob("*.csv"))
+            assert len(csv_files) == 3
