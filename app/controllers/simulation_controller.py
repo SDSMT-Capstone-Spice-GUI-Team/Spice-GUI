@@ -251,6 +251,9 @@ class SimulationController:
             elif analysis == "Sensitivity":
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_sensitivity_results(output)
+            elif analysis == "Transfer Function":
+                output = self.runner.read_output(output_file)
+                data = ResultParser.parse_tf_results(output)
             else:
                 return SimulationResult(
                     success=False,

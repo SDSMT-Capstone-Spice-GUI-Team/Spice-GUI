@@ -365,6 +365,12 @@ class NetlistGenerator:
             output_node = params.get("output_node", "out")
             lines.append(f".sens v({output_node})")
 
+        elif self.analysis_type == "Transfer Function":
+            params = self.analysis_params
+            output_var = params.get("output_var", "v(out)")
+            input_source = params.get("input_source", "V1")
+            lines.append(f".tf {output_var} {input_source}")
+
         # Add control block for running simulation and getting output
         lines.append("")
         lines.append("* Control block for batch execution")

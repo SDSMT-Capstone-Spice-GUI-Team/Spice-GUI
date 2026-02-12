@@ -165,6 +165,7 @@ class SimulationMixin:
             "Temperature Sweep": self._display_temp_sweep_results,
             "Noise": self._display_noise_results,
             "Sensitivity": self._display_sensitivity_results,
+            "Transfer Function": self._display_tf_results,
             "Parameter Sweep": self._display_param_sweep_results,
             "Monte Carlo": self._display_monte_carlo_results,
         }
@@ -404,6 +405,33 @@ class SimulationMixin:
             )
         else:
             self.results_text.append("\nNo sensitivity data found in output.")
+        self.canvas.clear_op_results()
+        self.properties_panel.clear_simulation_results()
+
+    def _display_tf_results(self, result):
+        """Display Transfer Function (.tf) results."""
+        from simulation.result_parser import format_si
+
+        tf_data = result.data if result.data else None
+        if tf_data:
+            self._last_results = tf_data
+            self.results_text.append("\nTRANSFER FUNCTION RESULTS:")
+            self.results_text.append("-" * 40)
+
+            gain = tf_data.get("transfer_function")
+            z_out = tf_data.get("output_impedance")
+            z_in = tf_data.get("input_impedance")
+
+            if gain is not None:
+                self.results_text.append(f"  {'Transfer function':20s} : {gain:.6g}")
+            if z_in is not None:
+                self.results_text.append(f"  {'Input impedance':20s} : {format_si(z_in, 'Ω')}")
+            if z_out is not None:
+                self.results_text.append(f"  {'Output impedance':20s} : {format_si(z_out, 'Ω')}")
+
+            self.results_text.append("-" * 40)
+        else:
+            self.results_text.append("\nNo transfer function data found in output.")
         self.canvas.clear_op_results()
         self.properties_panel.clear_simulation_results()
 
