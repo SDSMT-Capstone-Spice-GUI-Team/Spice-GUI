@@ -93,6 +93,13 @@ class ViewOperationsMixin:
         dialog = BatchGradingDialog(reference_circuit=self.model, parent=self)
         dialog.exec()
 
+    def _on_create_rubric(self):
+        """Open the rubric editor dialog."""
+        from .rubric_editor_dialog import RubricEditorDialog
+
+        dialog = RubricEditorDialog(parent=self)
+        dialog.exec()
+
     # Dirty flag (unsaved changes indicator)
 
     def _on_dirty_change(self, event: str, data) -> None:

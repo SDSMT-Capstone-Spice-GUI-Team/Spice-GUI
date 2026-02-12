@@ -465,6 +465,13 @@ class MenuBarMixin:
         # Instructor menu
         instructor_menu = menubar.addMenu("&Instructor")
         if instructor_menu:
+            create_rubric_action = QAction("&Create Rubric...", self)
+            create_rubric_action.setToolTip("Open the rubric editor to create or edit a grading rubric")
+            create_rubric_action.triggered.connect(self._on_create_rubric)
+            instructor_menu.addAction(create_rubric_action)
+
+            instructor_menu.addSeparator()
+
             grade_action = QAction("&Grade Student Circuit...", self)
             grade_action.setToolTip("Open the grading panel to grade a student submission")
             grade_action.triggered.connect(self._toggle_grading_panel)
