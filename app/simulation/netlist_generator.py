@@ -334,6 +334,11 @@ class NetlistGenerator:
             fstop = params.get("fStop", 1e6)
             lines.append(f".noise v({output_node}) {source} {sweep_type} {pts} {fstart} {fstop}")
 
+        elif self.analysis_type == "Sensitivity":
+            params = self.analysis_params
+            output_node = params.get("output_node", "out")
+            lines.append(f".sens v({output_node})")
+
         # Add control block for running simulation and getting output
         lines.append("")
         lines.append("* Control block for batch execution")

@@ -103,6 +103,22 @@ class AnalysisDialog(QDialog):
                 "sweepType": "Frequency scale: dec (decade/log), oct (octave), lin (linear)",
             },
         },
+        "Sensitivity": {
+            "fields": [
+                ("Output Node", "output_node", "text", "out"),
+            ],
+            "description": (
+                "DC sensitivity analysis — shows how much each component value "
+                "affects the selected output voltage. Useful for identifying the "
+                "most critical components in your circuit."
+            ),
+            "tooltips": {
+                "output_node": (
+                    "Node name (or number) to analyze, e.g. 'out' or '2'. "
+                    "The analysis computes dV(node)/d(parameter) for every component."
+                ),
+            },
+        },
     }
 
     def __init__(self, analysis_type=None, parent=None, preset_manager=None):
@@ -275,6 +291,10 @@ class AnalysisDialog(QDialog):
             points = params.get("points", 100)
             sweep_type = params.get("sweepType", "dec")
             return f".noise v({output}) {source} {sweep_type} {points} {fstart} {fstop}"
+
+        elif self.analysis_type == "Sensitivity":
+            output = params.get("output_node", "out")
+            return f".sens v({output})"
 
         return ""
 
