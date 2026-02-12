@@ -90,6 +90,16 @@ class MenuBarMixin:
         export_asc_action.triggered.connect(self._on_export_asc)
         file_menu.addAction(export_asc_action)
 
+        export_svg_share_action = QAction("Export as &Shareable SVG...", self)
+        export_svg_share_action.setToolTip("Export SVG image with embedded circuit data for re-import")
+        export_svg_share_action.triggered.connect(self._on_export_shareable_svg)
+        file_menu.addAction(export_svg_share_action)
+
+        import_svg_action = QAction("Import from SV&G...", self)
+        import_svg_action.setToolTip("Import circuit from an SVG file with embedded circuit data")
+        import_svg_action.triggered.connect(self._on_import_svg)
+        file_menu.addAction(import_svg_action)
+
         generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
         generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
         generate_report_action.triggered.connect(self._on_generate_report)

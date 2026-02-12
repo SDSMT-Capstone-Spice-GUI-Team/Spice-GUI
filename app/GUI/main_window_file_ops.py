@@ -243,6 +243,77 @@ class FileOperationsMixin:
         except (OSError, Exception) as e:
             QMessageBox.critical(self, "Error", f"Failed to export LTspice schematic: {e}")
 
+    def _on_export_shareable_svg(self):
+        """Export the circuit as an SVG with embedded circuit JSON metadata."""
+        from simulation.svg_metadata import inject_metadata
+
+        if not self.model.components:
+            QMessageBox.information(self, "Export SVG", "Nothing to export — the canvas is empty.")
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export as Shareable SVG", "", "SVG Files (*.svg);;All Files (*)"
+        )
+        if not filename:
+            return
+
+        try:
+            # First, render the SVG image using existing export
+            self.canvas.export_image(filename, include_grid=False)
+            # Then inject circuit metadata
+            circuit_data = self.model.to_dict()
+            inject_metadata(filename, circuit_data)
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Shareable SVG exported to {filename}", 3000)
+        except (OSError, Exception) as e:
+            QMessageBox.critical(self, "Error", f"Failed to export SVG: {e}")
+
+    def _on_import_svg(self):
+        """Import a circuit from an SVG file with embedded circuit data."""
+        from controllers.file_controller import validate_circuit_data
+        from simulation.svg_metadata import extract_metadata
+
+        filename, _ = QFileDialog.getOpenFileName(self, "Import from SVG", "", "SVG Files (*.svg);;All Files (*)")
+        if not filename:
+            return
+
+        try:
+            data = extract_metadata(filename)
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to read SVG file:\n{e}")
+            return
+
+        if data is None:
+            QMessageBox.warning(self, "Import SVG", "This SVG file does not contain embedded circuit data.")
+            return
+
+        try:
+            validate_circuit_data(data)
+        except ValueError as e:
+            QMessageBox.critical(self, "Invalid Circuit Data", f"Embedded data is not a valid circuit:\n{e}")
+            return
+
+        if self.model.components:
+            reply = QMessageBox.question(
+                self,
+                "Import SVG",
+                "This will replace your current circuit. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        try:
+            self.file_ctrl.load_from_dict(data)
+            self.setWindowTitle(f"Circuit Design GUI - {Path(filename).name} (imported)")
+            self._sync_analysis_menu()
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Circuit imported from {filename}", 3000)
+        except (ValueError, KeyError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to import circuit: {e}")
+
     def _on_generate_report(self):
         """Generate a comprehensive PDF circuit report."""
         from GUI.report_dialog import ReportDialog
