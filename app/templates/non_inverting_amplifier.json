@@ -1,0 +1,51 @@
+{
+  "name": "Non-Inverting Amplifier",
+  "description": "Op-amp non-inverting amplifier. Gain = 1 + Rf/R1 = 1 + 9k/1k = 10. Output is in phase with the input.",
+  "category": "Amplifiers",
+  "components": [
+    {
+      "type": "VoltageSource",
+      "id": "V1",
+      "value": "1V",
+      "pos": {"x": 100.0, "y": 200.0},
+      "rotation": 0
+    },
+    {
+      "type": "OpAmp",
+      "id": "OA1",
+      "value": "Ideal",
+      "pos": {"x": 350.0, "y": 150.0},
+      "rotation": 0
+    },
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "1k",
+      "pos": {"x": 350.0, "y": 280.0},
+      "rotation": 90
+    },
+    {
+      "type": "Resistor",
+      "id": "R2",
+      "value": "9k",
+      "pos": {"x": 350.0, "y": 50.0},
+      "rotation": 0
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "0V",
+      "pos": {"x": 250.0, "y": 380.0},
+      "rotation": 0
+    }
+  ],
+  "wires": [
+    {"start_comp": "V1", "start_term": 0, "end_comp": "OA1", "end_term": 1},
+    {"start_comp": "OA1", "start_term": 0, "end_comp": "R1", "end_term": 0},
+    {"start_comp": "OA1", "start_term": 0, "end_comp": "R2", "end_term": 0},
+    {"start_comp": "R2", "start_term": 1, "end_comp": "OA1", "end_term": 2},
+    {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0}
+  ],
+  "counters": {"V": 1, "R": 2, "OA": 1, "GND": 1}
+}

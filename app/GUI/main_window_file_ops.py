@@ -213,6 +213,131 @@ class FileOperationsMixin:
                 action.triggered.connect(lambda checked, path=example["filepath"]: self._open_example(path))
                 self.examples_menu.addAction(action)
 
+    def _populate_templates_menu(self):
+        """Populate the New from Template submenu with available templates."""
+        from controllers.template_manager import TemplateManager
+
+        if not hasattr(self, "_template_manager"):
+            self._template_manager = TemplateManager()
+
+        self.templates_menu.clear()
+
+        templates = self._template_manager.list_templates()
+        if not templates:
+            no_templates = QAction("(No templates available)", self)
+            no_templates.setEnabled(False)
+            self.templates_menu.addAction(no_templates)
+            return
+
+        # Group by category
+        templates_by_category: dict[str, list] = {}
+        for t in templates:
+            templates_by_category.setdefault(t.category, []).append(t)
+
+        category_order = sorted(templates_by_category.keys())
+        for i, category in enumerate(category_order):
+            if i > 0:
+                self.templates_menu.addSeparator()
+
+            category_label = QAction(f"--- {category} ---", self)
+            category_label.setEnabled(False)
+            self.templates_menu.addAction(category_label)
+
+            for template in templates_by_category[category]:
+                label = template.name
+                if not template.is_builtin:
+                    label += " (user)"
+                action = QAction(label, self)
+                action.setToolTip(template.description)
+                action.triggered.connect(lambda checked, fp=template.filepath: self._open_template(fp))
+                self.templates_menu.addAction(action)
+
+        # Add separator and "Browse All..." option
+        self.templates_menu.addSeparator()
+        browse_action = QAction("Browse All...", self)
+        browse_action.triggered.connect(self._on_new_from_template)
+        self.templates_menu.addAction(browse_action)
+
+    def _on_new_from_template(self):
+        """Open the template browser dialog."""
+        from controllers.template_manager import TemplateManager
+        from GUI.template_dialog import NewFromTemplateDialog
+
+        if not hasattr(self, "_template_manager"):
+            self._template_manager = TemplateManager()
+
+        dialog = NewFromTemplateDialog(self._template_manager, self)
+        if dialog.exec() == NewFromTemplateDialog.DialogCode.Accepted:
+            template = dialog.get_selected_template()
+            if template:
+                self._open_template(template.filepath)
+
+    def _open_template(self, filepath: Path):
+        """Load a circuit template, replacing the current circuit."""
+        from controllers.template_manager import TemplateManager
+
+        if not hasattr(self, "_template_manager"):
+            self._template_manager = TemplateManager()
+
+        if len(self.canvas.components) > 0:
+            reply = QMessageBox.question(
+                self,
+                "New from Template",
+                "Opening a template will replace your current circuit. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        try:
+            new_model = self._template_manager.load_template(filepath)
+
+            self.model.clear()
+            self.model.components = new_model.components
+            self.model.wires = new_model.wires
+            self.model.nodes = new_model.nodes
+            self.model.terminal_to_node = new_model.terminal_to_node
+            self.model.component_counter = new_model.component_counter
+            self.model.analysis_type = new_model.analysis_type
+            self.model.analysis_params = new_model.analysis_params
+            self.model.annotations = new_model.annotations
+
+            # Notify observers to rebuild canvas
+            if self.circuit_ctrl:
+                self.circuit_ctrl._notify("model_loaded", None)
+
+            self.setWindowTitle(f"Circuit Design GUI - {filepath.stem} (Template)")
+            self._sync_analysis_menu()
+            self.file_ctrl.current_file = None
+            self._set_dirty(True)
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load template: {e}")
+
+    def _on_save_as_template(self):
+        """Save the current circuit as a reusable template."""
+        from controllers.template_manager import TemplateManager
+        from GUI.template_dialog import SaveAsTemplateDialog
+
+        if not self.model.components:
+            QMessageBox.information(self, "Save as Template", "Cannot save an empty circuit as a template.")
+            return
+
+        if not hasattr(self, "_template_manager"):
+            self._template_manager = TemplateManager()
+
+        dialog = SaveAsTemplateDialog(self)
+        if dialog.exec() == SaveAsTemplateDialog.DialogCode.Accepted:
+            name, description, category = dialog.get_values()
+            try:
+                self._template_manager.save_template(self.model, name, description, category)
+                # Refresh the templates submenu
+                self._populate_templates_menu()
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(f"Template saved: {name}", 3000)
+            except OSError as e:
+                QMessageBox.critical(self, "Error", f"Failed to save template: {e}")
+
     def _open_example(self, filepath: Path):
         """Open an example circuit file"""
         # Warn if there's unsaved work
