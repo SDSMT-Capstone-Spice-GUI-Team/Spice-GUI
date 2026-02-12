@@ -261,6 +261,9 @@ class ComponentData:
     waveform_type: Optional[str] = None
     waveform_params: Optional[dict] = field(default_factory=lambda: None)
 
+    # Initial condition (Capacitor: voltage, Inductor: current). None = use default.
+    initial_condition: Optional[str] = None
+
     def __post_init__(self):
         """Initialize waveform parameters for waveform sources."""
         if self.component_type == "Waveform Source" and self.waveform_params is None:
@@ -416,6 +419,10 @@ class ComponentData:
             data["waveform_type"] = self.waveform_type
             data["waveform_params"] = self.waveform_params
 
+        # Add initial condition for capacitors/inductors
+        if self.initial_condition:
+            data["initial_condition"] = self.initial_condition
+
         return data
 
     @classmethod
@@ -445,6 +452,10 @@ class ComponentData:
             component.waveform_type = data["waveform_type"]
         if "waveform_params" in data:
             component.waveform_params = data["waveform_params"]
+
+        # Load initial condition if present
+        if "initial_condition" in data:
+            component.initial_condition = data["initial_condition"]
 
         return component
 

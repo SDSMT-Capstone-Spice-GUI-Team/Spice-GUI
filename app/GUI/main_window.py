@@ -339,6 +339,13 @@ class MainWindow(
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
 
+        elif property_name == "initial_condition":
+            component.initial_condition = new_value
+            ic_display = new_value if new_value else "none"
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Updated {component_id} initial condition to {ic_display}", 2000)
+
     def _refresh_netlist_preview(self):
         """Regenerate and display the netlist in the preview panel."""
         try:
