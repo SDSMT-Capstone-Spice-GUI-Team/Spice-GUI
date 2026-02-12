@@ -5,9 +5,6 @@ All color values from the original codebase are centralized here.
 Teammates can update these values from design documents.
 """
 
-from PyQt6.QtGui import QBrush, QColor, QPen
-
-from .constants import COMPONENTS
 from .theme import BaseTheme
 
 
@@ -156,32 +153,3 @@ class LightTheme(BaseTheme):
             "title_bold": "font-weight: bold; font-size: 12pt;",
             "metrics_text": "font-family: monospace; font-size: 9pt;",
         }
-
-    # ===== Helper methods for common patterns =====
-
-    def get_component_color(self, component_type: str) -> QColor:
-        """Get the themed color for a component type."""
-        comp_info = COMPONENTS.get(component_type, {})
-        color_key = comp_info.get("color_key", "text_primary")
-        return self.color(color_key)
-
-    def get_component_color_hex(self, component_type: str) -> str:
-        """Get the hex color string for a component type."""
-        comp_info = COMPONENTS.get(component_type, {})
-        color_key = comp_info.get("color_key", "text_primary")
-        return self.color_hex(color_key)
-
-    def get_algorithm_color(self, algorithm: str) -> QColor:
-        """Get the themed color for an algorithm layer."""
-        key = f"algorithm_{algorithm}"
-        return self.color(key)
-
-    def create_component_pen(self, component_type: str, width: float = 2.0) -> QPen:
-        """Create a pen for drawing a specific component type."""
-        color = self.get_component_color(component_type)
-        return QPen(color, width)
-
-    def create_component_brush(self, component_type: str) -> QBrush:
-        """Create a brush for filling a specific component type."""
-        color = self.get_component_color(component_type)
-        return QBrush(color.lighter(150))

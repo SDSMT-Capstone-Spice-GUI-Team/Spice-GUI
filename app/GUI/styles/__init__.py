@@ -25,6 +25,8 @@ Usage:
     # theme_manager.set_theme(DarkTheme())
 """
 
+from . import theme_store
+
 # Core constants (always available, theme-independent)
 from .constants import (
     COMPONENTS,
@@ -46,6 +48,7 @@ from .constants import (
     ZOOM_MAX,
     ZOOM_MIN,
 )
+from .custom_theme import CustomTheme
 from .dark_theme import DarkTheme
 from .light_theme import LightTheme
 
@@ -80,6 +83,8 @@ __all__ = [
     "theme_manager",
     "LightTheme",
     "DarkTheme",
+    "CustomTheme",
+    "theme_store",
     "SYMBOL_STYLES",
     "COLOR_MODES",
 ]

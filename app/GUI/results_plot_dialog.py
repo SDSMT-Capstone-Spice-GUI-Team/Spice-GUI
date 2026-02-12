@@ -29,19 +29,23 @@ _LINE_STYLES = ["-", "--", "-.", ":"]
 
 def _apply_mpl_theme(fig):
     """Apply the current application theme colors to a matplotlib figure."""
-    is_dark = theme_manager.current_theme.name == "Dark Theme"
-    if is_dark:
-        bg = "#1E1E1E"
-        fg = "#D4D4D4"
+    theme = theme_manager.current_theme
+    if theme.is_dark:
+        bg = theme.color_hex("background_primary")
+        fg = theme.color_hex("text_primary")
+        bg2 = theme.color_hex("background_secondary")
+        from PyQt6.QtGui import QColor
+
+        border = QColor(bg2).lighter(150).name()
         fig.patch.set_facecolor(bg)
         for ax in fig.axes:
-            ax.set_facecolor("#2D2D2D")
+            ax.set_facecolor(bg2)
             ax.tick_params(colors=fg)
             ax.xaxis.label.set_color(fg)
             ax.yaxis.label.set_color(fg)
             ax.title.set_color(fg)
             for spine in ax.spines.values():
-                spine.set_edgecolor("#555555")
+                spine.set_edgecolor(border)
 
 
 def save_plot(fig, parent=None):

@@ -267,22 +267,25 @@ class MenuBarMixin:
 
         view_menu.addSeparator()
 
-        # Theme submenu
-        theme_menu = view_menu.addMenu("&Theme")
+        # Theme submenu (dynamic — includes custom themes)
+        self.theme_menu = view_menu.addMenu("&Theme")
+        self.theme_group = QActionGroup(self)
+
         self.light_theme_action = QAction("&Light", self)
         self.light_theme_action.setCheckable(True)
         self.light_theme_action.setChecked(True)
-        self.light_theme_action.triggered.connect(lambda: self._set_theme("light"))
-        theme_menu.addAction(self.light_theme_action)
+        self.light_theme_action.triggered.connect(lambda: self._set_theme_by_key("light"))
+        self.theme_menu.addAction(self.light_theme_action)
+        self.theme_group.addAction(self.light_theme_action)
 
         self.dark_theme_action = QAction("&Dark", self)
         self.dark_theme_action.setCheckable(True)
-        self.dark_theme_action.triggered.connect(lambda: self._set_theme("dark"))
-        theme_menu.addAction(self.dark_theme_action)
-
-        self.theme_group = QActionGroup(self)
-        self.theme_group.addAction(self.light_theme_action)
+        self.dark_theme_action.triggered.connect(lambda: self._set_theme_by_key("dark"))
+        self.theme_menu.addAction(self.dark_theme_action)
         self.theme_group.addAction(self.dark_theme_action)
+
+        self._custom_theme_actions = []
+        self._refresh_theme_menu()
 
         # Symbol Style submenu
         symbol_style_menu = view_menu.addMenu("&Symbol Style")
@@ -478,9 +481,27 @@ class MenuBarMixin:
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")
         if settings_menu:
+            preferences_action = QAction("&Preferences...", self)
+            preferences_action.triggered.connect(self._open_preferences_dialog)
+            settings_menu.addAction(preferences_action)
+
+            settings_menu.addSeparator()
+
             keybindings_action = QAction("&Keybindings...", self)
             keybindings_action.triggered.connect(self._open_keybindings_dialog)
             settings_menu.addAction(keybindings_action)
+
+    def _open_preferences_dialog(self):
+        """Open the unified preferences dialog (single-instance, non-modal)."""
+        from .preferences_dialog import PreferencesDialog
+
+        existing = getattr(self, "_preferences_dialog", None)
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            return
+        self._preferences_dialog = PreferencesDialog(self)
+        self._preferences_dialog.show()
 
     def _open_keybindings_dialog(self):
         """Open the keybindings preferences dialog."""
@@ -496,3 +517,50 @@ class MenuBarMixin:
         kb = self.keybindings
         for action_name, qaction in self._bound_actions.items():
             qaction.setShortcut(kb.get(action_name))
+
+    def _refresh_theme_menu(self):
+        """Rebuild custom theme entries in the Theme submenu."""
+        from .styles import theme_manager
+
+        # Remove old custom actions
+        for action in self._custom_theme_actions:
+            self.theme_menu.removeAction(action)
+            self.theme_group.removeAction(action)
+        self._custom_theme_actions.clear()
+
+        # Add custom themes after a separator
+        available = theme_manager.get_available_themes()
+        custom_themes = [(name, key) for name, key in available if key.startswith("custom:")]
+        if custom_themes:
+            sep = self.theme_menu.addSeparator()
+            self._custom_theme_actions.append(sep)
+            for display_name, key in custom_themes:
+                action = QAction(display_name, self)
+                action.setCheckable(True)
+                action.triggered.connect(lambda checked, k=key: self._set_theme_by_key(k))
+                self.theme_menu.addAction(action)
+                self.theme_group.addAction(action)
+                self._custom_theme_actions.append(action)
+
+        # Sync checkmarks with current theme
+        current_key = theme_manager.get_theme_key()
+        if current_key == "light":
+            self.light_theme_action.setChecked(True)
+        elif current_key == "dark":
+            self.dark_theme_action.setChecked(True)
+        else:
+            for action in self._custom_theme_actions:
+                if hasattr(action, "text") and action.text():
+                    # Find matching custom action
+                    for name, key in custom_themes:
+                        if key == current_key and action.text() == name:
+                            action.setChecked(True)
+                            break
+
+    def _set_theme_by_key(self, key):
+        """Switch theme by key and apply it."""
+        from .styles import theme_manager
+
+        theme_manager.set_theme_by_key(key)
+        self._apply_theme()
+        self._refresh_theme_menu()
