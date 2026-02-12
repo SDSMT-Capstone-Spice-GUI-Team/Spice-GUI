@@ -204,6 +204,9 @@ class SimulationController:
             elif analysis == "Noise":
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_noise_results(output)
+            elif analysis == "Sensitivity":
+                output = self.runner.read_output(output_file)
+                data = ResultParser.parse_sensitivity_results(output)
             else:
                 return SimulationResult(
                     success=False,

@@ -164,6 +164,7 @@ class SimulationMixin:
             "Transient": self._display_transient_results,
             "Temperature Sweep": self._display_temp_sweep_results,
             "Noise": self._display_noise_results,
+            "Sensitivity": self._display_sensitivity_results,
             "Parameter Sweep": self._display_param_sweep_results,
             "Monte Carlo": self._display_monte_carlo_results,
         }
@@ -358,6 +359,33 @@ class SimulationMixin:
                     self.results_text.append(f"  ... ({len(freqs)} total rows)")
         else:
             self.results_text.append("\nNo noise data found in output.")
+        self.canvas.clear_op_results()
+        self.properties_panel.clear_simulation_results()
+
+    def _display_sensitivity_results(self, result):
+        """Display Sensitivity analysis results as a sorted table."""
+        sens_data = result.data if result.data else None
+        if sens_data:
+            self._last_results = sens_data
+            self.results_text.append("\nDC SENSITIVITY ANALYSIS:")
+            self.results_text.append("-" * 70)
+            self.results_text.append(f"  {'Element':20s} {'Value':>14s} {'Sensitivity':>14s} {'Normalized':>14s}")
+            self.results_text.append("-" * 70)
+
+            # Sort by absolute normalized sensitivity (most impactful first)
+            sorted_data = sorted(sens_data, key=lambda r: abs(r["normalized_sensitivity"]), reverse=True)
+            for row in sorted_data:
+                self.results_text.append(
+                    f"  {row['element']:20s} {row['value']:14.4e} "
+                    f"{row['sensitivity']:14.4e} {row['normalized_sensitivity']:14.4e}"
+                )
+            self.results_text.append("-" * 70)
+            self.results_text.append(
+                f"\n  {len(sens_data)} elements analyzed. "
+                "Sorted by absolute normalized sensitivity (most impactful first)."
+            )
+        else:
+            self.results_text.append("\nNo sensitivity data found in output.")
         self.canvas.clear_op_results()
         self.properties_panel.clear_simulation_results()
 

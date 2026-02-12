@@ -258,6 +258,84 @@ class ResultParser:
             return None
 
     @staticmethod
+    def parse_sensitivity_results(output):
+        """Parse DC sensitivity analysis results.
+
+        Looks for the sensitivity table that ngspice prints for .sens.
+        The table is preceded by a line like "dc sensitivities of output v(...)".
+        Returns a list of dicts with keys: element, value, sensitivity,
+        normalized_sensitivity.  Returns None if no data found.
+        """
+        try:
+            lines = output.split("\n")
+            results = []
+            in_header_zone = False
+            in_data = False
+
+            for line in lines:
+                stripped = line.strip()
+
+                # Detect "dc sensitivities of output" marker
+                if "dc sensitivities" in stripped.lower():
+                    in_header_zone = True
+                    continue
+
+                if in_header_zone and not in_data:
+                    # Skip header lines (element/name/units) and blanks
+                    if not stripped or "element" in stripped.lower() or "name" in stripped.lower():
+                        continue
+                    if "volts/" in stripped.lower() or "amps/" in stripped.lower():
+                        continue
+                    # First non-header, non-blank line = data
+                    in_data = True
+
+                if in_data:
+                    if not stripped:
+                        # Blank line ends the data section
+                        if results:
+                            break
+                        continue
+
+                    parts = stripped.split()
+                    if len(parts) >= 4:
+                        try:
+                            element = parts[0]
+                            value = float(parts[1])
+                            sensitivity = float(parts[2])
+                            normalized = float(parts[3])
+                            results.append(
+                                {
+                                    "element": element,
+                                    "value": value,
+                                    "sensitivity": sensitivity,
+                                    "normalized_sensitivity": normalized,
+                                }
+                            )
+                        except (ValueError, IndexError):
+                            continue
+                    elif len(parts) >= 3:
+                        try:
+                            element = parts[0]
+                            sensitivity = float(parts[1])
+                            normalized = float(parts[2])
+                            results.append(
+                                {
+                                    "element": element,
+                                    "value": 0.0,
+                                    "sensitivity": sensitivity,
+                                    "normalized_sensitivity": normalized,
+                                }
+                            )
+                        except (ValueError, IndexError):
+                            continue
+
+            return results if results else None
+
+        except (ValueError, IndexError, AttributeError) as e:
+            logger.error("Error parsing sensitivity results: %s", e, exc_info=True)
+            return None
+
+    @staticmethod
     def parse_transient_results(filepath):
         """
         Parses a wrdata output file from ngspice, which has a clean,
