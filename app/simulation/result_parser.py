@@ -336,6 +336,54 @@ class ResultParser:
             return None
 
     @staticmethod
+    def parse_tf_results(output):
+        """Parse transfer function (.tf) results.
+
+        ngspice prints three lines like:
+            Transfer function, output/input = 5.000000e-01
+            Output impedance at v(out) = 5.000000e+02
+            v1#Input impedance = 1.000000e+03
+
+        Returns a dict with keys 'transfer_function', 'output_impedance',
+        'input_impedance', or None if nothing was found.
+        """
+        try:
+            results = {}
+            for line in output.split("\n"):
+                # Transfer function line
+                tf_match = re.search(
+                    r"[Tt]ransfer\s+function.*?=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                    line,
+                )
+                if tf_match:
+                    results["transfer_function"] = float(tf_match.group(1))
+                    continue
+
+                # Output impedance line
+                out_z_match = re.search(
+                    r"[Oo]utput\s+impedance.*?=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                    line,
+                )
+                if out_z_match:
+                    results["output_impedance"] = float(out_z_match.group(1))
+                    continue
+
+                # Input impedance line
+                in_z_match = re.search(
+                    r"[Ii]nput\s+impedance.*?=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                    line,
+                )
+                if in_z_match:
+                    results["input_impedance"] = float(in_z_match.group(1))
+                    continue
+
+            return results if results else None
+
+        except (ValueError, IndexError, AttributeError) as e:
+            logger.error("Error parsing TF results: %s", e, exc_info=True)
+            return None
+
+    @staticmethod
     def parse_transient_results(filepath):
         """
         Parses a wrdata output file from ngspice, which has a clean,

@@ -119,6 +119,20 @@ class AnalysisDialog(QDialog):
                 ),
             },
         },
+        "Transfer Function": {
+            "fields": [
+                ("Output Variable", "output_var", "text", "v(out)"),
+                ("Input Source", "input_source", "text", "V1"),
+            ],
+            "description": (
+                "Small-signal DC transfer function — computes voltage gain (or "
+                "transresistance), input impedance, and output impedance"
+            ),
+            "tooltips": {
+                "output_var": "Output variable: v(node) for voltage gain or i(Vname) for transresistance",
+                "input_source": "Name of the independent source to vary (e.g. V1, I1)",
+            },
+        },
     }
 
     def __init__(self, analysis_type=None, parent=None, preset_manager=None):
@@ -295,6 +309,11 @@ class AnalysisDialog(QDialog):
         elif self.analysis_type == "Sensitivity":
             output = params.get("output_node", "out")
             return f".sens v({output})"
+
+        elif self.analysis_type == "Transfer Function":
+            output_var = params.get("output_var", "v(out)")
+            input_source = params.get("input_source", "V1")
+            return f".tf {output_var} {input_source}"
 
         return ""
 
