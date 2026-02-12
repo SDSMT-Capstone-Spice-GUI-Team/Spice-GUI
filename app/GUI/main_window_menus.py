@@ -59,6 +59,11 @@ class MenuBarMixin:
         import_netlist_action.triggered.connect(self._on_import_netlist)
         file_menu.addAction(import_netlist_action)
 
+        import_asc_action = QAction("Import &LTspice Schematic...", self)
+        import_asc_action.setToolTip("Import an LTspice schematic file (.asc)")
+        import_asc_action.triggered.connect(self._on_import_asc)
+        file_menu.addAction(import_asc_action)
+
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
         export_netlist_action.setToolTip("Export the generated SPICE netlist to a .cir file")

@@ -142,6 +142,29 @@ class FileOperationsMixin:
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Import Error", f"Failed to import netlist:\n{e}")
 
+    def _on_import_asc(self):
+        """Import an LTspice .asc schematic file"""
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import LTspice Schematic",
+            "",
+            "LTspice Schematics (*.asc);;All Files (*)",
+        )
+        if filename:
+            try:
+                warnings = self.file_ctrl.import_asc(filename)
+                self.setWindowTitle(f"Circuit Design GUI - {Path(filename).name} (imported)")
+                self._sync_analysis_menu()
+                self._set_dirty(True)
+                num_components = len(self.model.components)
+                num_wires = len(self.model.wires)
+                msg = f"Imported {num_components} components and {num_wires} wires from {Path(filename).name}."
+                if warnings:
+                    msg += "\n\nWarnings:\n" + "\n".join(f"  - {w}" for w in warnings)
+                QMessageBox.information(self, "Import Successful", msg)
+            except (OSError, ValueError) as e:
+                QMessageBox.critical(self, "Import Error", f"Failed to import LTspice schematic:\n{e}")
+
     def _load_last_session(self):
         """Load last session using FileController"""
         last_file = self.file_ctrl.load_last_session()
