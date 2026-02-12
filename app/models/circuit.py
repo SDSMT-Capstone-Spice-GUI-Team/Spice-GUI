@@ -30,6 +30,9 @@ class CircuitModel:
 
     annotations: list[AnnotationData] = field(default_factory=list)
 
+    # Subcircuit definitions: subcircuit_name -> definition text
+    subcircuit_definitions: dict[str, str] = field(default_factory=dict)
+
     # Analysis configuration
     analysis_type: str = "DC Operating Point"
     analysis_params: dict = field(default_factory=dict)
@@ -252,6 +255,7 @@ class CircuitModel:
         self.terminal_to_node.clear()
         self.component_counter.clear()
         self.annotations.clear()
+        self.subcircuit_definitions.clear()
         self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
 
@@ -280,6 +284,9 @@ class CircuitModel:
 
         if self.annotations:
             data["annotations"] = [a.to_dict() for a in self.annotations]
+
+        if self.subcircuit_definitions:
+            data["subcircuit_definitions"] = dict(self.subcircuit_definitions)
 
         return data
 
@@ -315,5 +322,7 @@ class CircuitModel:
 
         for ann_data in data.get("annotations", []):
             model.annotations.append(AnnotationData.from_dict(ann_data))
+
+        model.subcircuit_definitions = dict(data.get("subcircuit_definitions", {}))
 
         return model

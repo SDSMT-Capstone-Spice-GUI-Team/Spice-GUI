@@ -50,6 +50,7 @@ class LightTheme(BaseTheme):
             "component_diode": "#607D8B",  # Blue-gray
             "component_led": "#FFEB3B",  # Yellow
             "component_zener": "#8D6E63",  # Brown
+            "component_subcircuit": "#78909C",  # Blue-grey
             # ===== Algorithm Layer Colors =====
             "algorithm_astar": "#2196F3",  # Blue (33, 150, 243)
             "algorithm_idastar": "#4CAF50",  # Green (76, 175, 80)

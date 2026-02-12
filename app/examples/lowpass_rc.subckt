@@ -1,0 +1,6 @@
+* Simple RC Low-Pass Filter Subcircuit
+* Pins: input, output, ground_ref
+.subckt LOWPASS_RC input output gnd_ref
+R1 input output 1k
+C1 output gnd_ref 1u
+.ends

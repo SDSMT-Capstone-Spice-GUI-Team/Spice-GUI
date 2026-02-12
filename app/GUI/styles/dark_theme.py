@@ -49,6 +49,7 @@ class DarkTheme(BaseTheme):
             "component_diode": "#90A4AE",  # Light blue-gray
             "component_led": "#FFF176",  # Light yellow
             "component_zener": "#A1887F",  # Light brown
+            "component_subcircuit": "#90A4AE",  # Light blue-grey
             # ===== Algorithm Layer Colors =====
             "algorithm_astar": "#64B5F6",  # Light blue
             "algorithm_idastar": "#81C784",  # Light green

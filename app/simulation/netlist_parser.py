@@ -67,11 +67,17 @@ def parse_netlist(text):
     in_control_block = False
     in_subckt = False
 
+    subckt_defs = {}  # name -> {name, pins, definition}
+    _current_subckt_name = None
+    _current_subckt_lines = []
+
     # Two-pass: first collect models and directives, then parse components
     for line in lines[1:]:
         stripped = line.strip()
 
         if not stripped or stripped.startswith("*"):
+            if in_subckt:
+                _current_subckt_lines.append(stripped)
             continue
 
         if ";" in stripped:
@@ -92,11 +98,27 @@ def parse_netlist(text):
 
         if lower.startswith(".subckt"):
             in_subckt = True
+            tokens = stripped.split()
+            _current_subckt_name = tokens[1] if len(tokens) > 1 else None
+            _current_subckt_lines = [stripped]
             continue
         if lower.startswith(".ends"):
+            _current_subckt_lines.append(stripped)
+            if _current_subckt_name:
+                defn = "\n".join(_current_subckt_lines)
+                first_line_tokens = _current_subckt_lines[0].split()
+                pins = first_line_tokens[2:] if len(first_line_tokens) > 2 else []
+                subckt_defs[_current_subckt_name.upper()] = {
+                    "name": _current_subckt_name,
+                    "pins": pins,
+                    "definition": defn,
+                }
+            _current_subckt_name = None
+            _current_subckt_lines = []
             in_subckt = False
             continue
         if in_subckt:
+            _current_subckt_lines.append(stripped)
             continue
 
         if lower == ".end":
@@ -124,7 +146,7 @@ def parse_netlist(text):
     # Second pass: parse component lines with all models available
     components = []
     for comp_line in component_lines:
-        comp = _parse_component_line(comp_line, models)
+        comp = _parse_component_line(comp_line, models, subckt_defs)
         if comp:
             components.append(comp)
 
@@ -136,15 +158,19 @@ def parse_netlist(text):
         "components": components,
         "models": models,
         "analysis": analysis,
+        "subcircuit_definitions": subckt_defs,
     }
 
 
-def _parse_component_line(line, models):
+def _parse_component_line(line, models, subckt_defs=None):
     """Parse a single SPICE component line.
 
     Returns a dict with: id, prefix, type, nodes, value, model
     or None if the line cannot be parsed.
     """
+    if subckt_defs is None:
+        subckt_defs = {}
+
     tokens = _tokenize_spice_line(line)
     if len(tokens) < 3:
         return None
@@ -156,18 +182,34 @@ def _parse_component_line(line, models):
         # Subcircuit instance: X<name> node1 node2 ... subckt_name
         subckt_name = tokens[-1].upper()
         node_names = tokens[1:-1]
-        comp_type = "Op-Amp" if "OPAMP" in subckt_name else None
-        if comp_type is None:
-            logger.warning("Unknown subcircuit '%s' - skipping %s", subckt_name, comp_id)
-            return None
-        return {
+        if "OPAMP" in subckt_name:
+            return {
+                "id": comp_id,
+                "prefix": prefix,
+                "type": "Op-Amp",
+                "nodes": node_names,
+                "value": DEFAULT_VALUES.get("Op-Amp", "Ideal"),
+                "model": subckt_name,
+            }
+        # Generic subcircuit
+        subckt_info = subckt_defs.get(subckt_name)
+        result = {
             "id": comp_id,
             "prefix": prefix,
-            "type": comp_type,
+            "type": "Subcircuit",
             "nodes": node_names,
-            "value": DEFAULT_VALUES.get(comp_type, "Ideal"),
+            "value": subckt_name,
             "model": subckt_name,
         }
+        if subckt_info:
+            result["subcircuit_name"] = subckt_info["name"]
+            result["subcircuit_pins"] = subckt_info["pins"]
+            result["subcircuit_definition"] = subckt_info["definition"]
+        else:
+            # No definition found; use node names as pin labels
+            result["subcircuit_name"] = subckt_name
+            result["subcircuit_pins"] = [f"p{i}" for i in range(len(node_names))]
+        return result
 
     # Determine component type from prefix
     comp_type = _PREFIX_TO_TYPE.get(prefix)
@@ -427,6 +469,14 @@ def import_netlist(text):
         # Handle waveform source parameters
         if comp_type == "Waveform Source":
             _setup_waveform_params(component, value)
+
+        # Handle subcircuit parameters
+        if comp_type == "Subcircuit":
+            component.subcircuit_name = comp_info.get("subcircuit_name")
+            component.subcircuit_pins = comp_info.get("subcircuit_pins")
+            component.subcircuit_definition = comp_info.get("subcircuit_definition")
+            if component.subcircuit_name and component.subcircuit_definition:
+                model.subcircuit_definitions[component.subcircuit_name] = component.subcircuit_definition
 
         model.add_component(component)
 
