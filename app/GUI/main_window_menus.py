@@ -46,6 +46,18 @@ class MenuBarMixin:
 
         file_menu.addSeparator()
 
+        new_from_template_action = QAction("New from &Template...", self)
+        new_from_template_action.setToolTip("Create a new circuit from an assignment template")
+        new_from_template_action.triggered.connect(self._on_new_from_template)
+        file_menu.addAction(new_from_template_action)
+
+        save_as_template_action = QAction("Save as Temp&late...", self)
+        save_as_template_action.setToolTip("Save current circuit as an assignment template with metadata")
+        save_as_template_action.triggered.connect(self._on_save_as_template)
+        file_menu.addAction(save_as_template_action)
+
+        file_menu.addSeparator()
+
         import_netlist_action = QAction("&Import SPICE Netlist...", self)
         import_netlist_action.setToolTip("Import a SPICE netlist file (.cir, .spice)")
         import_netlist_action.triggered.connect(self._on_import_netlist)
@@ -53,9 +65,7 @@ class MenuBarMixin:
 
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
-        export_netlist_action.setToolTip(
-            "Export the generated SPICE netlist to a .cir file"
-        )
+        export_netlist_action.setToolTip("Export the generated SPICE netlist to a .cir file")
         export_netlist_action.triggered.connect(self.export_netlist)
         file_menu.addAction(export_netlist_action)
 
@@ -70,9 +80,7 @@ class MenuBarMixin:
         file_menu.addAction(export_pdf_action)
 
         export_latex_action = QAction("Export as &LaTeX...", self)
-        export_latex_action.setToolTip(
-            "Export circuit as CircuiTikZ LaTeX code (.tex file)"
-        )
+        export_latex_action.setToolTip("Export circuit as CircuiTikZ LaTeX code (.tex file)")
         export_latex_action.triggered.connect(self.export_circuitikz)
         file_menu.addAction(export_latex_action)
 
@@ -145,9 +153,7 @@ class MenuBarMixin:
         edit_menu.addSeparator()
 
         copy_latex_action = QAction("Copy as La&TeX", self)
-        copy_latex_action.setToolTip(
-            "Copy the CircuiTikZ environment block to the clipboard"
-        )
+        copy_latex_action.setToolTip("Copy the CircuiTikZ environment block to the clipboard")
         copy_latex_action.triggered.connect(self.copy_circuitikz)
         edit_menu.addAction(copy_latex_action)
 
@@ -214,9 +220,7 @@ class MenuBarMixin:
         self.probe_action = QAction("&Probe Tool", self)
         self.probe_action.setCheckable(True)
         self.probe_action.setShortcut(kb.get("tools.probe"))
-        self.probe_action.setToolTip(
-            "Click nodes or components to see voltage/current values"
-        )
+        self.probe_action.setToolTip("Click nodes or components to see voltage/current values")
         self.probe_action.triggered.connect(self._toggle_probe_mode)
         view_menu.addAction(self.probe_action)
 
@@ -274,9 +278,7 @@ class MenuBarMixin:
 
         self.monochrome_mode_action = QAction("&Monochrome", self)
         self.monochrome_mode_action.setCheckable(True)
-        self.monochrome_mode_action.triggered.connect(
-            lambda: self._set_color_mode("monochrome")
-        )
+        self.monochrome_mode_action.triggered.connect(lambda: self._set_color_mode("monochrome"))
         color_mode_menu.addAction(self.monochrome_mode_action)
 
         self.color_mode_group = QActionGroup(self)
@@ -371,9 +373,7 @@ class MenuBarMixin:
 
         mc_action = QAction("&Monte Carlo...", self)
         mc_action.setCheckable(True)
-        mc_action.setToolTip(
-            "Run Monte Carlo tolerance analysis with randomized component values"
-        )
+        mc_action.setToolTip("Run Monte Carlo tolerance analysis with randomized component values")
         mc_action.triggered.connect(self.set_analysis_monte_carlo)
         analysis_menu.addAction(mc_action)
 
@@ -428,6 +428,19 @@ class MenuBarMixin:
             "sim.run": run_action,
             "tools.probe": self.probe_action,
         }
+
+        # Instructor menu
+        instructor_menu = menubar.addMenu("&Instructor")
+        if instructor_menu:
+            grade_action = QAction("&Grade Student Circuit...", self)
+            grade_action.setToolTip("Open the grading panel to grade a student submission")
+            grade_action.triggered.connect(self._toggle_grading_panel)
+            instructor_menu.addAction(grade_action)
+
+            batch_grade_action = QAction("&Batch Grade...", self)
+            batch_grade_action.setToolTip("Grade a folder of student submissions")
+            batch_grade_action.triggered.connect(self._on_batch_grade)
+            instructor_menu.addAction(batch_grade_action)
 
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")

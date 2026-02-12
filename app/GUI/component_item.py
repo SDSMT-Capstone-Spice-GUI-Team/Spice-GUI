@@ -140,9 +140,7 @@ class ComponentGraphicsItem(QGraphicsItem):
             new_pos = component.position
             # Only create a command if the component actually moved
             if old_pos[0] != new_pos[0] or old_pos[1] != new_pos[1]:
-                cmd = MoveComponentCommand(
-                    controller, comp_id, new_pos, old_position=old_pos
-                )
+                cmd = MoveComponentCommand(controller, comp_id, new_pos, old_position=old_pos)
                 move_commands.append(cmd)
 
         self._drag_start_positions = {}
@@ -155,9 +153,7 @@ class ComponentGraphicsItem(QGraphicsItem):
             controller.undo_manager._undo_stack.append(move_commands[0])
             controller.undo_manager._redo_stack.clear()
         else:
-            compound = CompoundCommand(
-                move_commands, f"Move {len(move_commands)} components"
-            )
+            compound = CompoundCommand(move_commands, f"Move {len(move_commands)} components")
             controller.undo_manager._undo_stack.append(compound)
             controller.undo_manager._redo_stack.clear()
 
@@ -209,9 +205,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         )
 
         if ok and new_value:
-            is_valid, error_msg = validate_component_value(
-                new_value, self.component_type
-            )
+            is_valid, error_msg = validate_component_value(new_value, self.component_type)
             if not is_valid:
                 QMessageBox.warning(None, "Invalid Value", error_msg)
                 return
@@ -336,19 +330,9 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.draw_component_body(painter)
 
         # Draw label (check canvas visibility settings)
-        canvas = (
-            self.scene().views()[0] if self.scene() and self.scene().views() else None
-        )
-        show_label = (
-            canvas.show_component_labels
-            if canvas and hasattr(canvas, "show_component_labels")
-            else True
-        )
-        show_value = (
-            canvas.show_component_values
-            if canvas and hasattr(canvas, "show_component_values")
-            else True
-        )
+        canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
+        show_label = canvas.show_component_labels if canvas and hasattr(canvas, "show_component_labels") else True
+        show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
 
         if show_label or show_value:
             painter.setPen(QPen(Qt.GlobalColor.black))
@@ -368,10 +352,7 @@ class ComponentGraphicsItem(QGraphicsItem):
             painter.drawEllipse(terminal, 3, 3)
 
     def itemChange(self, change, value):
-        if (
-            change == QGraphicsItem.GraphicsItemChange.ItemPositionChange
-            and self.scene()
-        ):
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
             # Snap to grid
             new_pos = value
             grid_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
@@ -434,9 +415,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         if self._position_update_timer is None:
             self._position_update_timer = QTimer()
             self._position_update_timer.setSingleShot(True)
-            self._position_update_timer.timeout.connect(
-                self._notify_controller_position
-            )
+            self._position_update_timer.timeout.connect(self._notify_controller_position)
         self._position_update_timer.start(50)  # 50ms debounce
 
     def _notify_controller_position(self):
@@ -646,9 +625,7 @@ class WaveformVoltageSource(ComponentGraphicsItem):
         # Draw sine wave symbol
         from models.component import COMPONENT_COLORS
 
-        painter.setPen(
-            QPen(QColor(COMPONENT_COLORS.get(self.component_type, "#E91E63")), 2)
-        )
+        painter.setPen(QPen(QColor(COMPONENT_COLORS.get(self.component_type, "#E91E63")), 2))
         from PyQt6.QtGui import QPainterPath
 
         path = QPainterPath()
@@ -688,19 +665,9 @@ class Ground(ComponentGraphicsItem):
         painter.setBrush(QBrush(color.lighter(150)))
         self.draw_component_body(painter)
 
-        canvas = (
-            self.scene().views()[0] if self.scene() and self.scene().views() else None
-        )
-        show_label = (
-            canvas.show_component_labels
-            if canvas and hasattr(canvas, "show_component_labels")
-            else True
-        )
-        show_value = (
-            canvas.show_component_values
-            if canvas and hasattr(canvas, "show_component_values")
-            else True
-        )
+        canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
+        show_label = canvas.show_component_labels if canvas and hasattr(canvas, "show_component_labels") else True
+        show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
 
         if show_label or show_value:
             painter.setPen(QPen(Qt.GlobalColor.black))
