@@ -9,7 +9,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt6.QtWidgets import QDialog, QVBoxLayout
+from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout
+
+from .results_plot_dialog import save_plot
 
 matplotlib.use("QtAgg")
 
@@ -31,9 +33,19 @@ class ParameterSweepPlotDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
+        toolbar = QHBoxLayout()
+        save_btn = QPushButton("Save Plot...")
+        save_btn.setToolTip("Export the plot as a PNG or SVG image file")
+        toolbar.addWidget(save_btn)
+        toolbar.addStretch()
+        layout.addLayout(toolbar)
+
         fig = Figure(figsize=(9, 6), dpi=100)
+        self._fig = fig
         self._canvas = FigureCanvas(fig)
         layout.addWidget(self._canvas)
+
+        save_btn.clicked.connect(lambda: save_plot(self._fig, self))
 
         if base_type == "DC Operating Point":
             self._plot_op_sweep(fig, sweep_data)

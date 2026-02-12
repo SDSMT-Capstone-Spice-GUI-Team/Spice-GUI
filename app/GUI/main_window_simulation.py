@@ -151,6 +151,7 @@ class SimulationMixin:
         self._last_results = None
         self._last_results_type = self.model.analysis_type
         self.btn_export_csv.setEnabled(False)
+        self.btn_export_excel.setEnabled(False)
 
         # Update netlist preview with the netlist that was actually used
         if hasattr(self, "netlist_preview") and result.netlist:
@@ -189,6 +190,7 @@ class SimulationMixin:
 
         if self._last_results is not None:
             self.btn_export_csv.setEnabled(True)
+            self.btn_export_excel.setEnabled(True)
 
     def _display_simulation_errors(self, result):
         """Display validation/simulation errors in the results panel."""
@@ -706,3 +708,24 @@ class SimulationMixin:
                     statusBar.showMessage(f"Results exported to {filename}", 3000)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export CSV: {e}")
+
+    def export_results_excel(self):
+        """Export the last simulation results to an Excel (.xlsx) file."""
+        if self._last_results is None:
+            return
+
+        from simulation.excel_exporter import export_to_excel
+
+        circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export Results to Excel", "", "Excel Files (*.xlsx);;All Files (*)"
+        )
+        if filename:
+            try:
+                export_to_excel(self._last_results, self._last_results_type, filename, circuit_name)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(f"Results exported to {filename}", 3000)
+            except OSError as e:
+                QMessageBox.critical(self, "Error", f"Failed to export Excel: {e}")

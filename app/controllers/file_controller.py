@@ -146,6 +146,26 @@ class FileController:
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("model_loaded", None)
 
+    def load_from_dict(self, data: dict) -> None:
+        """Load circuit from a pre-validated dict (e.g. from clipboard).
+
+        Updates the model in place (preserving the reference so views stay connected).
+        Does not update current_file or session tracking.
+        """
+        new_model = CircuitModel.from_dict(data)
+        self.model.clear()
+        self.model.components = new_model.components
+        self.model.wires = new_model.wires
+        self.model.nodes = new_model.nodes
+        self.model.terminal_to_node = new_model.terminal_to_node
+        self.model.component_counter = new_model.component_counter
+        self.model.analysis_type = new_model.analysis_type
+        self.model.analysis_params = new_model.analysis_params
+        self.model.annotations = new_model.annotations
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify("model_loaded", None)
+
     def has_file(self) -> bool:
         """Return whether a current file path is set (for quick-save)."""
         return self.current_file is not None
@@ -329,6 +349,50 @@ class FileController:
 
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("model_loaded", None)
+
+    def import_asc(self, filepath) -> list[str]:
+        """Import an LTspice .asc schematic file into the current model.
+
+        Parses the .asc schematic, maps LTspice components to Spice-GUI
+        types, creates wires based on coordinate matching, and optionally
+        sets the analysis type.
+
+        Args:
+            filepath: Path or string to the .asc file.
+
+        Returns:
+            List of warning messages (unsupported components, etc.)
+
+        Raises:
+            OSError: If the file cannot be read.
+            simulation.asc_parser.AscParseError: If parsing fails.
+        """
+        from simulation.asc_parser import import_asc
+
+        filepath = Path(filepath)
+        with open(filepath, "r") as f:
+            text = f.read()
+
+        new_model, analysis, warnings = import_asc(text)
+
+        self.model.clear()
+        self.model.components = new_model.components
+        self.model.wires = new_model.wires
+        self.model.nodes = new_model.nodes
+        self.model.terminal_to_node = new_model.terminal_to_node
+        self.model.component_counter = new_model.component_counter
+
+        if analysis:
+            self.model.analysis_type = analysis["type"]
+            self.model.analysis_params = analysis["params"]
+
+        self.current_file = None
+        self.add_recent_file(filepath)
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify("model_loaded", None)
+
+        return warnings
 
     def clear_auto_save(self) -> None:
         """Delete the auto-save recovery file if it exists."""
