@@ -365,6 +365,45 @@ def cmd_repl(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import(args: argparse.Namespace) -> int:
+    """Import a SPICE netlist and convert to circuit JSON."""
+    from simulation.netlist_parser import NetlistParseError, import_netlist
+
+    filepath = Path(args.netlist)
+    if not filepath.exists():
+        print(f"Error: file not found: {filepath}", file=sys.stderr)
+        return 1
+
+    try:
+        text = filepath.read_text()
+    except OSError as e:
+        print(f"Error reading {filepath}: {e}", file=sys.stderr)
+        return 1
+
+    try:
+        model, analysis = import_netlist(text)
+    except NetlistParseError as e:
+        print(f"Error parsing netlist: {e}", file=sys.stderr)
+        return 1
+
+    if analysis:
+        model.analysis_type = analysis["type"]
+        model.analysis_params = analysis["params"]
+
+    # Determine output path
+    if args.output:
+        out_path = Path(args.output)
+    else:
+        out_path = filepath.with_suffix(".json")
+
+    data = model.to_dict()
+    with open(out_path, "w") as f:
+        json.dump(data, f, indent=2)
+
+    print(f"Imported {filepath.name} -> {out_path}", file=sys.stderr)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser."""
     parser = argparse.ArgumentParser(
@@ -414,6 +453,11 @@ def build_parser() -> argparse.ArgumentParser:
     repl_parser = subparsers.add_parser("repl", help="Launch interactive Python REPL with scripting API")
     repl_parser.add_argument("--load", help="Pre-load a circuit JSON file as 'circuit' variable")
 
+    # import
+    import_parser = subparsers.add_parser("import", help="Import a SPICE netlist to circuit JSON")
+    import_parser.add_argument("netlist", help="Path to SPICE netlist file (.cir, .spice, .sp)")
+    import_parser.add_argument("--output", "-o", help="Output JSON file path (default: same name with .json extension)")
+
     return parser
 
 
@@ -428,6 +472,7 @@ def main(argv=None) -> int:
         "export": cmd_export,
         "batch": cmd_batch,
         "repl": cmd_repl,
+        "import": cmd_import,
     }
 
     handler = handlers.get(args.command)

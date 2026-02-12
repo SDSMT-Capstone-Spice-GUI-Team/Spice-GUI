@@ -10,6 +10,7 @@ from cli import (
     build_repl_namespace,
     cmd_batch,
     cmd_export,
+    cmd_import,
     cmd_simulate,
     cmd_validate,
     load_circuit,
@@ -365,3 +366,69 @@ class TestReplCommand:
     def test_repl_parser_no_args(self):
         args = build_parser().parse_args(["repl"])
         assert args.load is None
+
+
+class TestImportCommand:
+    @pytest.fixture
+    def simple_netlist(self, tmp_path):
+        """Create a simple SPICE netlist file."""
+        netlist = """\
+* Simple voltage divider
+V1 1 0 5
+R1 1 2 1k
+R2 2 0 1k
+.op
+.end
+"""
+        filepath = tmp_path / "divider.cir"
+        filepath.write_text(netlist)
+        return str(filepath)
+
+    def test_import_basic(self, simple_netlist, tmp_path):
+        args = build_parser().parse_args(["import", simple_netlist])
+        code = cmd_import(args)
+        assert code == 0
+        # Default output is same name with .json extension
+        out_path = Path(simple_netlist).with_suffix(".json")
+        assert out_path.exists()
+        data = json.loads(out_path.read_text())
+        assert "components" in data
+
+    def test_import_custom_output(self, simple_netlist, tmp_path):
+        outfile = str(tmp_path / "imported.json")
+        args = build_parser().parse_args(["import", simple_netlist, "-o", outfile])
+        code = cmd_import(args)
+        assert code == 0
+        assert Path(outfile).exists()
+        data = json.loads(Path(outfile).read_text())
+        assert "components" in data
+
+    def test_import_nonexistent_file(self):
+        args = build_parser().parse_args(["import", "/nonexistent/file.cir"])
+        code = cmd_import(args)
+        assert code == 1
+
+    def test_import_invalid_netlist(self, tmp_path):
+        bad = tmp_path / "bad.cir"
+        bad.write_text("this is not a valid netlist")
+        args = build_parser().parse_args(["import", str(bad)])
+        code = cmd_import(args)
+        assert code == 1
+
+    def test_import_via_main(self, simple_netlist):
+        code = main(["import", simple_netlist])
+        assert code == 0
+
+    def test_import_requires_netlist_arg(self):
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["import"])
+
+    def test_import_preserves_analysis(self, simple_netlist, tmp_path):
+        """Imported netlist with .op directive should set analysis type."""
+        outfile = str(tmp_path / "with_analysis.json")
+        args = build_parser().parse_args(["import", simple_netlist, "-o", outfile])
+        cmd_import(args)
+        data = json.loads(Path(outfile).read_text())
+        # The .op directive should result in DC Operating Point analysis
+        if "analysis_type" in data:
+            assert data["analysis_type"] == "DC Operating Point"
