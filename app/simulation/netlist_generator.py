@@ -211,6 +211,19 @@ class NetlistGenerator:
                 # Terminals: 0=anode, 1=cathode
                 model_name = self._diode_model_map.get((comp.component_type, comp.value), f"D_{comp_id}")
                 lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {model_name}")
+            elif comp.component_type == "Transformer":
+                # Transformer modeled as two coupled inductors + K coupling
+                # value = "Lprimary Lsecondary coupling" e.g. "10mH 10mH 0.99"
+                # Terminals: 0=prim+, 1=prim-, 2=sec+, 3=sec-
+                parts = comp.value.split()
+                l_prim = parts[0] if len(parts) > 0 else "10mH"
+                l_sec = parts[1] if len(parts) > 1 else "10mH"
+                coupling = parts[2] if len(parts) > 2 else "0.99"
+                prim_name = f"L_prim_{comp_id}"
+                sec_name = f"L_sec_{comp_id}"
+                lines.append(f"{prim_name} {nodes[0]} {nodes[1]} {l_prim}")
+                lines.append(f"{sec_name} {nodes[2]} {nodes[3]} {l_sec}")
+                lines.append(f"K_{comp_id} {prim_name} {sec_name} {coupling}")
 
         # Add BJT model directives
         bjt_models = set()
