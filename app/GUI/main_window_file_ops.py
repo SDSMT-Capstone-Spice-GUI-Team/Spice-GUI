@@ -165,6 +165,29 @@ class FileOperationsMixin:
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Import Error", f"Failed to import LTspice schematic:\n{e}")
 
+    def _on_export_asc(self):
+        """Export the circuit as an LTspice .asc schematic file."""
+        from simulation.asc_exporter import export_asc, write_asc
+
+        if not self.model.components:
+            QMessageBox.information(self, "Export LTspice", "Nothing to export — the canvas is empty.")
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export as LTspice Schematic", "", "LTspice Schematics (*.asc);;All Files (*)"
+        )
+        if not filename:
+            return
+
+        try:
+            content = export_asc(self.model)
+            write_asc(content, filename)
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"LTspice schematic exported to {filename}", 3000)
+        except (OSError, Exception) as e:
+            QMessageBox.critical(self, "Error", f"Failed to export LTspice schematic: {e}")
+
     def _on_generate_report(self):
         """Generate a comprehensive PDF circuit report."""
         from GUI.report_dialog import ReportDialog
