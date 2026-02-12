@@ -85,6 +85,11 @@ class MenuBarMixin:
         export_latex_action.triggered.connect(self.export_circuitikz)
         file_menu.addAction(export_latex_action)
 
+        generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
+        generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
+        generate_report_action.triggered.connect(self._on_generate_report)
+        file_menu.addAction(generate_report_action)
+
         file_menu.addSeparator()
 
         print_action = QAction("&Print...", self)

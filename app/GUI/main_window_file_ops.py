@@ -165,6 +165,59 @@ class FileOperationsMixin:
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Import Error", f"Failed to import LTspice schematic:\n{e}")
 
+    def _on_generate_report(self):
+        """Generate a comprehensive PDF circuit report."""
+        from GUI.report_dialog import ReportDialog
+        from GUI.report_generator import ReportGenerator
+
+        # Determine circuit name from current file or default
+        circuit_name = ""
+        if self.file_ctrl.current_file:
+            circuit_name = self.file_ctrl.current_file.stem
+
+        has_results = getattr(self, "_last_results", None) is not None
+
+        dialog = ReportDialog(self, circuit_name=circuit_name, has_results=has_results)
+        if dialog.exec() != ReportDialog.DialogCode.Accepted:
+            return
+
+        config = dialog.get_config()
+
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Circuit Report", "", "PDF Files (*.pdf)")
+        if not filename:
+            return
+        if not filename.lower().endswith(".pdf"):
+            filename += ".pdf"
+
+        # Gather data for the report
+        netlist = ""
+        if config.include_netlist:
+            try:
+                netlist = self.simulation_ctrl.generate_netlist()
+            except Exception:
+                netlist = "(Netlist generation failed)"
+
+        results_text = ""
+        if config.include_results and hasattr(self, "results_text"):
+            results_text = self.results_text.toPlainText()
+
+        try:
+            generator = ReportGenerator(config)
+            generator.generate(
+                filepath=filename,
+                scene=self.canvas.scene,
+                model=self.model,
+                netlist=netlist,
+                results_text=results_text,
+            )
+            QMessageBox.information(
+                self,
+                "Report Generated",
+                f"Circuit report saved to:\n{filename}",
+            )
+        except (OSError, Exception) as e:
+            QMessageBox.critical(self, "Report Error", f"Failed to generate report:\n{e}")
+
     def _load_last_session(self):
         """Load last session using FileController"""
         last_file = self.file_ctrl.load_last_session()
