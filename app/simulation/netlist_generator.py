@@ -60,6 +60,20 @@ class NetlistGenerator:
             lines.append(OPAMP_SUBCIRCUITS[model_name])
             lines.append("")
 
+        # Add user-defined subcircuit definitions (deduplicated by name)
+        subckt_defs_emitted = set()
+        for c in self.components.values():
+            if (
+                c.component_type == "Subcircuit"
+                and c.subcircuit_name
+                and c.subcircuit_name not in subckt_defs_emitted
+                and c.subcircuit_definition
+            ):
+                lines.append(f"* {c.subcircuit_name} Subcircuit")
+                lines.append(c.subcircuit_definition)
+                lines.append("")
+                subckt_defs_emitted.add(c.subcircuit_name)
+
         # Build node connectivity map
         node_map = {}  # (comp_id, term_index) -> node_number
         next_node = 1
@@ -208,6 +222,10 @@ class NetlistGenerator:
                 # Terminals: 0=anode, 1=cathode
                 model_name = self._diode_model_map.get((comp.component_type, comp.value), f"D_{comp_id}")
                 lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {model_name}")
+            elif comp.component_type == "Subcircuit":
+                # X<name> node1 node2 ... subckt_name
+                subckt_name = comp.subcircuit_name or comp.value or "UNKNOWN"
+                lines.append(f"{comp_id} {' '.join(nodes)} {subckt_name}")
 
         # Add BJT model directives
         bjt_models = set()

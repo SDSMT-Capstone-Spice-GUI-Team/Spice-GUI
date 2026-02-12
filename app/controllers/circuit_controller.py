@@ -12,7 +12,7 @@ from controllers.undo_manager import UndoManager
 from models.annotation import AnnotationData
 from models.circuit import CircuitModel
 from models.clipboard import ClipboardData
-from models.component import DEFAULT_VALUES, SPICE_SYMBOLS, ComponentData
+from models.component import DEFAULT_VALUES, SPICE_SYMBOLS, ComponentData, parse_subckt
 from models.wire import WireData
 
 logger = logging.getLogger(__name__)
@@ -90,6 +90,47 @@ class CircuitController:
             position=position,
         )
         self.model.add_component(component)
+        self._notify("component_added", component)
+        return component
+
+    def add_subcircuit(
+        self,
+        subckt_text: str,
+        position: tuple[float, float],
+    ) -> ComponentData:
+        """Load a .subckt definition and add it as a component.
+
+        Args:
+            subckt_text: The .subckt definition text (full block).
+            position: (x, y) placement position.
+
+        Returns:
+            The newly created ComponentData.
+
+        Raises:
+            ValueError: If the text does not contain a valid .subckt block.
+        """
+        parsed = parse_subckt(subckt_text)
+        name = parsed["name"]
+        pins = parsed["pins"]
+        definition = parsed["definition"]
+
+        symbol = "X"
+        count = self.model.component_counter.get(symbol, 0) + 1
+        self.model.component_counter[symbol] = count
+        component_id = f"{symbol}{count}"
+
+        component = ComponentData(
+            component_id=component_id,
+            component_type="Subcircuit",
+            value=name,
+            position=position,
+            subcircuit_name=name,
+            subcircuit_pins=pins,
+            subcircuit_definition=definition,
+        )
+        self.model.add_component(component)
+        self.model.subcircuit_definitions[name] = definition
         self._notify("component_added", component)
         return component
 
@@ -336,6 +377,9 @@ class CircuitController:
                 rotation=comp_data.rotation,
                 waveform_type=comp_data.waveform_type,
                 waveform_params=(comp_data.waveform_params.copy() if comp_data.waveform_params else None),
+                subcircuit_name=comp_data.subcircuit_name,
+                subcircuit_pins=(list(comp_data.subcircuit_pins) if comp_data.subcircuit_pins else None),
+                subcircuit_definition=comp_data.subcircuit_definition,
             )
             self.model.add_component(new_comp)
             self._notify("component_added", new_comp)

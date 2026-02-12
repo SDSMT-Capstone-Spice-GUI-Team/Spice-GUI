@@ -35,6 +35,7 @@ COMPONENT_TYPES = [
     "Diode",
     "LED",
     "Zener Diode",
+    "Subcircuit",
 ]
 
 # Mapping of component types to SPICE symbols
@@ -59,6 +60,7 @@ SPICE_SYMBOLS = {
     "Diode": "D",
     "LED": "D",
     "Zener Diode": "D",
+    "Subcircuit": "X",
 }
 
 # Number of terminals per component type (default is 2)
@@ -98,6 +100,7 @@ DEFAULT_VALUES = {
     "Diode": "IS=1e-14 N=1",
     "LED": "IS=1e-20 N=1.8 EG=1.9",
     "Zener Diode": "IS=1e-14 N=1 BV=5.1 IBV=1e-3",
+    "Subcircuit": "",
 }
 
 # Available op-amp models (value field choices)
@@ -167,6 +170,7 @@ COMPONENT_COLORS = {
     "Diode": "#607D8B",
     "LED": "#FFEB3B",
     "Zener Diode": "#8D6E63",
+    "Subcircuit": "#78909C",
 }
 
 # Terminal geometry configuration per component type
@@ -213,6 +217,7 @@ _CLASS_TO_DISPLAY = {
     "MOSFETPMOS": "MOSFET PMOS",
     "VCSwitch": "VC Switch",
     "ZenerDiode": "Zener Diode",
+    "Subcircuit": "Subcircuit",
 }
 
 # Mapping from display names to Python class names (for serialization)
@@ -255,6 +260,11 @@ class ComponentData:
     waveform_type: Optional[str] = None
     waveform_params: Optional[dict] = field(default_factory=lambda: None)
 
+    # Subcircuit parameters (only used for Subcircuit type)
+    subcircuit_name: Optional[str] = None
+    subcircuit_pins: Optional[list[str]] = None
+    subcircuit_definition: Optional[str] = None
+
     def __post_init__(self):
         """Initialize waveform parameters for waveform sources."""
         if self.component_type == "Waveform Source" and self.waveform_params is None:
@@ -294,6 +304,8 @@ class ComponentData:
 
     def get_terminal_count(self) -> int:
         """Return number of terminals for this component type."""
+        if self.component_type == "Subcircuit" and self.subcircuit_pins:
+            return len(self.subcircuit_pins)
         return TERMINAL_COUNTS.get(self.component_type, 2)
 
     def get_base_terminal_positions(self) -> list[tuple[float, float]]:
@@ -303,6 +315,9 @@ class ComponentData:
         Returns:
             List of (x, y) tuples representing terminal positions relative to component center.
         """
+        if self.component_type == "Subcircuit" and self.subcircuit_pins:
+            return _subcircuit_terminal_positions(len(self.subcircuit_pins))
+
         geom = TERMINAL_GEOMETRY.get(self.component_type)
         if geom is None:
             # Default: 2 terminals at +/-30 on x-axis
@@ -410,6 +425,15 @@ class ComponentData:
             data["waveform_type"] = self.waveform_type
             data["waveform_params"] = self.waveform_params
 
+        # Add subcircuit parameters
+        if self.component_type == "Subcircuit":
+            if self.subcircuit_name:
+                data["subcircuit_name"] = self.subcircuit_name
+            if self.subcircuit_pins:
+                data["subcircuit_pins"] = list(self.subcircuit_pins)
+            if self.subcircuit_definition:
+                data["subcircuit_definition"] = self.subcircuit_definition
+
         return data
 
     @classmethod
@@ -440,6 +464,14 @@ class ComponentData:
         if "waveform_params" in data:
             component.waveform_params = data["waveform_params"]
 
+        # Load subcircuit parameters if present
+        if "subcircuit_name" in data:
+            component.subcircuit_name = data["subcircuit_name"]
+        if "subcircuit_pins" in data:
+            component.subcircuit_pins = list(data["subcircuit_pins"])
+        if "subcircuit_definition" in data:
+            component.subcircuit_definition = data["subcircuit_definition"]
+
         return component
 
     def __repr__(self) -> str:
@@ -447,3 +479,86 @@ class ComponentData:
             f"ComponentData(id={self.component_id!r}, type={self.component_type!r}, "
             f"value={self.value!r}, pos={self.position}, rot={self.rotation})"
         )
+
+
+def _subcircuit_terminal_positions(pin_count: int) -> list[tuple[float, float]]:
+    """Calculate terminal positions for a subcircuit block.
+
+    Distributes pins along left and right sides of a rectangle.
+    First half of pins on the left, second half on the right.
+    """
+    if pin_count <= 0:
+        return [(-50.0, 0.0), (50.0, 0.0)]
+
+    left_count = (pin_count + 1) // 2
+    right_count = pin_count - left_count
+    pin_spacing = 20.0
+    body_x = 50.0
+
+    positions = []
+
+    # Left-side pins
+    left_height = (left_count - 1) * pin_spacing
+    for i in range(left_count):
+        y = -left_height / 2.0 + i * pin_spacing
+        positions.append((-body_x, y))
+
+    # Right-side pins
+    right_height = (right_count - 1) * pin_spacing if right_count > 0 else 0
+    for i in range(right_count):
+        y = -right_height / 2.0 + i * pin_spacing
+        positions.append((body_x, y))
+
+    return positions
+
+
+def subcircuit_body_rect(pin_count: int) -> tuple[float, float, float, float]:
+    """Return (x, y, width, height) of the subcircuit rectangular body."""
+    left_count = (pin_count + 1) // 2
+    right_count = pin_count - left_count
+    max_side = max(left_count, right_count, 1)
+    pin_spacing = 20.0
+    body_half_w = 40.0
+    body_half_h = max(max_side * pin_spacing / 2.0 + 5.0, 15.0)
+    return (-body_half_w, -body_half_h, body_half_w * 2, body_half_h * 2)
+
+
+def parse_subckt(text: str) -> dict:
+    """Parse a .subckt definition from text.
+
+    Accepts either the full .subckt block or a file containing one.
+
+    Returns:
+        dict with keys: name (str), pins (list[str]), definition (str)
+
+    Raises:
+        ValueError: If no valid .subckt block is found.
+    """
+    lines = text.strip().split("\n")
+    subckt_name = None
+    subckt_pins = []
+    block_lines = []
+    in_block = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.lower().startswith(".subckt"):
+            tokens = stripped.split()
+            if len(tokens) < 2:
+                raise ValueError("Invalid .subckt line: missing subcircuit name.")
+            subckt_name = tokens[1]
+            subckt_pins = tokens[2:]
+            in_block = True
+            block_lines.append(stripped)
+        elif stripped.lower().startswith(".ends"):
+            block_lines.append(stripped)
+            in_block = False
+            break
+        elif in_block:
+            block_lines.append(stripped)
+
+    if subckt_name is None:
+        raise ValueError("No .subckt definition found in text.")
+
+    definition = "\n".join(block_lines)
+    return {"name": subckt_name, "pins": subckt_pins, "definition": definition}

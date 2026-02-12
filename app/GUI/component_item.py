@@ -1127,6 +1127,89 @@ class ZenerDiode(ComponentGraphicsItem):
         return [(-12.0, -15.0), (15.0, -15.0), (15.0, 15.0), (-12.0, 15.0)]
 
 
+class SubcircuitItem(ComponentGraphicsItem):
+    """Subcircuit block — rectangular body with labeled pins."""
+
+    type_name = "Subcircuit"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def _body_rect(self):
+        from models.component import subcircuit_body_rect
+
+        pin_count = self.model.get_terminal_count()
+        x, y, w, h = subcircuit_body_rect(pin_count)
+        return QRectF(x, y, w, h)
+
+    def boundingRect(self):
+        body = self._body_rect()
+        # Extend for terminal leads
+        return body.adjusted(-15, -5, 15, 5)
+
+    def _draw_ieee(self, painter):
+        body = self._body_rect()
+
+        # Draw terminal leads
+        if self.scene() is not None:
+            for term_pos in self.terminals:
+                tx, ty = term_pos.x(), term_pos.y()
+                # Determine which side this terminal is on and draw lead
+                if tx < body.left():
+                    painter.drawLine(int(tx), int(ty), int(body.left()), int(ty))
+                elif tx > body.right():
+                    painter.drawLine(int(body.right()), int(ty), int(tx), int(ty))
+
+        # Draw rectangular body
+        painter.drawRect(body.toAlignedRect())
+
+        # Draw subcircuit name centered in body
+        name = self.model.subcircuit_name or self.model.value or "X"
+        painter.setPen(QPen(Qt.GlobalColor.black, 1))
+        font = painter.font()
+        font.setPointSize(7)
+        painter.setFont(font)
+        painter.drawText(body.toAlignedRect(), Qt.AlignmentFlag.AlignCenter, name)
+
+        # Draw pin labels
+        pins = self.model.subcircuit_pins or []
+        font.setPointSize(5)
+        painter.setFont(font)
+        for i, term_pos in enumerate(self.terminals):
+            if i < len(pins):
+                tx, ty = term_pos.x(), term_pos.y()
+                label = pins[i]
+                if tx < body.center().x():
+                    # Left-side pin — label right of body edge
+                    painter.drawText(
+                        int(body.left() + 2),
+                        int(ty - 6),
+                        30,
+                        12,
+                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                        label,
+                    )
+                else:
+                    # Right-side pin — label left of body edge
+                    painter.drawText(
+                        int(body.right() - 32),
+                        int(ty - 6),
+                        30,
+                        12,
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                        label,
+                    )
+
+    def _get_obstacle_shape_ieee(self):
+        body = self._body_rect()
+        return [
+            (body.left(), body.top()),
+            (body.right(), body.top()),
+            (body.right(), body.bottom()),
+            (body.left(), body.bottom()),
+        ]
+
+
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
     "Resistor": Resistor,
@@ -1161,6 +1244,7 @@ COMPONENT_CLASSES = {
     "LED": LEDComponent,
     "Zener Diode": ZenerDiode,
     "ZenerDiode": ZenerDiode,
+    "Subcircuit": SubcircuitItem,
 }
 
 
