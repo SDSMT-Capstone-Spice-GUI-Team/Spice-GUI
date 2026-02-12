@@ -384,6 +384,59 @@ class ResultParser:
             return None
 
     @staticmethod
+    def parse_pz_results(output):
+        """Parse pole-zero (.pz) analysis results.
+
+        ngspice prints lines like:
+            pole(1) = -1.00000e+03, 0.00000e+00
+            pole(2) = -5.00000e+05, 3.00000e+05
+            zero(1) = -2.00000e+04, 0.00000e+00
+
+        Returns a dict with 'poles' and 'zeros' lists, each containing
+        dicts with 'real', 'imag', 'frequency_hz', and 'is_unstable' keys.
+        Returns None if no data found.
+        """
+        try:
+            poles = []
+            zeros = []
+
+            pz_pattern = re.compile(
+                r"(pole|zero)\(\d+\)\s*=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)\s*,\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                re.IGNORECASE,
+            )
+
+            for line in output.split("\n"):
+                match = pz_pattern.search(line)
+                if not match:
+                    continue
+
+                kind = match.group(1).lower()
+                real = float(match.group(2))
+                imag = float(match.group(3))
+                magnitude = math.sqrt(real**2 + imag**2)
+                freq_hz = magnitude / (2 * math.pi) if magnitude > 0 else 0.0
+                entry = {
+                    "real": real,
+                    "imag": imag,
+                    "frequency_hz": freq_hz,
+                    "is_unstable": real > 0,
+                }
+
+                if kind == "pole":
+                    poles.append(entry)
+                else:
+                    zeros.append(entry)
+
+            if not poles and not zeros:
+                return None
+
+            return {"poles": poles, "zeros": zeros}
+
+        except (ValueError, IndexError, AttributeError) as e:
+            logger.error("Error parsing PZ results: %s", e, exc_info=True)
+            return None
+
+    @staticmethod
     def parse_transient_results(filepath):
         """
         Parses a wrdata output file from ngspice, which has a clean,

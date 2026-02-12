@@ -373,6 +373,16 @@ class NetlistGenerator:
             input_source = params.get("input_source", "V1")
             lines.append(f".tf {output_var} {input_source}")
 
+        elif self.analysis_type == "Pole-Zero":
+            params = self.analysis_params
+            inp = params.get("input_pos", "1")
+            inn = params.get("input_neg", "0")
+            outp = params.get("output_pos", "2")
+            outn = params.get("output_neg", "0")
+            tf_type = params.get("transfer_type", "vol")
+            pz_type = params.get("pz_type", "pz")
+            lines.append(f".pz {inp} {inn} {outp} {outn} {tf_type} {pz_type}")
+
         # Add control block for running simulation and getting output
         lines.append("")
         lines.append("* Control block for batch execution")

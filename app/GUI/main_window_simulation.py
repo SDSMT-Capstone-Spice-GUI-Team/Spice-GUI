@@ -173,6 +173,7 @@ class SimulationMixin:
             "Noise": self._display_noise_results,
             "Sensitivity": self._display_sensitivity_results,
             "Transfer Function": self._display_tf_results,
+            "Pole-Zero": self._display_pz_results,
             "Parameter Sweep": self._display_param_sweep_results,
             "Monte Carlo": self._display_monte_carlo_results,
         }
@@ -446,6 +447,52 @@ class SimulationMixin:
             self.results_text.append("-" * 40)
         else:
             self.results_text.append("\nNo transfer function data found in output.")
+        self.canvas.clear_op_results()
+        self.properties_panel.clear_simulation_results()
+
+    def _display_pz_results(self, result):
+        """Display Pole-Zero analysis results."""
+        from simulation.result_parser import format_si
+
+        pz_data = result.data if result.data else None
+        if pz_data:
+            self._last_results = pz_data
+            poles = pz_data.get("poles", [])
+            zeros = pz_data.get("zeros", [])
+
+            self.results_text.append("\nPOLE-ZERO ANALYSIS RESULTS:")
+            self.results_text.append("-" * 70)
+
+            if poles:
+                self.results_text.append(f"\n  POLES ({len(poles)}):")
+                self.results_text.append(
+                    f"  {'#':>3s}  {'Real':>14s}  {'Imaginary':>14s}  {'Freq (Hz)':>12s}  {'Status'}"
+                )
+                for i, p in enumerate(poles, 1):
+                    status = "UNSTABLE" if p["is_unstable"] else "stable"
+                    self.results_text.append(
+                        f"  {i:3d}  {p['real']:14.4e}  {p['imag']:14.4e}  "
+                        f"{format_si(p['frequency_hz'], 'Hz'):>12s}  {status}"
+                    )
+
+            if zeros:
+                self.results_text.append(f"\n  ZEROS ({len(zeros)}):")
+                self.results_text.append(f"  {'#':>3s}  {'Real':>14s}  {'Imaginary':>14s}  {'Freq (Hz)':>12s}")
+                for i, z in enumerate(zeros, 1):
+                    self.results_text.append(
+                        f"  {i:3d}  {z['real']:14.4e}  {z['imag']:14.4e}  {format_si(z['frequency_hz'], 'Hz'):>12s}"
+                    )
+
+            # Stability warning
+            unstable = [p for p in poles if p["is_unstable"]]
+            if unstable:
+                self.results_text.append(
+                    f"\n  WARNING: {len(unstable)} pole(s) with positive real part — circuit may be unstable!"
+                )
+
+            self.results_text.append("-" * 70)
+        else:
+            self.results_text.append("\nNo pole-zero data found in output.")
         self.canvas.clear_op_results()
         self.properties_panel.clear_simulation_results()
 
