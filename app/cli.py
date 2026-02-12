@@ -567,6 +567,67 @@ def cmd_diff(args: argparse.Namespace) -> int:
     return 0 if identical else 1
 
 
+def circuit_stats(model: CircuitModel) -> dict:
+    """Compute circuit complexity statistics.
+
+    Args:
+        model: The CircuitModel to analyze.
+
+    Returns:
+        Dict with component counts, wire count, node count, etc.
+    """
+    type_counts = {}
+    for comp in model.components.values():
+        type_counts[comp.component_type] = type_counts.get(comp.component_type, 0) + 1
+
+    has_ground = any(c.component_type == "Ground" for c in model.components.values())
+
+    return {
+        "components": {
+            "total": len(model.components),
+            "by_type": type_counts,
+        },
+        "wires": len(model.wires),
+        "nodes": len(model.nodes),
+        "has_ground": has_ground,
+        "analysis_type": model.analysis_type,
+        "analysis_params": model.analysis_params if model.analysis_params else {},
+    }
+
+
+def _format_stats_text(stats: dict, filename: str) -> str:
+    """Format circuit stats as human-readable text."""
+    lines = [f"Circuit: {filename}", ""]
+
+    lines.append(f"Components: {stats['components']['total']}")
+    for ctype, count in sorted(stats["components"]["by_type"].items()):
+        lines.append(f"  {ctype}: {count}")
+
+    lines.append(f"Wires: {stats['wires']}")
+    lines.append(f"Nodes: {stats['nodes']}")
+    lines.append(f"Ground: {'yes' if stats['has_ground'] else 'no'}")
+    lines.append(f"Analysis: {stats['analysis_type']}")
+
+    if stats["analysis_params"]:
+        for key, val in stats["analysis_params"].items():
+            lines.append(f"  {key}: {val}")
+
+    return "\n".join(lines)
+
+
+def cmd_stats(args: argparse.Namespace) -> int:
+    """Display circuit complexity statistics."""
+    model = load_circuit(args.circuit)
+    stats = circuit_stats(model)
+
+    if args.format == "json":
+        print(json.dumps(stats, indent=2, default=str))
+    else:
+        print(_format_stats_text(stats, Path(args.circuit).name))
+
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser."""
     parser = argparse.ArgumentParser(
@@ -630,6 +691,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--format", "-f", choices=["text", "json"], default="text", help="Output format (default: text)"
     )
 
+    # stats
+    stats_parser = subparsers.add_parser("stats", help="Display circuit complexity statistics")
+    stats_parser.add_argument("circuit", help="Path to circuit JSON file")
+    stats_parser.add_argument(
+        "--format", "-f", choices=["text", "json"], default="text", help="Output format (default: text)"
+    )
+
     return parser
 
 
@@ -646,6 +714,7 @@ def main(argv=None) -> int:
         "repl": cmd_repl,
         "import": cmd_import,
         "diff": cmd_diff,
+        "stats": cmd_stats,
     }
 
     handler = handlers.get(args.command)

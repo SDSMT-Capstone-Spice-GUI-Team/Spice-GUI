@@ -11,11 +11,13 @@ from cli import (
     __version__,
     build_parser,
     build_repl_namespace,
+    circuit_stats,
     cmd_batch,
     cmd_diff,
     cmd_export,
     cmd_import,
     cmd_simulate,
+    cmd_stats,
     cmd_validate,
     diff_circuits,
     load_circuit,
@@ -636,3 +638,60 @@ class TestDiffCommand:
     def test_parser_requires_two_files(self):
         with pytest.raises(SystemExit):
             build_parser().parse_args(["diff"])
+
+
+class TestStatsCommand:
+    def test_stats_basic(self, voltage_divider):
+        model = load_circuit(voltage_divider)
+        stats = circuit_stats(model)
+        assert stats["components"]["total"] == 4
+        assert stats["wires"] == 4
+        assert stats["has_ground"] is True
+        assert stats["analysis_type"] == "DC Operating Point"
+
+    def test_stats_component_types(self, voltage_divider):
+        model = load_circuit(voltage_divider)
+        stats = circuit_stats(model)
+        by_type = stats["components"]["by_type"]
+        assert by_type["Resistor"] == 2
+        assert by_type["Voltage Source"] == 1
+        assert by_type["Ground"] == 1
+
+    def test_stats_empty_circuit(self, empty_circuit):
+        model = load_circuit(empty_circuit)
+        stats = circuit_stats(model)
+        assert stats["components"]["total"] == 0
+        assert stats["wires"] == 0
+        assert stats["has_ground"] is False
+
+    def test_stats_text_output(self, voltage_divider, capsys):
+        args = build_parser().parse_args(["stats", voltage_divider])
+        code = cmd_stats(args)
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Components: 4" in captured.out
+        assert "Resistor: 2" in captured.out
+        assert "Wires: 4" in captured.out
+        assert "Ground: yes" in captured.out
+
+    def test_stats_json_output(self, voltage_divider, capsys):
+        args = build_parser().parse_args(["stats", voltage_divider, "-f", "json"])
+        code = cmd_stats(args)
+        assert code == 0
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["components"]["total"] == 4
+        assert data["wires"] == 4
+
+    def test_stats_via_main(self, voltage_divider):
+        code = main(["stats", voltage_divider])
+        assert code == 0
+
+    def test_stats_parser_requires_circuit(self):
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["stats"])
+
+    def test_stats_node_count(self, voltage_divider):
+        model = load_circuit(voltage_divider)
+        stats = circuit_stats(model)
+        assert stats["nodes"] > 0
