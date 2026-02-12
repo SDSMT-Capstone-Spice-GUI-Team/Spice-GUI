@@ -86,6 +86,14 @@ class ComponentGraphicsItem(QGraphicsItem):
     def rotation_angle(self, v):
         self.model.rotation = v
 
+    @property
+    def initial_condition(self):
+        return self.model.initial_condition
+
+    @initial_condition.setter
+    def initial_condition(self, v):
+        self.model.initial_condition = v
+
     # --- Event handlers ---
 
     def mousePressEvent(self, event):

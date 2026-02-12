@@ -149,9 +149,11 @@ class NetlistGenerator:
             if comp.component_type == "Resistor":
                 lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
             elif comp.component_type == "Capacitor":
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
+                ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
+                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
             elif comp.component_type == "Inductor":
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
+                ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
+                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
             elif comp.component_type == "Voltage Source":
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
             elif comp.component_type == "Current Source":
