@@ -85,6 +85,11 @@ class MenuBarMixin:
         export_latex_action.triggered.connect(self.export_circuitikz)
         file_menu.addAction(export_latex_action)
 
+        export_asc_action = QAction("Export as LTspice (.&asc)...", self)
+        export_asc_action.setToolTip("Export circuit as LTspice .asc schematic file")
+        export_asc_action.triggered.connect(self._on_export_asc)
+        file_menu.addAction(export_asc_action)
+
         generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
         generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
         generate_report_action.triggered.connect(self._on_generate_report)
