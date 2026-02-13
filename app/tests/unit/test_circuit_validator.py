@@ -100,3 +100,74 @@ class TestNoSources:
         wires = [make_wire("R1", 0, "GND1", 0)]
         is_valid, errors, warnings = validate_circuit(components, wires, "DC Operating Point")
         assert any("no voltage or current" in w.lower() for w in warnings)
+
+
+class TestWaveformSourceCountsAsVoltageSource:
+    """Waveform Source should count as a voltage source for validation."""
+
+    def test_waveform_source_satisfies_source_requirement(self):
+        """Waveform Source alone should suppress the 'no sources' warning."""
+        components = {
+            "VW1": make_component("Waveform Source", "VW1", "SIN(0 5 1k)"),
+            "R1": make_component("Resistor", "R1", "1k"),
+            "GND1": make_component("Ground", "GND1", "0V"),
+        }
+        wires = [
+            make_wire("VW1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("VW1", 1, "GND1", 0),
+        ]
+        is_valid, errors, warnings = validate_circuit(components, wires, "DC Operating Point")
+        assert is_valid
+        assert not any("no voltage or current" in w.lower() for w in warnings)
+
+    def test_waveform_source_not_enough_for_dc_sweep(self):
+        """DC Sweep requires a 'Voltage Source', not just a Waveform Source."""
+        components = {
+            "VW1": make_component("Waveform Source", "VW1", "SIN(0 5 1k)"),
+            "R1": make_component("Resistor", "R1", "1k"),
+            "GND1": make_component("Ground", "GND1", "0V"),
+        }
+        wires = [
+            make_wire("VW1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("VW1", 1, "GND1", 0),
+        ]
+        is_valid, errors, warnings = validate_circuit(components, wires, "DC Sweep")
+        assert not is_valid
+        assert any("dc sweep" in e.lower() for e in errors)
+
+    def test_both_voltage_and_waveform_sources(self):
+        """Circuit with both source types should be fully valid."""
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V"),
+            "VW1": make_component("Waveform Source", "VW1", "SIN(0 5 1k)"),
+            "R1": make_component("Resistor", "R1", "1k"),
+            "GND1": make_component("Ground", "GND1", "0V"),
+        }
+        wires = [
+            make_wire("V1", 0, "VW1", 0),
+            make_wire("VW1", 1, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        is_valid, errors, warnings = validate_circuit(components, wires, "DC Sweep")
+        assert is_valid
+
+
+class TestCurrentSourceOnly:
+    def test_current_source_satisfies_source_requirement(self):
+        """Current source alone should suppress the 'no sources' warning."""
+        components = {
+            "I1": make_component("Current Source", "I1", "1A"),
+            "R1": make_component("Resistor", "R1", "1k"),
+            "GND1": make_component("Ground", "GND1", "0V"),
+        }
+        wires = [
+            make_wire("I1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("I1", 1, "GND1", 0),
+        ]
+        is_valid, errors, warnings = validate_circuit(components, wires, "DC Operating Point")
+        assert is_valid
+        assert not any("no voltage or current" in w.lower() for w in warnings)

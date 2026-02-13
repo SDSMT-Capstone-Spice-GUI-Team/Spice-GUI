@@ -226,6 +226,354 @@ class TestRunSimulation:
         assert mock_runner.run_simulation.call_count == 2
 
 
+class TestSetAnalysisVariants:
+    def test_set_ac_sweep(self):
+        ctrl = SimulationController()
+        ctrl.set_analysis(
+            "AC Sweep",
+            {"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+        )
+        assert ctrl.model.analysis_type == "AC Sweep"
+        assert ctrl.model.analysis_params["fStop"] == "1MEG"
+
+    def test_set_transient(self):
+        ctrl = SimulationController()
+        ctrl.set_analysis("Transient", {"step": "1u", "duration": "10m"})
+        assert ctrl.model.analysis_type == "Transient"
+        assert ctrl.model.analysis_params["step"] == "1u"
+
+    def test_set_noise(self):
+        ctrl = SimulationController()
+        ctrl.set_analysis(
+            "Noise",
+            {"output_node": "out", "source": "V1", "fStart": 1, "fStop": 1e6},
+        )
+        assert ctrl.model.analysis_type == "Noise"
+
+    def test_set_sensitivity(self):
+        ctrl = SimulationController()
+        ctrl.set_analysis("Sensitivity", {"output_node": "out"})
+        assert ctrl.model.analysis_type == "Sensitivity"
+
+    def test_set_transfer_function(self):
+        ctrl = SimulationController()
+        ctrl.set_analysis(
+            "Transfer Function",
+            {"output_var": "v(out)", "input_source": "V1"},
+        )
+        assert ctrl.model.analysis_type == "Transfer Function"
+
+    def test_set_pole_zero(self):
+        ctrl = SimulationController()
+        ctrl.set_analysis(
+            "Pole-Zero",
+            {
+                "input_pos": "1",
+                "input_neg": "0",
+                "output_pos": "2",
+                "output_neg": "0",
+            },
+        )
+        assert ctrl.model.analysis_type == "Pole-Zero"
+
+    def test_set_analysis_none_params(self):
+        ctrl = SimulationController()
+        ctrl.set_analysis("DC Operating Point", None)
+        assert ctrl.model.analysis_params == {}
+
+    def test_set_temperature_sweep(self):
+        ctrl = SimulationController()
+        ctrl.set_analysis(
+            "Temperature Sweep",
+            {"tempStart": -40, "tempStop": 85, "tempStep": 25},
+        )
+        assert ctrl.model.analysis_type == "Temperature Sweep"
+        assert ctrl.model.analysis_params["tempStart"] == -40
+
+
+class TestParseResultsDispatch:
+    """Test that _parse_results dispatches to the correct parser."""
+
+    def test_dc_op_dispatch(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.read_output.return_value = "v(nodeA) = 5.0\n"
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="",
+            warnings=[],
+        )
+        assert result.success
+        assert result.analysis_type == "DC Operating Point"
+
+    def test_dc_sweep_dispatch(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "DC Sweep"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.read_output.return_value = "Index   v-sweep   v(nodeA)\n0   0.0   0.0\n"
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="",
+            warnings=[],
+        )
+        assert result.success
+        assert result.analysis_type == "DC Sweep"
+
+    def test_ac_sweep_dispatch(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "AC Sweep"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.read_output.return_value = (
+            "Index   frequency   v(out)   vp(out)\n0       100.0       1.0      -45.0\n"
+        )
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="",
+            warnings=[],
+        )
+        assert result.success
+        assert result.analysis_type == "AC Sweep"
+
+    def test_noise_dispatch(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Noise"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.read_output.return_value = (
+            "Index   frequency   onoise_spectrum   inoise_spectrum\n0       100.0       1.5e-8            2.3e-7\n"
+        )
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="",
+            warnings=[],
+        )
+        assert result.success
+        assert result.analysis_type == "Noise"
+
+    def test_sensitivity_dispatch(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Sensitivity"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.read_output.return_value = "DC Sensitivities of output v(out)\n\nR1   1e3   5e-4   0.5\n\n"
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="",
+            warnings=[],
+        )
+        assert result.success
+        assert result.analysis_type == "Sensitivity"
+
+    def test_transfer_function_dispatch(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Transfer Function"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.read_output.return_value = "Transfer function, output/input = 5.000000e-01\n"
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="",
+            warnings=[],
+        )
+        assert result.success
+        assert result.analysis_type == "Transfer Function"
+
+    def test_pole_zero_dispatch(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Pole-Zero"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.read_output.return_value = "pole(1) = -1.00000e+03, 0.00000e+00\n"
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="",
+            warnings=[],
+        )
+        assert result.success
+        assert result.analysis_type == "Pole-Zero"
+
+    def test_temperature_sweep_dispatch(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Temperature Sweep"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.read_output.return_value = "v(nodeA) = 5.0\n"
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="",
+            warnings=[],
+        )
+        assert result.success
+        assert result.analysis_type == "Temperature Sweep"
+
+    def test_unknown_analysis_type(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Nonexistent Analysis"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="",
+            warnings=[],
+        )
+        assert not result.success
+        assert "Unknown analysis type" in result.error
+
+    def test_measurement_results_parsed(self):
+        """Measurement results from stdout should be captured."""
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.read_output.return_value = "v(nodeA) = 5.0\n"
+        ctrl._runner = mock_runner
+        result = ctrl._parse_results(
+            output_file="/tmp/out.txt",
+            wrdata_filepath="/tmp/wr.txt",
+            netlist="* test",
+            raw_output="  rise_time  =  1.23456e-06\n",
+            warnings=[],
+        )
+        assert result.success
+        assert result.measurements is not None
+        assert "rise_time" in result.measurements
+
+
+class TestGenerateNetlistOptions:
+    def test_generate_with_spice_options(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        netlist = ctrl.generate_netlist(spice_options={"RELTOL": "0.01"})
+        assert ".options RELTOL=0.01" in netlist
+
+    def test_generate_with_measurements(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Transient"
+        model.analysis_params = {"step": "1u", "duration": "10m", "start": "0"}
+        ctrl = SimulationController(model)
+        netlist = ctrl.generate_netlist(measurements=[".meas TRAN delay TRIG v(1) VAL=2.5 RISE=1"])
+        assert ".meas TRAN delay" in netlist
+
+
+class TestParameterSweepEdgeCases:
+    def test_sweep_missing_component(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        ctrl._runner = mock_runner
+        result = ctrl.run_parameter_sweep(
+            {
+                "component_id": "NONEXISTENT",
+                "start": 100,
+                "stop": 10000,
+                "num_steps": 5,
+                "base_analysis_type": "DC Operating Point",
+                "base_params": {},
+            }
+        )
+        assert not result.success
+        assert "NONEXISTENT" in result.error
+
+    def test_sweep_restores_original_values(self):
+        model = _build_simple_circuit()
+        original_value = model.components["R1"].value
+        original_analysis = model.analysis_type
+
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "/tmp"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/out.txt",
+            "v(1) = 5.0",
+            "",
+        )
+        mock_runner.read_output.return_value = "v(nodeA) = 5.0\n"
+        ctrl._runner = mock_runner
+
+        ctrl.run_parameter_sweep(
+            {
+                "component_id": "R1",
+                "start": 100,
+                "stop": 10000,
+                "num_steps": 3,
+                "base_analysis_type": "DC Operating Point",
+                "base_params": {},
+            }
+        )
+        assert model.components["R1"].value == original_value
+        assert model.analysis_type == original_analysis
+
+    def test_sweep_cancellation(self):
+        """Sweep should stop when progress_callback returns False."""
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "/tmp"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/out.txt",
+            "v(1) = 5.0",
+            "",
+        )
+        mock_runner.read_output.return_value = "v(nodeA) = 5.0\n"
+        ctrl._runner = mock_runner
+
+        call_count = 0
+
+        def cancel_after_one(step, total):
+            nonlocal call_count
+            call_count += 1
+            return call_count <= 1
+
+        result = ctrl.run_parameter_sweep(
+            {
+                "component_id": "R1",
+                "start": 100,
+                "stop": 10000,
+                "num_steps": 5,
+                "base_analysis_type": "DC Operating Point",
+                "base_params": {},
+            },
+            progress_callback=cancel_after_one,
+        )
+        assert result.data["cancelled"] is True
+        assert result.data["num_steps"] < 5
+
+
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.simulation_controller as mod
