@@ -299,13 +299,16 @@ class TestAutosaveSpinboxState:
         assert not dlg.autosave_checkbox.isChecked()
         assert not dlg.autosave_spin.isEnabled()
 
-    def test_cancel_reverts_autosave_enabled(self, dialog, mock_main_window):
+    def test_cancel_reverts_autosave_enabled(self, qtbot, mock_main_window):
         """Cancel should revert auto-save enabled to the snapshot value."""
-        dialog.autosave_checkbox.setChecked(False)
-        dialog._on_cancel()
+        # Ensure autosave is enabled before opening dialog so snapshot captures True
         settings = QSettings("SDSMT", "SDM Spice")
+        settings.setValue("autosave/enabled", True)
+        dlg = PreferencesDialog(mock_main_window, parent=None)
+        qtbot.addWidget(dlg)
+        dlg.autosave_checkbox.setChecked(False)
+        dlg._on_cancel()
         enabled = settings.value("autosave/enabled")
-        # Snapshot was True (default), so it should revert to True
         assert enabled is True or enabled == "true"
         mock_main_window._start_autosave_timer.assert_called()
 
