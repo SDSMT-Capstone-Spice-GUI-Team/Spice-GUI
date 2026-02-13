@@ -2,8 +2,12 @@
 Unit tests for results_plot_dialog.py — DC Sweep and AC Sweep plot dialogs.
 """
 
+import os
+from unittest.mock import patch
+
 import pytest
-from GUI.results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
+from GUI.results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog, save_plot
+from matplotlib.figure import Figure
 
 # ---------------------------------------------------------------------------
 # Helper fixtures
@@ -190,3 +194,63 @@ class TestACSweepPlotDialog:
         qtbot.addWidget(dlg)
         dlg.add_dataset(AC_DATA_B)
         assert dlg.dataset_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Save Plot
+# ---------------------------------------------------------------------------
+
+
+class TestSavePlot:
+    def test_save_png_creates_file(self, tmp_path):
+        fig = Figure(figsize=(4, 3))
+        ax = fig.add_subplot(111)
+        ax.plot([0, 1, 2], [0, 1, 4])
+        ax.set_title("Test")
+
+        out = tmp_path / "plot.png"
+        with patch("GUI.results_plot_dialog.QFileDialog.getSaveFileName", return_value=(str(out), "")):
+            result = save_plot(fig)
+
+        assert result == str(out)
+        assert out.exists()
+        assert out.stat().st_size > 0
+
+    def test_save_svg_creates_file(self, tmp_path):
+        fig = Figure(figsize=(4, 3))
+        ax = fig.add_subplot(111)
+        ax.plot([0, 1], [0, 1])
+
+        out = tmp_path / "plot.svg"
+        with patch("GUI.results_plot_dialog.QFileDialog.getSaveFileName", return_value=(str(out), "")):
+            result = save_plot(fig)
+
+        assert result == str(out)
+        assert out.exists()
+        assert out.stat().st_size > 0
+        content = out.read_text()
+        assert "<svg" in content
+
+    def test_cancel_returns_empty(self):
+        fig = Figure()
+        with patch("GUI.results_plot_dialog.QFileDialog.getSaveFileName", return_value=("", "")):
+            result = save_plot(fig)
+        assert result == ""
+
+    def test_dc_dialog_has_save_button(self, qtbot):
+        from PyQt6.QtWidgets import QPushButton
+
+        dlg = DCSweepPlotDialog(DC_DATA_A)
+        qtbot.addWidget(dlg)
+        buttons = [b for b in dlg.findChildren(QPushButton) if "Save" in b.text()]
+        assert len(buttons) == 1
+        assert buttons[0].text() == "Save Plot..."
+
+    def test_ac_dialog_has_save_button(self, qtbot):
+        from PyQt6.QtWidgets import QPushButton
+
+        dlg = ACSweepPlotDialog(AC_DATA_A)
+        qtbot.addWidget(dlg)
+        buttons = [b for b in dlg.findChildren(QPushButton) if "Save" in b.text()]
+        assert len(buttons) == 1
+        assert buttons[0].text() == "Save Plot..."

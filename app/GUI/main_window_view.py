@@ -11,7 +11,7 @@ class ViewOperationsMixin:
     """Mixin providing theme, visibility toggles, probe, zoom, and image export."""
 
     def _set_theme(self, theme_name: str):
-        """Switch the application theme."""
+        """Switch the application theme (legacy: 'light' or 'dark' only)."""
         if theme_name == "dark":
             theme_manager.set_theme(DarkTheme())
             self.dark_theme_action.setChecked(True)
@@ -19,40 +19,13 @@ class ViewOperationsMixin:
             theme_manager.set_theme(LightTheme())
             self.light_theme_action.setChecked(True)
         self._apply_theme()
+        if hasattr(self, "_refresh_theme_menu"):
+            self._refresh_theme_menu()
 
     def _apply_theme(self):
         """Apply the current theme to all visual elements."""
-        is_dark = theme_manager.current_theme.name == "Dark Theme"
-
-        # Apply global widget stylesheet for dark mode
-        if is_dark:
-            dark_stylesheet = (
-                "QMainWindow, QWidget { background-color: #1E1E1E; color: #D4D4D4; }"
-                " QMenuBar { background-color: #2D2D2D; color: #D4D4D4; }"
-                " QMenuBar::item:selected { background-color: #3D3D3D; }"
-                " QMenu { background-color: #2D2D2D; color: #D4D4D4; }"
-                " QMenu::item:selected { background-color: #3D3D3D; }"
-                " QLabel { color: #D4D4D4; }"
-                " QPushButton {"
-                "   background-color: #3D3D3D; color: #D4D4D4;"
-                "   border: 1px solid #555555; padding: 4px 12px; border-radius: 3px;"
-                " }"
-                " QPushButton:hover { background-color: #4D4D4D; }"
-                " QTextEdit, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {"
-                "   background-color: #2D2D2D; color: #D4D4D4;"
-                "   border: 1px solid #555555;"
-                " }"
-                " QSplitter::handle { background-color: #3D3D3D; }"
-                " QScrollBar { background-color: #2D2D2D; }"
-                " QScrollBar::handle { background-color: #555555; }"
-                " QGroupBox { color: #D4D4D4; border: 1px solid #555555; }"
-                " QTableWidget { background-color: #2D2D2D; color: #D4D4D4;"
-                "   gridline-color: #555555; }"
-                " QHeaderView::section { background-color: #3D3D3D; color: #D4D4D4; }"
-            )
-            self.setStyleSheet(dark_stylesheet)
-        else:
-            self.setStyleSheet("")
+        theme = theme_manager.current_theme
+        self.setStyleSheet(theme.generate_dark_stylesheet())
 
         # Refresh canvas (grid + components)
         self.canvas.refresh_theme()
@@ -80,6 +53,25 @@ class ViewOperationsMixin:
         self.statistics_panel.setVisible(checked)
         if checked:
             self.statistics_panel.refresh()
+
+    def _toggle_grading_panel(self):
+        """Toggle the instructor grading panel visibility."""
+        visible = not self.grading_panel.isVisible()
+        self.grading_panel.setVisible(visible)
+
+    def _on_batch_grade(self):
+        """Open the batch grading dialog."""
+        from .batch_grading_dialog import BatchGradingDialog
+
+        dialog = BatchGradingDialog(reference_circuit=self.model, parent=self)
+        dialog.exec()
+
+    def _on_create_rubric(self):
+        """Open the rubric editor dialog."""
+        from .rubric_editor_dialog import RubricEditorDialog
+
+        dialog = RubricEditorDialog(parent=self)
+        dialog.exec()
 
     # Dirty flag (unsaved changes indicator)
 

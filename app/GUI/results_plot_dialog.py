@@ -14,7 +14,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QPushButton, QTextEdit, QVBoxLayout
+from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QPushButton, QTextEdit, QVBoxLayout
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .styles import theme_manager
@@ -29,19 +29,46 @@ _LINE_STYLES = ["-", "--", "-.", ":"]
 
 def _apply_mpl_theme(fig):
     """Apply the current application theme colors to a matplotlib figure."""
-    is_dark = theme_manager.current_theme.name == "Dark Theme"
-    if is_dark:
-        bg = "#1E1E1E"
-        fg = "#D4D4D4"
+    theme = theme_manager.current_theme
+    if theme.is_dark:
+        bg = theme.color_hex("background_primary")
+        fg = theme.color_hex("text_primary")
+        bg2 = theme.color_hex("background_secondary")
+        from PyQt6.QtGui import QColor
+
+        border = QColor(bg2).lighter(150).name()
         fig.patch.set_facecolor(bg)
         for ax in fig.axes:
-            ax.set_facecolor("#2D2D2D")
+            ax.set_facecolor(bg2)
             ax.tick_params(colors=fg)
             ax.xaxis.label.set_color(fg)
             ax.yaxis.label.set_color(fg)
             ax.title.set_color(fg)
             for spine in ax.spines.values():
-                spine.set_edgecolor("#555555")
+                spine.set_edgecolor(border)
+
+
+def save_plot(fig, parent=None):
+    """Save a matplotlib figure to PNG or SVG via a file dialog.
+
+    Returns the file path saved to, or empty string if cancelled.
+    """
+    path, _ = QFileDialog.getSaveFileName(
+        parent,
+        "Save Plot",
+        "",
+        "PNG Image (*.png);;SVG Image (*.svg);;All Files (*)",
+    )
+    if not path:
+        return ""
+    fig.savefig(
+        path,
+        dpi=300,
+        facecolor="white",
+        edgecolor="none",
+        bbox_inches="tight",
+    )
+    return path
 
 
 class DCSweepPlotDialog(QDialog):
@@ -67,10 +94,14 @@ class DCSweepPlotDialog(QDialog):
         plot_layout = QVBoxLayout()
 
         toolbar = QHBoxLayout()
+        save_btn = QPushButton("Save Plot...")
+        save_btn.setToolTip("Export the plot as a PNG or SVG image file")
+        save_btn.clicked.connect(lambda: save_plot(self._fig, self))
+        toolbar.addWidget(save_btn)
+        toolbar.addStretch()
         clear_btn = QPushButton("Clear All")
         clear_btn.setToolTip("Remove all overlaid results and clear the plot")
         clear_btn.clicked.connect(self.clear_all)
-        toolbar.addStretch()
         toolbar.addWidget(clear_btn)
         plot_layout.addLayout(toolbar)
 
@@ -246,6 +277,10 @@ class ACSweepPlotDialog(QDialog):
         plot_layout = QVBoxLayout()
 
         toolbar = QHBoxLayout()
+        save_btn = QPushButton("Save Plot...")
+        save_btn.setToolTip("Export the plot as a PNG or SVG image file")
+        save_btn.clicked.connect(lambda: save_plot(self._fig, self))
+        toolbar.addWidget(save_btn)
         self._markers_cb = QCheckBox("Show Markers")
         self._markers_cb.setChecked(True)
         self._markers_cb.setToolTip("Show -3dB cutoff, bandwidth, gain/phase margin markers")

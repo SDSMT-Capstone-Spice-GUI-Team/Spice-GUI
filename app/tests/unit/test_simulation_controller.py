@@ -167,7 +167,63 @@ class TestRunSimulation:
         ctrl._runner = mock_runner
         result = ctrl.run_simulation()
         assert not result.success
-        assert "Simulation error" in result.error
+        # Error is now a student-friendly message (classified as UNKNOWN)
+        assert "failed" in result.error.lower()
+
+    def test_convergence_error_shows_friendly_message(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        # First call fails with convergence error, retry also fails
+        mock_runner.run_simulation.return_value = (
+            False,
+            None,
+            "",
+            "Error: no convergence in DC operating point",
+        )
+        ctrl._runner = mock_runner
+        result = ctrl.run_simulation()
+        assert not result.success
+        assert "stable DC operating point" in result.error
+
+    def test_singular_matrix_shows_friendly_message(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        mock_runner.run_simulation.return_value = (
+            False,
+            None,
+            "",
+            "Error: singular matrix",
+        )
+        ctrl._runner = mock_runner
+        result = ctrl.run_simulation()
+        assert not result.success
+        assert "singular" in result.error.lower()
+        # Singular matrix is not retriable, so only one call
+        assert mock_runner.run_simulation.call_count == 1
+
+    def test_convergence_retry_succeeds(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        # First call fails, retry succeeds
+        mock_runner.run_simulation.side_effect = [
+            (False, None, "", "Error: no convergence in DC operating point"),
+            (True, "/tmp/output.txt", "v(1) = 5.0", ""),
+        ]
+        mock_runner.read_output.return_value = "v(1) = 5.000000e+00\n"
+        ctrl._runner = mock_runner
+        result = ctrl.run_simulation()
+        assert result.success
+        assert any("relaxed tolerances" in w for w in result.warnings)
+        assert mock_runner.run_simulation.call_count == 2
 
 
 class TestNoQtDependencies:

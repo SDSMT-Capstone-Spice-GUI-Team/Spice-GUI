@@ -6,7 +6,7 @@ Enables runtime theme/style switching with observer notification.
 """
 
 import logging
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 from .light_theme import LightTheme
 from .theme import ThemeProtocol
@@ -134,6 +134,53 @@ class ThemeManager:
                 callback(self._theme)
             except (TypeError, AttributeError, RuntimeError) as e:
                 logger.error("Error notifying theme listener: %s", e)
+
+    # ===== Custom theme support =====
+
+    def get_available_themes(self) -> List[Tuple[str, str]]:
+        """Return list of (display_name, key) for all available themes.
+
+        Built-in themes use keys "light" and "dark".
+        Custom themes use keys "custom:<filename_stem>".
+        """
+        from . import theme_store
+
+        themes: List[Tuple[str, str]] = [("Light", "light"), ("Dark", "dark")]
+        for display_name, stem in theme_store.list_custom_themes():
+            themes.append((display_name, f"custom:{stem}"))
+        return themes
+
+    def set_theme_by_key(self, key: str) -> None:
+        """Set theme by key string ("light", "dark", or "custom:<stem>")."""
+        from . import theme_store
+        from .dark_theme import DarkTheme
+
+        if key == "dark":
+            self.set_theme(DarkTheme())
+        elif key.startswith("custom:"):
+            stem = key[len("custom:") :]
+            theme = theme_store.load_theme(stem)
+            if theme is not None:
+                self.set_theme(theme)
+            else:
+                logger.warning("Custom theme %r not found, falling back to light", stem)
+                self.set_theme(LightTheme())
+        else:
+            self.set_theme(LightTheme())
+
+    def get_theme_key(self) -> str:
+        """Return the key for the current theme."""
+        from .custom_theme import CustomTheme
+
+        theme = self._theme
+        if isinstance(theme, CustomTheme):
+            from . import theme_store
+
+            stem = theme_store._filename_safe(theme.name)
+            return f"custom:{stem}"
+        elif theme.name == "Dark Theme":
+            return "dark"
+        return "light"
 
     # ===== Convenience methods for common operations =====
 

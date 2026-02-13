@@ -13,6 +13,10 @@ from PyQt6.QtWidgets import (
 )
 
 from .format_utils import parse_value
+from .meas_dialog import ANALYSIS_DOMAIN_MAP, MeasurementDialog
+
+# Analysis types that support .meas directives
+_MEAS_SUPPORTED_TYPES = set(ANALYSIS_DOMAIN_MAP.keys())
 
 
 class AnalysisDialog(QDialog):
@@ -103,12 +107,65 @@ class AnalysisDialog(QDialog):
                 "sweepType": "Frequency scale: dec (decade/log), oct (octave), lin (linear)",
             },
         },
+        "Sensitivity": {
+            "fields": [
+                ("Output Node", "output_node", "text", "out"),
+            ],
+            "description": (
+                "DC sensitivity analysis — shows how much each component value "
+                "affects the selected output voltage. Useful for identifying the "
+                "most critical components in your circuit."
+            ),
+            "tooltips": {
+                "output_node": (
+                    "Node name (or number) to analyze, e.g. 'out' or '2'. "
+                    "The analysis computes dV(node)/d(parameter) for every component."
+                ),
+            },
+        },
+        "Transfer Function": {
+            "fields": [
+                ("Output Variable", "output_var", "text", "v(out)"),
+                ("Input Source", "input_source", "text", "V1"),
+            ],
+            "description": (
+                "Small-signal DC transfer function — computes voltage gain (or "
+                "transresistance), input impedance, and output impedance"
+            ),
+            "tooltips": {
+                "output_var": "Output variable: v(node) for voltage gain or i(Vname) for transresistance",
+                "input_source": "Name of the independent source to vary (e.g. V1, I1)",
+            },
+        },
+        "Pole-Zero": {
+            "fields": [
+                ("Input Node (+)", "input_pos", "text", "1"),
+                ("Input Node (-)", "input_neg", "text", "0"),
+                ("Output Node (+)", "output_pos", "text", "2"),
+                ("Output Node (-)", "output_neg", "text", "0"),
+                ("Transfer Type", "transfer_type", "combo", ["vol", "cur"], "vol"),
+                ("Analysis", "pz_type", "combo", ["pz", "pol", "zer"], "pz"),
+            ],
+            "description": (
+                "Pole-Zero analysis — computes poles and zeros of the circuit "
+                "transfer function for stability and frequency response analysis"
+            ),
+            "tooltips": {
+                "input_pos": "Positive input port node (number or name)",
+                "input_neg": "Negative input port node (number or name, 0 for ground)",
+                "output_pos": "Positive output port node (number or name)",
+                "output_neg": "Negative output port node (number or name, 0 for ground)",
+                "transfer_type": "Transfer type: vol (voltage gain) or cur (current gain)",
+                "pz_type": "Analysis scope: pz (poles and zeros), pol (poles only), zer (zeros only)",
+            },
+        },
     }
 
     def __init__(self, analysis_type=None, parent=None, preset_manager=None):
         super().__init__(parent)
         self.analysis_type = analysis_type
         self.field_widgets = {}
+        self._measurements = []  # list of measurement entry dicts
         if preset_manager is None:
             from simulation.preset_manager import PresetManager
 
@@ -160,6 +217,17 @@ class AnalysisDialog(QDialog):
         self.form_layout = QFormLayout()
         layout.addLayout(self.form_layout)
 
+        # Measurements button (shown only for supported analysis types)
+        meas_layout = QHBoxLayout()
+        self.meas_btn = QPushButton("Measurements...")
+        self.meas_btn.setToolTip("Configure automated .meas directives for this analysis")
+        self.meas_btn.clicked.connect(self._open_meas_dialog)
+        meas_layout.addWidget(self.meas_btn)
+        self.meas_label = QLabel("No measurements configured")
+        self.meas_label.setStyleSheet("color: gray;")
+        meas_layout.addWidget(self.meas_label, 1)
+        layout.addLayout(meas_layout)
+
         # Buttons
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept)
@@ -209,6 +277,14 @@ class AnalysisDialog(QDialog):
             self.field_widgets[key] = (widget, field_type)
             self.form_layout.addRow(f"{label}:", widget)
 
+        # Show/hide measurements button based on analysis type
+        meas_visible = self.analysis_type in _MEAS_SUPPORTED_TYPES
+        self.meas_btn.setVisible(meas_visible)
+        self.meas_label.setVisible(meas_visible)
+        if not meas_visible:
+            self._measurements.clear()
+        self._update_meas_label()
+
         # Refresh preset dropdown for this analysis type
         self._refresh_preset_combo()
 
@@ -226,6 +302,10 @@ class AnalysisDialog(QDialog):
                     params[key] = int(parse_value(widget.text()))
                 else:  # text
                     params[key] = widget.text()
+
+            # Include measurement directives if any are configured
+            if self._measurements:
+                params["measurements"] = [e["directive"] for e in self._measurements if e.get("directive")]
 
             return params
 
@@ -276,7 +356,52 @@ class AnalysisDialog(QDialog):
             sweep_type = params.get("sweepType", "dec")
             return f".noise v({output}) {source} {sweep_type} {points} {fstart} {fstop}"
 
+        elif self.analysis_type == "Sensitivity":
+            output = params.get("output_node", "out")
+            return f".sens v({output})"
+
+        elif self.analysis_type == "Transfer Function":
+            output_var = params.get("output_var", "v(out)")
+            input_source = params.get("input_source", "V1")
+            return f".tf {output_var} {input_source}"
+
+        elif self.analysis_type == "Pole-Zero":
+            inp = params.get("input_pos", "1")
+            inn = params.get("input_neg", "0")
+            outp = params.get("output_pos", "2")
+            outn = params.get("output_neg", "0")
+            tf_type = params.get("transfer_type", "vol")
+            pz_type = params.get("pz_type", "pz")
+            return f".pz {inp} {inn} {outp} {outn} {tf_type} {pz_type}"
+
         return ""
+
+    # --- Measurement management ---
+
+    def _open_meas_dialog(self):
+        """Open the measurement configuration dialog."""
+        domain = ANALYSIS_DOMAIN_MAP.get(self.analysis_type, "tran")
+        dialog = MeasurementDialog(
+            domain=domain,
+            parent=self,
+            measurements=self._measurements,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._measurements = dialog.get_entries()
+            self._update_meas_label()
+
+    def _update_meas_label(self):
+        """Update the label showing measurement count."""
+        count = len(self._measurements)
+        if count == 0:
+            self.meas_label.setText("No measurements configured")
+            self.meas_label.setStyleSheet("color: gray;")
+        elif count == 1:
+            self.meas_label.setText("1 measurement configured")
+            self.meas_label.setStyleSheet("")
+        else:
+            self.meas_label.setText(f"{count} measurements configured")
+            self.meas_label.setStyleSheet("")
 
     # --- Preset management ---
 

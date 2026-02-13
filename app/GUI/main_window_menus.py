@@ -34,6 +34,10 @@ class MenuBarMixin:
         self.examples_menu = file_menu.addMenu("Open &Example")
         self._populate_examples_menu()
 
+        # Templates
+        self.templates_menu = file_menu.addMenu("New from &Template")
+        self._populate_templates_menu()
+
         save_action = QAction("&Save", self)
         save_action.setShortcut(kb.get("file.save"))
         save_action.triggered.connect(self._on_save)
@@ -44,12 +48,33 @@ class MenuBarMixin:
         save_as_action.triggered.connect(self._on_save_as)
         file_menu.addAction(save_as_action)
 
+        save_template_action = QAction("Save as Tem&plate...", self)
+        save_template_action.triggered.connect(self._on_save_as_template)
+        file_menu.addAction(save_template_action)
+
+        file_menu.addSeparator()
+
+        new_from_template_action = QAction("New from &Template...", self)
+        new_from_template_action.setToolTip("Create a new circuit from an assignment template")
+        new_from_template_action.triggered.connect(self._on_new_from_template)
+        file_menu.addAction(new_from_template_action)
+
+        save_as_template_action = QAction("Save as Temp&late...", self)
+        save_as_template_action.setToolTip("Save current circuit as an assignment template with metadata")
+        save_as_template_action.triggered.connect(self._on_save_as_template)
+        file_menu.addAction(save_as_template_action)
+
         file_menu.addSeparator()
 
         import_netlist_action = QAction("&Import SPICE Netlist...", self)
         import_netlist_action.setToolTip("Import a SPICE netlist file (.cir, .spice)")
         import_netlist_action.triggered.connect(self._on_import_netlist)
         file_menu.addAction(import_netlist_action)
+
+        import_asc_action = QAction("Import &LTspice Schematic...", self)
+        import_asc_action.setToolTip("Import an LTspice schematic file (.asc)")
+        import_asc_action.triggered.connect(self._on_import_asc)
+        file_menu.addAction(import_asc_action)
 
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
@@ -71,6 +96,16 @@ class MenuBarMixin:
         export_latex_action.setToolTip("Export circuit as CircuiTikZ LaTeX code (.tex file)")
         export_latex_action.triggered.connect(self.export_circuitikz)
         file_menu.addAction(export_latex_action)
+
+        export_asc_action = QAction("Export as LTspice (.&asc)...", self)
+        export_asc_action.setToolTip("Export circuit as LTspice .asc schematic file")
+        export_asc_action.triggered.connect(self._on_export_asc)
+        file_menu.addAction(export_asc_action)
+
+        generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
+        generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
+        generate_report_action.triggered.connect(self._on_generate_report)
+        file_menu.addAction(generate_report_action)
 
         file_menu.addSeparator()
 
@@ -144,6 +179,16 @@ class MenuBarMixin:
         copy_latex_action.setToolTip("Copy the CircuiTikZ environment block to the clipboard")
         copy_latex_action.triggered.connect(self.copy_circuitikz)
         edit_menu.addAction(copy_latex_action)
+
+        copy_json_action = QAction("Copy Circuit as &JSON", self)
+        copy_json_action.setToolTip("Copy entire circuit to system clipboard as JSON")
+        copy_json_action.triggered.connect(self.copy_circuit_json)
+        edit_menu.addAction(copy_json_action)
+
+        paste_json_action = QAction("Paste Circuit from JS&ON", self)
+        paste_json_action.setToolTip("Replace current circuit with JSON from clipboard")
+        paste_json_action.triggered.connect(self.paste_circuit_json)
+        edit_menu.addAction(paste_json_action)
 
         edit_menu.addSeparator()
 
@@ -222,22 +267,25 @@ class MenuBarMixin:
 
         view_menu.addSeparator()
 
-        # Theme submenu
-        theme_menu = view_menu.addMenu("&Theme")
+        # Theme submenu (dynamic — includes custom themes)
+        self.theme_menu = view_menu.addMenu("&Theme")
+        self.theme_group = QActionGroup(self)
+
         self.light_theme_action = QAction("&Light", self)
         self.light_theme_action.setCheckable(True)
         self.light_theme_action.setChecked(True)
-        self.light_theme_action.triggered.connect(lambda: self._set_theme("light"))
-        theme_menu.addAction(self.light_theme_action)
+        self.light_theme_action.triggered.connect(lambda: self._set_theme_by_key("light"))
+        self.theme_menu.addAction(self.light_theme_action)
+        self.theme_group.addAction(self.light_theme_action)
 
         self.dark_theme_action = QAction("&Dark", self)
         self.dark_theme_action.setCheckable(True)
-        self.dark_theme_action.triggered.connect(lambda: self._set_theme("dark"))
-        theme_menu.addAction(self.dark_theme_action)
-
-        self.theme_group = QActionGroup(self)
-        self.theme_group.addAction(self.light_theme_action)
+        self.dark_theme_action.triggered.connect(lambda: self._set_theme_by_key("dark"))
+        self.theme_menu.addAction(self.dark_theme_action)
         self.theme_group.addAction(self.dark_theme_action)
+
+        self._custom_theme_actions = []
+        self._refresh_theme_menu()
 
         # Symbol Style submenu
         symbol_style_menu = view_menu.addMenu("&Symbol Style")
@@ -417,12 +465,50 @@ class MenuBarMixin:
             "tools.probe": self.probe_action,
         }
 
+        # Instructor menu
+        instructor_menu = menubar.addMenu("&Instructor")
+        if instructor_menu:
+            create_rubric_action = QAction("&Create Rubric...", self)
+            create_rubric_action.setToolTip("Open the rubric editor to create or edit a grading rubric")
+            create_rubric_action.triggered.connect(self._on_create_rubric)
+            instructor_menu.addAction(create_rubric_action)
+
+            instructor_menu.addSeparator()
+
+            grade_action = QAction("&Grade Student Circuit...", self)
+            grade_action.setToolTip("Open the grading panel to grade a student submission")
+            grade_action.triggered.connect(self._toggle_grading_panel)
+            instructor_menu.addAction(grade_action)
+
+            batch_grade_action = QAction("&Batch Grade...", self)
+            batch_grade_action.setToolTip("Grade a folder of student submissions")
+            batch_grade_action.triggered.connect(self._on_batch_grade)
+            instructor_menu.addAction(batch_grade_action)
+
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")
         if settings_menu:
+            preferences_action = QAction("&Preferences...", self)
+            preferences_action.triggered.connect(self._open_preferences_dialog)
+            settings_menu.addAction(preferences_action)
+
+            settings_menu.addSeparator()
+
             keybindings_action = QAction("&Keybindings...", self)
             keybindings_action.triggered.connect(self._open_keybindings_dialog)
             settings_menu.addAction(keybindings_action)
+
+    def _open_preferences_dialog(self):
+        """Open the unified preferences dialog (single-instance, non-modal)."""
+        from .preferences_dialog import PreferencesDialog
+
+        existing = getattr(self, "_preferences_dialog", None)
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            return
+        self._preferences_dialog = PreferencesDialog(self)
+        self._preferences_dialog.show()
 
     def _open_keybindings_dialog(self):
         """Open the keybindings preferences dialog."""
@@ -438,3 +524,50 @@ class MenuBarMixin:
         kb = self.keybindings
         for action_name, qaction in self._bound_actions.items():
             qaction.setShortcut(kb.get(action_name))
+
+    def _refresh_theme_menu(self):
+        """Rebuild custom theme entries in the Theme submenu."""
+        from .styles import theme_manager
+
+        # Remove old custom actions
+        for action in self._custom_theme_actions:
+            self.theme_menu.removeAction(action)
+            self.theme_group.removeAction(action)
+        self._custom_theme_actions.clear()
+
+        # Add custom themes after a separator
+        available = theme_manager.get_available_themes()
+        custom_themes = [(name, key) for name, key in available if key.startswith("custom:")]
+        if custom_themes:
+            sep = self.theme_menu.addSeparator()
+            self._custom_theme_actions.append(sep)
+            for display_name, key in custom_themes:
+                action = QAction(display_name, self)
+                action.setCheckable(True)
+                action.triggered.connect(lambda checked, k=key: self._set_theme_by_key(k))
+                self.theme_menu.addAction(action)
+                self.theme_group.addAction(action)
+                self._custom_theme_actions.append(action)
+
+        # Sync checkmarks with current theme
+        current_key = theme_manager.get_theme_key()
+        if current_key == "light":
+            self.light_theme_action.setChecked(True)
+        elif current_key == "dark":
+            self.dark_theme_action.setChecked(True)
+        else:
+            for action in self._custom_theme_actions:
+                if hasattr(action, "text") and action.text():
+                    # Find matching custom action
+                    for name, key in custom_themes:
+                        if key == current_key and action.text() == name:
+                            action.setChecked(True)
+                            break
+
+    def _set_theme_by_key(self, key):
+        """Switch theme by key and apply it."""
+        from .styles import theme_manager
+
+        theme_manager.set_theme_by_key(key)
+        self._apply_theme()
+        self._refresh_theme_menu()
