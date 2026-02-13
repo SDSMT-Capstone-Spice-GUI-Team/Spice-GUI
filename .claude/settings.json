@@ -67,7 +67,11 @@
       "Bash(pre-commit:*)",
       "Bash(black:*)",
       "Bash(isort:*)",
-      "Bash(bandit:*)"
+      "Bash(bandit:*)",
+      "Bash(grep:*)",
+      "Bash(./scripts/orchestrator/:*)",
+      "Bash(GIT_EDITOR=true git rebase:*)",
+      "WebSearch"
     ],
     "deny": [
       "Bash(git push --force:*)",
