@@ -444,6 +444,120 @@ class TestRecentFiles:
         assert "file/recent_files" in calls
 
 
+class TestErrorBoundaryValidation:
+    """Error-boundary tests for validate_circuit_data with corrupt/invalid data."""
+
+    def test_validate_missing_component_fields(self):
+        """Components with missing required fields raise ValueError."""
+        data = {
+            "components": [{"id": "R1"}],  # Missing type, value, pos
+            "wires": [],
+        }
+        with pytest.raises(ValueError, match="missing required field"):
+            validate_circuit_data(data)
+
+    def test_validate_invalid_position_data(self):
+        """Component with non-dict position raises ValueError."""
+        data = {
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": "bad"}],
+            "wires": [],
+        }
+        with pytest.raises(ValueError, match="invalid position"):
+            validate_circuit_data(data)
+
+    def test_validate_non_numeric_position(self):
+        """Component with non-numeric position values raises ValueError."""
+        data = {
+            "components": [
+                {
+                    "id": "R1",
+                    "type": "Resistor",
+                    "value": "1k",
+                    "pos": {"x": "abc", "y": 0},
+                }
+            ],
+            "wires": [],
+        }
+        with pytest.raises(ValueError, match="position values must be numeric"):
+            validate_circuit_data(data)
+
+    def test_validate_wire_missing_fields(self):
+        """Wire with missing required fields raises ValueError."""
+        data = {
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
+            "wires": [{"start_comp": "R1"}],  # Missing end_comp, start_term, end_term
+        }
+        with pytest.raises(ValueError, match="missing required field"):
+            validate_circuit_data(data)
+
+    def test_validate_wire_references_unknown_start_component(self):
+        """Wire referencing unknown start component raises ValueError."""
+        data = {
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
+            "wires": [
+                {
+                    "start_comp": "MISSING",
+                    "end_comp": "R1",
+                    "start_term": 0,
+                    "end_term": 0,
+                }
+            ],
+        }
+        with pytest.raises(ValueError, match="unknown component"):
+            validate_circuit_data(data)
+
+    def test_validate_empty_components_list(self):
+        """Empty components list with no wires is valid."""
+        data = {"components": [], "wires": []}
+        validate_circuit_data(data)  # Should not raise
+
+    def test_validate_not_a_list_components(self):
+        """Non-list components field raises ValueError."""
+        data = {"components": "not a list", "wires": []}
+        with pytest.raises(ValueError, match="components"):
+            validate_circuit_data(data)
+
+    def test_validate_not_a_list_wires(self):
+        """Non-list wires field raises ValueError."""
+        data = {"components": [], "wires": "not a list"}
+        with pytest.raises(ValueError, match="wires"):
+            validate_circuit_data(data)
+
+
+class TestErrorBoundaryLoadFromDict:
+    """Error-boundary tests for FileController.load_from_dict with corrupt data."""
+
+    def test_load_from_dict_empty_circuit(self):
+        """load_from_dict with empty components and wires lists works."""
+        ctrl = FileController()
+        data = {"components": [], "wires": []}
+        ctrl.load_from_dict(data)
+        assert len(ctrl.model.components) == 0
+        assert len(ctrl.model.wires) == 0
+
+    def test_load_from_dict_notifies_observer(self):
+        """load_from_dict with circuit_ctrl set notifies model_loaded."""
+        from controllers.circuit_controller import CircuitController
+
+        model = CircuitModel()
+        circuit_ctrl = CircuitController(model)
+        events = []
+        circuit_ctrl.add_observer(lambda e, d: events.append(e))
+
+        ctrl = FileController(model, circuit_ctrl=circuit_ctrl)
+        data = {"components": [], "wires": []}
+        ctrl.load_from_dict(data)
+        assert "model_loaded" in events
+
+    def test_load_from_dict_missing_keys_uses_defaults(self):
+        """load_from_dict with minimal dict uses model defaults."""
+        ctrl = FileController()
+        data = {}  # Completely empty dict
+        ctrl.load_from_dict(data)
+        assert ctrl.model.analysis_type == "DC Operating Point"
+        assert ctrl.model.analysis_params == {}
+
+
 class TestQtDependencies:
     def test_qsettings_imported_for_recent_files(self):
         """FileController now uses QSettings for recent files (Issue #101)."""

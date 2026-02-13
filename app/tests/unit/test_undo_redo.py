@@ -3,18 +3,22 @@
 import pytest
 from controllers.circuit_controller import CircuitController
 from controllers.commands import (
+    AddAnnotationCommand,
     AddComponentCommand,
     AddWireCommand,
     ChangeValueCommand,
     CompoundCommand,
+    DeleteAnnotationCommand,
     DeleteComponentCommand,
     DeleteWireCommand,
+    EditAnnotationCommand,
     FlipComponentCommand,
     MoveComponentCommand,
     PasteCommand,
     RotateComponentCommand,
 )
 from controllers.undo_manager import UndoManager
+from models.annotation import AnnotationData
 from models.circuit import CircuitModel
 
 
@@ -415,3 +419,126 @@ class TestCircuitControllerIntegration:
 
         assert not controller.can_undo()
         assert not controller.can_redo()
+
+
+class TestCommandEdgeCasesOnNonexistentEntities:
+    """Error-boundary tests: commands targeting nonexistent or stale entities."""
+
+    def test_delete_component_command_nonexistent(self):
+        """DeleteComponentCommand on nonexistent ID does not crash."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        cmd = DeleteComponentCommand(controller, "GHOST")
+        cmd.execute()
+        # component_data should be None since GHOST does not exist
+        assert cmd.component_data is None
+        # Undo should also be safe
+        cmd.undo()
+
+    def test_move_component_command_nonexistent(self):
+        """MoveComponentCommand on nonexistent ID does not crash."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        cmd = MoveComponentCommand(controller, "GHOST", (100, 200))
+        cmd.execute()
+        # old_position should remain None since the component was not found
+        assert cmd.old_position is None
+        # Undo should be safe (old_position is None so it skips)
+        cmd.undo()
+
+    def test_rotate_component_command_nonexistent(self):
+        """RotateComponentCommand on nonexistent ID does not crash."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        cmd = RotateComponentCommand(controller, "GHOST", clockwise=True)
+        cmd.execute()
+        cmd.undo()
+
+    def test_flip_component_command_nonexistent(self):
+        """FlipComponentCommand on nonexistent ID does not crash."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        cmd = FlipComponentCommand(controller, "GHOST", horizontal=True)
+        cmd.execute()
+        cmd.undo()
+
+    def test_change_value_command_nonexistent(self):
+        """ChangeValueCommand on nonexistent ID does not crash."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        cmd = ChangeValueCommand(controller, "GHOST", "100k")
+        cmd.execute()
+        # old_value should remain None
+        assert cmd.old_value is None
+        cmd.undo()
+
+    def test_delete_wire_command_out_of_bounds(self):
+        """DeleteWireCommand with out-of-bounds index does not crash."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        cmd = DeleteWireCommand(controller, 999)
+        cmd.execute()
+        # wire_data should remain None
+        assert cmd.wire_data is None
+        cmd.undo()
+
+    def test_delete_annotation_command_out_of_bounds(self):
+        """DeleteAnnotationCommand with out-of-bounds index does not crash."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        cmd = DeleteAnnotationCommand(controller, 999)
+        cmd.execute()
+        assert cmd.annotation_data is None
+        cmd.undo()
+
+    def test_edit_annotation_command_out_of_bounds(self):
+        """EditAnnotationCommand with out-of-bounds index does not crash."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        cmd = EditAnnotationCommand(controller, 999, "New text")
+        cmd.execute()
+        assert cmd.old_text is None
+        cmd.undo()
+
+    def test_delete_component_command_stale_entity(self):
+        """DeleteComponentCommand on a component deleted before execute."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        comp = controller.add_component("Resistor", (0, 0))
+        comp_id = comp.component_id
+
+        # Create command targeting the component
+        cmd = DeleteComponentCommand(controller, comp_id)
+        # Delete the component before executing the command
+        controller.remove_component(comp_id)
+        assert comp_id not in model.components
+
+        # Execute should handle the missing component gracefully
+        cmd.execute()
+        cmd.undo()
+
+    def test_move_command_after_component_removed(self):
+        """MoveComponentCommand targeting a removed component is safe."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        comp = controller.add_component("Resistor", (0, 0))
+        comp_id = comp.component_id
+
+        cmd = MoveComponentCommand(controller, comp_id, (50, 50))
+        controller.remove_component(comp_id)
+
+        cmd.execute()
+        cmd.undo()
+
+    def test_compound_command_with_nonexistent_targets(self):
+        """CompoundCommand containing commands for nonexistent entities is safe."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        commands = [
+            MoveComponentCommand(controller, "GHOST1", (10, 10)),
+            RotateComponentCommand(controller, "GHOST2", clockwise=True),
+            FlipComponentCommand(controller, "GHOST3", horizontal=False),
+        ]
+        compound = CompoundCommand(commands, "Ghost operations")
+        compound.execute()
+        compound.undo()

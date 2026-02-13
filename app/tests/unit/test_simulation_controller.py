@@ -291,6 +291,33 @@ class TestSetAnalysisVariants:
         assert ctrl.model.analysis_params["tempStart"] == -40
 
 
+class TestErrorBoundarySetAnalysis:
+    """Error-boundary tests for SimulationController.set_analysis edge cases."""
+
+    def test_set_analysis_empty_string(self):
+        """set_analysis with empty string type does not crash."""
+        ctrl = SimulationController()
+        ctrl.set_analysis("", {})
+        assert ctrl.model.analysis_type == ""
+
+    def test_set_analysis_unknown_type(self):
+        """set_analysis with unknown analysis type does not crash."""
+        ctrl = SimulationController()
+        ctrl.set_analysis("Nonexistent Analysis", {"param1": "value1"})
+        assert ctrl.model.analysis_type == "Nonexistent Analysis"
+        assert ctrl.model.analysis_params == {"param1": "value1"}
+
+    def test_set_analysis_params_isolation(self):
+        """set_analysis makes a defensive copy so original dict is not mutated."""
+        ctrl = SimulationController()
+        params = {"start": "0", "stop": "10"}
+        ctrl.set_analysis("DC Sweep", params)
+        # Mutate original
+        params["start"] = "999"
+        # Controller's copy should be unchanged
+        assert ctrl.model.analysis_params["start"] == "0"
+
+
 class TestParseResultsDispatch:
     """Test that _parse_results dispatches to the correct parser."""
 
@@ -572,6 +599,86 @@ class TestParameterSweepEdgeCases:
         )
         assert result.data["cancelled"] is True
         assert result.data["num_steps"] < 5
+
+
+class TestErrorBoundarySweep:
+    """Error-boundary tests for parameter sweep with nonexistent component."""
+
+    def test_sweep_nonexistent_component(self):
+        """run_parameter_sweep with nonexistent component_id returns failure."""
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        sweep_config = {
+            "component_id": "GHOST",
+            "start": 100,
+            "stop": 10000,
+            "num_steps": 5,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {},
+        }
+        result = ctrl.run_parameter_sweep(sweep_config)
+        assert not result.success
+        assert "GHOST" in result.error
+
+    @patch("controllers.simulation_controller.SimulationController.validate_circuit")
+    def test_sweep_cancelled_immediately(self, mock_validate):
+        """run_parameter_sweep cancelled on first step returns empty results."""
+        mock_validate.return_value = SimulationResult(success=True)
+
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        ctrl._runner = mock_runner
+
+        sweep_config = {
+            "component_id": "R1",
+            "start": 100,
+            "stop": 10000,
+            "num_steps": 5,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {},
+        }
+        result = ctrl.run_parameter_sweep(
+            sweep_config,
+            progress_callback=lambda step, total: False,
+        )
+        # Cancelled sweep: no steps ran, so no success
+        assert result.data["cancelled"] is True
+        assert result.data["num_steps"] == 0
+
+    @patch("controllers.simulation_controller.SimulationController.validate_circuit")
+    def test_sweep_restores_original_state(self, mock_validate):
+        """run_parameter_sweep restores original component value and analysis."""
+        mock_validate.return_value = SimulationResult(success=True)
+
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        ctrl._runner = mock_runner
+
+        original_value = model.components["R1"].value
+        original_analysis = model.analysis_type
+
+        sweep_config = {
+            "component_id": "R1",
+            "start": 100,
+            "stop": 10000,
+            "num_steps": 3,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {},
+        }
+        # Cancel immediately to avoid needing ngspice
+        ctrl.run_parameter_sweep(
+            sweep_config,
+            progress_callback=lambda step, total: False,
+        )
+
+        assert model.components["R1"].value == original_value
+        assert model.analysis_type == original_analysis
 
 
 class TestNoQtDependencies:
