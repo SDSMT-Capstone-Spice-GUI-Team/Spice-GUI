@@ -382,3 +382,75 @@ class TestGetTemplateMetadata:
         ctrl = TemplateController()
         with pytest.raises(ValueError, match="title"):
             ctrl.get_template_metadata(filepath)
+
+
+class TestErrorBoundaryValidateTemplateData:
+    """Error-boundary tests for validate_template_data with corrupt data."""
+
+    def test_validate_metadata_not_a_dict(self):
+        """Non-dict metadata raises ValueError."""
+        data = {"template_version": "1.0", "metadata": "not a dict"}
+        with pytest.raises(ValueError, match="metadata"):
+            validate_template_data(data)
+
+    def test_validate_missing_title_key(self):
+        """Metadata without title key raises ValueError."""
+        data = {"template_version": "1.0", "metadata": {"author": "Dr. Test"}}
+        with pytest.raises(ValueError, match="title"):
+            validate_template_data(data)
+
+    def test_validate_none_title(self):
+        """Metadata with None title raises ValueError."""
+        data = {"template_version": "1.0", "metadata": {"title": None}}
+        with pytest.raises(ValueError, match="title"):
+            validate_template_data(data)
+
+    def test_validate_invalid_reference_circuit(self):
+        """Invalid reference_circuit in template raises ValueError."""
+        data = {
+            "template_version": "1.0",
+            "metadata": {"title": "Bad Ref"},
+            "reference_circuit": {"components": "bad", "wires": []},
+        }
+        with pytest.raises(ValueError, match="components"):
+            validate_template_data(data)
+
+
+class TestErrorBoundaryCreateCircuit:
+    """Error-boundary tests for TemplateController circuit creation."""
+
+    def test_create_circuit_no_starter_no_analysis(self):
+        """create_circuit_from_template with no starter or analysis returns empty model."""
+        ctrl = TemplateController()
+        template = TemplateData(metadata=_build_metadata())
+        model = ctrl.create_circuit_from_template(template)
+        assert isinstance(model, CircuitModel)
+        assert len(model.components) == 0
+        assert model.analysis_type == "DC Operating Point"
+
+    def test_create_circuit_analysis_missing_type(self):
+        """required_analysis with missing 'type' key does not crash."""
+        ctrl = TemplateController()
+        template = TemplateData(
+            metadata=_build_metadata(),
+            required_analysis={"params": {"start": 0}},
+        )
+        model = ctrl.create_circuit_from_template(template)
+        # analysis_type should remain default since type is None
+        assert model.analysis_type == "DC Operating Point"
+
+    def test_create_circuit_analysis_missing_params(self):
+        """required_analysis with missing 'params' key does not crash."""
+        ctrl = TemplateController()
+        template = TemplateData(
+            metadata=_build_metadata(),
+            required_analysis={"type": "Transient"},
+        )
+        model = ctrl.create_circuit_from_template(template)
+        assert model.analysis_type == "Transient"
+
+    def test_get_reference_circuit_none_when_absent(self):
+        """get_reference_circuit returns None when template has no reference."""
+        ctrl = TemplateController()
+        template = TemplateData(metadata=_build_metadata())
+        assert ctrl.get_reference_circuit(template) is None
