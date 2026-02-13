@@ -5,6 +5,7 @@ This module contains no Qt dependencies. It manages the CircuitModel
 and notifies views of changes through an observer pattern.
 """
 
+import copy
 import logging
 from typing import Any, Callable, Optional
 
@@ -334,8 +335,11 @@ class CircuitController:
                 value=comp_data.value,
                 position=(comp_data.position[0] + dx, comp_data.position[1] + dy),
                 rotation=comp_data.rotation,
+                flip_h=comp_data.flip_h,
+                flip_v=comp_data.flip_v,
                 waveform_type=comp_data.waveform_type,
-                waveform_params=(comp_data.waveform_params.copy() if comp_data.waveform_params else None),
+                waveform_params=(copy.deepcopy(comp_data.waveform_params) if comp_data.waveform_params else None),
+                initial_condition=comp_data.initial_condition,
             )
             self.model.add_component(new_comp)
             self._notify("component_added", new_comp)
