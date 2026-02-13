@@ -25,6 +25,9 @@ class SettingsMixin:
         if settings.value("autosave/enabled") is None:
             settings.setValue("autosave/enabled", True)
         settings.setValue("view/show_statistics", self.statistics_panel.isVisible())
+        # Preserve default zoom if not yet set
+        if settings.value("view/default_zoom") is None:
+            settings.setValue("view/default_zoom", 100)
         settings.setValue("view/theme_key", theme_manager.get_theme_key())
         settings.setValue("view/theme", theme_manager.current_theme.name)
         settings.setValue("view/symbol_style", theme_manager.symbol_style)
@@ -79,6 +82,10 @@ class SettingsMixin:
             checked = show_stats == "true" or show_stats is True
             self.statistics_panel.setVisible(checked)
             self.show_statistics_action.setChecked(checked)
+
+        default_zoom = settings.value("view/default_zoom")
+        if default_zoom is not None:
+            self.canvas.set_default_zoom(int(default_zoom))
 
         saved_theme_key = settings.value("view/theme_key")
         if saved_theme_key and saved_theme_key != "light":

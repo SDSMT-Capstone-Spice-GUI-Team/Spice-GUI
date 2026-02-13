@@ -616,7 +616,10 @@ class CircuitCanvasView(QGraphicsView):
                 if main_window and hasattr(main_window, "statusBar"):
                     status = main_window.statusBar()
                     if status:
-                        status.showMessage("No simulation results available. Run a simulation first.", 3000)
+                        status.showMessage(
+                            "No simulation results available. Run a simulation first.",
+                            3000,
+                        )
             event.accept()
             return
 
@@ -845,6 +848,19 @@ class CircuitCanvasView(QGraphicsView):
     def zoom_out(self, center_point=None):
         """Zoom out by one step, optionally centered on a point."""
         self._apply_zoom(1.0 / ZOOM_FACTOR, center_point)
+
+    def set_default_zoom(self, percent):
+        """Set the zoom level to the given percentage (e.g. 100 = 100%).
+
+        Used to apply the user's preferred default zoom level when
+        opening a new circuit or launching the application.
+        """
+        scale_factor = percent / 100.0
+        # Clamp to allowed zoom range
+        scale_factor = max(ZOOM_MIN, min(ZOOM_MAX, scale_factor))
+        self.resetTransform()
+        self.scale(scale_factor, scale_factor)
+        self.zoomChanged.emit(self.get_zoom_level())
 
     def zoom_reset(self):
         """Reset zoom to 100%."""
