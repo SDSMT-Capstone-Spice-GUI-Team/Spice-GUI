@@ -25,6 +25,9 @@ _STYLE_VALUES = {"ieee": 0, "iec": 1}
 _COLOR_ITEMS = [("Color", "color"), ("Monochrome", "monochrome")]
 _COLOR_VALUES = {"color": 0, "monochrome": 1}
 
+_WIRE_THICKNESS_ITEMS = [("Thin (1px)", "thin"), ("Normal (2px)", "normal"), ("Thick (3px)", "thick")]
+_WIRE_THICKNESS_VALUES = {"thin": 0, "normal": 1, "thick": 2}
+
 _SENTINEL = object()
 
 
@@ -51,6 +54,8 @@ class PreferencesDialog(QDialog):
         self._snap_theme_obj = theme_manager.current_theme
         self._snap_symbol_style = theme_manager.symbol_style
         self._snap_color_mode = theme_manager.color_mode
+        self._snap_wire_thickness = theme_manager.wire_thickness
+        self._snap_show_junction_dots = theme_manager.show_junction_dots
         settings = QSettings("SDSMT", "SDM Spice")
         self._snap_autosave_enabled = settings.value("autosave/enabled", True)
         self._snap_autosave_interval = int(settings.value("autosave/interval", 60))
@@ -61,6 +66,8 @@ class PreferencesDialog(QDialog):
         self.main_window._apply_theme()
         self.main_window._set_symbol_style(self._snap_symbol_style)
         self.main_window._set_color_mode(self._snap_color_mode)
+        self.main_window._set_wire_thickness(self._snap_wire_thickness)
+        self.main_window._set_show_junction_dots(self._snap_show_junction_dots)
         settings = QSettings("SDSMT", "SDM Spice")
         settings.setValue("autosave/enabled", self._snap_autosave_enabled)
         settings.setValue("autosave/interval", self._snap_autosave_interval)
@@ -132,6 +139,15 @@ class PreferencesDialog(QDialog):
             self.color_combo.addItem(label)
         form.addRow("Color Mode:", self.color_combo)
 
+        # Wire rendering preferences
+        self.wire_thickness_combo = QComboBox()
+        for label, _val in _WIRE_THICKNESS_ITEMS:
+            self.wire_thickness_combo.addItem(label)
+        form.addRow("Wire Thickness:", self.wire_thickness_combo)
+
+        self.junction_dots_checkbox = QCheckBox("Show junction dots at wire intersections")
+        form.addRow(self.junction_dots_checkbox)
+
         self._update_theme_buttons()
         return widget
 
@@ -195,6 +211,8 @@ class PreferencesDialog(QDialog):
 
         self.style_combo.setCurrentIndex(_STYLE_VALUES.get(self._snap_symbol_style, 0))
         self.color_combo.setCurrentIndex(_COLOR_VALUES.get(self._snap_color_mode, 0))
+        self.wire_thickness_combo.setCurrentIndex(_WIRE_THICKNESS_VALUES.get(self._snap_wire_thickness, 1))
+        self.junction_dots_checkbox.setChecked(self._snap_show_junction_dots)
 
         enabled = self._snap_autosave_enabled
         self.autosave_checkbox.setChecked(enabled != "false" and enabled is not False)
@@ -206,6 +224,8 @@ class PreferencesDialog(QDialog):
         self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
         self.style_combo.currentIndexChanged.connect(self._on_style_changed)
         self.color_combo.currentIndexChanged.connect(self._on_color_changed)
+        self.wire_thickness_combo.currentIndexChanged.connect(self._on_wire_thickness_changed)
+        self.junction_dots_checkbox.toggled.connect(self._on_junction_dots_changed)
 
     def _on_theme_changed(self, index):
         if 0 <= index < len(self._theme_keys):
@@ -222,6 +242,12 @@ class PreferencesDialog(QDialog):
 
     def _on_color_changed(self, index):
         self.main_window._set_color_mode(_COLOR_ITEMS[index][1])
+
+    def _on_wire_thickness_changed(self, index):
+        self.main_window._set_wire_thickness(_WIRE_THICKNESS_ITEMS[index][1])
+
+    def _on_junction_dots_changed(self, checked):
+        self.main_window._set_show_junction_dots(checked)
 
     # ---- Theme management -------------------------------------------------
 
@@ -347,6 +373,8 @@ class PreferencesDialog(QDialog):
         settings.setValue("view/theme", theme_manager.current_theme.name)
         settings.setValue("view/symbol_style", theme_manager.symbol_style)
         settings.setValue("view/color_mode", theme_manager.color_mode)
+        settings.setValue("view/wire_thickness", theme_manager.wire_thickness)
+        settings.setValue("view/show_junction_dots", theme_manager.show_junction_dots)
         self._accepted = True
         self.close()
 

@@ -19,6 +19,10 @@ SYMBOL_STYLES = ("ieee", "iec")
 # Valid color modes
 COLOR_MODES = ("color", "monochrome")
 
+# Valid wire thickness settings: label -> pixel width
+WIRE_THICKNESSES = ("thin", "normal", "thick")
+WIRE_THICKNESS_PX = {"thin": 1, "normal": 2, "thick": 3}
+
 
 class ThemeManager:
     """
@@ -42,6 +46,14 @@ class ThemeManager:
         theme_manager.color_mode  # "color" (default)
         theme_manager.set_color_mode("monochrome")
 
+        # Wire rendering
+        theme_manager.wire_thickness  # "normal" (default)
+        theme_manager.set_wire_thickness("thick")
+        theme_manager.wire_thickness_px  # 3
+
+        theme_manager.show_junction_dots  # True (default)
+        theme_manager.set_show_junction_dots(False)
+
         # Subscribe to theme changes
         theme_manager.on_theme_changed(my_callback)
     """
@@ -51,6 +63,8 @@ class ThemeManager:
     _listeners: List[Callable[[ThemeProtocol], None]]
     _symbol_style: str
     _color_mode: str
+    _wire_thickness: str
+    _show_junction_dots: bool
 
     def __new__(cls) -> "ThemeManager":
         if cls._instance is None:
@@ -59,6 +73,8 @@ class ThemeManager:
             cls._instance._listeners = []
             cls._instance._symbol_style = "ieee"
             cls._instance._color_mode = "color"
+            cls._instance._wire_thickness = "normal"
+            cls._instance._show_junction_dots = True
         return cls._instance
 
     @property
@@ -110,6 +126,46 @@ class ThemeManager:
             return
         if mode != self._color_mode:
             self._color_mode = mode
+            self._notify_listeners()
+
+    # ===== Wire rendering preferences =====
+
+    @property
+    def wire_thickness(self) -> str:
+        """Get the current wire thickness setting ('thin', 'normal', or 'thick')."""
+        return self._wire_thickness
+
+    @property
+    def wire_thickness_px(self) -> int:
+        """Get the current wire thickness in pixels."""
+        return WIRE_THICKNESS_PX.get(self._wire_thickness, 2)
+
+    @property
+    def show_junction_dots(self) -> bool:
+        """Get whether junction dots are shown at wire intersections."""
+        return self._show_junction_dots
+
+    def set_wire_thickness(self, thickness: str) -> None:
+        """Set the wire rendering thickness and notify listeners.
+
+        Args:
+            thickness: 'thin' (1px), 'normal' (2px), or 'thick' (3px)
+        """
+        if thickness not in WIRE_THICKNESSES:
+            logger.warning("Unknown wire thickness %r, ignoring", thickness)
+            return
+        if thickness != self._wire_thickness:
+            self._wire_thickness = thickness
+            self._notify_listeners()
+
+    def set_show_junction_dots(self, show: bool) -> None:
+        """Set whether junction dots are shown at wire intersections.
+
+        Args:
+            show: True to show dots, False to hide them
+        """
+        if show != self._show_junction_dots:
+            self._show_junction_dots = show
             self._notify_listeners()
 
     def on_theme_changed(self, callback: Callable[[ThemeProtocol], None]) -> None:

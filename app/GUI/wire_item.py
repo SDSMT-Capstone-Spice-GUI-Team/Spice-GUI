@@ -5,8 +5,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # path_finding imported lazily in update_position() for faster startup
 from models.wire import WireData
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPainterPath, QPainterPathStroker, QPen
+from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtGui import QBrush, QPainterPath, QPainterPathStroker, QPen
 from PyQt6.QtWidgets import QGraphicsPathItem
 
 from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, theme_manager
@@ -64,7 +64,7 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         self.waypoints = []  # List of QPointF waypoints (computed during routing)
 
-        self.setPen(QPen(self.layer_color, 2))
+        self.setPen(QPen(self.layer_color, theme_manager.wire_thickness_px))
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable)
         self.setZValue(1)  # Render wires above components (z=0)
         self.update_position()
@@ -223,20 +223,41 @@ class WireGraphicsItem(QGraphicsPathItem):
                 status.showMessage("Wire routing failed — move components to create space", 5000)
 
     def paint(self, painter, option=None, widget=None):
-        """Override paint to show selection highlight and layer color"""
+        """Override paint to show selection highlight, layer color, and junction dots."""
         if painter is None:
             return
+
+        width = theme_manager.wire_thickness_px
 
         # Draw wire with appropriate style
         if self.isSelected():
             painter.setPen(theme_manager.pen("wire_selected"))
         elif self.model.routing_failed:
-            pen = QPen(Qt.GlobalColor.red, 2, Qt.PenStyle.DashLine)
+            pen = QPen(Qt.GlobalColor.red, width, Qt.PenStyle.DashLine)
             painter.setPen(pen)
         else:
-            painter.setPen(QPen(self.layer_color, 2))
+            painter.setPen(QPen(self.layer_color, width))
 
         painter.drawPath(self.path())
+
+        # Draw junction dots at waypoints (excluding start/end terminals)
+        if theme_manager.show_junction_dots and len(self.waypoints) > 2:
+            dot_radius = max(width, 2) + 1
+            painter.setBrush(QBrush(self.layer_color))
+            painter.setPen(Qt.PenStyle.NoPen)
+            for wp in self.waypoints[1:-1]:
+                if isinstance(wp, QPointF):
+                    painter.drawEllipse(wp, dot_radius, dot_radius)
+                else:
+                    painter.drawEllipse(QPointF(wp[0], wp[1]), dot_radius, dot_radius)
+
+    def boundingRect(self):
+        """Extend bounding rect to include junction dots."""
+        rect = super().boundingRect()
+        if theme_manager.show_junction_dots and len(self.waypoints) > 2:
+            margin = max(theme_manager.wire_thickness_px, 2) + 2
+            rect.adjust(-margin, -margin, margin, margin)
+        return rect
 
     def shape(self):
         """Return a wider path for easier click detection"""
