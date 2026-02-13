@@ -25,8 +25,15 @@ _STYLE_VALUES = {"ieee": 0, "iec": 1}
 _COLOR_ITEMS = [("Color", "color"), ("Monochrome", "monochrome")]
 _COLOR_VALUES = {"color": 0, "monochrome": 1}
 
-_WIRE_THICKNESS_ITEMS = [("Thin (1px)", "thin"), ("Normal (2px)", "normal"), ("Thick (3px)", "thick")]
+_WIRE_THICKNESS_ITEMS = [
+    ("Thin (1px)", "thin"),
+    ("Normal (2px)", "normal"),
+    ("Thick (3px)", "thick"),
+]
 _WIRE_THICKNESS_VALUES = {"thin": 0, "normal": 1, "thick": 2}
+
+_ZOOM_ITEMS = [("50%", 50), ("75%", 75), ("100%", 100), ("125%", 125), ("150%", 150)]
+_ZOOM_VALUES = {50: 0, 75: 1, 100: 2, 125: 3, 150: 4}
 
 _SENTINEL = object()
 
@@ -59,6 +66,7 @@ class PreferencesDialog(QDialog):
         settings = QSettings("SDSMT", "SDM Spice")
         self._snap_autosave_enabled = settings.value("autosave/enabled", True)
         self._snap_autosave_interval = int(settings.value("autosave/interval", 60))
+        self._snap_default_zoom = int(settings.value("view/default_zoom", 100))
 
     def _revert_settings(self):
         """Restore appearance and autosave to snapshot values."""
@@ -71,6 +79,7 @@ class PreferencesDialog(QDialog):
         settings = QSettings("SDSMT", "SDM Spice")
         settings.setValue("autosave/enabled", self._snap_autosave_enabled)
         settings.setValue("autosave/interval", self._snap_autosave_interval)
+        settings.setValue("view/default_zoom", self._snap_default_zoom)
         self.main_window._start_autosave_timer()
 
     # ---- UI construction --------------------------------------------------
@@ -188,6 +197,11 @@ class PreferencesDialog(QDialog):
         self.autosave_spin.setSuffix(" seconds")
         form.addRow("Auto-save interval:", self.autosave_spin)
 
+        self.default_zoom_combo = QComboBox()
+        for label, _val in _ZOOM_ITEMS:
+            self.default_zoom_combo.addItem(label)
+        form.addRow("Default zoom level:", self.default_zoom_combo)
+
         return widget
 
     def _build_keybindings_tab(self):
@@ -215,8 +229,12 @@ class PreferencesDialog(QDialog):
         self.junction_dots_checkbox.setChecked(self._snap_show_junction_dots)
 
         enabled = self._snap_autosave_enabled
-        self.autosave_checkbox.setChecked(enabled != "false" and enabled is not False)
+        autosave_on = enabled != "false" and enabled is not False
+        self.autosave_checkbox.setChecked(autosave_on)
         self.autosave_spin.setValue(self._snap_autosave_interval)
+        self.autosave_spin.setEnabled(autosave_on)
+
+        self.default_zoom_combo.setCurrentIndex(_ZOOM_VALUES.get(self._snap_default_zoom, 2))
 
     # ---- Signal wiring (live preview) -------------------------------------
 
@@ -226,6 +244,7 @@ class PreferencesDialog(QDialog):
         self.color_combo.currentIndexChanged.connect(self._on_color_changed)
         self.wire_thickness_combo.currentIndexChanged.connect(self._on_wire_thickness_changed)
         self.junction_dots_checkbox.toggled.connect(self._on_junction_dots_changed)
+        self.autosave_checkbox.toggled.connect(self.autosave_spin.setEnabled)
 
     def _on_theme_changed(self, index):
         if 0 <= index < len(self._theme_keys):
@@ -367,6 +386,8 @@ class PreferencesDialog(QDialog):
         settings = QSettings("SDSMT", "SDM Spice")
         settings.setValue("autosave/enabled", self.autosave_checkbox.isChecked())
         settings.setValue("autosave/interval", self.autosave_spin.value())
+        zoom_index = self.default_zoom_combo.currentIndex()
+        settings.setValue("view/default_zoom", _ZOOM_ITEMS[zoom_index][1])
         self.main_window._start_autosave_timer()
         # Persist theme key
         settings.setValue("view/theme_key", theme_manager.get_theme_key())

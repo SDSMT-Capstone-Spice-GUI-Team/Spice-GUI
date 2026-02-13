@@ -11,11 +11,15 @@ from PyQt6.QtWidgets import QCheckBox, QComboBox, QPushButton, QSpinBox, QTabWid
 
 @pytest.fixture(autouse=True)
 def restore_theme():
-    """Ensure light theme and wire defaults are restored after each test."""
+    """Ensure light theme, wire defaults, autosave, and default zoom are restored after each test."""
     yield
     theme_manager.set_theme(LightTheme())
     theme_manager.set_wire_thickness("normal")
     theme_manager.set_show_junction_dots(True)
+    settings = QSettings("SDSMT", "SDM Spice")
+    settings.setValue("view/default_zoom", 100)
+    settings.setValue("autosave/enabled", True)
+    settings.setValue("autosave/interval", 60)
 
 
 @pytest.fixture
@@ -83,6 +87,18 @@ class TestDialogStructure:
         assert spinboxes[0].minimum() == 10
         assert spinboxes[0].maximum() == 600
 
+    def test_behavior_tab_has_default_zoom_combo(self, dialog):
+        tab = dialog.tabs.widget(2)
+        combos = tab.findChildren(QComboBox)
+        assert len(combos) == 1
+        zoom_combo = combos[0]
+        assert zoom_combo.count() == 5
+        assert zoom_combo.itemText(0) == "50%"
+        assert zoom_combo.itemText(1) == "75%"
+        assert zoom_combo.itemText(2) == "100%"
+        assert zoom_combo.itemText(3) == "125%"
+        assert zoom_combo.itemText(4) == "150%"
+
     def test_keybindings_tab_has_button(self, dialog):
         tab = dialog.tabs.widget(3)
         buttons = tab.findChildren(QPushButton)
@@ -126,6 +142,13 @@ class TestCancelRevert:
         dialog._on_cancel()
         mock_main_window._set_symbol_style.assert_called_with("ieee")
 
+    def test_cancel_reverts_default_zoom(self, dialog, mock_main_window):
+        dialog.default_zoom_combo.setCurrentIndex(0)  # 50%
+        dialog._on_cancel()
+        settings = QSettings("SDSMT", "SDM Spice")
+        # Should revert to original snapshot (100%)
+        assert int(settings.value("view/default_zoom", 100)) == 100
+
 
 class TestOkPersist:
     """Tests verifying OK persists settings."""
@@ -147,6 +170,12 @@ class TestOkPersist:
         settings = QSettings("SDSMT", "SDM Spice")
         assert settings.value("view/theme_key") == "light"
 
+    def test_ok_persists_default_zoom(self, dialog, mock_main_window):
+        dialog.default_zoom_combo.setCurrentIndex(3)  # 125%
+        dialog._on_ok()
+        settings = QSettings("SDSMT", "SDM Spice")
+        assert int(settings.value("view/default_zoom")) == 125
+
 
 class TestInitialValues:
     """Tests verifying initial widget values match snapshot."""
@@ -156,6 +185,11 @@ class TestInitialValues:
         assert dialog.style_combo.currentIndex() == 0  # IEEE
         assert dialog.color_combo.currentIndex() == 0  # Color
         assert dialog.autosave_spin.value() >= 10
+
+    def test_default_zoom_initial_value(self, dialog):
+        # Default is 100% which maps to index 2
+        assert dialog.default_zoom_combo.currentIndex() == 2
+        assert dialog.default_zoom_combo.currentText() == "100%"
 
 
 class TestThemeButtons:
@@ -231,6 +265,57 @@ class TestWireRenderingPreferences:
         settings = QSettings("SDSMT", "SDM Spice")
         val = settings.value("view/show_junction_dots")
         assert val is False or val == "false"
+
+
+class TestAutosaveSpinboxState:
+    """Tests for auto-save interval spinbox enabled/disabled state."""
+
+    def test_spinbox_enabled_when_autosave_checked(self, dialog):
+        """Spinbox should be enabled when auto-save checkbox is checked."""
+        dialog.autosave_checkbox.setChecked(True)
+        assert dialog.autosave_spin.isEnabled()
+
+    def test_spinbox_disabled_when_autosave_unchecked(self, dialog):
+        """Spinbox should be disabled when auto-save checkbox is unchecked."""
+        dialog.autosave_checkbox.setChecked(False)
+        assert not dialog.autosave_spin.isEnabled()
+
+    def test_toggling_checkbox_updates_spinbox_enabled(self, dialog):
+        """Toggling the checkbox should update the spinbox enabled state."""
+        dialog.autosave_checkbox.setChecked(True)
+        assert dialog.autosave_spin.isEnabled()
+        dialog.autosave_checkbox.setChecked(False)
+        assert not dialog.autosave_spin.isEnabled()
+        dialog.autosave_checkbox.setChecked(True)
+        assert dialog.autosave_spin.isEnabled()
+
+    def test_spinbox_initial_state_matches_checkbox(self, qtbot, mock_main_window):
+        """Spinbox enabled state should match the checkbox on dialog open."""
+        # Set autosave disabled before opening dialog
+        settings = QSettings("SDSMT", "SDM Spice")
+        settings.setValue("autosave/enabled", False)
+        dlg = PreferencesDialog(mock_main_window, parent=None)
+        qtbot.addWidget(dlg)
+        assert not dlg.autosave_checkbox.isChecked()
+        assert not dlg.autosave_spin.isEnabled()
+
+    def test_cancel_reverts_autosave_enabled(self, dialog, mock_main_window):
+        """Cancel should revert auto-save enabled to the snapshot value."""
+        dialog.autosave_checkbox.setChecked(False)
+        dialog._on_cancel()
+        settings = QSettings("SDSMT", "SDM Spice")
+        enabled = settings.value("autosave/enabled")
+        # Snapshot was True (default), so it should revert to True
+        assert enabled is True or enabled == "true"
+        mock_main_window._start_autosave_timer.assert_called()
+
+    def test_cancel_reverts_autosave_interval(self, dialog, mock_main_window):
+        """Cancel should revert auto-save interval to the snapshot value."""
+        original = dialog.autosave_spin.value()
+        dialog.autosave_spin.setValue(300)
+        dialog._on_cancel()
+        settings = QSettings("SDSMT", "SDM Spice")
+        assert int(settings.value("autosave/interval", 60)) == original
 
 
 class TestThemeManagerWireProperties:
