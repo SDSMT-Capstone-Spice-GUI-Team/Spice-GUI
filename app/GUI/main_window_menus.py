@@ -321,6 +321,41 @@ class MenuBarMixin:
         self.color_mode_group.addAction(self.color_mode_action)
         self.color_mode_group.addAction(self.monochrome_mode_action)
 
+        # Wire Thickness submenu
+        wire_thickness_menu = view_menu.addMenu("&Wire Thickness")
+        self.wire_thickness_actions = {}
+
+        thin_action = QAction("&Thin (1px)", self)
+        thin_action.setCheckable(True)
+        thin_action.triggered.connect(lambda: self._set_wire_thickness("thin"))
+        wire_thickness_menu.addAction(thin_action)
+        self.wire_thickness_actions["thin"] = thin_action
+
+        normal_action = QAction("&Normal (2px)", self)
+        normal_action.setCheckable(True)
+        normal_action.setChecked(True)
+        normal_action.triggered.connect(lambda: self._set_wire_thickness("normal"))
+        wire_thickness_menu.addAction(normal_action)
+        self.wire_thickness_actions["normal"] = normal_action
+
+        thick_action = QAction("Thic&k (3px)", self)
+        thick_action.setCheckable(True)
+        thick_action.triggered.connect(lambda: self._set_wire_thickness("thick"))
+        wire_thickness_menu.addAction(thick_action)
+        self.wire_thickness_actions["thick"] = thick_action
+
+        self.wire_thickness_group = QActionGroup(self)
+        self.wire_thickness_group.addAction(thin_action)
+        self.wire_thickness_group.addAction(normal_action)
+        self.wire_thickness_group.addAction(thick_action)
+
+        # Junction dots toggle
+        self.show_junction_dots_action = QAction("Show &Junction Dots", self)
+        self.show_junction_dots_action.setCheckable(True)
+        self.show_junction_dots_action.setChecked(True)
+        self.show_junction_dots_action.triggered.connect(self._set_show_junction_dots)
+        view_menu.addAction(self.show_junction_dots_action)
+
         view_menu.addSeparator()
 
         zoom_in_action = QAction("Zoom &In", self)

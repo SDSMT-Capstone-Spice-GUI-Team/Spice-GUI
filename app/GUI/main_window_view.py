@@ -48,6 +48,21 @@ class ViewOperationsMixin:
             self.color_mode_action.setChecked(True)
         self.canvas.scene.update()
 
+    def _set_wire_thickness(self, thickness: str):
+        """Switch wire rendering thickness."""
+        theme_manager.set_wire_thickness(thickness)
+        if hasattr(self, "wire_thickness_actions"):
+            for t, action in self.wire_thickness_actions.items():
+                action.setChecked(t == thickness)
+        self.canvas.scene.update()
+
+    def _set_show_junction_dots(self, show: bool):
+        """Toggle junction dot visibility at wire intersections."""
+        theme_manager.set_show_junction_dots(show)
+        if hasattr(self, "show_junction_dots_action"):
+            self.show_junction_dots_action.setChecked(show)
+        self.canvas.scene.update()
+
     def _toggle_statistics_panel(self, checked):
         """Toggle the circuit statistics panel visibility."""
         self.statistics_panel.setVisible(checked)

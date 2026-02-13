@@ -29,6 +29,8 @@ class SettingsMixin:
         settings.setValue("view/theme", theme_manager.current_theme.name)
         settings.setValue("view/symbol_style", theme_manager.symbol_style)
         settings.setValue("view/color_mode", theme_manager.color_mode)
+        settings.setValue("view/wire_thickness", theme_manager.wire_thickness)
+        settings.setValue("view/show_junction_dots", theme_manager.show_junction_dots)
 
     def _restore_settings(self):
         """Restore user preferences from QSettings"""
@@ -97,6 +99,15 @@ class SettingsMixin:
         saved_color_mode = settings.value("view/color_mode")
         if saved_color_mode in ("color", "monochrome"):
             self._set_color_mode(saved_color_mode)
+
+        saved_wire_thickness = settings.value("view/wire_thickness")
+        if saved_wire_thickness in ("thin", "normal", "thick"):
+            self._set_wire_thickness(saved_wire_thickness)
+
+        saved_junction_dots = settings.value("view/show_junction_dots")
+        if saved_junction_dots is not None:
+            show = saved_junction_dots == "true" or saved_junction_dots is True
+            self._set_show_junction_dots(show)
 
     def closeEvent(self, event):
         """Save settings before closing"""

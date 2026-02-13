@@ -54,7 +54,7 @@ from .light_theme import LightTheme
 
 # Theme system
 from .theme import BaseTheme, ThemeProtocol
-from .theme_manager import COLOR_MODES, SYMBOL_STYLES, ThemeManager, theme_manager
+from .theme_manager import COLOR_MODES, SYMBOL_STYLES, WIRE_THICKNESS_PX, WIRE_THICKNESSES, ThemeManager, theme_manager
 
 __all__ = [
     # Constants
@@ -87,4 +87,6 @@ __all__ = [
     "theme_store",
     "SYMBOL_STYLES",
     "COLOR_MODES",
+    "WIRE_THICKNESSES",
+    "WIRE_THICKNESS_PX",
 ]
