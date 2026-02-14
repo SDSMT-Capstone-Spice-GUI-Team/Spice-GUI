@@ -11,7 +11,9 @@ class AnnotationItem(QGraphicsTextItem):
     and serialization for save/load.
     """
 
-    def __init__(self, text="Annotation", x=0.0, y=0.0, font_size=10, bold=False, color="#FFFFFF"):
+    def __init__(
+        self, text="Annotation", x=0.0, y=0.0, font_size=10, bold=False, color="#FFFFFF"
+    ):
         super().__init__(text)
         self.setPos(x, y)
         self.setDefaultTextColor(QColor(color))
@@ -39,7 +41,9 @@ class AnnotationItem(QGraphicsTextItem):
                 canvas._edit_annotation(self)
                 return
         # Fallback: direct edit without undo
-        text, ok = QInputDialog.getText(None, "Edit Annotation", "Text:", text=self.toPlainText())
+        text, ok = QInputDialog.getText(
+            None, "Edit Annotation", "Text:", text=self.toPlainText()
+        )
         if ok and text:
             self.setPlainText(text)
 

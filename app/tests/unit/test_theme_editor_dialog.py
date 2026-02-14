@@ -79,4 +79,6 @@ class TestResetButton:
         editor._colors["background_primary"] = "#FF0000"
         editor._on_reset()
         light = LightTheme()
-        assert editor._colors["background_primary"] == light.color_hex("background_primary")
+        assert editor._colors["background_primary"] == light.color_hex(
+            "background_primary"
+        )

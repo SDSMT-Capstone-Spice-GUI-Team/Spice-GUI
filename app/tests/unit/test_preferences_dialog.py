@@ -6,7 +6,8 @@ import pytest
 from GUI.preferences_dialog import PreferencesDialog
 from GUI.styles import LightTheme, theme_manager
 from PyQt6.QtCore import QSettings
-from PyQt6.QtWidgets import QCheckBox, QComboBox, QPushButton, QSpinBox, QTabWidget
+from PyQt6.QtWidgets import (QCheckBox, QComboBox, QPushButton, QSpinBox,
+                             QTabWidget)
 
 
 @pytest.fixture(autouse=True)

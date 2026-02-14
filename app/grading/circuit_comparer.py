@@ -52,7 +52,9 @@ class ComparisonResult:
             self.mismatches.append(result)
 
 
-def compare_values(expected_str: str, actual_str: str, tolerance_pct: float = 0.0) -> bool:
+def compare_values(
+    expected_str: str, actual_str: str, tolerance_pct: float = 0.0
+) -> bool:
     """Compare two SPICE value strings with optional tolerance.
 
     Args:
@@ -80,7 +82,9 @@ def compare_values(expected_str: str, actual_str: str, tolerance_pct: float = 0.
 class CircuitComparer:
     """Compares two CircuitModel instances structurally and parametrically."""
 
-    def compare(self, reference: CircuitModel, student: CircuitModel) -> ComparisonResult:
+    def compare(
+        self, reference: CircuitModel, student: CircuitModel
+    ) -> ComparisonResult:
         """Run all comparison checks between reference and student circuits.
 
         Args:
@@ -99,7 +103,9 @@ class CircuitComparer:
         self._check_analysis(reference, student, result)
         return result
 
-    def check_component_exists(self, student: CircuitModel, component_id: str, component_type: str) -> CheckResult:
+    def check_component_exists(
+        self, student: CircuitModel, component_id: str, component_type: str
+    ) -> CheckResult:
         """Check if a specific component exists in the student circuit.
 
         Args:
@@ -220,7 +226,9 @@ class CircuitComparer:
             message=f"'{component_a}' and '{component_b}' should share a node",
         )
 
-    def check_analysis_type(self, student: CircuitModel, expected_type: str) -> CheckResult:
+    def check_analysis_type(
+        self, student: CircuitModel, expected_type: str
+    ) -> CheckResult:
         """Check if the analysis type matches.
 
         Args:
@@ -253,9 +261,13 @@ class CircuitComparer:
         for comp_id, comp in reference.components.items():
             if comp.component_type == "Ground":
                 continue
-            result.add(self.check_component_exists(student, comp_id, comp.component_type))
+            result.add(
+                self.check_component_exists(student, comp_id, comp.component_type)
+            )
 
-    def _check_component_values(self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult) -> None:
+    def _check_component_values(
+        self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult
+    ) -> None:
         """Check that matching components have the same values."""
         for comp_id, ref_comp in reference.components.items():
             if ref_comp.component_type == "Ground":
@@ -267,7 +279,9 @@ class CircuitComparer:
                 continue  # Already reported by existence check
             result.add(self.check_component_value(student, comp_id, ref_comp.value))
 
-    def _check_component_counts(self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult) -> None:
+    def _check_component_counts(
+        self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult
+    ) -> None:
         """Check that the count of each component type matches."""
         ref_counts = _count_by_type(reference)
         student_counts = _count_by_type(student)
@@ -290,7 +304,9 @@ class CircuitComparer:
                 )
             )
 
-    def _check_topology(self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult) -> None:
+    def _check_topology(
+        self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult
+    ) -> None:
         """Check that components sharing nodes in the reference also share them in the student."""
         # Find pairs of non-ground components that share a node in the reference
         pairs_checked = set()
@@ -300,7 +316,8 @@ class CircuitComparer:
             comp_ids = {
                 cid
                 for cid in comp_ids
-                if cid in reference.components and reference.components[cid].component_type != "Ground"
+                if cid in reference.components
+                and reference.components[cid].component_type != "Ground"
             }
             for a in sorted(comp_ids):
                 for b in sorted(comp_ids):
@@ -314,7 +331,9 @@ class CircuitComparer:
                     if a in student.components and b in student.components:
                         result.add(self.check_topology(student, a, b))
 
-    def _check_ground(self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult) -> None:
+    def _check_ground(
+        self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult
+    ) -> None:
         """Check that ground is present and connects the expected components."""
         ref_ground_comps = set()
         student_ground_comps = set()
@@ -349,12 +368,14 @@ class CircuitComparer:
             ref_connected = {
                 cid
                 for cid in ref_ground_comps
-                if cid in reference.components and reference.components[cid].component_type != "Ground"
+                if cid in reference.components
+                and reference.components[cid].component_type != "Ground"
             }
             student_connected = {
                 cid
                 for cid in student_ground_comps
-                if cid in student.components and student.components[cid].component_type != "Ground"
+                if cid in student.components
+                and student.components[cid].component_type != "Ground"
             }
 
             for cid in ref_connected:
@@ -375,7 +396,9 @@ class CircuitComparer:
                         )
                     )
 
-    def _check_analysis(self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult) -> None:
+    def _check_analysis(
+        self, reference: CircuitModel, student: CircuitModel, result: ComparisonResult
+    ) -> None:
         """Check that analysis type and parameters match."""
         result.add(self.check_analysis_type(student, reference.analysis_type))
 

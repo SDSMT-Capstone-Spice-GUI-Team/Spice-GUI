@@ -84,7 +84,9 @@ def circuit_to_svg(model: CircuitModel, width: int = 600, height: int = 400) -> 
         start_terminals = start_comp.get_terminal_positions()
         end_terminals = end_comp.get_terminal_positions()
 
-        if wire.start_terminal < len(start_terminals) and wire.end_terminal < len(end_terminals):
+        if wire.start_terminal < len(start_terminals) and wire.end_terminal < len(
+            end_terminals
+        ):
             sx, sy = to_svg_coords(*start_terminals[wire.start_terminal])
             ex, ey = to_svg_coords(*end_terminals[wire.end_terminal])
             ET.SubElement(
@@ -163,7 +165,12 @@ def _empty_svg(width: int, height: int) -> str:
         "text",
         x=str(width // 2),
         y=str(height // 2),
-        **{"text-anchor": "middle", "fill": "#999", "font-family": "sans-serif", "font-size": "14"},
+        **{
+            "text-anchor": "middle",
+            "fill": "#999",
+            "font-family": "sans-serif",
+            "font-size": "14",
+        },
     )
     text.text = "(empty circuit)"
     return ET.tostring(svg, encoding="unicode")
@@ -255,7 +262,9 @@ def _plot_ac(data, title: str, plt):
     if not isinstance(data, list) or not data:
         return None
 
-    freq_key = next((k for k in data[0] if k.lower() in ("frequency", "freq", "f")), None)
+    freq_key = next(
+        (k for k in data[0] if k.lower() in ("frequency", "freq", "f")), None
+    )
     if freq_key is None:
         return None
 

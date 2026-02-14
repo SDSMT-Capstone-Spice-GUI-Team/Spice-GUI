@@ -85,7 +85,9 @@ class TestMeasurementCursors:
     def test_callback_called(self):
         fig, canvas, ax, x = _make_axes_with_data()
         calls = []
-        mc = MeasurementCursors(ax, canvas, on_cursor_moved=lambda a, b: calls.append((a, b)))
+        mc = MeasurementCursors(
+            ax, canvas, on_cursor_moved=lambda a, b: calls.append((a, b))
+        )
         mc._notify()
         assert len(calls) == 1
 

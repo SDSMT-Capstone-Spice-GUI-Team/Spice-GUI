@@ -128,7 +128,9 @@ class TestBasicRouting:
     def test_same_start_and_end(self, pathfinder):
         """Same point should return a trivial path."""
         start = end = _grid(0, 0)
-        waypoints, runtime, iters, _ = pathfinder.find_path(start, end, set(), bounds=BOUNDS)
+        waypoints, runtime, iters, _ = pathfinder.find_path(
+            start, end, set(), bounds=BOUNDS
+        )
         grid_pts = _to_grid_tuples(waypoints)
         assert grid_pts[0] == (0, 0)
         assert grid_pts[-1] == (0, 0)
@@ -259,7 +261,9 @@ class TestRoutingFailure:
     def test_successful_route_returns_false(self, pathfinder):
         """Successful pathfinding should return routing_failed=False."""
         start, end = _grid(0, 0), _grid(3, 0)
-        waypoints, runtime, iterations, routing_failed = pathfinder.find_path(start, end, set(), bounds=BOUNDS)
+        waypoints, runtime, iterations, routing_failed = pathfinder.find_path(
+            start, end, set(), bounds=BOUNDS
+        )
         assert routing_failed is False
         assert len(waypoints) >= 2
 
@@ -273,7 +277,9 @@ class TestRoutingFailure:
                     obstacles.add((x, y))
         # Only (0,0) is free, goal at (5,0) is blocked
         start, end = _grid(0, 0), _grid(5, 0)
-        waypoints, runtime, iterations, routing_failed = pathfinder.find_path(start, end, obstacles, bounds=BOUNDS)
+        waypoints, runtime, iterations, routing_failed = pathfinder.find_path(
+            start, end, obstacles, bounds=BOUNDS
+        )
         assert routing_failed is True
 
     def test_failed_route_returns_straight_line(self, pathfinder):
@@ -285,7 +291,9 @@ class TestRoutingFailure:
                 if not (x == 0 and y == 0):
                     obstacles.add((x, y))
         start, end = _grid(0, 0), _grid(5, 0)
-        waypoints, _, _, routing_failed = pathfinder.find_path(start, end, obstacles, bounds=BOUNDS)
+        waypoints, _, _, routing_failed = pathfinder.find_path(
+            start, end, obstacles, bounds=BOUNDS
+        )
         assert routing_failed is True
         assert len(waypoints) == 2
         assert waypoints[0] == start
@@ -296,7 +304,9 @@ class TestRoutingFailure:
         # Block a single column but leave room to route around
         obstacles = {(3, y) for y in range(-2, 3)}
         start, end = _grid(0, 0), _grid(6, 0)
-        waypoints, _, _, routing_failed = pathfinder.find_path(start, end, obstacles, bounds=BOUNDS)
+        waypoints, _, _, routing_failed = pathfinder.find_path(
+            start, end, obstacles, bounds=BOUNDS
+        )
         assert routing_failed is False
         grid_pts = _to_grid_tuples(waypoints)
         assert grid_pts[0] == (0, 0)

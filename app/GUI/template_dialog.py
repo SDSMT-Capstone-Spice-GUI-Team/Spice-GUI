@@ -4,20 +4,10 @@ from typing import Optional
 
 from controllers.template_manager import TemplateInfo, TemplateManager
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QFormLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
-    QMessageBox,
-    QPushButton,
-    QTextEdit,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QDialog, QDialogButtonBox, QFormLayout,
+                             QHBoxLayout, QLabel, QLineEdit, QListWidget,
+                             QListWidgetItem, QMessageBox, QPushButton,
+                             QTextEdit, QVBoxLayout)
 
 
 class NewFromTemplateDialog(QDialog):
@@ -72,7 +62,9 @@ class NewFromTemplateDialog(QDialog):
         right.addStretch()
 
         # OK / Cancel
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         self.ok_button.setEnabled(False)
         buttons.accepted.connect(self.accept)
@@ -170,22 +162,30 @@ class SaveAsTemplateDialog(QDialog):
         layout.addRow("Name:", self.name_edit)
 
         self.description_edit = QTextEdit()
-        self.description_edit.setPlaceholderText("Optional description of the circuit template...")
+        self.description_edit.setPlaceholderText(
+            "Optional description of the circuit template..."
+        )
         self.description_edit.setMaximumHeight(80)
         layout.addRow("Description:", self.description_edit)
 
         self.category_edit = QLineEdit()
-        self.category_edit.setPlaceholderText("e.g. Filters, Amplifiers, Power (default: User)")
+        self.category_edit.setPlaceholderText(
+            "e.g. Filters, Amplifiers, Power (default: User)"
+        )
         layout.addRow("Category:", self.category_edit)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         self.ok_button.setEnabled(False)
         buttons.accepted.connect(self._validate_and_accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
 
-        self.name_edit.textChanged.connect(lambda text: self.ok_button.setEnabled(bool(text.strip())))
+        self.name_edit.textChanged.connect(
+            lambda text: self.ok_button.setEnabled(bool(text.strip()))
+        )
 
     def _validate_and_accept(self):
         if not self.name_edit.text().strip():

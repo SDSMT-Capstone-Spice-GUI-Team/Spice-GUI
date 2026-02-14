@@ -118,7 +118,11 @@ class TestMainWindowHasAllExpectedMethods:
     def test_menu_methods(self):
         from GUI.main_window import MainWindow
 
-        for method in ["create_menu_bar", "_open_keybindings_dialog", "_apply_keybindings"]:
+        for method in [
+            "create_menu_bar",
+            "_open_keybindings_dialog",
+            "_apply_keybindings",
+        ]:
             assert hasattr(MainWindow, method), f"Missing: {method}"
 
     def test_file_operation_methods(self):
@@ -258,7 +262,9 @@ class TestQMainWindowIsLastInMRO:
                 qmw_index = i
         assert qmw_index is not None, "QMainWindow not in MRO"
         for mi in mixin_indices:
-            assert mi < qmw_index, f"Mixin at index {mi} should come before QMainWindow at {qmw_index}"
+            assert (
+                mi < qmw_index
+            ), f"Mixin at index {mi} should come before QMainWindow at {qmw_index}"
 
 
 class TestSimulationResultHandlersExist:
@@ -302,7 +308,9 @@ class TestMixinClassesHaveNoInit:
             PrintExportMixin,
             SettingsMixin,
         ]:
-            assert "__init__" not in mixin_cls.__dict__, f"{mixin_cls.__name__} should not define __init__"
+            assert (
+                "__init__" not in mixin_cls.__dict__
+            ), f"{mixin_cls.__name__} should not define __init__"
 
 
 class TestNoCircularImportsBetweenMixins:

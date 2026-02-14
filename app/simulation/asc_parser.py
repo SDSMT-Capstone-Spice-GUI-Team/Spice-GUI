@@ -176,7 +176,12 @@ def parse_asc(text):
             parts = stripped.split()
             if len(parts) >= 5:
                 try:
-                    x1, y1, x2, y2 = int(parts[1]), int(parts[2]), int(parts[3]), int(parts[4])
+                    x1, y1, x2, y2 = (
+                        int(parts[1]),
+                        int(parts[2]),
+                        int(parts[3]),
+                        int(parts[4]),
+                    )
                     wires.append((x1, y1, x2, y2))
                 except ValueError:
                     pass

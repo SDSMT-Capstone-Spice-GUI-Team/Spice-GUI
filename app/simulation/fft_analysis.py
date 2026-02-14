@@ -77,7 +77,9 @@ def compute_fft(
     elif window.lower() == "none":
         window_func = np.ones(n_samples)
     else:
-        raise ValueError(f"Unknown window type: {window}. Use 'hanning', 'hamming', 'blackman', or 'none'")
+        raise ValueError(
+            f"Unknown window type: {window}. Use 'hanning', 'hamming', 'blackman', or 'none'"
+        )
 
     # Apply window and compensate for window power loss
     windowed_signal = signal * window_func
@@ -136,7 +138,9 @@ def find_fundamental_frequency(fft_result: FFTResult, min_freq: float = 10.0) ->
     return valid_freqs[peak_idx]
 
 
-def compute_thd(fft_result: FFTResult, fundamental_freq: float, num_harmonics: int = 5) -> float:
+def compute_thd(
+    fft_result: FFTResult, fundamental_freq: float, num_harmonics: int = 5
+) -> float:
     """
     Compute Total Harmonic Distortion (THD).
 
@@ -185,7 +189,9 @@ def compute_thd(fft_result: FFTResult, fundamental_freq: float, num_harmonics: i
     return thd
 
 
-def find_harmonics(fft_result: FFTResult, fundamental_freq: float, num_harmonics: int = 5) -> list:
+def find_harmonics(
+    fft_result: FFTResult, fundamental_freq: float, num_harmonics: int = 5
+) -> list:
     """
     Identify harmonic frequencies and their magnitudes.
 

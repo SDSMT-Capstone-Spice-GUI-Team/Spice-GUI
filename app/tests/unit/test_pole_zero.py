@@ -197,7 +197,9 @@ class TestPZController:
         model.analysis_type = "Pole-Zero"
         ctrl = SimulationController(model=model)
 
-        mock_output = "pole(1) = -1.00000e+03, 0.00000e+00\nzero(1) = -2.00000e+04, 0.00000e+00\n"
+        mock_output = (
+            "pole(1) = -1.00000e+03, 0.00000e+00\nzero(1) = -2.00000e+04, 0.00000e+00\n"
+        )
         ctrl._runner = MagicMock()
         ctrl._runner.read_output.return_value = mock_output
 

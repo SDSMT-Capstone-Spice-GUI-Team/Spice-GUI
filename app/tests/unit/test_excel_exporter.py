@@ -200,7 +200,9 @@ class TestMetadataSheet:
 
     def test_circuit_name_in_summary(self, tmp_path):
         path = tmp_path / "meta.xlsx"
-        export_to_excel({"1": 1.0}, "DC Operating Point", str(path), circuit_name="test.json")
+        export_to_excel(
+            {"1": 1.0}, "DC Operating Point", str(path), circuit_name="test.json"
+        )
         wb = load_workbook(str(path))
         ws = wb["Summary"]
         values = [ws.cell(row=r, column=2).value for r in range(1, ws.max_row + 1)]

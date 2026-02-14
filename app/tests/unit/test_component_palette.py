@@ -63,14 +63,18 @@ class TestComponentPaletteSearch:
     def test_filter_hides_non_matching(self, palette):
         palette.search_input.setText("resistor")
         lw = palette.list_widget
-        visible = [lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()]
+        visible = [
+            lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()
+        ]
         assert "Resistor" in visible
         assert "Capacitor" not in visible
 
     def test_filter_is_case_insensitive(self, palette):
         palette.search_input.setText("CAPACITOR")
         lw = palette.list_widget
-        visible = [lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()]
+        visible = [
+            lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()
+        ]
         assert "Capacitor" in visible
 
     def test_empty_filter_shows_all(self, palette):
@@ -84,7 +88,9 @@ class TestComponentPaletteSearch:
         # "Resists" appears in the Resistor tooltip
         palette.search_input.setText("resists")
         lw = palette.list_widget
-        visible = [lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()]
+        visible = [
+            lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()
+        ]
         assert "Resistor" in visible
 
     def test_filter_no_matches(self, palette):

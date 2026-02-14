@@ -6,27 +6,12 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QDoubleSpinBox,
-    QFileDialog,
-    QFormLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
-    QMessageBox,
-    QPushButton,
-    QSpinBox,
-    QSplitter,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
+                             QDoubleSpinBox, QFileDialog, QFormLayout,
+                             QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+                             QListWidget, QListWidgetItem, QMessageBox,
+                             QPushButton, QSpinBox, QSplitter, QVBoxLayout,
+                             QWidget)
 
 if TYPE_CHECKING:
     from grading.rubric import Rubric
@@ -204,7 +189,9 @@ class RubricEditorDialog(QDialog):
 
         bottom_layout.addStretch()
 
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
         bottom_layout.addWidget(button_box)
@@ -265,7 +252,9 @@ class RubricEditorDialog(QDialog):
         has_selection = row >= 0
         self.remove_btn.setEnabled(has_selection)
         self.move_up_btn.setEnabled(has_selection and row > 0)
-        self.move_down_btn.setEnabled(has_selection and row < self.checks_list.count() - 1)
+        self.move_down_btn.setEnabled(
+            has_selection and row < self.checks_list.count() - 1
+        )
         self.detail_widget.setEnabled(has_selection)
 
         if not has_selection:
@@ -282,7 +271,9 @@ class RubricEditorDialog(QDialog):
         self._updating_ui = True
         try:
             self.check_id_edit.setText(data.get("check_id", ""))
-            self.check_type_combo.setCurrentText(data.get("check_type", "component_exists"))
+            self.check_type_combo.setCurrentText(
+                data.get("check_type", "component_exists")
+            )
             self.points_spin.setValue(data.get("points", 1))
             self.feedback_pass_edit.setText(data.get("feedback_pass", ""))
             self.feedback_fail_edit.setText(data.get("feedback_fail", ""))
@@ -482,7 +473,11 @@ class RubricEditorDialog(QDialog):
         """Save the rubric to a .spice-rubric file."""
         errors = self._validate()
         if errors:
-            QMessageBox.warning(self, "Validation Errors", "Please fix errors before saving:\n\n" + "\n".join(errors))
+            QMessageBox.warning(
+                self,
+                "Validation Errors",
+                "Please fix errors before saving:\n\n" + "\n".join(errors),
+            )
             return
 
         filename, _ = QFileDialog.getSaveFileName(
@@ -531,7 +526,9 @@ class RubricEditorDialog(QDialog):
 
             for check in rubric.checks:
                 data = check.to_dict()
-                item = QListWidgetItem(f"{data['check_id']} ({data['check_type']}, {data['points']}pt)")
+                item = QListWidgetItem(
+                    f"{data['check_id']} ({data['check_type']}, {data['points']}pt)"
+                )
                 item.setData(Qt.ItemDataRole.UserRole, data)
                 self.checks_list.addItem(item)
 
@@ -570,7 +567,9 @@ class RubricEditorDialog(QDialog):
         errors = self._validate()
         if errors:
             QMessageBox.warning(
-                self, "Validation Errors", "Please fix errors before proceeding:\n\n" + "\n".join(errors)
+                self,
+                "Validation Errors",
+                "Please fix errors before proceeding:\n\n" + "\n".join(errors),
             )
             return
 

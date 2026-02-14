@@ -4,18 +4,10 @@ keybindings_dialog.py — Preferences dialog for configuring keyboard shortcuts.
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeySequence
-from PyQt6.QtWidgets import (
-    QDialog,
-    QHBoxLayout,
-    QHeaderView,
-    QKeySequenceEdit,
-    QLabel,
-    QMessageBox,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView,
+                             QKeySequenceEdit, QLabel, QMessageBox,
+                             QPushButton, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout)
 
 from .keybindings import ACTION_LABELS
 
@@ -33,7 +25,9 @@ class KeybindingsDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        layout.addWidget(QLabel("Double-click a shortcut to change it. Press Escape to clear."))
+        layout.addWidget(
+            QLabel("Double-click a shortcut to change it. Press Escape to clear.")
+        )
 
         # Table
         self._table = QTableWidget()

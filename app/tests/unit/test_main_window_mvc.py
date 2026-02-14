@@ -78,14 +78,18 @@ class TestMainWindowControllerIntegration:
         file_ctrl.load_circuit.assert_called_once_with(test_path)
         file_ctrl.new_circuit.assert_called_once()
 
-    def test_simulation_operations_delegated_to_simulation_controller(self, mock_controllers):
+    def test_simulation_operations_delegated_to_simulation_controller(
+        self, mock_controllers
+    ):
         """Test that simulation is delegated to SimulationController"""
         model, circuit_ctrl, file_ctrl, simulation_ctrl = mock_controllers
 
         # Mock simulation operations
         from controllers.simulation_controller import SimulationResult
 
-        mock_result = SimulationResult(success=True, analysis_type="DC Operating Point", raw_output="test output")
+        mock_result = SimulationResult(
+            success=True, analysis_type="DC Operating Point", raw_output="test output"
+        )
         simulation_ctrl.run_simulation = Mock(return_value=mock_result)
         simulation_ctrl.generate_netlist = Mock(return_value="* Test Netlist")
         simulation_ctrl.set_analysis = Mock()
@@ -98,7 +102,9 @@ class TestMainWindowControllerIntegration:
         # Verify delegation
         assert result.success is True
         assert netlist == "* Test Netlist"
-        simulation_ctrl.set_analysis.assert_called_once_with("Transient", {"duration": "1ms"})
+        simulation_ctrl.set_analysis.assert_called_once_with(
+            "Transient", {"duration": "1ms"}
+        )
 
     def test_canvas_syncs_before_save(self, mock_controllers):
         """Test that canvas syncs to model before saving"""
@@ -130,7 +136,9 @@ class TestMainWindowControllerIntegration:
         # Verify sync was called after load
         mock_canvas.sync_from_model.assert_called_once_with(model)
 
-    def test_analysis_settings_delegated_to_simulation_controller(self, mock_controllers):
+    def test_analysis_settings_delegated_to_simulation_controller(
+        self, mock_controllers
+    ):
         """Test that analysis settings are managed by SimulationController"""
         model, circuit_ctrl, file_ctrl, simulation_ctrl = mock_controllers
 
@@ -140,7 +148,9 @@ class TestMainWindowControllerIntegration:
         # Set different analysis types
         simulation_ctrl.set_analysis("DC Operating Point", {})
         simulation_ctrl.set_analysis("DC Sweep", {"min": 0, "max": 10, "step": 1})
-        simulation_ctrl.set_analysis("AC Sweep", {"fStart": 1, "fStop": 1000, "points": 10})
+        simulation_ctrl.set_analysis(
+            "AC Sweep", {"fStart": 1, "fStop": 1000, "points": 10}
+        )
         simulation_ctrl.set_analysis("Transient", {"duration": "1ms", "step": "1us"})
 
         # Verify all were called
@@ -272,14 +282,17 @@ class TestMainWindowErrorHandling:
 
     def test_mainwindow_handles_simulation_errors(self):
         """Test that MainWindow handles simulation errors gracefully"""
-        from controllers.simulation_controller import SimulationController, SimulationResult
+        from controllers.simulation_controller import (SimulationController,
+                                                       SimulationResult)
         from models.circuit import CircuitModel
 
         model = CircuitModel()
         SimulationController(model)
 
         # Mock simulation failure
-        error_result = SimulationResult(success=False, errors=["Circuit has no ground"], error="Simulation failed")
+        error_result = SimulationResult(
+            success=False, errors=["Circuit has no ground"], error="Simulation failed"
+        )
 
         # MainWindow should check result.success and display errors
         assert error_result.success is False

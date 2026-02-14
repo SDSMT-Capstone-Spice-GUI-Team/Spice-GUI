@@ -123,7 +123,9 @@ class SimulationController:
 
         # 2. Generate wrdata path for transient
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_{timestamp}.txt")
+        wrdata_filepath = os.path.join(
+            self.runner.output_dir, f"wrdata_{timestamp}.txt"
+        )
 
         # 3. Generate netlist (include .meas directives if configured)
         meas_directives = self.model.analysis_params.get("measurements", [])
@@ -159,7 +161,10 @@ class SimulationController:
         success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
         if not success:
             # Classify the error and attempt retry with relaxed tolerances
-            from simulation.convergence import RELAXED_OPTIONS, diagnose_error, format_user_message, is_retriable
+            from simulation.convergence import (RELAXED_OPTIONS,
+                                                diagnose_error,
+                                                format_user_message,
+                                                is_retriable)
 
             diagnosis = diagnose_error(stderr, stdout)
             friendly_msg = format_user_message(diagnosis)
@@ -175,7 +180,9 @@ class SimulationController:
                     relaxed_netlist = None
 
                 if relaxed_netlist:
-                    retry_ok, retry_out, retry_stdout, retry_stderr = self.runner.run_simulation(relaxed_netlist)
+                    retry_ok, retry_out, retry_stdout, retry_stderr = (
+                        self.runner.run_simulation(relaxed_netlist)
+                    )
                     if retry_ok:
                         # Parse retried results, add warning about relaxed tolerances
                         result = self._parse_results(
@@ -184,7 +191,9 @@ class SimulationController:
                             netlist=relaxed_netlist,
                             raw_output=retry_stdout,
                             warnings=validation.warnings
-                            + ["Simulation converged with relaxed tolerances (results may be less accurate)."],
+                            + [
+                                "Simulation converged with relaxed tolerances (results may be less accurate)."
+                            ],
                         )
                         if self.circuit_ctrl:
                             self.circuit_ctrl._notify("simulation_completed", result)
@@ -287,7 +296,9 @@ class SimulationController:
                 raw_output=raw_output,
             )
 
-    def run_parameter_sweep(self, sweep_config: dict, progress_callback=None) -> SimulationResult:
+    def run_parameter_sweep(
+        self, sweep_config: dict, progress_callback=None
+    ) -> SimulationResult:
         """
         Run a parameter sweep: modify a component's value across a range
         and run the base analysis at each step.
@@ -340,7 +351,9 @@ class SimulationController:
             )
 
         # Calculate sweep values (linear spacing)
-        sweep_values = [start + (stop - start) * i / (num_steps - 1) for i in range(num_steps)]
+        sweep_values = [
+            start + (stop - start) * i / (num_steps - 1) for i in range(num_steps)
+        ]
 
         # Run sweep
         step_results = []
@@ -358,17 +371,25 @@ class SimulationController:
 
                 # Generate netlist
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_sweep_{i}_{timestamp}.txt")
+                wrdata_filepath = os.path.join(
+                    self.runner.output_dir, f"wrdata_sweep_{i}_{timestamp}.txt"
+                )
 
                 try:
                     netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
                 except (ValueError, KeyError, TypeError) as e:
-                    step_results.append(SimulationResult(success=False, error=f"Netlist generation failed: {e}"))
+                    step_results.append(
+                        SimulationResult(
+                            success=False, error=f"Netlist generation failed: {e}"
+                        )
+                    )
                     errors.append(f"Step {i + 1} ({comp.value}): netlist failed: {e}")
                     continue
 
                 # Run simulation
-                success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
+                success, output_file, stdout, stderr = self.runner.run_simulation(
+                    netlist
+                )
                 if not success:
                     step_results.append(
                         SimulationResult(
@@ -421,7 +442,9 @@ class SimulationController:
             warnings=validation.warnings,
         )
 
-    def run_monte_carlo(self, mc_config: dict, progress_callback=None) -> SimulationResult:
+    def run_monte_carlo(
+        self, mc_config: dict, progress_callback=None
+    ) -> SimulationResult:
         """
         Run Monte Carlo analysis: vary component values randomly and run
         the base analysis N times.
@@ -496,19 +519,31 @@ class SimulationController:
                 run_values.append(values_this_run)
 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_mc_{i}_{timestamp}.txt")
+                wrdata_filepath = os.path.join(
+                    self.runner.output_dir, f"wrdata_mc_{i}_{timestamp}.txt"
+                )
 
                 try:
                     netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
                 except (ValueError, KeyError, TypeError) as e:
-                    step_results.append(SimulationResult(success=False, error=f"Netlist generation failed: {e}"))
+                    step_results.append(
+                        SimulationResult(
+                            success=False, error=f"Netlist generation failed: {e}"
+                        )
+                    )
                     errors.append(f"Run {i + 1}: netlist failed: {e}")
                     continue
 
-                success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
+                success, output_file, stdout, stderr = self.runner.run_simulation(
+                    netlist
+                )
                 if not success:
                     step_results.append(
-                        SimulationResult(success=False, error=stderr or "Simulation failed", netlist=netlist)
+                        SimulationResult(
+                            success=False,
+                            error=stderr or "Simulation failed",
+                            netlist=netlist,
+                        )
                     )
                     errors.append(f"Run {i + 1}: {stderr or 'failed'}")
                     continue

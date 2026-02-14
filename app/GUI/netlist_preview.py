@@ -6,7 +6,8 @@ with basic syntax highlighting.
 import re
 
 from PyQt6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextEdit, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QTextEdit,
+                             QVBoxLayout, QWidget)
 
 
 class SpiceHighlighter(QSyntaxHighlighter):
@@ -31,7 +32,14 @@ class SpiceHighlighter(QSyntaxHighlighter):
         control_fmt = QTextCharFormat()
         control_fmt.setForeground(QColor("#9C27B0"))
         control_fmt.setFontWeight(QFont.Weight.Bold)
-        self._rules.append((re.compile(r"^(run|quit|print|set|let|wrdata|setplot)\b.*$", re.IGNORECASE), control_fmt))
+        self._rules.append(
+            (
+                re.compile(
+                    r"^(run|quit|print|set|let|wrdata|setplot)\b.*$", re.IGNORECASE
+                ),
+                control_fmt,
+            )
+        )
 
     def highlightBlock(self, text):
         """Apply syntax highlighting rules to a single line of text."""
@@ -73,7 +81,9 @@ class NetlistPreviewWidget(QWidget):
         self.text_edit = QTextEdit()
         self.text_edit.setReadOnly(True)
         self.text_edit.setFont(QFont("Monospace", 9))
-        self.text_edit.setPlaceholderText("No netlist generated yet. Add components and click Refresh.")
+        self.text_edit.setPlaceholderText(
+            "No netlist generated yet. Add components and click Refresh."
+        )
         layout.addWidget(self.text_edit)
 
         # Attach syntax highlighter

@@ -19,7 +19,9 @@ class PrintExportMixin:
         circuit_items = [
             item
             for item in scene.items()
-            if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem, AnnotationItem))
+            if isinstance(
+                item, (ComponentGraphicsItem, WireGraphicsItem, AnnotationItem)
+            )
         ]
         if not circuit_items:
             return None
@@ -72,7 +74,9 @@ class PrintExportMixin:
 
         source_rect = self._get_circuit_source_rect()
         if source_rect is None:
-            QMessageBox.information(self, "Print", "Nothing to print — the canvas is empty.")
+            QMessageBox.information(
+                self, "Print", "Nothing to print — the canvas is empty."
+            )
             return
 
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
@@ -87,7 +91,9 @@ class PrintExportMixin:
 
         source_rect = self._get_circuit_source_rect()
         if source_rect is None:
-            QMessageBox.information(self, "Print Preview", "Nothing to preview — the canvas is empty.")
+            QMessageBox.information(
+                self, "Print Preview", "Nothing to preview — the canvas is empty."
+            )
             return
 
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
@@ -102,10 +108,14 @@ class PrintExportMixin:
 
         source_rect = self._get_circuit_source_rect()
         if source_rect is None:
-            QMessageBox.information(self, "Export PDF", "Nothing to export — the canvas is empty.")
+            QMessageBox.information(
+                self, "Export PDF", "Nothing to export — the canvas is empty."
+            )
             return
 
-        filename, _ = QFileDialog.getSaveFileName(self, "Export as PDF", "", "PDF Files (*.pdf)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export as PDF", "", "PDF Files (*.pdf)"
+        )
         if not filename:
             return
         if not filename.lower().endswith(".pdf"):

@@ -1,16 +1,9 @@
 """Dialog for configuring CircuiTikZ export options."""
 
 from PyQt6.QtCore import QSettings
-from PyQt6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QDoubleSpinBox,
-    QFormLayout,
-    QGroupBox,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
+                             QDoubleSpinBox, QFormLayout, QGroupBox,
+                             QVBoxLayout)
 
 SETTINGS_PREFIX = "circuitikz/"
 
@@ -92,7 +85,9 @@ class CircuiTikZOptionsDialog(QDialog):
         layout.addWidget(output_group)
 
         # --- Buttons ---
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -119,7 +114,9 @@ class CircuiTikZOptionsDialog(QDialog):
         settings.setValue(f"{SETTINGS_PREFIX}scale", opts["scale"])
         settings.setValue(f"{SETTINGS_PREFIX}include_ids", opts["include_ids"])
         settings.setValue(f"{SETTINGS_PREFIX}include_values", opts["include_values"])
-        settings.setValue(f"{SETTINGS_PREFIX}include_net_labels", opts["include_net_labels"])
+        settings.setValue(
+            f"{SETTINGS_PREFIX}include_net_labels", opts["include_net_labels"]
+        )
         settings.setValue(f"{SETTINGS_PREFIX}standalone", opts["standalone"])
 
     def _restore_settings(self):
@@ -138,11 +135,15 @@ class CircuiTikZOptionsDialog(QDialog):
 
         include_values = settings.value(f"{SETTINGS_PREFIX}include_values")
         if include_values is not None:
-            self.include_values_cb.setChecked(include_values == "true" or include_values is True)
+            self.include_values_cb.setChecked(
+                include_values == "true" or include_values is True
+            )
 
         include_net_labels = settings.value(f"{SETTINGS_PREFIX}include_net_labels")
         if include_net_labels is not None:
-            self.include_net_labels_cb.setChecked(include_net_labels == "true" or include_net_labels is True)
+            self.include_net_labels_cb.setChecked(
+                include_net_labels == "true" or include_net_labels is True
+            )
 
         standalone = settings.value(f"{SETTINGS_PREFIX}standalone")
         if standalone is not None:

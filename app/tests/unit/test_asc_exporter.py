@@ -213,8 +213,16 @@ class TestImportExportRoundTrip:
         reimported, _analysis, _warnings = import_asc(asc_text)
 
         # Check component names are preserved
-        original_ids = {cid for cid in model.components if model.components[cid].component_type != "Ground"}
-        reimported_ids = {cid for cid in reimported.components if reimported.components[cid].component_type != "Ground"}
+        original_ids = {
+            cid
+            for cid in model.components
+            if model.components[cid].component_type != "Ground"
+        }
+        reimported_ids = {
+            cid
+            for cid in reimported.components
+            if reimported.components[cid].component_type != "Ground"
+        }
         assert original_ids == reimported_ids
 
     def test_values_preserved(self):

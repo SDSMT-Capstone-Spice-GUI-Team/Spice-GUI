@@ -57,6 +57,7 @@ class TemplateController:
         reference_circuit: Optional[CircuitModel] = None,
         instructions: str = "",
         required_analysis: Optional[dict] = None,
+        locked_components: Optional[list[str]] = None,
     ) -> None:
         """Save a circuit as an assignment template.
 
@@ -67,6 +68,7 @@ class TemplateController:
             reference_circuit: Instructor's solution circuit (optional).
             instructions: Assignment instructions text.
             required_analysis: Expected analysis type and params (optional).
+            locked_components: List of component IDs to lock (optional).
 
         Raises:
             OSError: If the file cannot be written.
@@ -78,8 +80,11 @@ class TemplateController:
             metadata=metadata,
             instructions=instructions,
             starter_circuit=(starter_circuit.to_dict() if starter_circuit else None),
-            reference_circuit=(reference_circuit.to_dict() if reference_circuit else None),
+            reference_circuit=(
+                reference_circuit.to_dict() if reference_circuit else None
+            ),
             required_analysis=required_analysis,
+            locked_components=list(locked_components) if locked_components else [],
         )
 
         with open(filepath, "w") as f:
@@ -112,6 +117,9 @@ class TemplateController:
         If the template has no starter_circuit, returns an empty model
         with the template's required analysis settings applied.
 
+        Components listed in template.locked_components will have their
+        locked flag set to True, preventing student modifications.
+
         Args:
             template: The loaded template data.
 
@@ -131,6 +139,12 @@ class TemplateController:
             analysis_params = template.required_analysis.get("params")
             if analysis_params:
                 model.analysis_params = analysis_params.copy()
+
+        # Apply locked state to specified components
+        if template.locked_components:
+            for comp_id in template.locked_components:
+                if comp_id in model.components:
+                    model.components[comp_id].locked = True
 
         return model
 

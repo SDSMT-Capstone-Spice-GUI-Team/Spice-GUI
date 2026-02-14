@@ -44,7 +44,9 @@ def list_custom_themes(themes_dir: Optional[Path] = None) -> list:
     return result
 
 
-def load_theme(name_or_stem: str, themes_dir: Optional[Path] = None) -> Optional[CustomTheme]:
+def load_theme(
+    name_or_stem: str, themes_dir: Optional[Path] = None
+) -> Optional[CustomTheme]:
     """Load a custom theme by filename stem. Returns None on error."""
     d = themes_dir if themes_dir is not None else _THEMES_DIR
     path = d / f"{name_or_stem}.json"
@@ -103,7 +105,9 @@ def export_theme(theme: CustomTheme, path: Path) -> None:
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def import_theme(path: Path, themes_dir: Optional[Path] = None) -> Optional[CustomTheme]:
+def import_theme(
+    path: Path, themes_dir: Optional[Path] = None
+) -> Optional[CustomTheme]:
     """Import a theme JSON file into the themes directory. Returns the theme or None."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))

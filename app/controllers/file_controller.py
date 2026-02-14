@@ -37,12 +37,20 @@ def validate_circuit_data(data) -> None:
     for i, comp in enumerate(data["components"]):
         for key in ("id", "type", "value", "pos"):
             if key not in comp:
-                raise ValueError(f"Component #{i + 1} is missing required field '{key}'.")
+                raise ValueError(
+                    f"Component #{i + 1} is missing required field '{key}'."
+                )
         pos = comp["pos"]
         if not isinstance(pos, dict) or "x" not in pos or "y" not in pos:
-            raise ValueError(f"Component '{comp.get('id', i)}' has invalid position data.")
-        if not isinstance(pos["x"], (int, float)) or not isinstance(pos["y"], (int, float)):
-            raise ValueError(f"Component '{comp['id']}' position values must be numeric.")
+            raise ValueError(
+                f"Component '{comp.get('id', i)}' has invalid position data."
+            )
+        if not isinstance(pos["x"], (int, float)) or not isinstance(
+            pos["y"], (int, float)
+        ):
+            raise ValueError(
+                f"Component '{comp['id']}' position values must be numeric."
+            )
         comp_ids.add(comp["id"])
 
     for i, wire in enumerate(data["wires"]):
@@ -50,9 +58,13 @@ def validate_circuit_data(data) -> None:
             if key not in wire:
                 raise ValueError(f"Wire #{i + 1} is missing required field '{key}'.")
         if wire["start_comp"] not in comp_ids:
-            raise ValueError(f"Wire #{i + 1} references unknown component '{wire['start_comp']}'.")
+            raise ValueError(
+                f"Wire #{i + 1} references unknown component '{wire['start_comp']}'."
+            )
         if wire["end_comp"] not in comp_ids:
-            raise ValueError(f"Wire #{i + 1} references unknown component '{wire['end_comp']}'.")
+            raise ValueError(
+                f"Wire #{i + 1} references unknown component '{wire['end_comp']}'."
+            )
 
 
 class FileController:
@@ -180,7 +192,9 @@ class FileController:
         """Save current file path for session restore."""
         try:
             with open(self._session_file, "w") as f:
-                f.write(os.path.abspath(str(self.current_file)) if self.current_file else "")
+                f.write(
+                    os.path.abspath(str(self.current_file)) if self.current_file else ""
+                )
         except OSError:
             pass  # Session save is best-effort
 
@@ -266,7 +280,9 @@ class FileController:
         """
         try:
             data = self.model.to_dict()
-            data["_autosave_source"] = str(self.current_file) if self.current_file else ""
+            data["_autosave_source"] = (
+                str(self.current_file) if self.current_file else ""
+            )
             with open(self._autosave_file, "w") as f:
                 json.dump(data, f, indent=2)
         except (OSError, TypeError):

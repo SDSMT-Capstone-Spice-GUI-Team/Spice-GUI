@@ -53,7 +53,11 @@ class CircuitModel:
             return []
 
         # Find wires connected to this component
-        wire_indices = [i for i, wire in enumerate(self.wires) if wire.connects_component(component_id)]
+        wire_indices = [
+            i
+            for i, wire in enumerate(self.wires)
+            if wire.connects_component(component_id)
+        ]
 
         del self.components[component_id]
         return wire_indices
@@ -75,7 +79,9 @@ class CircuitModel:
         end_terminal = (wire.end_component_id, wire.end_terminal)
 
         # Find the affected node (both terminals should be in the same node)
-        affected_node = self.terminal_to_node.get(start_terminal) or self.terminal_to_node.get(end_terminal)
+        affected_node = self.terminal_to_node.get(
+            start_terminal
+        ) or self.terminal_to_node.get(end_terminal)
 
         del self.wires[wire_index]
 
@@ -150,7 +156,9 @@ class CircuitModel:
         ground_node.add_terminal(ground_comp.component_id, 0)
         self.terminal_to_node[terminal_key] = ground_node
 
-    def _update_nodes_for_wire(self, wire: WireData, wire_index: int | None = None) -> None:
+    def _update_nodes_for_wire(
+        self, wire: WireData, wire_index: int | None = None
+    ) -> None:
         """Update node connectivity when a wire is added.
 
         Args:

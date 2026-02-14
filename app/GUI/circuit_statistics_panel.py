@@ -4,7 +4,8 @@ import logging
 from collections import Counter
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFormLayout, QGroupBox, QLabel, QScrollArea, QTextEdit, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (QFormLayout, QGroupBox, QLabel, QScrollArea,
+                             QTextEdit, QVBoxLayout, QWidget)
 
 from .styles import theme_manager
 
@@ -152,7 +153,9 @@ class CircuitStatisticsPanel(QWidget):
             return
 
         type_counts = Counter(c.component_type for c in self.model.components.values())
-        for comp_type, count in sorted(type_counts.items(), key=lambda x: (-x[1], x[0])):
+        for comp_type, count in sorted(
+            type_counts.items(), key=lambda x: (-x[1], x[0])
+        ):
             label = QLabel(str(count))
             self._components_form.addRow(f"{comp_type}:", label)
 
@@ -192,4 +195,6 @@ class CircuitStatisticsPanel(QWidget):
             netlist = self.simulation_ctrl.generate_netlist()
             self._netlist_text.setPlainText(netlist)
         except Exception:
-            self._netlist_text.setPlainText("(netlist generation requires valid circuit)")
+            self._netlist_text.setPlainText(
+                "(netlist generation requires valid circuit)"
+            )

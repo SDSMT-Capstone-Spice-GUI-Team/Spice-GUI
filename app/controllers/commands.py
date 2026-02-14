@@ -73,7 +73,10 @@ class DeleteComponentCommand(Command):
         # Store connected wires before deletion (with their indices)
         self.deleted_wires = []
         for idx, wire in enumerate(self.controller.model.wires):
-            if wire.start_component_id == self.component_id or wire.end_component_id == self.component_id:
+            if (
+                wire.start_component_id == self.component_id
+                or wire.end_component_id == self.component_id
+            ):
                 self.deleted_wires.append((idx, WireData.from_dict(wire.to_dict())))
 
         # Delete the component (this also deletes connected wires)
@@ -228,7 +231,9 @@ class AddWireCommand(Command):
 
     def undo(self) -> None:
         """Remove the added wire."""
-        if self.wire_index is not None and self.wire_index < len(self.controller.model.wires):
+        if self.wire_index is not None and self.wire_index < len(
+            self.controller.model.wires
+        ):
             self.controller.remove_wire(self.wire_index)
 
     def get_description(self) -> str:
@@ -331,7 +336,9 @@ class DeleteAnnotationCommand(Command):
 
     def undo(self) -> None:
         if self.annotation_data:
-            self.controller.model.annotations.insert(self.annotation_index, self.annotation_data)
+            self.controller.model.annotations.insert(
+                self.annotation_index, self.annotation_data
+            )
             self.controller._notify("annotation_added", self.annotation_data)
 
     def get_description(self) -> str:
@@ -349,7 +356,9 @@ class EditAnnotationCommand(Command):
 
     def execute(self) -> None:
         if self.annotation_index < len(self.controller.model.annotations):
-            self.old_text = self.controller.model.annotations[self.annotation_index].text
+            self.old_text = self.controller.model.annotations[
+                self.annotation_index
+            ].text
             self.controller.update_annotation_text(self.annotation_index, self.new_text)
 
     def undo(self) -> None:

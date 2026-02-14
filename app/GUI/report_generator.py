@@ -86,14 +86,18 @@ class ReportGenerator:
         if self.config.include_netlist and netlist:
             if not first_page:
                 printer.newPage()
-            self._render_text_section(painter, printer, content_rect, "SPICE Netlist", netlist, monospace=True)
+            self._render_text_section(
+                painter, printer, content_rect, "SPICE Netlist", netlist, monospace=True
+            )
             first_page = False
 
         if self.config.include_analysis and model is not None:
             if not first_page:
                 printer.newPage()
             analysis_text = self._format_analysis_config(model)
-            self._render_text_section(painter, printer, content_rect, "Analysis Configuration", analysis_text)
+            self._render_text_section(
+                painter, printer, content_rect, "Analysis Configuration", analysis_text
+            )
             first_page = False
 
         if self.config.include_results and results_text:
@@ -133,7 +137,9 @@ class ReportGenerator:
         subtitle = "Circuit Analysis Report"
         fm = QFontMetrics(subtitle_font)
         sub_width = fm.horizontalAdvance(subtitle)
-        painter.drawText(int(center_x - sub_width / 2), int(center_y + fm.height() * 2), subtitle)
+        painter.drawText(
+            int(center_x - sub_width / 2), int(center_y + fm.height() * 2), subtitle
+        )
 
         # Analysis type if available
         if model and model.analysis_type:
@@ -177,7 +183,9 @@ class ReportGenerator:
                 self.config.student_name,
             )
 
-    def _render_schematic_page(self, painter: QPainter, printer: QPrinter, rect: QRectF, scene) -> None:
+    def _render_schematic_page(
+        self, painter: QPainter, printer: QPrinter, rect: QRectF, scene
+    ) -> None:
         """Render the circuit schematic on a dedicated page."""
         # Heading
         heading_font = QFont("Helvetica", self.HEADING_FONT_SIZE, QFont.Weight.Bold)
@@ -246,7 +254,9 @@ class ReportGenerator:
         y += hfm.height() * 1.5
 
         # Draw separator line
-        painter.drawLine(int(rect.left()), int(y), int(rect.left() + rect.width()), int(y))
+        painter.drawLine(
+            int(rect.left()), int(y), int(rect.left() + rect.width()), int(y)
+        )
         y += hfm.height() * 0.5
 
         # Draw body text
@@ -278,7 +288,9 @@ class ReportGenerator:
                 painter.setFont(body_font)
 
             # Truncate line if it's too wide
-            elided = bfm.elidedText(line, Qt.TextElideMode.ElideRight, int(rect.width()))
+            elided = bfm.elidedText(
+                line, Qt.TextElideMode.ElideRight, int(rect.width())
+            )
             painter.drawText(int(rect.left()), int(y), elided)
             y += line_height
 
@@ -329,7 +341,9 @@ class ReportGenerator:
             circuit_items = [
                 item
                 for item in scene.items()
-                if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem, AnnotationItem))
+                if isinstance(
+                    item, (ComponentGraphicsItem, WireGraphicsItem, AnnotationItem)
+                )
             ]
             if not circuit_items:
                 return None

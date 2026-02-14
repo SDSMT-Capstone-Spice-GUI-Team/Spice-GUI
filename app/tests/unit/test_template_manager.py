@@ -166,8 +166,18 @@ class TestLoadTemplate:
             "name": "Test",
             "category": "Test",
             "components": [
-                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}},
-                {"id": "R2", "type": "Resistor", "value": "2k", "pos": {"x": 100, "y": 0}},
+                {
+                    "id": "R1",
+                    "type": "Resistor",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "id": "R2",
+                    "type": "Resistor",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
             ],
             "wires": [],
             "counters": {"R": 2},
@@ -189,9 +199,24 @@ class TestLoadTemplate:
             "name": "Test",
             "category": "Test",
             "components": [
-                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}},
-                {"id": "R3", "type": "Resistor", "value": "2k", "pos": {"x": 100, "y": 0}},
-                {"id": "V1", "type": "VoltageSource", "value": "5V", "pos": {"x": 200, "y": 0}},
+                {
+                    "id": "R1",
+                    "type": "Resistor",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "id": "R3",
+                    "type": "Resistor",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
+                {
+                    "id": "V1",
+                    "type": "VoltageSource",
+                    "value": "5V",
+                    "pos": {"x": 200, "y": 0},
+                },
             ],
             "wires": [],
             "counters": {"R": 999, "V": 999},
@@ -247,7 +272,9 @@ class TestSaveTemplate:
         user = tmp_path / "user"
         mgr = TemplateManager(builtin_dir=tmp_path / "builtin", user_dir=user)
 
-        filepath = mgr.save_template(_build_test_circuit(), "My Filter", "An RC filter", "Filters")
+        filepath = mgr.save_template(
+            _build_test_circuit(), "My Filter", "An RC filter", "Filters"
+        )
 
         data = json.loads(filepath.read_text())
         assert data["name"] == "My Filter"
@@ -349,7 +376,9 @@ class TestDeleteTemplate:
         assert filepath.exists()
 
     def test_delete_nonexistent_returns_false(self, tmp_path):
-        mgr = TemplateManager(builtin_dir=tmp_path / "builtin", user_dir=tmp_path / "user")
+        mgr = TemplateManager(
+            builtin_dir=tmp_path / "builtin", user_dir=tmp_path / "user"
+        )
         result = mgr.delete_template(tmp_path / "nonexistent.json")
         assert result is False
 
@@ -368,7 +397,9 @@ class TestCalculateCounters:
         model = CircuitModel()
         model.components["OA1"] = ComponentData("OA1", "Op-Amp", "Ideal", (0, 0))
         model.components["GND1"] = ComponentData("GND1", "Ground", "0V", (100, 0))
-        model.components["VW1"] = ComponentData("VW1", "Waveform Source", "SIN(0 5 1k)", (200, 0))
+        model.components["VW1"] = ComponentData(
+            "VW1", "Waveform Source", "SIN(0 5 1k)", (200, 0)
+        )
 
         counters = TemplateManager._calculate_counters(model)
         assert counters == {"OA": 1, "GND": 1, "VW": 1}
@@ -412,13 +443,21 @@ class TestBuiltinTemplatesValid:
             pytest.skip("Built-in templates directory not found")
 
         templates = mgr._scan_directory(mgr.builtin_dir, is_builtin=True)
-        assert len(templates) >= 5, f"Expected at least 5 built-in templates, found {len(templates)}"
+        assert (
+            len(templates) >= 5
+        ), f"Expected at least 5 built-in templates, found {len(templates)}"
 
         for template_info in templates:
             model = mgr.load_template(template_info.filepath)
-            assert len(model.components) > 0, f"Template {template_info.name} has no components"
-            assert template_info.name, f"Template at {template_info.filepath} has no name"
-            assert template_info.category, f"Template {template_info.name} has no category"
+            assert (
+                len(model.components) > 0
+            ), f"Template {template_info.name} has no components"
+            assert (
+                template_info.name
+            ), f"Template at {template_info.filepath} has no name"
+            assert (
+                template_info.category
+            ), f"Template {template_info.name} has no category"
 
     def test_builtin_templates_have_descriptions(self):
         """All built-in templates should have descriptions."""

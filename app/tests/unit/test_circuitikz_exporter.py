@@ -6,15 +6,10 @@ from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.node import NodeData
 from models.wire import WireData
-from simulation.circuitikz_exporter import (
-    CIRCUITIKZ_BIPOLES,
-    CIRCUITIKZ_TRIPOLES,
-    _coord,
-    _escape_latex,
-    _fmt,
-    _transform_coords,
-    generate,
-)
+from simulation.circuitikz_exporter import (CIRCUITIKZ_BIPOLES,
+                                            CIRCUITIKZ_TRIPOLES, _coord,
+                                            _escape_latex, _fmt,
+                                            _transform_coords, generate)
 
 
 def _simple_circuit():
@@ -151,7 +146,9 @@ class TestBipoleExport:
 
     def test_capacitor_draw(self):
         model = CircuitModel()
-        model.add_component(ComponentData("C1", "Capacitor", "100n", position=(100, 100)))
+        model.add_component(
+            ComponentData("C1", "Capacitor", "100n", position=(100, 100))
+        )
         model.rebuild_nodes()
         output = generate(
             model.components,
@@ -163,7 +160,9 @@ class TestBipoleExport:
 
     def test_voltage_source_draw(self):
         model = CircuitModel()
-        model.add_component(ComponentData("V1", "Voltage Source", "5", position=(100, 100)))
+        model.add_component(
+            ComponentData("V1", "Voltage Source", "5", position=(100, 100))
+        )
         model.rebuild_nodes()
         output = generate(
             model.components,
@@ -209,7 +208,9 @@ class TestBipoleExport:
 class TestTripoleExport:
     def test_npn_node(self):
         model = CircuitModel()
-        model.add_component(ComponentData("Q1", "BJT NPN", "2N3904", position=(100, 100)))
+        model.add_component(
+            ComponentData("Q1", "BJT NPN", "2N3904", position=(100, 100))
+        )
         model.rebuild_nodes()
         output = generate(
             model.components,
@@ -225,7 +226,9 @@ class TestTripoleExport:
 
     def test_opamp_node(self):
         model = CircuitModel()
-        model.add_component(ComponentData("OA1", "Op-Amp", "Ideal", position=(100, 100)))
+        model.add_component(
+            ComponentData("OA1", "Op-Amp", "Ideal", position=(100, 100))
+        )
         model.rebuild_nodes()
         output = generate(
             model.components,
@@ -400,7 +403,9 @@ class TestFourTerminalExport:
 
     def test_vc_switch_exports(self):
         model = CircuitModel()
-        model.add_component(ComponentData("S1", "VC Switch", "VON=1 VOFF=0", position=(100, 100)))
+        model.add_component(
+            ComponentData("S1", "VC Switch", "VON=1 VOFF=0", position=(100, 100))
+        )
         model.rebuild_nodes()
         output = generate(
             model.components,
@@ -415,7 +420,9 @@ class TestCompleteCircuit:
     def test_voltage_divider_compiles_structure(self):
         """Full voltage divider: V1, R1, R2, GND with wires."""
         model = CircuitModel()
-        model.add_component(ComponentData("V1", "Voltage Source", "5", position=(0, 100)))
+        model.add_component(
+            ComponentData("V1", "Voltage Source", "5", position=(0, 100))
+        )
         model.add_component(ComponentData("R1", "Resistor", "1k", position=(100, 0)))
         model.add_component(ComponentData("R2", "Resistor", "2k", position=(100, 200)))
         model.add_component(ComponentData("GND1", "Ground", "", position=(0, 300)))

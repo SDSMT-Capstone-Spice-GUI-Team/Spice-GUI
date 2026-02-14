@@ -135,7 +135,9 @@ class ViewOperationsMixin:
         self.canvas.set_probe_mode(checked)
         if checked:
             if not self.canvas.node_voltages and self._last_results is None:
-                self.statusBar().showMessage("Probe mode active. Run a simulation first to see values.", 3000)
+                self.statusBar().showMessage(
+                    "Probe mode active. Run a simulation first to see values.", 3000
+                )
             else:
                 self.statusBar().showMessage(
                     "Probe mode active. Click nodes or components to see values. Press Escape to exit.",
@@ -148,7 +150,9 @@ class ViewOperationsMixin:
     def _on_probe_requested(self, signal_name, probe_type):
         """Handle probe click for sweep/transient analyses (no OP data on canvas)."""
         if self._last_results is None:
-            self.statusBar().showMessage("No simulation results available. Run a simulation first.", 3000)
+            self.statusBar().showMessage(
+                "No simulation results available. Run a simulation first.", 3000
+            )
             return
 
         analysis_type = self._last_results_type
@@ -159,7 +163,9 @@ class ViewOperationsMixin:
         elif analysis_type == "AC Sweep":
             self._probe_open_ac_sweep(signal_name, probe_type)
         else:
-            self.statusBar().showMessage(f"Probe not supported for {analysis_type} analysis.", 3000)
+            self.statusBar().showMessage(
+                f"Probe not supported for {analysis_type} analysis.", 3000
+            )
 
     def _probe_open_waveform(self, signal_name, probe_type):
         """Open waveform dialog focused on the probed signal."""
@@ -218,10 +224,14 @@ class ViewOperationsMixin:
         circuit_items = [
             item
             for item in scene.items()
-            if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem, AnnotationItem))
+            if isinstance(
+                item, (ComponentGraphicsItem, WireGraphicsItem, AnnotationItem)
+            )
         ]
         if not circuit_items:
-            QMessageBox.information(self, "Export Image", "Nothing to export — the canvas is empty.")
+            QMessageBox.information(
+                self, "Export Image", "Nothing to export — the canvas is empty."
+            )
             return
 
         source_rect = circuit_items[0].sceneBoundingRect()
@@ -238,7 +248,9 @@ class ViewOperationsMixin:
 
             generator = QSvgGenerator()
             generator.setFileName(filename)
-            generator.setSize(QSize(int(source_rect.width()), int(source_rect.height())))
+            generator.setSize(
+                QSize(int(source_rect.width()), int(source_rect.height()))
+            )
             generator.setViewBox(source_rect)
             generator.setTitle("SDM Spice Circuit")
 
@@ -265,7 +277,9 @@ class ViewOperationsMixin:
             painter.end()
             image.save(filename)
 
-        QMessageBox.information(self, "Export Image", f"Circuit exported to:\n{filename}")
+        QMessageBox.information(
+            self, "Export Image", f"Circuit exported to:\n{filename}"
+        )
 
     def export_circuitikz(self):
         """Export the circuit as a CircuiTikZ LaTeX file."""
@@ -277,7 +291,9 @@ class ViewOperationsMixin:
 
         model = self.circuit_ctrl.model
         if not model.components:
-            QMessageBox.information(self, "Export LaTeX", "Nothing to export — the canvas is empty.")
+            QMessageBox.information(
+                self, "Export LaTeX", "Nothing to export — the canvas is empty."
+            )
             return
 
         # Show options dialog
@@ -295,7 +311,11 @@ class ViewOperationsMixin:
                 nodes=model.nodes,
                 terminal_to_node=model.terminal_to_node,
                 standalone=opts["standalone"],
-                circuit_name=(os.path.basename(self.file_ctrl.current_file) if self.file_ctrl.current_file else ""),
+                circuit_name=(
+                    os.path.basename(self.file_ctrl.current_file)
+                    if self.file_ctrl.current_file
+                    else ""
+                ),
                 scale=opts["scale"],
                 include_ids=opts["include_ids"],
                 include_values=opts["include_values"],
@@ -308,7 +328,9 @@ class ViewOperationsMixin:
 
         default_name = ""
         if hasattr(self, "file_ctrl") and self.file_ctrl.current_file:
-            base = os.path.splitext(os.path.basename(str(self.file_ctrl.current_file)))[0]
+            base = os.path.splitext(os.path.basename(str(self.file_ctrl.current_file)))[
+                0
+            ]
             default_name = base + ".tex"
 
         filename, _ = QFileDialog.getSaveFileName(

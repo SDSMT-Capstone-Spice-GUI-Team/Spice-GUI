@@ -79,7 +79,11 @@ class FileOperationsMixin:
             data = json.loads(json_str)
             validate_circuit_data(data)
         except (json.JSONDecodeError, ValueError) as e:
-            QMessageBox.critical(self, "Invalid Circuit Data", f"Clipboard does not contain valid circuit JSON:\n{e}")
+            QMessageBox.critical(
+                self,
+                "Invalid Circuit Data",
+                f"Clipboard does not contain valid circuit JSON:\n{e}",
+            )
             return
 
         if self.model.components:
@@ -141,7 +145,9 @@ class FileOperationsMixin:
                 self._set_dirty(False)
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Saved to {self.file_ctrl.current_file}", 3000)
+                    statusBar.showMessage(
+                        f"Saved to {self.file_ctrl.current_file}", 3000
+                    )
             except (OSError, TypeError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to save: {e}")
         else:
@@ -149,7 +155,9 @@ class FileOperationsMixin:
 
     def _on_save_as(self):
         """Save circuit to a new file"""
-        filename, _ = QFileDialog.getSaveFileName(self, "Save Circuit", "", "JSON Files (*.json);;All Files (*)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Circuit", "", "JSON Files (*.json);;All Files (*)"
+        )
         if filename:
             try:
                 # Phase 5: No sync needed - model always up to date
@@ -162,7 +170,9 @@ class FileOperationsMixin:
 
     def _on_load(self):
         """Load circuit from file"""
-        filename, _ = QFileDialog.getOpenFileName(self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)")
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)"
+        )
         if filename:
             try:
                 self.file_ctrl.load_circuit(filename)
@@ -283,7 +293,9 @@ class FileOperationsMixin:
         if filename:
             try:
                 self.file_ctrl.import_netlist(filename)
-                self.setWindowTitle(f"Circuit Design GUI - {Path(filename).name} (imported)")
+                self.setWindowTitle(
+                    f"Circuit Design GUI - {Path(filename).name} (imported)"
+                )
                 self._sync_analysis_menu()
                 self._set_dirty(True)
                 num_components = len(self.model.components)
@@ -294,7 +306,9 @@ class FileOperationsMixin:
                     f"Imported {num_components} components and {num_wires} wires from {Path(filename).name}.",
                 )
             except (OSError, ValueError) as e:
-                QMessageBox.critical(self, "Import Error", f"Failed to import netlist:\n{e}")
+                QMessageBox.critical(
+                    self, "Import Error", f"Failed to import netlist:\n{e}"
+                )
 
     def _on_import_asc(self):
         """Import an LTspice .asc schematic file"""
@@ -307,7 +321,9 @@ class FileOperationsMixin:
         if filename:
             try:
                 warnings = self.file_ctrl.import_asc(filename)
-                self.setWindowTitle(f"Circuit Design GUI - {Path(filename).name} (imported)")
+                self.setWindowTitle(
+                    f"Circuit Design GUI - {Path(filename).name} (imported)"
+                )
                 self._sync_analysis_menu()
                 self._set_dirty(True)
                 num_components = len(self.model.components)
@@ -317,18 +333,25 @@ class FileOperationsMixin:
                     msg += "\n\nWarnings:\n" + "\n".join(f"  - {w}" for w in warnings)
                 QMessageBox.information(self, "Import Successful", msg)
             except (OSError, ValueError) as e:
-                QMessageBox.critical(self, "Import Error", f"Failed to import LTspice schematic:\n{e}")
+                QMessageBox.critical(
+                    self, "Import Error", f"Failed to import LTspice schematic:\n{e}"
+                )
 
     def _on_export_asc(self):
         """Export the circuit as an LTspice .asc schematic file."""
         from simulation.asc_exporter import export_asc, write_asc
 
         if not self.model.components:
-            QMessageBox.information(self, "Export LTspice", "Nothing to export — the canvas is empty.")
+            QMessageBox.information(
+                self, "Export LTspice", "Nothing to export — the canvas is empty."
+            )
             return
 
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Export as LTspice Schematic", "", "LTspice Schematics (*.asc);;All Files (*)"
+            self,
+            "Export as LTspice Schematic",
+            "",
+            "LTspice Schematics (*.asc);;All Files (*)",
         )
         if not filename:
             return
@@ -340,7 +363,9 @@ class FileOperationsMixin:
             if statusBar:
                 statusBar.showMessage(f"LTspice schematic exported to {filename}", 3000)
         except (OSError, Exception) as e:
-            QMessageBox.critical(self, "Error", f"Failed to export LTspice schematic: {e}")
+            QMessageBox.critical(
+                self, "Error", f"Failed to export LTspice schematic: {e}"
+            )
 
     def _on_generate_report(self):
         """Generate a comprehensive PDF circuit report."""
@@ -360,7 +385,9 @@ class FileOperationsMixin:
 
         config = dialog.get_config()
 
-        filename, _ = QFileDialog.getSaveFileName(self, "Save Circuit Report", "", "PDF Files (*.pdf)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Circuit Report", "", "PDF Files (*.pdf)"
+        )
         if not filename:
             return
         if not filename.lower().endswith(".pdf"):
@@ -393,7 +420,9 @@ class FileOperationsMixin:
                 f"Circuit report saved to:\n{filename}",
             )
         except (OSError, Exception) as e:
-            QMessageBox.critical(self, "Report Error", f"Failed to generate report:\n{e}")
+            QMessageBox.critical(
+                self, "Report Error", f"Failed to generate report:\n{e}"
+            )
 
     def _load_last_session(self):
         """Load last session using FileController"""
@@ -448,7 +477,9 @@ class FileOperationsMixin:
             return
 
         # Sort categories: Basic first, then alphabetically
-        category_order = sorted(examples_by_category.keys(), key=lambda c: (c != "Basic", c))
+        category_order = sorted(
+            examples_by_category.keys(), key=lambda c: (c != "Basic", c)
+        )
 
         for i, category in enumerate(category_order):
             if i > 0:
@@ -463,7 +494,9 @@ class FileOperationsMixin:
             for example in examples_by_category[category]:
                 action = QAction(example["name"], self)
                 action.setToolTip(example["description"])
-                action.triggered.connect(lambda checked, path=example["filepath"]: self._open_example(path))
+                action.triggered.connect(
+                    lambda checked, path=example["filepath"]: self._open_example(path)
+                )
                 self.examples_menu.addAction(action)
 
     def _populate_templates_menu(self):
@@ -502,7 +535,9 @@ class FileOperationsMixin:
                     label += " (user)"
                 action = QAction(label, self)
                 action.setToolTip(template.description)
-                action.triggered.connect(lambda checked, fp=template.filepath: self._open_template(fp))
+                action.triggered.connect(
+                    lambda checked, fp=template.filepath: self._open_template(fp)
+                )
                 self.templates_menu.addAction(action)
 
         # Add separator and "Browse All..." option
@@ -572,7 +607,9 @@ class FileOperationsMixin:
         from GUI.template_dialog import SaveAsTemplateDialog
 
         if not self.model.components:
-            QMessageBox.information(self, "Save as Template", "Cannot save an empty circuit as a template.")
+            QMessageBox.information(
+                self, "Save as Template", "Cannot save an empty circuit as a template."
+            )
             return
 
         if not hasattr(self, "_template_manager"):
@@ -582,7 +619,9 @@ class FileOperationsMixin:
         if dialog.exec() == SaveAsTemplateDialog.DialogCode.Accepted:
             name, description, category = dialog.get_values()
             try:
-                self._template_manager.save_template(self.model, name, description, category)
+                self._template_manager.save_template(
+                    self.model, name, description, category
+                )
                 # Refresh the templates submenu
                 self._populate_templates_menu()
                 statusBar = self.statusBar()

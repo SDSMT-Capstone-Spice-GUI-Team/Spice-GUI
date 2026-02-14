@@ -26,6 +26,13 @@ Usage::
 # Re-export SimulationResult for convenience
 from controllers.simulation_controller import SimulationResult
 from scripting.circuit import Circuit
-from scripting.jupyter import circuit_to_svg, plot_result, register_jupyter_formatters
+from scripting.jupyter import (circuit_to_svg, plot_result,
+                               register_jupyter_formatters)
 
-__all__ = ["Circuit", "SimulationResult", "circuit_to_svg", "plot_result", "register_jupyter_formatters"]
+__all__ = [
+    "Circuit",
+    "SimulationResult",
+    "circuit_to_svg",
+    "plot_result",
+    "register_jupyter_formatters",
+]

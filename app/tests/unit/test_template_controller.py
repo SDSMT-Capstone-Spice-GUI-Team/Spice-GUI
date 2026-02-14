@@ -3,7 +3,8 @@
 import json
 
 import pytest
-from controllers.template_controller import TemplateController, validate_template_data
+from controllers.template_controller import (TemplateController,
+                                             validate_template_data)
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.template import TemplateData, TemplateMetadata
@@ -266,7 +267,9 @@ class TestTemplateControllerSaveLoad:
 
     def test_load_missing_title_raises(self, tmp_path):
         filepath = tmp_path / "bad.spice-template"
-        filepath.write_text(json.dumps({"template_version": "1.0", "metadata": {"title": ""}}))
+        filepath.write_text(
+            json.dumps({"template_version": "1.0", "metadata": {"title": ""}})
+        )
         ctrl = TemplateController()
         with pytest.raises(ValueError, match="title"):
             ctrl.load_template(filepath)

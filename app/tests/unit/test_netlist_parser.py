@@ -1,13 +1,10 @@
 """Tests for SPICE netlist parser and import functionality."""
 
 import pytest
-from simulation.netlist_parser import (
-    NetlistParseError,
-    _extract_paren_params,
-    _tokenize_spice_line,
-    import_netlist,
-    parse_netlist,
-)
+from simulation.netlist_parser import (NetlistParseError,
+                                       _extract_paren_params,
+                                       _tokenize_spice_line, import_netlist,
+                                       parse_netlist)
 
 # ── Tokenizer ─────────────────────────────────────────────────────────
 
@@ -56,7 +53,9 @@ class TestParseNetlist:
         assert result["analysis"]["type"] == "DC Operating Point"
 
     def test_rc_circuit(self):
-        netlist = "RC Circuit\nr1 1 2 1k\nc1 2 0 1u\nvin 1 0 DC 5\n.tran 0.02ms 20ms\n.end\n"
+        netlist = (
+            "RC Circuit\nr1 1 2 1k\nc1 2 0 1u\nvin 1 0 DC 5\n.tran 0.02ms 20ms\n.end\n"
+        )
         result = parse_netlist(netlist)
         assert len(result["components"]) == 3
         assert result["analysis"]["type"] == "Transient"
@@ -100,7 +99,9 @@ class TestParseNetlist:
         assert result["analysis"]["params"]["source"] == "Vin"
 
     def test_subcircuit_skipped(self):
-        netlist = "Sub test\n.subckt MYBLOCK in out\nR1 in out 1k\n.ends\nR2 1 0 10k\n.end\n"
+        netlist = (
+            "Sub test\n.subckt MYBLOCK in out\nR1 in out 1k\n.ends\nR2 1 0 10k\n.end\n"
+        )
         result = parse_netlist(netlist)
         # Only R2 should be parsed (R1 is inside subcircuit)
         assert len(result["components"]) == 1
@@ -267,7 +268,8 @@ class TestImportNetlist:
         non_gnd_wires = [
             w
             for w in model.wires
-            if not w.start_component_id.startswith("GND") and not w.end_component_id.startswith("GND")
+            if not w.start_component_id.startswith("GND")
+            and not w.end_component_id.startswith("GND")
         ]
         # Should have at least 2 signal wires (node 1 and node 2)
         assert len(non_gnd_wires) >= 2
@@ -283,15 +285,15 @@ class TestImportNetlist:
 
     def test_four_resistor_example(self):
         """Test with the actual Simple4ResistorCircuit example."""
-        netlist = (
-            "Simple 4 Resistor Circuit\nVin 1 0 DC 10\nR1 1 2 250\nR2 2 3 250\nR3 2 0 500\nR4 3 0 250\n.op\n.end\n"
-        )
+        netlist = "Simple 4 Resistor Circuit\nVin 1 0 DC 10\nR1 1 2 250\nR2 2 3 250\nR3 2 0 500\nR4 3 0 250\n.op\n.end\n"
         model, analysis = import_netlist(netlist)
         assert len([c for c in model.components if not c.startswith("GND")]) == 5
         assert analysis["type"] == "DC Operating Point"
 
     def test_diode_circuit(self):
-        netlist = "Diode Test\nVin 1 0 DC 5\nD1 1 2 DMOD\nR1 2 0 100k\n.model DMOD D\n.end\n"
+        netlist = (
+            "Diode Test\nVin 1 0 DC 5\nD1 1 2 DMOD\nR1 2 0 100k\n.model DMOD D\n.end\n"
+        )
         model, _ = import_netlist(netlist)
         assert "D1" in model.components
         assert model.components["D1"].component_type == "Diode"

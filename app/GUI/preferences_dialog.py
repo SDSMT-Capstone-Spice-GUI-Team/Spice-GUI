@@ -1,21 +1,10 @@
 """Unified Preferences dialog for application settings."""
 
 from PyQt6.QtCore import QSettings
-from PyQt6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QFileDialog,
-    QFormLayout,
-    QHBoxLayout,
-    QLabel,
-    QMessageBox,
-    QPushButton,
-    QSpinBox,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDialog, QFileDialog,
+                             QFormLayout, QHBoxLayout, QLabel, QMessageBox,
+                             QPushButton, QSpinBox, QTabWidget, QVBoxLayout,
+                             QWidget)
 
 from .styles import CustomTheme, theme_manager, theme_store
 
@@ -148,7 +137,11 @@ class PreferencesDialog(QDialog):
     def _update_theme_buttons(self):
         """Enable/disable Edit and Delete based on current selection."""
         idx = self.theme_combo.currentIndex()
-        is_custom = idx >= 0 and idx < len(self._theme_keys) and self._theme_keys[idx].startswith("custom:")
+        is_custom = (
+            idx >= 0
+            and idx < len(self._theme_keys)
+            and self._theme_keys[idx].startswith("custom:")
+        )
         self.edit_theme_btn.setEnabled(is_custom)
         self.delete_theme_btn.setEnabled(is_custom)
 
@@ -177,7 +170,9 @@ class PreferencesDialog(QDialog):
     def _build_keybindings_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.addWidget(QLabel("Keyboard shortcuts can be customized in the keybindings editor."))
+        layout.addWidget(
+            QLabel("Keyboard shortcuts can be customized in the keybindings editor.")
+        )
         self.keybindings_btn = QPushButton("Open Keybindings Editor...")
         self.keybindings_btn.clicked.connect(self._open_keybindings)
         layout.addWidget(self.keybindings_btn)
@@ -305,7 +300,9 @@ class PreferencesDialog(QDialog):
     def _on_import_theme(self):
         from pathlib import Path
 
-        path, _ = QFileDialog.getOpenFileName(self, "Import Theme", "", "Theme Files (*.json);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import Theme", "", "Theme Files (*.json);;All Files (*)"
+        )
         if not path:
             return
         theme = theme_store.import_theme(Path(path))
@@ -318,18 +315,24 @@ class PreferencesDialog(QDialog):
             if hasattr(self.main_window, "_refresh_theme_menu"):
                 self.main_window._refresh_theme_menu()
         else:
-            QMessageBox.warning(self, "Import Failed", "Could not import the theme file.")
+            QMessageBox.warning(
+                self, "Import Failed", "Could not import the theme file."
+            )
 
     def _on_export_theme(self):
         from pathlib import Path
 
         current = theme_manager.current_theme
         if not isinstance(current, CustomTheme):
-            QMessageBox.information(self, "Export Theme", "Only custom themes can be exported.")
+            QMessageBox.information(
+                self, "Export Theme", "Only custom themes can be exported."
+            )
             return
 
         default_name = theme_store._filename_safe(current.name) + ".json"
-        path, _ = QFileDialog.getSaveFileName(self, "Export Theme", default_name, "Theme Files (*.json);;All Files (*)")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Theme", default_name, "Theme Files (*.json);;All Files (*)"
+        )
         if not path:
             return
         theme_store.export_theme(current, Path(path))

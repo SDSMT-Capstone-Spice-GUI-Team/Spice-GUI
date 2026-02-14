@@ -2,21 +2,10 @@
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
-from PyQt6.QtWidgets import (
-    QColorDialog,
-    QComboBox,
-    QDialog,
-    QFormLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPushButton,
-    QScrollArea,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QColorDialog, QComboBox, QDialog, QFormLayout,
+                             QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+                             QMessageBox, QPushButton, QScrollArea,
+                             QVBoxLayout, QWidget)
 
 from .styles import CustomTheme, DarkTheme, LightTheme, theme_manager
 
@@ -85,7 +74,11 @@ class ThemeEditorDialog(QDialog):
             self._initial_name = edit_theme.name
             self._initial_base = edit_theme.base_name
             self._initial_is_dark = edit_theme.is_dark
-            self._colors = dict((DarkTheme() if edit_theme.base_name == "dark" else LightTheme())._colors)
+            self._colors = dict(
+                (
+                    DarkTheme() if edit_theme.base_name == "dark" else LightTheme()
+                )._colors
+            )
             self._colors.update(edit_theme.get_color_overrides())
         else:
             self._initial_name = ""
@@ -165,7 +158,9 @@ class ThemeEditorDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def _update_swatch(self, btn, hex_color):
-        btn.setStyleSheet(f"background-color: {hex_color}; border: 1px solid #888; border-radius: 3px;")
+        btn.setStyleSheet(
+            f"background-color: {hex_color}; border: 1px solid #888; border-radius: 3px;"
+        )
 
     def _pick_color(self, key):
         current = QColor(self._colors.get(key, "#FF00FF"))
@@ -200,15 +195,21 @@ class ThemeEditorDialog(QDialog):
 
         # Compute overrides relative to base
         base_theme = DarkTheme() if is_dark else LightTheme()
-        overrides = {k: v for k, v in self._colors.items() if v != base_theme._colors.get(k)}
+        overrides = {
+            k: v for k, v in self._colors.items() if v != base_theme._colors.get(k)
+        }
 
-        preview = CustomTheme(name=name, base=base, colors=overrides, theme_is_dark=is_dark)
+        preview = CustomTheme(
+            name=name, base=base, colors=overrides, theme_is_dark=is_dark
+        )
         theme_manager.set_theme(preview)
 
     def _on_ok(self):
         name = self.name_edit.text().strip()
         if not name:
-            QMessageBox.warning(self, "Name Required", "Please enter a name for the theme.")
+            QMessageBox.warning(
+                self, "Name Required", "Please enter a name for the theme."
+            )
             return
 
         base = self.base_combo.currentData()
@@ -216,9 +217,13 @@ class ThemeEditorDialog(QDialog):
 
         # Compute overrides relative to base
         base_theme = DarkTheme() if is_dark else LightTheme()
-        overrides = {k: v for k, v in self._colors.items() if v != base_theme._colors.get(k)}
+        overrides = {
+            k: v for k, v in self._colors.items() if v != base_theme._colors.get(k)
+        }
 
-        self._result_theme = CustomTheme(name=name, base=base, colors=overrides, theme_is_dark=is_dark)
+        self._result_theme = CustomTheme(
+            name=name, base=base, colors=overrides, theme_is_dark=is_dark
+        )
         theme_manager.set_theme(self._result_theme)
         self.accept()
 

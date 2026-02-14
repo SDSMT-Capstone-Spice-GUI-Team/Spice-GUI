@@ -66,7 +66,9 @@ class ResultParser:
 
             for i, line in enumerate(lines):
                 # Pattern 1: v(nodename) = voltage
-                match = re.search(r"v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE)
+                match = re.search(
+                    r"v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE
+                )
                 if match:
                     node_name = match.group(1)
                     voltage = float(match.group(2))
@@ -75,7 +77,9 @@ class ResultParser:
 
                 # Branch current patterns: i(device) = current or @device[current]
                 i_match = re.search(
-                    r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE
+                    r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)",
+                    line,
+                    re.IGNORECASE,
                 )
                 if i_match:
                     device = i_match.group(1) or i_match.group(2)
@@ -89,7 +93,9 @@ class ResultParser:
                         result_line = lines[j].strip()
                         if not result_line or result_line.startswith("-"):
                             continue
-                        if result_line.startswith("*") or result_line.lower().startswith("source"):
+                        if result_line.startswith(
+                            "*"
+                        ) or result_line.lower().startswith("source"):
                             break
 
                         parts = result_line.split()
@@ -104,14 +110,18 @@ class ResultParser:
             # Pattern 3: ngspice print output format
             for line in lines:
                 # Voltages: " V(5)   1.000000e-06 "
-                match = re.match(r"^\s*V\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
+                match = re.match(
+                    r"^\s*V\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE
+                )
                 if match:
                     node_name = match.group(1)
                     voltage = float(match.group(2))
                     node_voltages[node_name] = voltage
                     continue
                 # Currents: " I(v1)   -2.100000e-03 "
-                i_match = re.match(r"^\s*I\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
+                i_match = re.match(
+                    r"^\s*I\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE
+                )
                 if i_match:
                     device = i_match.group(1)
                     current = float(i_match.group(2))
@@ -137,7 +147,9 @@ class ResultParser:
 
             for i, line in enumerate(lines):
                 # Look for table headers
-                if "index" in line.lower() or ("sweep" in line.lower() and "v(" in line.lower()):
+                if "index" in line.lower() or (
+                    "sweep" in line.lower() and "v(" in line.lower()
+                ):
                     headers = line.split()
                     header_found = True
                     sweep_data["headers"] = headers
@@ -185,7 +197,9 @@ class ResultParser:
                     parts = line.strip().split()
                     if len(parts) >= 2:
                         try:
-                            freq = float(parts[1]) if len(parts) > 1 else float(parts[0])
+                            freq = (
+                                float(parts[1]) if len(parts) > 1 else float(parts[0])
+                            )
                             ac_data["frequencies"].append(freq)
 
                             # Parse voltage magnitudes and phases
@@ -193,7 +207,9 @@ class ResultParser:
                                 if j < len(parts):
                                     if "vp(" in header.lower():
                                         # Phase data
-                                        node = header.replace("vp(", "").replace(")", "")
+                                        node = header.replace("vp(", "").replace(
+                                            ")", ""
+                                        )
                                         if node not in ac_data["phase"]:
                                             ac_data["phase"][node] = []
                                         ac_data["phase"][node].append(float(parts[j]))
@@ -202,7 +218,9 @@ class ResultParser:
                                         node = header.replace("v(", "").replace(")", "")
                                         if node not in ac_data["magnitude"]:
                                             ac_data["magnitude"][node] = []
-                                        ac_data["magnitude"][node].append(float(parts[j]))
+                                        ac_data["magnitude"][node].append(
+                                            float(parts[j])
+                                        )
                         except (ValueError, IndexError):
                             continue
 
@@ -222,13 +240,19 @@ class ResultParser:
         """
         try:
             lines = output.split("\n")
-            noise_data = {"frequencies": [], "onoise_spectrum": [], "inoise_spectrum": []}
+            noise_data = {
+                "frequencies": [],
+                "onoise_spectrum": [],
+                "inoise_spectrum": [],
+            }
 
             header_found = False
             headers = []
 
             for line in lines:
-                if "frequency" in line.lower() and ("onoise" in line.lower() or "inoise" in line.lower()):
+                if "frequency" in line.lower() and (
+                    "onoise" in line.lower() or "inoise" in line.lower()
+                ):
                     headers = line.split()
                     header_found = True
                     continue
@@ -238,16 +262,22 @@ class ResultParser:
                     if len(parts) >= 2:
                         try:
                             # Index column + frequency + noise values
-                            freq = float(parts[1]) if len(parts) > 2 else float(parts[0])
+                            freq = (
+                                float(parts[1]) if len(parts) > 2 else float(parts[0])
+                            )
                             noise_data["frequencies"].append(freq)
 
                             for j, header in enumerate(headers):
                                 if j < len(parts):
                                     h_lower = header.lower()
                                     if "onoise" in h_lower:
-                                        noise_data["onoise_spectrum"].append(float(parts[j]))
+                                        noise_data["onoise_spectrum"].append(
+                                            float(parts[j])
+                                        )
                                     elif "inoise" in h_lower:
-                                        noise_data["inoise_spectrum"].append(float(parts[j]))
+                                        noise_data["inoise_spectrum"].append(
+                                            float(parts[j])
+                                        )
                         except (ValueError, IndexError):
                             continue
 
@@ -282,7 +312,11 @@ class ResultParser:
 
                 if in_header_zone and not in_data:
                     # Skip header lines (element/name/units) and blanks
-                    if not stripped or "element" in stripped.lower() or "name" in stripped.lower():
+                    if (
+                        not stripped
+                        or "element" in stripped.lower()
+                        or "name" in stripped.lower()
+                    ):
                         continue
                     if "volts/" in stripped.lower() or "amps/" in stripped.lower():
                         continue
@@ -455,7 +489,9 @@ class ResultParser:
             for h in raw_headers:
                 # Sanitize headers: v(node) -> node, i(branch) -> i_branch
                 sanitized_h = re.sub(r"^v\((.*?)\)$", r"\1", h, flags=re.IGNORECASE)
-                sanitized_h = re.sub(r"^i\((.*?)\)$", r"i_\1", sanitized_h, flags=re.IGNORECASE)
+                sanitized_h = re.sub(
+                    r"^i\((.*?)\)$", r"i_\1", sanitized_h, flags=re.IGNORECASE
+                )
                 headers.append(sanitized_h)
 
             results = []
@@ -464,7 +500,9 @@ class ResultParser:
                 parts = line.strip().split()
                 if len(parts) == len(headers):
                     try:
-                        row_data = {headers[i]: float(parts[i]) for i in range(len(parts))}
+                        row_data = {
+                            headers[i]: float(parts[i]) for i in range(len(parts))
+                        }
                         results.append(row_data)
                     except (ValueError, IndexError):
                         continue
@@ -538,7 +576,9 @@ class ResultParser:
         results = {}
         for line in stdout.split("\n"):
             # Match: "  rise_time  =  1.23456e-06"
-            match = re.match(r"^\s*(\w+)\s*=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)\s*$", line, re.IGNORECASE)
+            match = re.match(
+                r"^\s*(\w+)\s*=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)\s*$", line, re.IGNORECASE
+            )
             if match:
                 name = match.group(1)
                 value = float(match.group(2))

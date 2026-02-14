@@ -1,7 +1,8 @@
 """Dialog for entering template metadata when saving as assignment template."""
 
 from models.template import TemplateMetadata
-from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QPlainTextEdit, QVBoxLayout
+from PyQt6.QtWidgets import (QDialog, QDialogButtonBox, QFormLayout, QLineEdit,
+                             QPlainTextEdit, QVBoxLayout)
 
 
 class TemplateMetadataDialog(QDialog):
@@ -35,17 +36,23 @@ class TemplateMetadataDialog(QDialog):
         form.addRow("Description:", self.description_edit)
 
         self.tags_edit = QLineEdit()
-        self.tags_edit.setPlaceholderText("Comma-separated tags, e.g., filters, AC, lab-3")
+        self.tags_edit.setPlaceholderText(
+            "Comma-separated tags, e.g., filters, AC, lab-3"
+        )
         form.addRow("Tags:", self.tags_edit)
 
         layout.addLayout(form)
 
         self.instructions_edit = QPlainTextEdit()
-        self.instructions_edit.setPlaceholderText("Assignment instructions for students...")
+        self.instructions_edit.setPlaceholderText(
+            "Assignment instructions for students..."
+        )
         self.instructions_edit.setMaximumHeight(120)
         layout.addWidget(self.instructions_edit)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -62,7 +69,9 @@ class TemplateMetadataDialog(QDialog):
         from datetime import date
 
         tags_text = self.tags_edit.text().strip()
-        tags = [t.strip() for t in tags_text.split(",") if t.strip()] if tags_text else []
+        tags = (
+            [t.strip() for t in tags_text.split(",") if t.strip()] if tags_text else []
+        )
 
         return TemplateMetadata(
             title=self.title_edit.text().strip(),

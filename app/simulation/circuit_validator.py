@@ -78,11 +78,19 @@ def validate_circuit(components, wires, analysis_type):
             )
 
     # 5. Analysis-specific checks
-    voltage_sources = [c for c in components.values() if c.component_type in ("Voltage Source", "Waveform Source")]
-    current_sources = [c for c in components.values() if c.component_type == "Current Source"]
+    voltage_sources = [
+        c
+        for c in components.values()
+        if c.component_type in ("Voltage Source", "Waveform Source")
+    ]
+    current_sources = [
+        c for c in components.values() if c.component_type == "Current Source"
+    ]
 
     if analysis_type == "DC Sweep":
-        dc_sources = [c for c in components.values() if c.component_type == "Voltage Source"]
+        dc_sources = [
+            c for c in components.values() if c.component_type == "Voltage Source"
+        ]
         if not dc_sources:
             errors.append(
                 "DC Sweep analysis requires a Voltage Source to sweep. "

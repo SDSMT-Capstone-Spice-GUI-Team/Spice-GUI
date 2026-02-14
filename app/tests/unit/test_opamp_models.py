@@ -201,7 +201,10 @@ class TestOpampPropertiesPanel:
 
         panel = PropertiesPanel()
         qtbot.addWidget(panel)
-        items = [panel.opamp_model_combo.itemText(i) for i in range(panel.opamp_model_combo.count())]
+        items = [
+            panel.opamp_model_combo.itemText(i)
+            for i in range(panel.opamp_model_combo.count())
+        ]
         for model in OPAMP_MODELS:
             assert model in items
 

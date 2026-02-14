@@ -55,7 +55,9 @@ class TestGroundNode:
 class TestAnalysisCommands:
     def test_op_analysis(self, simple_resistor_circuit):
         components, wires, nodes, t2n = simple_resistor_circuit
-        netlist = _generate(components, wires, nodes, t2n, analysis_type="DC Operating Point")
+        netlist = _generate(
+            components, wires, nodes, t2n, analysis_type="DC Operating Point"
+        )
         assert ".op" in netlist
 
     def test_dc_sweep(self, simple_resistor_circuit):

@@ -110,7 +110,9 @@ OPAMP_MODELS = ["Ideal", "LM741", "TL081", "LM358"]
 # SPICE subcircuit definitions for each op-amp model.
 # Keys match OPAMP_MODELS entries; "Ideal" is the built-in high-gain model.
 OPAMP_SUBCIRCUITS = {
-    "Ideal": (".subckt OPAMP_IDEAL inp inn out\nE_amp out 0 inp inn 1e6\nR_out out 0 1e-3\n.ends"),
+    "Ideal": (
+        ".subckt OPAMP_IDEAL inp inn out\nE_amp out 0 inp inn 1e6\nR_out out 0 1e-3\n.ends"
+    ),
     "LM741": (
         ".subckt LM741 inp inn out\n"
         "* Simplified LM741 behavioral model\n"
@@ -263,6 +265,9 @@ class ComponentData:
 
     # Initial condition (Capacitor: voltage, Inductor: current). None = use default.
     initial_condition: Optional[str] = None
+
+    # Locked flag (template use only - prevents student modifications)
+    locked: bool = False
 
     def __post_init__(self):
         """Initialize waveform parameters for waveform sources."""
@@ -423,6 +428,10 @@ class ComponentData:
         if self.initial_condition:
             data["initial_condition"] = self.initial_condition
 
+        # Add locked flag (only if True to minimize file size)
+        if self.locked:
+            data["locked"] = True
+
         return data
 
     @classmethod
@@ -456,6 +465,9 @@ class ComponentData:
         # Load initial condition if present
         if "initial_condition" in data:
             component.initial_condition = data["initial_condition"]
+
+        # Load locked flag if present
+        component.locked = data.get("locked", False)
 
         return component
 

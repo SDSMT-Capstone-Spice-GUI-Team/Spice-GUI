@@ -115,7 +115,11 @@ class KeybindingsRegistry:
             if key not in shortcut_to_actions:
                 shortcut_to_actions[key] = []
             shortcut_to_actions[key].append(action)
-        return [(s, actions) for s, actions in shortcut_to_actions.items() if len(actions) > 1]
+        return [
+            (s, actions)
+            for s, actions in shortcut_to_actions.items()
+            if len(actions) > 1
+        ]
 
     def reset_defaults(self):
         """Reset all bindings to defaults."""

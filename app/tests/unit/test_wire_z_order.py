@@ -13,7 +13,9 @@ def _make_mock_component(comp_id, terminal_pos=None):
     """Create a mock component with terminal positions."""
     comp = MagicMock()
     comp.component_id = comp_id
-    comp.get_terminal_pos = MagicMock(return_value=terminal_pos if terminal_pos else QPointF(0, 0))
+    comp.get_terminal_pos = MagicMock(
+        return_value=terminal_pos if terminal_pos else QPointF(0, 0)
+    )
     return comp
 
 
@@ -104,5 +106,7 @@ class TestWireZOrder:
             end_terminal=0,
         )
         components_dict = {"R1": start, "R2": end}
-        wire = WireGraphicsItem.from_dict(wire_data.to_dict(), components_dict, canvas=None)
+        wire = WireGraphicsItem.from_dict(
+            wire_data.to_dict(), components_dict, canvas=None
+        )
         assert wire.zValue() == 1

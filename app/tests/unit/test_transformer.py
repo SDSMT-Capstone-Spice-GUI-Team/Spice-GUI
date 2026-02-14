@@ -5,15 +5,9 @@ Covers model registration, netlist generation, and structural assertions.
 """
 
 import pytest
-from models.component import (
-    COMPONENT_COLORS,
-    COMPONENT_TYPES,
-    DEFAULT_VALUES,
-    SPICE_SYMBOLS,
-    TERMINAL_COUNTS,
-    TERMINAL_GEOMETRY,
-    ComponentData,
-)
+from models.component import (COMPONENT_COLORS, COMPONENT_TYPES,
+                              DEFAULT_VALUES, SPICE_SYMBOLS, TERMINAL_COUNTS,
+                              TERMINAL_GEOMETRY, ComponentData)
 from models.node import NodeData
 from models.wire import WireData
 from simulation.netlist_generator import NetlistGenerator

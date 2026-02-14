@@ -2,16 +2,9 @@ import logging
 
 from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QPainter, QPen
-from PyQt6.QtWidgets import (
-    QGraphicsLineItem,
-    QGraphicsScene,
-    QGraphicsTextItem,
-    QGraphicsView,
-    QInputDialog,
-    QLineEdit,
-    QMenu,
-    QRubberBand,
-)
+from PyQt6.QtWidgets import (QGraphicsLineItem, QGraphicsScene,
+                             QGraphicsTextItem, QGraphicsView, QInputDialog,
+                             QLineEdit, QMenu, QRubberBand)
 
 logger = logging.getLogger(__name__)
 from models.clipboard import ClipboardData
@@ -19,19 +12,10 @@ from models.clipboard import ClipboardData
 from .annotation_item import AnnotationItem
 from .circuit_node import Node
 from .component_item import ComponentGraphicsItem
-from .styles import (
-    COMPONENTS,
-    DEFAULT_COMPONENT_COUNTER,
-    GRID_EXTENT,
-    GRID_SIZE,
-    MAJOR_GRID_INTERVAL,
-    TERMINAL_CLICK_RADIUS,
-    ZOOM_FACTOR,
-    ZOOM_FIT_PADDING,
-    ZOOM_MAX,
-    ZOOM_MIN,
-    theme_manager,
-)
+from .styles import (COMPONENTS, DEFAULT_COMPONENT_COUNTER, GRID_EXTENT,
+                     GRID_SIZE, MAJOR_GRID_INTERVAL, TERMINAL_CLICK_RADIUS,
+                     ZOOM_FACTOR, ZOOM_FIT_PADDING, ZOOM_MAX, ZOOM_MIN,
+                     theme_manager)
 from .wire_item import WireGraphicsItem, WireItem
 
 
@@ -45,7 +29,9 @@ class CircuitCanvasView(QGraphicsView):
     componentRightClicked = pyqtSignal(object, object)  # component, global position
     canvasClicked = pyqtSignal()
     zoomChanged = pyqtSignal(float)  # current zoom level (1.0 = 100%)
-    probeRequested = pyqtSignal(str, str)  # (signal_name, probe_type: "node"|"component")
+    probeRequested = pyqtSignal(
+        str, str
+    )  # (signal_name, probe_type: "node"|"component")
 
     def __init__(self, controller=None):
         super().__init__()
@@ -62,7 +48,9 @@ class CircuitCanvasView(QGraphicsView):
 
         # Use MinimalViewportUpdate for better performance; dragging artifacts
         # are prevented by targeted update() calls in ComponentGraphicsItem.itemChange
-        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
+        self.setViewportUpdateMode(
+            QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate
+        )
 
         self.components = {}  # id -> ComponentGraphicsItem
         self.wires = []  # All wires (for backward compatibility)
@@ -378,7 +366,9 @@ class CircuitCanvasView(QGraphicsView):
             term_idx,
         ), node_data in self.controller.model.terminal_to_node.items():
             # Find corresponding Qt Node
-            qt_node = next((n for n in self.nodes if n.matches_node_data(node_data)), None)
+            qt_node = next(
+                (n for n in self.nodes if n.matches_node_data(node_data)), None
+            )
             if qt_node:
                 self.terminal_to_node[(comp_id, term_idx)] = qt_node
 
@@ -504,8 +494,14 @@ class CircuitCanvasView(QGraphicsView):
             if wire.start_comp == component or wire.end_comp == component:
                 # Skip if both endpoints are co-selected and the other has lower ID
                 # (that endpoint's reroute call will handle this wire)
-                other = wire.end_comp if wire.start_comp == component else wire.start_comp
-                if component.isSelected() and other.isSelected() and other.component_id < component.component_id:
+                other = (
+                    wire.end_comp if wire.start_comp == component else wire.start_comp
+                )
+                if (
+                    component.isSelected()
+                    and other.isSelected()
+                    and other.component_id < component.component_id
+                ):
                     continue
                 wire.update_position()
                 wire_count += 1
@@ -576,7 +572,9 @@ class CircuitCanvasView(QGraphicsView):
             grid_y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
 
             # Controller handles component creation, observer creates graphics item
-            component_data = self.controller.add_component(component_type, (grid_x, grid_y))
+            component_data = self.controller.add_component(
+                component_type, (grid_x, grid_y)
+            )
             self.componentAdded.emit(component_data.component_id)
 
             event.acceptProposedAction()
@@ -616,7 +614,10 @@ class CircuitCanvasView(QGraphicsView):
                 if main_window and hasattr(main_window, "statusBar"):
                     status = main_window.statusBar()
                     if status:
-                        status.showMessage("No simulation results available. Run a simulation first.", 3000)
+                        status.showMessage(
+                            "No simulation results available. Run a simulation first.",
+                            3000,
+                        )
             event.accept()
             return
 
@@ -631,7 +632,9 @@ class CircuitCanvasView(QGraphicsView):
             clicked_term_index = None
 
             for comp in self.components.values():
-                terminals = [comp.get_terminal_pos(i) for i in range(len(comp.terminals))]
+                terminals = [
+                    comp.get_terminal_pos(i) for i in range(len(comp.terminals))
+                ]
                 for i, term_pos in enumerate(terminals):
                     distance = (term_pos - scene_pos).manhattanLength()
                     if distance < TERMINAL_CLICK_RADIUS:
@@ -646,13 +649,17 @@ class CircuitCanvasView(QGraphicsView):
             if clicked_terminal and clicked_component:
                 if self.wire_start_comp is None:
                     # Start drawing wire
-                    if self.is_terminal_available(clicked_component, clicked_term_index):
+                    if self.is_terminal_available(
+                        clicked_component, clicked_term_index
+                    ):
                         self.wire_start_comp = clicked_component
                         self.wire_start_term = clicked_term_index
 
                     if self.wire_start_comp:
                         # Create temporary wire line for visual feedback
-                        start_pos = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+                        start_pos = self.wire_start_comp.get_terminal_pos(
+                            self.wire_start_term
+                        )
                         self.temp_wire_line = QGraphicsLineItem(
                             start_pos.x(), start_pos.y(), start_pos.x(), start_pos.y()
                         )
@@ -670,7 +677,9 @@ class CircuitCanvasView(QGraphicsView):
                         can_connect = False
                         target_term = 0
 
-                        if self.is_terminal_available(clicked_component, clicked_term_index):
+                        if self.is_terminal_available(
+                            clicked_component, clicked_term_index
+                        ):
                             can_connect = True
                             target_term = clicked_term_index
 
@@ -725,8 +734,12 @@ class CircuitCanvasView(QGraphicsView):
                         self.scene.clearSelection()
                     self._rubber_band_origin = event.position().toPoint()
                     if self._rubber_band is None:
-                        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self)
-                    self._rubber_band.setGeometry(QRect(self._rubber_band_origin, self._rubber_band_origin))
+                        self._rubber_band = QRubberBand(
+                            QRubberBand.Shape.Rectangle, self
+                        )
+                    self._rubber_band.setGeometry(
+                        QRect(self._rubber_band_origin, self._rubber_band_origin)
+                    )
                     self._rubber_band.show()
                     event.accept()
                     return
@@ -744,14 +757,18 @@ class CircuitCanvasView(QGraphicsView):
             pos = event.position().toPoint()
             scene_pos = self.mapToScene(pos)
             start_pos = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
-            self.temp_wire_line.setLine(start_pos.x(), start_pos.y(), scene_pos.x(), scene_pos.y())
+            self.temp_wire_line.setLine(
+                start_pos.x(), start_pos.y(), scene_pos.x(), scene_pos.y()
+            )
             self.temp_wire_line.update()
             event.accept()
             return
 
         # Update rubber band rectangle
         if self._rubber_band is not None and self._rubber_band.isVisible():
-            self._rubber_band.setGeometry(QRect(self._rubber_band_origin, event.position().toPoint()).normalized())
+            self._rubber_band.setGeometry(
+                QRect(self._rubber_band_origin, event.position().toPoint()).normalized()
+            )
             event.accept()
             return
 
@@ -770,7 +787,9 @@ class CircuitCanvasView(QGraphicsView):
                 self.mapToScene(rb_rect.topLeft()),
                 self.mapToScene(rb_rect.bottomRight()),
             )
-            for item in self.scene.items(scene_rect, Qt.ItemSelectionMode.IntersectsItemShape):
+            for item in self.scene.items(
+                scene_rect, Qt.ItemSelectionMode.IntersectsItemShape
+            ):
                 if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem)):
                     item.setSelected(True)
             event.accept()
@@ -853,7 +872,11 @@ class CircuitCanvasView(QGraphicsView):
 
     def zoom_fit(self):
         """Fit all circuit components in view with padding."""
-        items = [item for item in self.scene.items() if isinstance(item, ComponentGraphicsItem)]
+        items = [
+            item
+            for item in self.scene.items()
+            if isinstance(item, ComponentGraphicsItem)
+        ]
         if not items:
             self.zoom_reset()
             return
@@ -864,7 +887,9 @@ class CircuitCanvasView(QGraphicsView):
             rect = rect.united(item.sceneBoundingRect())
 
         # Add padding
-        rect.adjust(-ZOOM_FIT_PADDING, -ZOOM_FIT_PADDING, ZOOM_FIT_PADDING, ZOOM_FIT_PADDING)
+        rect.adjust(
+            -ZOOM_FIT_PADDING, -ZOOM_FIT_PADDING, ZOOM_FIT_PADDING, ZOOM_FIT_PADDING
+        )
 
         self.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
 
@@ -919,11 +944,15 @@ class CircuitCanvasView(QGraphicsView):
             menu.addSeparator()
 
             rotate_cw_action = QAction("Rotate Clockwise (R)", self)
-            rotate_cw_action.triggered.connect(lambda: self.rotate_component(item, True))
+            rotate_cw_action.triggered.connect(
+                lambda: self.rotate_component(item, True)
+            )
             menu.addAction(rotate_cw_action)
 
             rotate_ccw_action = QAction("Rotate Counter-Clockwise (Shift+R)", self)
-            rotate_ccw_action.triggered.connect(lambda: self.rotate_component(item, False))
+            rotate_ccw_action.triggered.connect(
+                lambda: self.rotate_component(item, False)
+            )
             menu.addAction(rotate_ccw_action)
 
             menu.addSeparator()
@@ -970,20 +999,30 @@ class CircuitCanvasView(QGraphicsView):
             # No specific item, offer to delete all selected
             selected_items = self.scene.selectedItems()
             if selected_items:
-                delete_action = QAction(f"Delete Selected ({len(selected_items)} items)", self)
+                delete_action = QAction(
+                    f"Delete Selected ({len(selected_items)} items)", self
+                )
                 delete_action.triggered.connect(self.delete_selected)
                 menu.addAction(delete_action)
 
                 # Check if any components are selected
-                selected_components = [i for i in selected_items if isinstance(i, ComponentGraphicsItem)]
+                selected_components = [
+                    i for i in selected_items if isinstance(i, ComponentGraphicsItem)
+                ]
                 if selected_components:
                     menu.addSeparator()
                     rotate_cw_action = QAction("Rotate Selected Clockwise", self)
-                    rotate_cw_action.triggered.connect(lambda: self.rotate_selected(True))
+                    rotate_cw_action.triggered.connect(
+                        lambda: self.rotate_selected(True)
+                    )
                     menu.addAction(rotate_cw_action)
 
-                    rotate_ccw_action = QAction("Rotate Selected Counter-Clockwise", self)
-                    rotate_ccw_action.triggered.connect(lambda: self.rotate_selected(False))
+                    rotate_ccw_action = QAction(
+                        "Rotate Selected Counter-Clockwise", self
+                    )
+                    rotate_ccw_action.triggered.connect(
+                        lambda: self.rotate_selected(False)
+                    )
                     menu.addAction(rotate_ccw_action)
 
                     flip_h_action = QAction("Flip Selected Horizontal", self)
@@ -1000,14 +1039,22 @@ class CircuitCanvasView(QGraphicsView):
                         f"Copy ({len(selected_components)} component{'s' if len(selected_components) != 1 else ''})",
                         self,
                     )
-                    copy_action.triggered.connect(lambda checked=False, ids=sel_ids: self.copy_selected_components(ids))
+                    copy_action.triggered.connect(
+                        lambda checked=False, ids=sel_ids: self.copy_selected_components(
+                            ids
+                        )
+                    )
                     menu.addAction(copy_action)
 
                     cut_action = QAction(
                         f"Cut ({len(selected_components)} component{'s' if len(selected_components) != 1 else ''})",
                         self,
                     )
-                    cut_action.triggered.connect(lambda checked=False, ids=sel_ids: self.cut_selected_components(ids))
+                    cut_action.triggered.connect(
+                        lambda checked=False, ids=sel_ids: self.cut_selected_components(
+                            ids
+                        )
+                    )
                     menu.addAction(cut_action)
 
         if not self._clipboard.is_empty():
@@ -1030,9 +1077,15 @@ class CircuitCanvasView(QGraphicsView):
         if not selected_items:
             return
 
-        components_to_delete = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
-        wires_to_delete = [item for item in selected_items if isinstance(item, WireItem)]
-        annotations_to_delete = [item for item in selected_items if isinstance(item, AnnotationItem)]
+        components_to_delete = [
+            item for item in selected_items if isinstance(item, ComponentGraphicsItem)
+        ]
+        wires_to_delete = [
+            item for item in selected_items if isinstance(item, WireItem)
+        ]
+        annotations_to_delete = [
+            item for item in selected_items if isinstance(item, AnnotationItem)
+        ]
 
         for comp in components_to_delete:
             self.delete_component(comp)
@@ -1087,7 +1140,9 @@ class CircuitCanvasView(QGraphicsView):
     def rotate_selected(self, clockwise=True):
         """Rotate all selected components"""
         selected_items = self.scene.selectedItems()
-        components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
+        components = [
+            item for item in selected_items if isinstance(item, ComponentGraphicsItem)
+        ]
 
         for comp in components:
             self.rotate_component(comp, clockwise)
@@ -1105,7 +1160,9 @@ class CircuitCanvasView(QGraphicsView):
     def flip_selected(self, horizontal=True):
         """Flip all selected components"""
         selected_items = self.scene.selectedItems()
-        components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
+        components = [
+            item for item in selected_items if isinstance(item, ComponentGraphicsItem)
+        ]
 
         for comp in components:
             self.flip_component(comp, horizontal)
@@ -1170,7 +1227,9 @@ class CircuitCanvasView(QGraphicsView):
     def on_selection_changed(self):
         """Handle selection changes in the scene"""
         selected_items = self.scene.selectedItems()
-        components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
+        components = [
+            item for item in selected_items if isinstance(item, ComponentGraphicsItem)
+        ]
 
         if len(components) > 1:
             # Multi-selection: emit the list
@@ -1184,7 +1243,11 @@ class CircuitCanvasView(QGraphicsView):
 
     def get_selected_component_ids(self) -> list[str]:
         """Return component IDs for all selected ComponentItems."""
-        return [item.component_id for item in self.scene.selectedItems() if isinstance(item, ComponentGraphicsItem)]
+        return [
+            item.component_id
+            for item in self.scene.selectedItems()
+            if isinstance(item, ComponentGraphicsItem)
+        ]
 
     def copy_selected_components(self, component_ids: list[str]) -> bool:
         """Copy selected components and internal wires to internal clipboard."""
@@ -1204,7 +1267,10 @@ class CircuitCanvasView(QGraphicsView):
 
         wire_dicts = []
         for wire in self.wires:
-            if wire.start_comp.component_id in selected_set and wire.end_comp.component_id in selected_set:
+            if (
+                wire.start_comp.component_id in selected_set
+                and wire.end_comp.component_id in selected_set
+            ):
                 wire_dicts.append(wire.to_dict())
 
         self._clipboard = ClipboardData(
@@ -1325,7 +1391,9 @@ class CircuitCanvasView(QGraphicsView):
         if painter is None:
             return
 
-        show_op = self.show_op_annotations and self.show_node_voltages and self.node_voltages
+        show_op = (
+            self.show_op_annotations and self.show_node_voltages and self.node_voltages
+        )
         has_content = self.show_node_labels or show_op
 
         if not has_content:
@@ -1366,7 +1434,9 @@ class CircuitCanvasView(QGraphicsView):
                         from PyQt6.QtCore import QPointF
 
                         draw_pos = QPointF(pos.x(), pos.y() + offset_y)
-                        self._draw_label_box(painter, draw_pos, text, y_above=False, pen=op_pen)
+                        self._draw_label_box(
+                            painter, draw_pos, text, y_above=False, pen=op_pen
+                        )
 
             # Draw branch current annotations along components
             if self.branch_currents:
@@ -1384,8 +1454,12 @@ class CircuitCanvasView(QGraphicsView):
                         center = comp_item.mapToScene(comp_rect.center())
                         from PyQt6.QtCore import QPointF
 
-                        draw_pos = QPointF(center.x() + comp_rect.width() / 2 + 5, center.y())
-                        self._draw_label_box(painter, draw_pos, text, y_above=False, pen=cur_pen)
+                        draw_pos = QPointF(
+                            center.x() + comp_rect.width() / 2 + 5, center.y()
+                        )
+                        self._draw_label_box(
+                            painter, draw_pos, text, y_above=False, pen=cur_pen
+                        )
 
         # Draw probe annotations (always on top, visually distinct)
         if self.probe_results:
@@ -1400,11 +1474,15 @@ class CircuitCanvasView(QGraphicsView):
                 if probe["type"] == "node":
                     text = probe["voltage"]
                     painter.setPen(probe_v_pen)
-                    self._draw_label_box(painter, pos, text, y_above=False, pen=probe_v_pen)
+                    self._draw_label_box(
+                        painter, pos, text, y_above=False, pen=probe_v_pen
+                    )
                 elif probe["type"] == "component":
                     text = probe["text"]
                     painter.setPen(probe_v_pen)
-                    self._draw_label_box(painter, pos, text, y_above=False, pen=probe_v_pen)
+                    self._draw_label_box(
+                        painter, pos, text, y_above=False, pen=probe_v_pen
+                    )
 
     def _draw_label_box(self, painter, pos, text, y_above=True, pen=None):
         """Draw a text label with background box at the given position."""
@@ -1555,7 +1633,9 @@ class CircuitCanvasView(QGraphicsView):
             v_across = term_voltages[0][2] - term_voltages[1][2]
             lines.append(f"V: {format_si(v_across, 'V')}")
         elif len(term_voltages) == 1:
-            lines.append(f"V({term_voltages[0][1]}): {format_si(term_voltages[0][2], 'V')}")
+            lines.append(
+                f"V({term_voltages[0][1]}): {format_si(term_voltages[0][2], 'V')}"
+            )
 
         # Branch current
         if comp_ref in self.branch_currents:
@@ -1626,7 +1706,9 @@ class CircuitCanvasView(QGraphicsView):
             self.scene.update()
             viewPort = self.viewport()
             if viewPort is None:
-                logger.warning("Viewport is None, cannot update after node label change")
+                logger.warning(
+                    "Viewport is None, cannot update after node label change"
+                )
             else:
                 viewPort.update()
 
@@ -1673,7 +1755,9 @@ class CircuitCanvasView(QGraphicsView):
                 if main_window and hasattr(main_window, "statusBar"):
                     status = main_window.statusBar()
                     if status:
-                        status.showMessage("Wire already exists between these terminals", 3000)
+                        status.showMessage(
+                            "Wire already exists between these terminals", 3000
+                        )
                 return False
 
         return True
@@ -1714,7 +1798,10 @@ class CircuitCanvasView(QGraphicsView):
             self.terminal_to_node[start_terminal] = new_node
             self.terminal_to_node[end_terminal] = new_node
 
-            if wire.start_comp.component_type == "Ground" or wire.end_comp.component_type == "Ground":
+            if (
+                wire.start_comp.component_type == "Ground"
+                or wire.end_comp.component_type == "Ground"
+            ):
                 new_node.set_as_ground()
 
         elif start_node is None and end_node is not None:
@@ -1903,11 +1990,15 @@ class CircuitCanvasView(QGraphicsView):
             # Draw inset shape (blue - non-connected components)
             obstacle_inset_pen = theme_manager.pen("obstacle_inset")
             inset_pixels = 1.5 * GRID_SIZE
-            inset_points = transform_polygon(polygon_points, inset_distance=inset_pixels)
+            inset_points = transform_polygon(
+                polygon_points, inset_distance=inset_pixels
+            )
             for i in range(len(inset_points)):
                 p1 = inset_points[i]
                 p2 = inset_points[(i + 1) % len(inset_points)]
-                line = self.scene.addLine(p1[0], p1[1], p2[0], p2[1], obstacle_inset_pen)
+                line = self.scene.addLine(
+                    p1[0], p1[1], p2[0], p2[1], obstacle_inset_pen
+                )
                 line.setZValue(50)
                 self.obstacle_boundary_items.append(line)
 
@@ -1982,7 +2073,9 @@ class CircuitCanvasView(QGraphicsView):
         terminal_legend_circle.setZValue(1000)
         self.obstacle_boundary_items.append(terminal_legend_circle)
 
-        terminal_legend_text = self.scene.addText("Terminals (Active=Clear, Inactive=Obstacle)")
+        terminal_legend_text = self.scene.addText(
+            "Terminals (Active=Clear, Inactive=Obstacle)"
+        )
         terminal_legend_text.setPos(legend_x + 35, legend_y + 45)
         terminal_legend_text.setDefaultTextColor(terminal_color)
         terminal_legend_text.setZValue(1000)
@@ -1992,7 +2085,9 @@ class CircuitCanvasView(QGraphicsView):
         """Return dict of component_id -> ComponentData for simulation use."""
         for comp_item in self.components.values():
             comp_item.model.position = (comp_item.pos().x(), comp_item.pos().y())
-        return {comp_id: comp_item.model for comp_id, comp_item in self.components.items()}
+        return {
+            comp_id: comp_item.model for comp_id, comp_item in self.components.items()
+        }
 
     def get_model_wires(self):
         """Return list of WireData for simulation use."""
@@ -2054,7 +2149,9 @@ class CircuitCanvasView(QGraphicsView):
             rect = circuit_items[0].sceneBoundingRect()
             for item in circuit_items[1:]:
                 rect = rect.united(item.sceneBoundingRect())
-            rect.adjust(-ZOOM_FIT_PADDING, -ZOOM_FIT_PADDING, ZOOM_FIT_PADDING, ZOOM_FIT_PADDING)
+            rect.adjust(
+                -ZOOM_FIT_PADDING, -ZOOM_FIT_PADDING, ZOOM_FIT_PADDING, ZOOM_FIT_PADDING
+            )
         else:
             rect = self.scene.sceneRect()
 
@@ -2135,22 +2232,36 @@ class CircuitCanvasView(QGraphicsView):
         for i, comp in enumerate(data["components"]):
             for key in ("id", "type", "value", "pos"):
                 if key not in comp:
-                    raise ValueError(f"Component #{i + 1} is missing required field '{key}'.")
+                    raise ValueError(
+                        f"Component #{i + 1} is missing required field '{key}'."
+                    )
             pos = comp["pos"]
             if not isinstance(pos, dict) or "x" not in pos or "y" not in pos:
-                raise ValueError(f"Component '{comp.get('id', i)}' has invalid position data.")
-            if not isinstance(pos["x"], (int, float)) or not isinstance(pos["y"], (int, float)):
-                raise ValueError(f"Component '{comp['id']}' position values must be numeric.")
+                raise ValueError(
+                    f"Component '{comp.get('id', i)}' has invalid position data."
+                )
+            if not isinstance(pos["x"], (int, float)) or not isinstance(
+                pos["y"], (int, float)
+            ):
+                raise ValueError(
+                    f"Component '{comp['id']}' position values must be numeric."
+                )
             comp_ids.add(comp["id"])
 
         for i, wire in enumerate(data["wires"]):
             for key in ("start_comp", "end_comp", "start_term", "end_term"):
                 if key not in wire:
-                    raise ValueError(f"Wire #{i + 1} is missing required field '{key}'.")
+                    raise ValueError(
+                        f"Wire #{i + 1} is missing required field '{key}'."
+                    )
             if wire["start_comp"] not in comp_ids:
-                raise ValueError(f"Wire #{i + 1} references unknown component '{wire['start_comp']}'.")
+                raise ValueError(
+                    f"Wire #{i + 1} references unknown component '{wire['start_comp']}'."
+                )
             if wire["end_comp"] not in comp_ids:
-                raise ValueError(f"Wire #{i + 1} references unknown component '{wire['end_comp']}'.")
+                raise ValueError(
+                    f"Wire #{i + 1} references unknown component '{wire['end_comp']}'."
+                )
 
     def from_dict(self, data):
         """Deserialize circuit from dictionary"""

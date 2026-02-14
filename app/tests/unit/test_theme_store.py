@@ -4,15 +4,9 @@ import json
 
 import pytest
 from GUI.styles.custom_theme import CustomTheme
-from GUI.styles.theme_store import (
-    _filename_safe,
-    delete_theme,
-    export_theme,
-    import_theme,
-    list_custom_themes,
-    load_theme,
-    save_theme,
-)
+from GUI.styles.theme_store import (_filename_safe, delete_theme, export_theme,
+                                    import_theme, list_custom_themes,
+                                    load_theme, save_theme)
 
 
 class TestFilenameSafe:
@@ -35,7 +29,9 @@ class TestSaveLoadRoundTrip:
     """Verify save + load round-trip."""
 
     def test_round_trip(self, tmp_path):
-        theme = CustomTheme("Ocean Blue", "dark", {"background_primary": "#0A1628"}, theme_is_dark=True)
+        theme = CustomTheme(
+            "Ocean Blue", "dark", {"background_primary": "#0A1628"}, theme_is_dark=True
+        )
         stem = save_theme(theme, themes_dir=tmp_path)
         assert stem == "ocean-blue"
         assert (tmp_path / "ocean-blue.json").exists()
@@ -82,7 +78,9 @@ class TestExportImport:
     """Verify export + import round-trip."""
 
     def test_export_import(self, tmp_path):
-        theme = CustomTheme("Portable", "light", {"grid_minor": "#AAAAAA"}, theme_is_dark=False)
+        theme = CustomTheme(
+            "Portable", "light", {"grid_minor": "#AAAAAA"}, theme_is_dark=False
+        )
         export_path = tmp_path / "exported.json"
         export_theme(theme, export_path)
         assert export_path.exists()

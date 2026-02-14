@@ -6,15 +6,9 @@ All models use only Python standard library types (no PyQt6 dependencies).
 """
 
 from .circuit import CircuitModel
-from .component import (
-    COMPONENT_COLORS,
-    COMPONENT_TYPES,
-    DEFAULT_VALUES,
-    SPICE_SYMBOLS,
-    TERMINAL_COUNTS,
-    TERMINAL_GEOMETRY,
-    ComponentData,
-)
+from .component import (COMPONENT_COLORS, COMPONENT_TYPES, DEFAULT_VALUES,
+                        SPICE_SYMBOLS, TERMINAL_COUNTS, TERMINAL_GEOMETRY,
+                        ComponentData)
 from .node import NodeData
 from .wire import WireData
 

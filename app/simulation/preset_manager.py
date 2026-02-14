@@ -98,7 +98,9 @@ class PresetManager:
             return [p for p in all_presets if p["analysis_type"] == analysis_type]
         return list(all_presets)
 
-    def get_preset_by_name(self, name: str, analysis_type: Optional[str] = None) -> Optional[dict]:
+    def get_preset_by_name(
+        self, name: str, analysis_type: Optional[str] = None
+    ) -> Optional[dict]:
         """Look up a preset by name (and optionally analysis type)."""
         for p in self.get_presets(analysis_type):
             if p["name"] == name:
@@ -114,7 +116,9 @@ class PresetManager:
 
         # Remove existing user preset with same name+type
         self._user_presets = [
-            p for p in self._user_presets if not (p["name"] == name and p["analysis_type"] == analysis_type)
+            p
+            for p in self._user_presets
+            if not (p["name"] == name and p["analysis_type"] == analysis_type)
         ]
 
         preset = {
@@ -129,14 +133,19 @@ class PresetManager:
     def delete_preset(self, name: str, analysis_type: Optional[str] = None) -> bool:
         """Delete a user preset. Returns True if deleted, False if not found or built-in."""
         for bp in BUILTIN_PRESETS:
-            if bp["name"] == name and (analysis_type is None or bp["analysis_type"] == analysis_type):
+            if bp["name"] == name and (
+                analysis_type is None or bp["analysis_type"] == analysis_type
+            ):
                 return False  # Can't delete built-in
 
         before = len(self._user_presets)
         self._user_presets = [
             p
             for p in self._user_presets
-            if not (p["name"] == name and (analysis_type is None or p["analysis_type"] == analysis_type))
+            if not (
+                p["name"] == name
+                and (analysis_type is None or p["analysis_type"] == analysis_type)
+            )
         ]
         if len(self._user_presets) < before:
             self._save()

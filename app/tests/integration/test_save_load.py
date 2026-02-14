@@ -7,7 +7,8 @@ Tests ComponentData and WireData without any Qt dependencies.
 import json
 
 import pytest
-from models.component import _CLASS_TO_DISPLAY, _DISPLAY_TO_CLASS, COMPONENT_TYPES, DEFAULT_VALUES, ComponentData
+from models.component import (_CLASS_TO_DISPLAY, _DISPLAY_TO_CLASS,
+                              COMPONENT_TYPES, DEFAULT_VALUES, ComponentData)
 from models.wire import WireData
 from tests.conftest import make_component, make_wire
 

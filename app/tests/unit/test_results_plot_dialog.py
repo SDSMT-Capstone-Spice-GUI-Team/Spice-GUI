@@ -6,7 +6,8 @@ import os
 from unittest.mock import patch
 
 import pytest
-from GUI.results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog, save_plot
+from GUI.results_plot_dialog import (ACSweepPlotDialog, DCSweepPlotDialog,
+                                     save_plot)
 from matplotlib.figure import Figure
 
 # ---------------------------------------------------------------------------
@@ -209,7 +210,10 @@ class TestSavePlot:
         ax.set_title("Test")
 
         out = tmp_path / "plot.png"
-        with patch("GUI.results_plot_dialog.QFileDialog.getSaveFileName", return_value=(str(out), "")):
+        with patch(
+            "GUI.results_plot_dialog.QFileDialog.getSaveFileName",
+            return_value=(str(out), ""),
+        ):
             result = save_plot(fig)
 
         assert result == str(out)
@@ -222,7 +226,10 @@ class TestSavePlot:
         ax.plot([0, 1], [0, 1])
 
         out = tmp_path / "plot.svg"
-        with patch("GUI.results_plot_dialog.QFileDialog.getSaveFileName", return_value=(str(out), "")):
+        with patch(
+            "GUI.results_plot_dialog.QFileDialog.getSaveFileName",
+            return_value=(str(out), ""),
+        ):
             result = save_plot(fig)
 
         assert result == str(out)
@@ -233,7 +240,9 @@ class TestSavePlot:
 
     def test_cancel_returns_empty(self):
         fig = Figure()
-        with patch("GUI.results_plot_dialog.QFileDialog.getSaveFileName", return_value=("", "")):
+        with patch(
+            "GUI.results_plot_dialog.QFileDialog.getSaveFileName", return_value=("", "")
+        ):
             result = save_plot(fig)
         assert result == ""
 

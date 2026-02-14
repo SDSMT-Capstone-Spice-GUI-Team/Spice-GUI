@@ -84,7 +84,11 @@ class BatchGrader:
             BatchGradingResult with per-student results and aggregate stats.
         """
         folder = Path(folder_path)
-        files = sorted(f for f in folder.iterdir() if f.is_file() and f.suffix in SUPPORTED_EXTENSIONS)
+        files = sorted(
+            f
+            for f in folder.iterdir()
+            if f.is_file() and f.suffix in SUPPORTED_EXTENSIONS
+        )
 
         result = BatchGradingResult(
             rubric_title=rubric.title,

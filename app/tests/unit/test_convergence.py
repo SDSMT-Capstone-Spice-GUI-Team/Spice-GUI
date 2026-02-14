@@ -1,16 +1,10 @@
 """Tests for simulation.convergence error classification and retry helpers."""
 
 import pytest
-from simulation.convergence import (
-    RELAXED_OPTIONS,
-    ErrorCategory,
-    ErrorDiagnosis,
-    classify_error,
-    diagnose_error,
-    format_options_lines,
-    format_user_message,
-    is_retriable,
-)
+from simulation.convergence import (RELAXED_OPTIONS, ErrorCategory,
+                                    ErrorDiagnosis, classify_error,
+                                    diagnose_error, format_options_lines,
+                                    format_user_message, is_retriable)
 
 
 class TestClassifyError:

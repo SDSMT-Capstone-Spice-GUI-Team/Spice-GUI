@@ -6,7 +6,9 @@ controller, persisted via CircuitModel, and undone/redone via commands.
 
 import pytest
 from controllers.circuit_controller import CircuitController
-from controllers.commands import AddAnnotationCommand, DeleteAnnotationCommand, EditAnnotationCommand
+from controllers.commands import (AddAnnotationCommand,
+                                  DeleteAnnotationCommand,
+                                  EditAnnotationCommand)
 from models.annotation import AnnotationData
 from models.circuit import CircuitModel
 
@@ -24,7 +26,9 @@ class TestAnnotationData:
         assert ann.color == "#FFFFFF"
 
     def test_custom_values(self):
-        ann = AnnotationData(text="Hello", x=100.0, y=200.0, font_size=14, bold=True, color="#FF0000")
+        ann = AnnotationData(
+            text="Hello", x=100.0, y=200.0, font_size=14, bold=True, color="#FF0000"
+        )
         assert ann.text == "Hello"
         assert ann.x == 100.0
         assert ann.y == 200.0
@@ -43,7 +47,14 @@ class TestAnnotationData:
         assert d["color"] == "#FFFFFF"
 
     def test_from_dict(self):
-        d = {"text": "Loaded", "x": 10.0, "y": 20.0, "font_size": 12, "bold": True, "color": "#00FF00"}
+        d = {
+            "text": "Loaded",
+            "x": 10.0,
+            "y": 20.0,
+            "font_size": 12,
+            "bold": True,
+            "color": "#00FF00",
+        }
         ann = AnnotationData.from_dict(d)
         assert ann.text == "Loaded"
         assert ann.x == 10.0
@@ -113,7 +124,9 @@ class TestCircuitModelAnnotations:
 
     def test_model_roundtrip_with_annotations(self):
         model = CircuitModel()
-        model.annotations.append(AnnotationData(text="Persist", x=100.0, y=200.0, bold=True))
+        model.annotations.append(
+            AnnotationData(text="Persist", x=100.0, y=200.0, bold=True)
+        )
         d = model.to_dict()
         restored = CircuitModel.from_dict(d)
         assert len(restored.annotations) == 1
@@ -299,7 +312,9 @@ class TestAnnotationPersistence:
     def test_save_load_preserves_annotations(self):
         model = CircuitModel()
         model.annotations.append(AnnotationData(text="Saved", x=10.0, y=20.0))
-        model.annotations.append(AnnotationData(text="Also Saved", x=30.0, y=40.0, bold=True))
+        model.annotations.append(
+            AnnotationData(text="Also Saved", x=30.0, y=40.0, bold=True)
+        )
 
         data = model.to_dict()
         restored = CircuitModel.from_dict(data)

@@ -6,18 +6,9 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QDialog,
-    QFileDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QProgressBar,
-    QPushButton,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QDialog, QFileDialog, QGroupBox, QHBoxLayout,
+                             QLabel, QLineEdit, QMessageBox, QProgressBar,
+                             QPushButton, QVBoxLayout)
 
 if TYPE_CHECKING:
     from grading.batch_grader import BatchGradingResult
@@ -101,7 +92,9 @@ class BatchGradingDialog(QDialog):
         layout.addWidget(self.results_group)
 
     def _on_browse_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Student Submissions Folder")
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Student Submissions Folder"
+        )
         if folder:
             self.folder_path.setText(folder)
             self._update_grade_button()
@@ -124,7 +117,9 @@ class BatchGradingDialog(QDialog):
                 QMessageBox.critical(self, "Error", f"Failed to load rubric:\n{e}")
 
     def _update_grade_button(self):
-        self.grade_btn.setEnabled(bool(self.folder_path.text()) and self._rubric is not None)
+        self.grade_btn.setEnabled(
+            bool(self.folder_path.text()) and self._rubric is not None
+        )
 
     def _on_grade(self):
         from grading.batch_grader import BatchGrader

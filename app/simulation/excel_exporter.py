@@ -32,7 +32,9 @@ def _add_metadata_sheet(wb, analysis_type, circuit_name=""):
 
 def _style_header_row(ws, row_num=1):
     """Apply header styling to the first row of a worksheet."""
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_fill = PatternFill(
+        start_color="4472C4", end_color="4472C4", fill_type="solid"
+    )
     header_font = Font(bold=True, color="FFFFFF")
     for cell in ws[row_num]:
         cell.font = header_font

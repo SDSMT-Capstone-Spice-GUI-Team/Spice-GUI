@@ -6,24 +6,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from cli import (
-    REPL_BANNER,
-    __version__,
-    build_parser,
-    build_repl_namespace,
-    circuit_stats,
-    cmd_batch,
-    cmd_diff,
-    cmd_export,
-    cmd_import,
-    cmd_simulate,
-    cmd_stats,
-    cmd_validate,
-    diff_circuits,
-    load_circuit,
-    main,
-    try_load_circuit,
-)
+from cli import (REPL_BANNER, __version__, build_parser, build_repl_namespace,
+                 circuit_stats, cmd_batch, cmd_diff, cmd_export, cmd_import,
+                 cmd_simulate, cmd_stats, cmd_validate, diff_circuits,
+                 load_circuit, main, try_load_circuit)
 from models.circuit import CircuitModel
 from scripting.circuit import Circuit
 
@@ -33,10 +19,34 @@ def voltage_divider(tmp_path):
     """Create a valid voltage divider circuit file."""
     circuit = {
         "components": [
-            {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
-            {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
-            {"type": "Resistor", "id": "R2", "value": "1k", "pos": {"x": 300, "y": 0}, "rotation": 0},
-            {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 350, "y": 150}, "rotation": 0},
+            {
+                "type": "Voltage Source",
+                "id": "V1",
+                "value": "5V",
+                "pos": {"x": 0, "y": 0},
+                "rotation": 0,
+            },
+            {
+                "type": "Resistor",
+                "id": "R1",
+                "value": "1k",
+                "pos": {"x": 200, "y": 0},
+                "rotation": 0,
+            },
+            {
+                "type": "Resistor",
+                "id": "R2",
+                "value": "1k",
+                "pos": {"x": 300, "y": 0},
+                "rotation": 0,
+            },
+            {
+                "type": "Ground",
+                "id": "GND1",
+                "value": "0V",
+                "pos": {"x": 350, "y": 150},
+                "rotation": 0,
+            },
         ],
         "wires": [
             {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
@@ -111,14 +121,18 @@ class TestExportCommand:
 
     def test_export_netlist_to_file(self, voltage_divider, tmp_path):
         outfile = str(tmp_path / "output.cir")
-        args = build_parser().parse_args(["export", voltage_divider, "-f", "cir", "-o", outfile])
+        args = build_parser().parse_args(
+            ["export", voltage_divider, "-f", "cir", "-o", outfile]
+        )
         code = cmd_export(args)
         assert code == 0
         content = (tmp_path / "output.cir").read_text()
         assert "V1" in content
 
     def test_export_json(self, voltage_divider, capsys):
-        args = build_parser().parse_args(["export", voltage_divider, "--format", "json"])
+        args = build_parser().parse_args(
+            ["export", voltage_divider, "--format", "json"]
+        )
         code = cmd_export(args)
         assert code == 0
         captured = capsys.readouterr()
@@ -151,7 +165,9 @@ class TestSimulateCommand:
         assert code == 1  # validation should fail
 
     def test_simulate_json_output(self, voltage_divider, capsys):
-        args = build_parser().parse_args(["simulate", voltage_divider, "--format", "json"])
+        args = build_parser().parse_args(
+            ["simulate", voltage_divider, "--format", "json"]
+        )
         code = cmd_simulate(args)
         if code == 0:
             captured = capsys.readouterr()
@@ -160,7 +176,9 @@ class TestSimulateCommand:
             assert "data" in data
 
     def test_simulate_csv_output(self, voltage_divider, capsys):
-        args = build_parser().parse_args(["simulate", voltage_divider, "--format", "csv"])
+        args = build_parser().parse_args(
+            ["simulate", voltage_divider, "--format", "csv"]
+        )
         code = cmd_simulate(args)
         if code == 0:
             captured = capsys.readouterr()
@@ -192,7 +210,9 @@ class TestParser:
             build_parser().parse_args(["export"])
 
     def test_simulate_analysis_override(self, voltage_divider):
-        args = build_parser().parse_args(["simulate", voltage_divider, "--analysis", "DC Operating Point"])
+        args = build_parser().parse_args(
+            ["simulate", voltage_divider, "--analysis", "DC Operating Point"]
+        )
         assert args.analysis == "DC Operating Point"
 
     def test_batch_requires_path(self):
@@ -225,14 +245,42 @@ class TestBatchCommand:
         """Create a directory with multiple circuit files."""
         base = {
             "components": [
-                {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
-                {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 0, "y": 200}, "rotation": 0},
+                {
+                    "type": "Voltage Source",
+                    "id": "V1",
+                    "value": "5V",
+                    "pos": {"x": 0, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 200, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Ground",
+                    "id": "GND1",
+                    "value": "0V",
+                    "pos": {"x": 0, "y": 200},
+                    "rotation": 0,
+                },
             ],
             "wires": [
                 {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
-                {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
-                {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+                {
+                    "start_comp": "R1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
+                {
+                    "start_comp": "V1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
             ],
             "counters": {"R": 1, "V": 1, "GND": 1},
         }
@@ -256,21 +304,51 @@ class TestBatchCommand:
         # Valid circuit
         valid = {
             "components": [
-                {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
-                {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 0, "y": 200}, "rotation": 0},
+                {
+                    "type": "Voltage Source",
+                    "id": "V1",
+                    "value": "5V",
+                    "pos": {"x": 0, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 200, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Ground",
+                    "id": "GND1",
+                    "value": "0V",
+                    "pos": {"x": 0, "y": 200},
+                    "rotation": 0,
+                },
             ],
             "wires": [
                 {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
-                {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
-                {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+                {
+                    "start_comp": "R1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
+                {
+                    "start_comp": "V1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
             ],
             "counters": {"R": 1, "V": 1, "GND": 1},
         }
         (circuits_dir / "good.json").write_text(json.dumps(valid))
 
         # Invalid circuit (empty)
-        (circuits_dir / "bad.json").write_text(json.dumps({"components": [], "wires": [], "counters": {}}))
+        (circuits_dir / "bad.json").write_text(
+            json.dumps({"components": [], "wires": [], "counters": {}})
+        )
 
         return str(circuits_dir)
 
@@ -285,7 +363,9 @@ class TestBatchCommand:
 
     def test_batch_with_output_dir(self, circuit_dir, tmp_path):
         out_dir = str(tmp_path / "results")
-        args = build_parser().parse_args(["batch", circuit_dir, "--output-dir", out_dir])
+        args = build_parser().parse_args(
+            ["batch", circuit_dir, "--output-dir", out_dir]
+        )
         cmd_batch(args)
         # Output directory should be created
         assert Path(out_dir).exists()
@@ -327,7 +407,9 @@ class TestBatchCommand:
 
     def test_batch_csv_format(self, circuit_dir, tmp_path):
         out_dir = str(tmp_path / "csv_results")
-        args = build_parser().parse_args(["batch", circuit_dir, "--format", "csv", "--output-dir", out_dir])
+        args = build_parser().parse_args(
+            ["batch", circuit_dir, "--format", "csv", "--output-dir", out_dir]
+        )
         code = cmd_batch(args)
         # If simulations succeeded, check CSV files exist
         if code == 0:
@@ -490,14 +572,42 @@ class TestDiffCommand:
     def base_circuit_data(self):
         return {
             "components": [
-                {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
-                {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 0, "y": 200}, "rotation": 0},
+                {
+                    "type": "Voltage Source",
+                    "id": "V1",
+                    "value": "5V",
+                    "pos": {"x": 0, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 200, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Ground",
+                    "id": "GND1",
+                    "value": "0V",
+                    "pos": {"x": 0, "y": 200},
+                    "rotation": 0,
+                },
             ],
             "wires": [
                 {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
-                {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
-                {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+                {
+                    "start_comp": "R1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
+                {
+                    "start_comp": "V1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
             ],
             "counters": {"R": 1, "V": 1, "GND": 1},
         }
@@ -526,7 +636,13 @@ class TestDiffCommand:
     def circuit_b_component_added(self, tmp_path, base_circuit_data):
         data = json.loads(json.dumps(base_circuit_data))
         data["components"].append(
-            {"type": "Resistor", "id": "R2", "value": "4.7k", "pos": {"x": 300, "y": 0}, "rotation": 0}
+            {
+                "type": "Resistor",
+                "id": "R2",
+                "value": "4.7k",
+                "pos": {"x": 300, "y": 0},
+                "rotation": 0,
+            }
         )
         data["counters"]["R"] = 2
         filepath = tmp_path / "circuit_b_added.json"
@@ -538,7 +654,9 @@ class TestDiffCommand:
         data = json.loads(json.dumps(base_circuit_data))
         # Remove one wire and add a different one
         data["wires"] = data["wires"][:2]
-        data["wires"].append({"start_comp": "V1", "start_term": 1, "end_comp": "R1", "end_term": 1})
+        data["wires"].append(
+            {"start_comp": "V1", "start_term": 1, "end_comp": "R1", "end_term": 1}
+        )
         filepath = tmp_path / "circuit_b_wire.json"
         filepath.write_text(json.dumps(data))
         return str(filepath)
@@ -547,7 +665,11 @@ class TestDiffCommand:
     def circuit_b_analysis_changed(self, tmp_path, base_circuit_data):
         data = json.loads(json.dumps(base_circuit_data))
         data["analysis_type"] = "AC Sweep"
-        data["analysis_params"] = {"start_freq": "1", "stop_freq": "1MEG", "points": "100"}
+        data["analysis_params"] = {
+            "start_freq": "1",
+            "stop_freq": "1MEG",
+            "points": "100",
+        }
         filepath = tmp_path / "circuit_b_analysis.json"
         filepath.write_text(json.dumps(data))
         return str(filepath)
@@ -605,7 +727,10 @@ class TestDiffCommand:
         model_a = load_circuit(circuit_a)
         model_b = load_circuit(circuit_b_analysis_changed)
         diff = diff_circuits(model_a, model_b)
-        assert diff["analysis"]["type"] == {"from": "DC Operating Point", "to": "AC Sweep"}
+        assert diff["analysis"]["type"] == {
+            "from": "DC Operating Point",
+            "to": "AC Sweep",
+        }
         assert "params" in diff["analysis"]
 
     def test_text_format(self, circuit_a, circuit_b_value_changed, capsys):
@@ -617,7 +742,9 @@ class TestDiffCommand:
         assert "2.2k" in captured.out
 
     def test_json_format(self, circuit_a, circuit_b_value_changed, capsys):
-        args = build_parser().parse_args(["diff", circuit_a, circuit_b_value_changed, "-f", "json"])
+        args = build_parser().parse_args(
+            ["diff", circuit_a, circuit_b_value_changed, "-f", "json"]
+        )
         cmd_diff(args)
         captured = capsys.readouterr()
         data = json.loads(captured.out)

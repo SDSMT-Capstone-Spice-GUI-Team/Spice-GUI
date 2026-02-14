@@ -257,4 +257,6 @@ class TestSetNetNamePublicAPI:
         from GUI.circuit_canvas import CircuitCanvas
 
         source = inspect.getsource(CircuitCanvas.label_node)
-        assert "_notify" not in source, "label_node still calls _notify directly — use set_net_name instead"
+        assert (
+            "_notify" not in source
+        ), "label_node still calls _notify directly — use set_net_name instead"

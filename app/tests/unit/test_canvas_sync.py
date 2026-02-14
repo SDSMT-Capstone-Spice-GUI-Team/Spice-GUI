@@ -34,7 +34,9 @@ class TestCanvasSyncMethods:
         """Create a mock ComponentGraphicsItem"""
         comp = Mock()
         comp.component_id = "R1"
-        comp.pos = Mock(return_value=Mock(x=Mock(return_value=100), y=Mock(return_value=200)))
+        comp.pos = Mock(
+            return_value=Mock(x=Mock(return_value=100), y=Mock(return_value=200))
+        )
         comp.model = ComponentData(
             component_id="R1",
             component_type="Resistor",
@@ -55,11 +57,15 @@ class TestCanvasSyncMethods:
         model.component_counter = {"Resistor": 2, "Capacitor": 0}
         return model
 
-    def test_sync_to_model_updates_components(self, mock_canvas, mock_component_item, sample_model):
+    def test_sync_to_model_updates_components(
+        self, mock_canvas, mock_component_item, sample_model
+    ):
         """Test that sync_to_model copies component data to model"""
         # Setup
         mock_canvas.components = {"R1": mock_component_item}
-        mock_canvas.get_model_components = Mock(return_value={"R1": mock_component_item.model})
+        mock_canvas.get_model_components = Mock(
+            return_value={"R1": mock_component_item.model}
+        )
 
         # Import the actual method logic (can't instantiate Qt objects in tests)
         # We'll verify the logic conceptually
@@ -89,7 +95,9 @@ class TestCanvasSyncMethods:
         node = NodeData(terminals={("R1", 0), ("R2", 0)}, wire_indices={0})
         terminal_map = {("R1", 0): node, ("R2", 0): node}
 
-        mock_canvas.get_model_nodes_and_terminal_map = Mock(return_value=([node], terminal_map))
+        mock_canvas.get_model_nodes_and_terminal_map = Mock(
+            return_value=([node], terminal_map)
+        )
 
         # Verify node structure
         nodes, term_map = mock_canvas.get_model_nodes_and_terminal_map()

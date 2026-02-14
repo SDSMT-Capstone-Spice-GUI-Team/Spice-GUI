@@ -29,9 +29,24 @@ def _build_transient_circuit():
         position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="R1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
     ]
     model.analysis_type = "Transient"
     model.analysis_params = {"step": "1u", "duration": "10m"}
@@ -168,9 +183,7 @@ class TestParseMeasurementResults:
         assert results["delay"] == pytest.approx(-1.23456e-6)
 
     def test_ignores_non_measurement_lines(self):
-        stdout = (
-            "Circuit: My Test Circuit\nDoing transient analysis...\navg_v  =  2.50000e+00\nNo. of Data Rows : 100\n"
-        )
+        stdout = "Circuit: My Test Circuit\nDoing transient analysis...\navg_v  =  2.50000e+00\nNo. of Data Rows : 100\n"
         results = ResultParser.parse_measurement_results(stdout)
         assert results is not None
         assert len(results) == 1
@@ -186,5 +199,7 @@ class TestMeasControllerIntegration:
         model = _build_transient_circuit()
         model.analysis_params["measurements"] = [".meas tran avg_v AVG V(1)"]
         ctrl = SimulationController(model)
-        netlist = ctrl.generate_netlist(measurements=model.analysis_params.get("measurements"))
+        netlist = ctrl.generate_netlist(
+            measurements=model.analysis_params.get("measurements")
+        )
         assert ".meas tran avg_v AVG V(1)" in netlist

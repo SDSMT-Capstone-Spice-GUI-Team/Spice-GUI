@@ -46,7 +46,9 @@ def calculate_power(components, nodes, node_voltages, branch_currents=None):
             continue
 
         try:
-            p = _calc_component_power(comp, cid, ctype, term_to_label, node_voltages, branch_currents)
+            p = _calc_component_power(
+                comp, cid, ctype, term_to_label, node_voltages, branch_currents
+            )
             if p is not None:
                 power[cid] = p
         except (ValueError, KeyError, ZeroDivisionError) as e:
@@ -55,7 +57,9 @@ def calculate_power(components, nodes, node_voltages, branch_currents=None):
     return power
 
 
-def _calc_component_power(comp, cid, ctype, term_to_label, node_voltages, branch_currents):
+def _calc_component_power(
+    comp, cid, ctype, term_to_label, node_voltages, branch_currents
+):
     """Calculate power for a single component. Returns watts or None."""
     # Get node labels for terminal 0 and 1 (2-terminal components)
     label0 = term_to_label.get((cid, 0))
