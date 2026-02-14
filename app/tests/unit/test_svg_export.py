@@ -146,7 +146,10 @@ class TestSVGFileOutput:
 
         content = (tmp_path / "elements.svg").read_text()
         # SVG should have drawing elements (lines, paths, etc.)
-        has_drawing = any(tag in content for tag in ["<line", "<path", "<polyline", "<circle", "<rect", "<ellipse"])
+        has_drawing = any(
+            tag in content
+            for tag in ["<line", "<path", "<polyline", "<circle", "<rect", "<ellipse"]
+        )
         assert has_drawing, "SVG should contain drawing elements"
 
     def test_svg_multiple_components(self, qtbot, tmp_path):

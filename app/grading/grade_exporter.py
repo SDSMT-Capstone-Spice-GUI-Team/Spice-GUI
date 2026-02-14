@@ -32,7 +32,9 @@ def export_gradebook_csv(result: BatchGradingResult, filepath: str) -> None:
 
     # Build header from first result's check IDs
     first = result.results[0]
-    check_headers = [f"{cr.check_id} ({cr.points_possible}pts)" for cr in first.check_results]
+    check_headers = [
+        f"{cr.check_id} ({cr.points_possible}pts)" for cr in first.check_results
+    ]
 
     header = ["Student File", "Total Score", "Percentage"] + check_headers
 

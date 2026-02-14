@@ -41,10 +41,16 @@ class WireGraphicsItem(QGraphicsPathItem):
         else:
             self.model = WireData(
                 start_component_id=(
-                    start_comp.component_id if hasattr(start_comp, "component_id") else str(start_comp)
+                    start_comp.component_id
+                    if hasattr(start_comp, "component_id")
+                    else str(start_comp)
                 ),
                 start_terminal=start_term,
-                end_component_id=(end_comp.component_id if hasattr(end_comp, "component_id") else str(end_comp)),
+                end_component_id=(
+                    end_comp.component_id
+                    if hasattr(end_comp, "component_id")
+                    else str(end_comp)
+                ),
                 end_terminal=end_term,
                 algorithm=algorithm,
             )
@@ -60,7 +66,9 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         # Algorithm layer support
         self.algorithm = algorithm  # Which algorithm generated this wire
-        self.layer_color = layer_color if layer_color else theme_manager.color("wire_default")
+        self.layer_color = (
+            layer_color if layer_color else theme_manager.color("wire_default")
+        )
 
         self.waypoints = []  # List of QPointF waypoints (computed during routing)
 
@@ -166,7 +174,9 @@ class WireGraphicsItem(QGraphicsPathItem):
             )
 
             pathfinder = IDAStarPathfinder(GRID_SIZE)
-            result = pathfinder.find_path(start, end, obstacles, algorithm=self.algorithm)
+            result = pathfinder.find_path(
+                start, end, obstacles, algorithm=self.algorithm
+            )
 
             # Unpack result (waypoints, runtime, iterations, routing_failed)
             self.waypoints, runtime, iterations, routing_failed = result
@@ -220,7 +230,9 @@ class WireGraphicsItem(QGraphicsPathItem):
         if main_window and hasattr(main_window, "statusBar"):
             status = main_window.statusBar()
             if status:
-                status.showMessage("Wire routing failed — move components to create space", 5000)
+                status.showMessage(
+                    "Wire routing failed — move components to create space", 5000
+                )
 
     def paint(self, painter, option=None, widget=None):
         """Override paint to show selection highlight and layer color"""

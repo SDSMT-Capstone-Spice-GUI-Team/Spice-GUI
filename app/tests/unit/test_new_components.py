@@ -8,16 +8,10 @@ serialization round-trips, and CircuitModel integration.
 
 import pytest
 from models.circuit import CircuitModel
-from models.component import (
-    _CLASS_TO_DISPLAY,
-    _DISPLAY_TO_CLASS,
-    COMPONENT_TYPES,
-    DEFAULT_VALUES,
-    SPICE_SYMBOLS,
-    TERMINAL_COUNTS,
-    TERMINAL_GEOMETRY,
-    ComponentData,
-)
+from models.component import (_CLASS_TO_DISPLAY, _DISPLAY_TO_CLASS,
+                              COMPONENT_TYPES, DEFAULT_VALUES, SPICE_SYMBOLS,
+                              TERMINAL_COUNTS, TERMINAL_GEOMETRY,
+                              ComponentData)
 from models.node import NodeData, reset_node_counter
 from models.wire import WireData
 from simulation.netlist_generator import NetlistGenerator
@@ -263,20 +257,26 @@ class TestMOSFETNetlist:
     """Netlist generation tests for MOSFET NMOS and PMOS."""
 
     def test_nmos_component_line(self):
-        components, wires, nodes, t2n = _make_3term_circuit("MOSFET NMOS", "M1", "NMOS1")
+        components, wires, nodes, t2n = _make_3term_circuit(
+            "MOSFET NMOS", "M1", "NMOS1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "M1" in netlist
         assert "NMOS1" in netlist
 
     def test_pmos_component_line(self):
-        components, wires, nodes, t2n = _make_3term_circuit("MOSFET PMOS", "M2", "PMOS1")
+        components, wires, nodes, t2n = _make_3term_circuit(
+            "MOSFET PMOS", "M2", "PMOS1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "M2" in netlist
         assert "PMOS1" in netlist
 
     def test_nmos_bulk_tied_to_source(self):
         """MOSFET netlist should have 4 node refs (drain gate source bulk=source)."""
-        components, wires, nodes, t2n = _make_3term_circuit("MOSFET NMOS", "M1", "NMOS1")
+        components, wires, nodes, t2n = _make_3term_circuit(
+            "MOSFET NMOS", "M1", "NMOS1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         # Find the M1 line and check it has the source node repeated (bulk=source)
         for line in netlist.split("\n"):
@@ -290,21 +290,27 @@ class TestMOSFETNetlist:
             pytest.fail("M1 line not found in netlist")
 
     def test_nmos_model_directive(self):
-        components, wires, nodes, t2n = _make_3term_circuit("MOSFET NMOS", "M1", "NMOS1")
+        components, wires, nodes, t2n = _make_3term_circuit(
+            "MOSFET NMOS", "M1", "NMOS1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert ".model NMOS1 NMOS" in netlist
         assert "VTO=0.7" in netlist
         assert "KP=110u" in netlist
 
     def test_pmos_model_directive(self):
-        components, wires, nodes, t2n = _make_3term_circuit("MOSFET PMOS", "M2", "PMOS1")
+        components, wires, nodes, t2n = _make_3term_circuit(
+            "MOSFET PMOS", "M2", "PMOS1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert ".model PMOS1 PMOS" in netlist
         assert "VTO=-0.7" in netlist
         assert "KP=50u" in netlist
 
     def test_mosfet_model_section_header(self):
-        components, wires, nodes, t2n = _make_3term_circuit("MOSFET NMOS", "M1", "NMOS1")
+        components, wires, nodes, t2n = _make_3term_circuit(
+            "MOSFET NMOS", "M1", "NMOS1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "* MOSFET Model Definitions" in netlist
 
@@ -355,29 +361,39 @@ class TestVCSwitchNetlist:
     """Netlist generation tests for voltage-controlled switch."""
 
     def test_switch_component_line(self):
-        components, wires, nodes, t2n = _make_4term_circuit("VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6")
+        components, wires, nodes, t2n = _make_4term_circuit(
+            "VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "S1" in netlist
 
     def test_switch_uses_per_instance_model(self):
         """Each switch should get its own model name (SW_<id>)."""
-        components, wires, nodes, t2n = _make_4term_circuit("VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6")
+        components, wires, nodes, t2n = _make_4term_circuit(
+            "VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "SW_S1" in netlist
 
     def test_switch_model_directive(self):
-        components, wires, nodes, t2n = _make_4term_circuit("VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6")
+        components, wires, nodes, t2n = _make_4term_circuit(
+            "VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert ".model SW_S1 SW(VT=2.5 RON=1 ROFF=1e6)" in netlist
 
     def test_switch_model_section_header(self):
-        components, wires, nodes, t2n = _make_4term_circuit("VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6")
+        components, wires, nodes, t2n = _make_4term_circuit(
+            "VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "* Voltage-Controlled Switch Model Definitions" in netlist
 
     def test_switch_line_format(self):
         """S<name> switch+ switch- ctrl+ ctrl- model."""
-        components, wires, nodes, t2n = _make_4term_circuit("VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6")
+        components, wires, nodes, t2n = _make_4term_circuit(
+            "VC Switch", "S1", "VT=2.5 RON=1 ROFF=1e6"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         for line in netlist.split("\n"):
             if line.startswith("S1 "):
@@ -422,51 +438,69 @@ class TestDiodeNetlist:
     """Netlist generation tests for Diode, LED, and Zener Diode."""
 
     def test_diode_component_line(self):
-        components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "Diode", "D1", "IS=1e-14 N=1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "D1" in netlist
 
     def test_diode_shared_model(self):
-        components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "Diode", "D1", "IS=1e-14 N=1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "D_Ideal" in netlist
 
     def test_diode_model_directive(self):
-        components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "Diode", "D1", "IS=1e-14 N=1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert ".model D_Ideal D(IS=1e-14 N=1)" in netlist
 
     def test_led_component_line(self):
-        components, wires, nodes, t2n = _make_2term_circuit("LED", "D2", "IS=1e-20 N=1.8 EG=1.9")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "LED", "D2", "IS=1e-20 N=1.8 EG=1.9"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "D2" in netlist
         assert "D_LED" in netlist
 
     def test_led_model_directive(self):
-        components, wires, nodes, t2n = _make_2term_circuit("LED", "D2", "IS=1e-20 N=1.8 EG=1.9")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "LED", "D2", "IS=1e-20 N=1.8 EG=1.9"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert ".model D_LED D(IS=1e-20 N=1.8 EG=1.9)" in netlist
 
     def test_zener_component_line(self):
-        components, wires, nodes, t2n = _make_2term_circuit("Zener Diode", "D3", "IS=1e-14 N=1 BV=5.1 IBV=1e-3")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "Zener Diode", "D3", "IS=1e-14 N=1 BV=5.1 IBV=1e-3"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "D3" in netlist
         assert "D_Zener" in netlist
 
     def test_zener_model_has_breakdown_voltage(self):
-        components, wires, nodes, t2n = _make_2term_circuit("Zener Diode", "D3", "IS=1e-14 N=1 BV=5.1 IBV=1e-3")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "Zener Diode", "D3", "IS=1e-14 N=1 BV=5.1 IBV=1e-3"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "BV=5.1" in netlist
         assert "IBV=1e-3" in netlist
 
     def test_diode_model_section_header(self):
-        components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "Diode", "D1", "IS=1e-14 N=1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "* Diode Model Definitions" in netlist
 
     def test_diode_line_format(self):
         """D<name> anode cathode model."""
-        components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "Diode", "D1", "IS=1e-14 N=1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         for line in netlist.split("\n"):
             if line.startswith("D1 "):
@@ -497,9 +531,15 @@ class TestDiodeModelDeduplication:
             make_wire("D3", 1, "GND1", 0),
             make_wire("V1", 1, "GND1", 0),
         ]
-        node_a = NodeData(terminals={("V1", 0), ("D1", 0)}, wire_indices={0}, auto_label="nodeA")
-        node_b = NodeData(terminals={("D1", 1), ("D2", 0)}, wire_indices={1}, auto_label="nodeB")
-        node_c = NodeData(terminals={("D2", 1), ("D3", 0)}, wire_indices={2}, auto_label="nodeC")
+        node_a = NodeData(
+            terminals={("V1", 0), ("D1", 0)}, wire_indices={0}, auto_label="nodeA"
+        )
+        node_b = NodeData(
+            terminals={("D1", 1), ("D2", 0)}, wire_indices={1}, auto_label="nodeB"
+        )
+        node_c = NodeData(
+            terminals={("D2", 1), ("D3", 0)}, wire_indices={2}, auto_label="nodeC"
+        )
         node_gnd = NodeData(
             terminals={("D3", 1), ("GND1", 0), ("V1", 1)},
             wire_indices={3, 4},
@@ -535,7 +575,9 @@ class TestDiodeModelDeduplication:
         components = {
             "D1": make_component("Diode", "D1", "IS=1e-14 N=1", (0, 0)),
             "D2": make_component("LED", "D2", "IS=1e-20 N=1.8 EG=1.9", (100, 0)),
-            "D3": make_component("Zener Diode", "D3", "IS=1e-14 N=1 BV=5.1 IBV=1e-3", (200, 0)),
+            "D3": make_component(
+                "Zener Diode", "D3", "IS=1e-14 N=1 BV=5.1 IBV=1e-3", (200, 0)
+            ),
             "V1": make_component("Voltage Source", "V1", "5V", (-100, 0)),
             "GND1": make_component("Ground", "GND1", "0V", (0, 100)),
         }
@@ -546,9 +588,15 @@ class TestDiodeModelDeduplication:
             make_wire("D3", 1, "GND1", 0),
             make_wire("V1", 1, "GND1", 0),
         ]
-        node_a = NodeData(terminals={("V1", 0), ("D1", 0)}, wire_indices={0}, auto_label="nodeA")
-        node_b = NodeData(terminals={("D1", 1), ("D2", 0)}, wire_indices={1}, auto_label="nodeB")
-        node_c = NodeData(terminals={("D2", 1), ("D3", 0)}, wire_indices={2}, auto_label="nodeC")
+        node_a = NodeData(
+            terminals={("V1", 0), ("D1", 0)}, wire_indices={0}, auto_label="nodeA"
+        )
+        node_b = NodeData(
+            terminals={("D1", 1), ("D2", 0)}, wire_indices={1}, auto_label="nodeB"
+        )
+        node_c = NodeData(
+            terminals={("D2", 1), ("D3", 0)}, wire_indices={2}, auto_label="nodeC"
+        )
         node_gnd = NodeData(
             terminals={("D3", 1), ("GND1", 0), ("V1", 1)},
             wire_indices={3, 4},
@@ -578,9 +626,13 @@ class TestDiodeModelDeduplication:
 
     def test_multiple_leds_share_model(self):
         """Multiple LEDs with same params should share one model."""
-        components, wires, nodes, t2n = _make_2term_circuit("LED", "D1", "IS=1e-20 N=1.8 EG=1.9")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "LED", "D1", "IS=1e-20 N=1.8 EG=1.9"
+        )
         # Add a second LED to the circuit
-        components["D2"] = make_component("LED", "D2", "IS=1e-20 N=1.8 EG=1.9", (200, 0))
+        components["D2"] = make_component(
+            "LED", "D2", "IS=1e-20 N=1.8 EG=1.9", (200, 0)
+        )
         wires.append(make_wire("D2", 0, "V1", 0))
         wires.append(make_wire("D2", 1, "GND1", 0))
         nodes[0].terminals.add(("D2", 0))
@@ -596,13 +648,17 @@ class TestDiodeModelDeduplication:
 
     def test_no_per_instance_model_names(self):
         """Model names should not contain component IDs."""
-        components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "Diode", "D1", "IS=1e-14 N=1"
+        )
         netlist = _generate(components, wires, nodes, t2n)
         assert "D_D1" not in netlist
 
     def test_diode_with_custom_value_gets_own_model(self):
         """If one diode has different params, it gets a separate model."""
-        components, wires, nodes, t2n = _make_2term_circuit("Diode", "D1", "IS=1e-14 N=1")
+        components, wires, nodes, t2n = _make_2term_circuit(
+            "Diode", "D1", "IS=1e-14 N=1"
+        )
         # Add a second diode with different params
         components["D2"] = make_component("Diode", "D2", "IS=1e-12 N=2", (200, 0))
         wires.append(make_wire("D2", 0, "V1", 0))

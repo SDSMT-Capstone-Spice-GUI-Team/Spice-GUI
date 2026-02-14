@@ -107,7 +107,9 @@ def format_power_summary(metrics):
     lines.append("")
     lines.append("POWER SUMMARY")
     lines.append("=" * 70)
-    lines.append(f"  {'Component':<12s} {'Value':>8s} {'Vrms':>12s} {'Irms':>12s} {'Pavg':>12s} {'Ppeak':>12s}")
+    lines.append(
+        f"  {'Component':<12s} {'Value':>8s} {'Vrms':>12s} {'Irms':>12s} {'Pavg':>12s} {'Ppeak':>12s}"
+    )
     lines.append("-" * 70)
 
     total_pavg = 0.0
@@ -122,7 +124,9 @@ def format_power_summary(metrics):
         )
 
     lines.append("-" * 70)
-    lines.append(f"  {'Total Pavg':<12s} {'':>8s} {'':>12s} {'':>12s} {_fmt_eng(total_pavg, 'W'):>12s}")
+    lines.append(
+        f"  {'Total Pavg':<12s} {'':>8s} {'':>12s} {'':>12s} {_fmt_eng(total_pavg, 'W'):>12s}"
+    )
     lines.append("=" * 70)
 
     return "\n".join(lines)

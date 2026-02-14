@@ -14,7 +14,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QPushButton, QTextEdit, QVBoxLayout
+from PyQt6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QHBoxLayout,
+                             QPushButton, QTextEdit, QVBoxLayout)
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .styles import theme_manager
@@ -191,7 +192,9 @@ class DCSweepPlotDialog(QDialog):
         # Update cursors
         if self._cursors is not None:
             self._cursors.remove()
-        self._cursors = MeasurementCursors(self._ax, self._canvas, on_cursor_moved=self._on_cursor_moved)
+        self._cursors = MeasurementCursors(
+            self._ax, self._canvas, on_cursor_moved=self._on_cursor_moved
+        )
         self._readout.set_cursors(self._cursors)
         if sweep_vals_first:
             self._cursors.set_data(sweep_vals_first)
@@ -283,7 +286,9 @@ class ACSweepPlotDialog(QDialog):
         toolbar.addWidget(save_btn)
         self._markers_cb = QCheckBox("Show Markers")
         self._markers_cb.setChecked(True)
-        self._markers_cb.setToolTip("Show -3dB cutoff, bandwidth, gain/phase margin markers")
+        self._markers_cb.setToolTip(
+            "Show -3dB cutoff, bandwidth, gain/phase margin markers"
+        )
         self._markers_cb.toggled.connect(self._toggle_markers)
         toolbar.addWidget(self._markers_cb)
         toolbar.addStretch()
@@ -306,7 +311,9 @@ class ACSweepPlotDialog(QDialog):
         self._marker_summary = QTextEdit()
         self._marker_summary.setReadOnly(True)
         self._marker_summary.setMaximumHeight(200)
-        self._marker_summary.setPlaceholderText("Frequency response markers will appear here after simulation.")
+        self._marker_summary.setPlaceholderText(
+            "Frequency response markers will appear here after simulation."
+        )
         right_layout.addWidget(self._marker_summary)
 
         right_widget = QDialog()
@@ -423,7 +430,9 @@ class ACSweepPlotDialog(QDialog):
         # Update cursors on magnitude axes (shared x with phase)
         if self._cursors is not None:
             self._cursors.remove()
-        self._cursors = MeasurementCursors(self._ax_mag, self._canvas, on_cursor_moved=self._on_cursor_moved)
+        self._cursors = MeasurementCursors(
+            self._ax_mag, self._canvas, on_cursor_moved=self._on_cursor_moved
+        )
         self._readout.set_cursors(self._cursors)
         if frequencies_first:
             self._cursors.set_data(frequencies_first)
@@ -460,20 +469,29 @@ class ACSweepPlotDialog(QDialog):
         markers = compute_markers(frequencies, mag_vals, phase_vals)
 
         if markers["peak_gain_db"] is None:
-            self._marker_summary.setPlainText("No markers computed (insufficient data).")
+            self._marker_summary.setPlainText(
+                "No markers computed (insufficient data)."
+            )
             return
 
         # Draw -3dB reference line
         ref_level = markers["ref_level_db"]
         if ref_level is not None:
             artist = self._ax_mag.axhline(
-                y=ref_level, color="#CC0066", linestyle="--", linewidth=1, alpha=0.7, label="-3dB level"
+                y=ref_level,
+                color="#CC0066",
+                linestyle="--",
+                linewidth=1,
+                alpha=0.7,
+                label="-3dB level",
             )
             self._marker_artists.append(artist)
 
         # Draw -3dB cutoff frequency markers
         for fc in markers["cutoff_3db"]:
-            artist = self._ax_mag.axvline(x=fc, color="#CC0066", linestyle=":", linewidth=1, alpha=0.7)
+            artist = self._ax_mag.axvline(
+                x=fc, color="#CC0066", linestyle=":", linewidth=1, alpha=0.7
+            )
             self._marker_artists.append(artist)
             artist = self._ax_mag.annotate(
                 f"fc={format_frequency(fc)}",
@@ -489,7 +507,9 @@ class ACSweepPlotDialog(QDialog):
         # Draw unity gain frequency marker
         if markers["unity_gain_freq"] is not None:
             ugf = markers["unity_gain_freq"]
-            artist = self._ax_mag.axvline(x=ugf, color="#006633", linestyle=":", linewidth=1, alpha=0.7)
+            artist = self._ax_mag.axvline(
+                x=ugf, color="#006633", linestyle=":", linewidth=1, alpha=0.7
+            )
             self._marker_artists.append(artist)
             artist = self._ax_mag.annotate(
                 f"0dB @ {format_frequency(ugf)}",
@@ -504,7 +524,9 @@ class ACSweepPlotDialog(QDialog):
 
         # Build summary text
         summary_lines = [f"Signal: {first_signal}", ""]
-        summary_lines.append(f"Peak gain: {markers['peak_gain_db']:.1f} dB @ {format_frequency(markers['peak_freq'])}")
+        summary_lines.append(
+            f"Peak gain: {markers['peak_gain_db']:.1f} dB @ {format_frequency(markers['peak_freq'])}"
+        )
 
         if markers["cutoff_3db"]:
             for i, fc in enumerate(markers["cutoff_3db"]):
@@ -516,13 +538,17 @@ class ACSweepPlotDialog(QDialog):
             summary_lines.append(f"Bandwidth: {format_frequency(markers['bandwidth'])}")
 
         if markers["unity_gain_freq"] is not None:
-            summary_lines.append(f"Unity-gain freq: {format_frequency(markers['unity_gain_freq'])}")
+            summary_lines.append(
+                f"Unity-gain freq: {format_frequency(markers['unity_gain_freq'])}"
+            )
 
         if markers["gain_margin_db"] is not None:
             summary_lines.append(f"Gain margin: {markers['gain_margin_db']:.1f} dB")
 
         if markers["phase_margin_deg"] is not None:
-            summary_lines.append(f"Phase margin: {markers['phase_margin_deg']:.1f}\u00b0")
+            summary_lines.append(
+                f"Phase margin: {markers['phase_margin_deg']:.1f}\u00b0"
+            )
 
         self._marker_summary.setPlainText("\n".join(summary_lines))
 

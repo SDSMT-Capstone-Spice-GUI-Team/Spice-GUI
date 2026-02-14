@@ -147,7 +147,9 @@ class TestCalculatePowerDictInput:
         nodeC = _make_node([("R2", 1)], "nodeC")
         voltages = {"nodeA": 10.0, "nodeB": 0.0, "nodeC": 0.0}
 
-        result = calculate_power(list(comp_dict.values()), [nodeA, nodeB, nodeC], voltages)
+        result = calculate_power(
+            list(comp_dict.values()), [nodeA, nodeB, nodeC], voltages
+        )
         assert "R1" in result
         assert "R2" in result
         assert result["R1"] == pytest.approx(0.1)  # 10V^2 / 1k = 0.1W
@@ -174,7 +176,9 @@ class TestCalculatePowerDictInput:
         voltages = {"nodeA": 5.0, "0": 0.0}
         currents = {"v1": -0.005}
 
-        result = calculate_power(list(comp_dict.values()), [node_pos, node_gnd], voltages, currents)
+        result = calculate_power(
+            list(comp_dict.values()), [node_pos, node_gnd], voltages, currents
+        )
         assert result["R1"] == pytest.approx(0.025)
         assert result["V1"] == pytest.approx(-0.025)
         assert total_power(result) == pytest.approx(0.0)

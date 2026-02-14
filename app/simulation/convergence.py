@@ -55,7 +55,9 @@ class ErrorDiagnosis:
 _DIAGNOSES: dict[ErrorCategory, ErrorDiagnosis] = {
     ErrorCategory.DC_CONVERGENCE: ErrorDiagnosis(
         category=ErrorCategory.DC_CONVERGENCE,
-        message=("The simulator could not find a stable DC operating point for your circuit."),
+        message=(
+            "The simulator could not find a stable DC operating point for your circuit."
+        ),
         causes=[
             "A node is not connected to ground (floating node)",
             "Component values are unrealistic (e.g. 0 ohm resistor, extremely large gain)",
@@ -69,7 +71,9 @@ _DIAGNOSES: dict[ErrorCategory, ErrorDiagnosis] = {
     ),
     ErrorCategory.TIMESTEP_TOO_SMALL: ErrorDiagnosis(
         category=ErrorCategory.TIMESTEP_TOO_SMALL,
-        message=("The transient simulation could not advance in time — the required timestep became too small."),
+        message=(
+            "The transient simulation could not advance in time — the required timestep became too small."
+        ),
         causes=[
             "Very fast switching edges combined with large time constants",
             "Numerical oscillation in a feedback loop",
@@ -97,7 +101,9 @@ _DIAGNOSES: dict[ErrorCategory, ErrorDiagnosis] = {
     ),
     ErrorCategory.SOURCE_STEPPING_FAILED: ErrorDiagnosis(
         category=ErrorCategory.SOURCE_STEPPING_FAILED,
-        message=("The simulator tried ramping sources gradually but still could not converge."),
+        message=(
+            "The simulator tried ramping sources gradually but still could not converge."
+        ),
         causes=[
             "Circuit has a very sensitive operating point",
             "Non-linear devices (diodes, transistors) with difficult bias conditions",

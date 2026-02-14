@@ -1,16 +1,6 @@
-from PyQt6.QtWidgets import (
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFormLayout,
-    QHBoxLayout,
-    QInputDialog,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPushButton,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+                             QHBoxLayout, QInputDialog, QLabel, QLineEdit,
+                             QMessageBox, QPushButton, QVBoxLayout)
 
 from .format_utils import parse_value
 from .meas_dialog import ANALYSIS_DOMAIN_MAP, MeasurementDialog
@@ -97,7 +87,9 @@ class AnalysisDialog(QDialog):
                 ("Points per Decade", "points", "int", "100"),
                 ("Sweep Type", "sweepType", "combo", ["dec", "oct", "lin"], "dec"),
             ],
-            "description": ("Noise spectral density analysis — computes output and input-referred noise vs. frequency"),
+            "description": (
+                "Noise spectral density analysis — computes output and input-referred noise vs. frequency"
+            ),
             "tooltips": {
                 "output_node": "Node name (or number) where output noise is measured, e.g. 'out' or '2'",
                 "source": "Name of the input source used as noise reference (e.g. V1)",
@@ -220,7 +212,9 @@ class AnalysisDialog(QDialog):
         # Measurements button (shown only for supported analysis types)
         meas_layout = QHBoxLayout()
         self.meas_btn = QPushButton("Measurements...")
-        self.meas_btn.setToolTip("Configure automated .meas directives for this analysis")
+        self.meas_btn.setToolTip(
+            "Configure automated .meas directives for this analysis"
+        )
         self.meas_btn.clicked.connect(self._open_meas_dialog)
         meas_layout.addWidget(self.meas_btn)
         self.meas_label = QLabel("No measurements configured")
@@ -229,7 +223,9 @@ class AnalysisDialog(QDialog):
         layout.addLayout(meas_layout)
 
         # Buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -305,7 +301,9 @@ class AnalysisDialog(QDialog):
 
             # Include measurement directives if any are configured
             if self._measurements:
-                params["measurements"] = [e["directive"] for e in self._measurements if e.get("directive")]
+                params["measurements"] = [
+                    e["directive"] for e in self._measurements if e.get("directive")
+                ]
 
             return params
 
@@ -430,7 +428,9 @@ class AnalysisDialog(QDialog):
         if preset_name is None:
             return
 
-        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        preset = self._preset_manager.get_preset_by_name(
+            preset_name, self.analysis_type
+        )
         if preset is None:
             return
 
@@ -452,7 +452,11 @@ class AnalysisDialog(QDialog):
         """Save current parameters as a named preset."""
         params = self.get_parameters()
         if params is None:
-            QMessageBox.warning(self, "Invalid Parameters", "Please enter valid parameters before saving a preset.")
+            QMessageBox.warning(
+                self,
+                "Invalid Parameters",
+                "Please enter valid parameters before saving a preset.",
+            )
             return
 
         # Remove analysis_type key from params (stored separately)
@@ -484,9 +488,13 @@ class AnalysisDialog(QDialog):
         if preset_name is None:
             return
 
-        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        preset = self._preset_manager.get_preset_by_name(
+            preset_name, self.analysis_type
+        )
         if preset and preset.get("builtin"):
-            QMessageBox.information(self, "Built-in Preset", "Built-in presets cannot be deleted.")
+            QMessageBox.information(
+                self, "Built-in Preset", "Built-in presets cannot be deleted."
+            )
             return
 
         reply = QMessageBox.question(
@@ -507,5 +515,9 @@ class AnalysisDialog(QDialog):
             return
 
         preset_name = self.preset_combo.itemData(index)
-        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
-        self.delete_preset_btn.setEnabled(preset is not None and not preset.get("builtin", False))
+        preset = self._preset_manager.get_preset_by_name(
+            preset_name, self.analysis_type
+        )
+        self.delete_preset_btn.setEnabled(
+            preset is not None and not preset.get("builtin", False)
+        )

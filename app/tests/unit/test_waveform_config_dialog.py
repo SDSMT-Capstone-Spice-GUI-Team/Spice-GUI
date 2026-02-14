@@ -52,7 +52,9 @@ class TestWaveformConfigDialogParams:
         assert sin_inputs["amplitude"].text() == "5"
         assert sin_inputs["frequency"].text() == "1k"
 
-    def test_get_parameters_returns_current_type_and_values(self, qtbot, waveform_component):
+    def test_get_parameters_returns_current_type_and_values(
+        self, qtbot, waveform_component
+    ):
         dialog = WaveformConfigDialog(waveform_component)
         qtbot.addWidget(dialog)
         wtype, params = dialog.get_parameters()

@@ -10,13 +10,17 @@ from tests.conftest import make_component, make_wire
 class TestValidCircuit:
     def test_simple_valid_circuit(self, simple_resistor_circuit):
         components, wires, _, _ = simple_resistor_circuit
-        is_valid, errors, warnings = validate_circuit(components, wires, "DC Operating Point")
+        is_valid, errors, warnings = validate_circuit(
+            components, wires, "DC Operating Point"
+        )
         assert is_valid
         assert len(errors) == 0
 
     def test_resistor_divider_valid(self, resistor_divider_circuit):
         components, wires, _, _ = resistor_divider_circuit
-        is_valid, errors, warnings = validate_circuit(components, wires, "DC Operating Point")
+        is_valid, errors, warnings = validate_circuit(
+            components, wires, "DC Operating Point"
+        )
         assert is_valid
 
 
@@ -25,7 +29,9 @@ class TestNoComponents:
         components = {
             "GND1": make_component("Ground", "GND1", "0V"),
         }
-        is_valid, errors, warnings = validate_circuit(components, [], "DC Operating Point")
+        is_valid, errors, warnings = validate_circuit(
+            components, [], "DC Operating Point"
+        )
         assert not is_valid
         assert any("no components" in e.lower() for e in errors)
 
@@ -41,7 +47,9 @@ class TestNoGround:
             "V1": make_component("Voltage Source", "V1", "5V"),
         }
         wires = [make_wire("V1", 0, "R1", 0)]
-        is_valid, errors, warnings = validate_circuit(components, wires, "DC Operating Point")
+        is_valid, errors, warnings = validate_circuit(
+            components, wires, "DC Operating Point"
+        )
         assert not is_valid
         assert any("ground" in e.lower() for e in errors)
 
@@ -55,7 +63,9 @@ class TestUnconnectedTerminals:
         }
         # Only V1 and GND connected; R1 has no wires
         wires = [make_wire("V1", 0, "GND1", 0)]
-        is_valid, errors, warnings = validate_circuit(components, wires, "DC Operating Point")
+        is_valid, errors, warnings = validate_circuit(
+            components, wires, "DC Operating Point"
+        )
         assert not is_valid
         assert any("R1" in e and "no connections" in e.lower() for e in errors)
 
@@ -70,7 +80,9 @@ class TestUnconnectedTerminals:
             make_wire("V1", 0, "R1", 0),
             make_wire("V1", 1, "GND1", 0),
         ]
-        is_valid, errors, warnings = validate_circuit(components, wires, "DC Operating Point")
+        is_valid, errors, warnings = validate_circuit(
+            components, wires, "DC Operating Point"
+        )
         assert any("R1" in w and "unconnected" in w.lower() for w in warnings)
 
 
@@ -98,5 +110,7 @@ class TestNoSources:
             "GND1": make_component("Ground", "GND1", "0V"),
         }
         wires = [make_wire("R1", 0, "GND1", 0)]
-        is_valid, errors, warnings = validate_circuit(components, wires, "DC Operating Point")
+        is_valid, errors, warnings = validate_circuit(
+            components, wires, "DC Operating Point"
+        )
         assert any("no voltage or current" in w.lower() for w in warnings)

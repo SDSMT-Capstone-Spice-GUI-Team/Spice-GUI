@@ -8,11 +8,9 @@ through the CircuitController rather than directly on the canvas.
 import inspect
 
 from controllers.circuit_controller import CircuitController
-from controllers.commands import (
-    AddAnnotationCommand,
-    DeleteAnnotationCommand,
-    EditAnnotationCommand,
-)
+from controllers.commands import (AddAnnotationCommand,
+                                  DeleteAnnotationCommand,
+                                  EditAnnotationCommand)
 from models.annotation import AnnotationData
 from models.circuit import CircuitModel
 

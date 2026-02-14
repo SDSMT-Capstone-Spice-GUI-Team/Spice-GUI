@@ -6,21 +6,10 @@ distribution, and select the base analysis type.
 """
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QDoubleSpinBox,
-    QFormLayout,
-    QGroupBox,
-    QHeaderView,
-    QLabel,
-    QLineEdit,
-    QSpinBox,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox,
+                             QDoubleSpinBox, QFormLayout, QGroupBox,
+                             QHeaderView, QLabel, QLineEdit, QSpinBox,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 # Base analysis types available for Monte Carlo
 MC_BASE_ANALYSIS_TYPES = [
@@ -43,7 +32,11 @@ class MonteCarloDialog(QDialog):
         from simulation.monte_carlo import MC_ELIGIBLE_TYPES
 
         self._components = components
-        self._eligible = {cid: comp for cid, comp in components.items() if comp.component_type in MC_ELIGIBLE_TYPES}
+        self._eligible = {
+            cid: comp
+            for cid, comp in components.items()
+            if comp.component_type in MC_ELIGIBLE_TYPES
+        }
         self._base_field_widgets = {}
         self._init_ui()
 
@@ -89,10 +82,16 @@ class MonteCarloDialog(QDialog):
             self.tol_table = None
         else:
             self.tol_table = QTableWidget()
-            self.tol_table.setToolTip("Set tolerance and distribution for each component")
+            self.tol_table.setToolTip(
+                "Set tolerance and distribution for each component"
+            )
             self.tol_table.setColumnCount(4)
-            self.tol_table.setHorizontalHeaderLabels(["Component", "Type", "Tolerance (%)", "Distribution"])
-            self.tol_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            self.tol_table.setHorizontalHeaderLabels(
+                ["Component", "Type", "Tolerance (%)", "Distribution"]
+            )
+            self.tol_table.horizontalHeader().setSectionResizeMode(
+                QHeaderView.ResizeMode.Stretch
+            )
             self.tol_table.setRowCount(len(self._eligible))
 
             for row, (cid, comp) in enumerate(sorted(self._eligible.items())):
@@ -121,7 +120,9 @@ class MonteCarloDialog(QDialog):
                 # Distribution combo
                 dist_combo = QComboBox()
                 dist_combo.addItems(["Gaussian", "Uniform"])
-                dist_combo.setToolTip("Gaussian: normal distribution; Uniform: equal probability across range")
+                dist_combo.setToolTip(
+                    "Gaussian: normal distribution; Uniform: equal probability across range"
+                )
                 self.tol_table.setCellWidget(row, 3, dist_combo)
 
             tol_layout.addWidget(self.tol_table)
@@ -129,7 +130,9 @@ class MonteCarloDialog(QDialog):
         layout.addWidget(tol_group)
 
         # --- Buttons ---
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)

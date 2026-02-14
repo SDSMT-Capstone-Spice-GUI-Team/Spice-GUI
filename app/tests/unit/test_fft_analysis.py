@@ -2,14 +2,10 @@
 
 import numpy as np
 import pytest
-from simulation.fft_analysis import (
-    FFTResult,
-    analyze_signal_spectrum,
-    compute_fft,
-    compute_thd,
-    find_fundamental_frequency,
-    find_harmonics,
-)
+from simulation.fft_analysis import (FFTResult, analyze_signal_spectrum,
+                                     compute_fft, compute_thd,
+                                     find_fundamental_frequency,
+                                     find_harmonics)
 
 
 class TestComputeFFT:

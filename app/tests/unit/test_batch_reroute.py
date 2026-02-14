@@ -67,7 +67,11 @@ class TestObserverMoveDedup:
         r2 = ctrl.add_component("Resistor", (100, 0))
 
         events = []
-        ctrl.add_observer(lambda e, d: events.append((e, d.component_id)) if e == "component_moved" else None)
+        ctrl.add_observer(
+            lambda e, d: (
+                events.append((e, d.component_id)) if e == "component_moved" else None
+            )
+        )
 
         # Simulate group drag: both components move
         ctrl.move_component(r1.component_id, (50, 50))

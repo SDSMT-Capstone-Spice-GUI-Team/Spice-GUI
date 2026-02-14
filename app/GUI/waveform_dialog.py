@@ -4,25 +4,11 @@ import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtGui import QColor
-from PyQt6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QFileDialog,
-    QFormLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QHeaderView,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPushButton,
-    QScrollArea,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDialog, QFileDialog,
+                             QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
+                             QLabel, QLineEdit, QMessageBox, QPushButton,
+                             QScrollArea, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout, QWidget)
 from simulation.fft_analysis import analyze_signal_spectrum
 
 from .format_utils import format_value, parse_value
@@ -84,7 +70,9 @@ class WaveformDialog(QDialog):
         self._overlay_datasets = []
 
         # Visibility state for columns
-        self.voltage_keys = sorted([k for k in data[0].keys() if k.lower() not in ["time", "index"]])
+        self.voltage_keys = sorted(
+            [k for k in data[0].keys() if k.lower() not in ["time", "index"]]
+        )
         self.column_visibility = {key: True for key in self.voltage_keys}
 
         # Visibility for overlay traces (keyed by "label — signal")
@@ -127,7 +115,9 @@ class WaveformDialog(QDialog):
         for key in self.voltage_keys:
             checkbox = QCheckBox(key)
             checkbox.setChecked(True)
-            checkbox.toggled.connect(lambda state, k=key: self._on_visibility_changed(k, state))
+            checkbox.toggled.connect(
+                lambda state, k=key: self._on_visibility_changed(k, state)
+            )
             scroll_layout.addWidget(checkbox)
 
         scroll_area.setWidget(self._toggle_scroll_content)
@@ -214,7 +204,9 @@ class WaveformDialog(QDialog):
         self._overlay_datasets.append((label, data))
 
         # Add toggle checkboxes for overlay signals
-        overlay_keys = sorted([k for k in data[0].keys() if k.lower() not in ["time", "index"]])
+        overlay_keys = sorted(
+            [k for k in data[0].keys() if k.lower() not in ["time", "index"]]
+        )
         scroll_layout = self._toggle_scroll_content.layout()
 
         separator = QLabel(f"── {label} ──")
@@ -226,7 +218,11 @@ class WaveformDialog(QDialog):
             self._overlay_visibility[overlay_key] = True
             checkbox = QCheckBox(f"{label} — {key}")
             checkbox.setChecked(True)
-            checkbox.toggled.connect(lambda state, k=overlay_key: self._on_overlay_visibility_changed(k, state))
+            checkbox.toggled.connect(
+                lambda state, k=overlay_key: self._on_overlay_visibility_changed(
+                    k, state
+                )
+            )
             scroll_layout.addWidget(checkbox)
 
         self.update_view()
@@ -309,10 +305,26 @@ class WaveformDialog(QDialog):
     def apply_highlight(self):
         """Applies highlighting without filtering the data and scrolls to the first highlighted row."""
         try:
-            self.time_min = parse_value(self.time_min_edit.text()) if self.time_min_edit.text() else None
-            self.time_max = parse_value(self.time_max_edit.text()) if self.time_max_edit.text() else None
-            self.volt_min = parse_value(self.volt_min_edit.text()) if self.volt_min_edit.text() else None
-            self.volt_max = parse_value(self.volt_max_edit.text()) if self.volt_max_edit.text() else None
+            self.time_min = (
+                parse_value(self.time_min_edit.text())
+                if self.time_min_edit.text()
+                else None
+            )
+            self.time_max = (
+                parse_value(self.time_max_edit.text())
+                if self.time_max_edit.text()
+                else None
+            )
+            self.volt_min = (
+                parse_value(self.volt_min_edit.text())
+                if self.volt_min_edit.text()
+                else None
+            )
+            self.volt_max = (
+                parse_value(self.volt_max_edit.text())
+                if self.volt_max_edit.text()
+                else None
+            )
         except ValueError:
             self.reset_view()
             return
@@ -335,10 +347,14 @@ class WaveformDialog(QDialog):
                     break
 
             if self.volt_min is not None or self.volt_max is not None:
-                voltage_keys = [k for k in row.keys() if k.lower() not in ["time", "index"]]
+                voltage_keys = [
+                    k for k in row.keys() if k.lower() not in ["time", "index"]
+                ]
                 for key in voltage_keys:
                     v = row.get(key, 0)
-                    if (self.volt_min is None or v >= self.volt_min) and (self.volt_max is None or v <= self.volt_max):
+                    if (self.volt_min is None or v >= self.volt_min) and (
+                        self.volt_max is None or v <= self.volt_max
+                    ):
                         first_highlight_row = i
                         break
                 if first_highlight_row != -1:
@@ -350,10 +366,26 @@ class WaveformDialog(QDialog):
     def apply_filters(self):
         """Filters the data based on user input and updates the view."""
         try:
-            self.time_min = parse_value(self.time_min_edit.text()) if self.time_min_edit.text() else None
-            self.time_max = parse_value(self.time_max_edit.text()) if self.time_max_edit.text() else None
-            self.volt_min = parse_value(self.volt_min_edit.text()) if self.volt_min_edit.text() else None
-            self.volt_max = parse_value(self.volt_max_edit.text()) if self.volt_max_edit.text() else None
+            self.time_min = (
+                parse_value(self.time_min_edit.text())
+                if self.time_min_edit.text()
+                else None
+            )
+            self.time_max = (
+                parse_value(self.time_max_edit.text())
+                if self.time_max_edit.text()
+                else None
+            )
+            self.volt_min = (
+                parse_value(self.volt_min_edit.text())
+                if self.volt_min_edit.text()
+                else None
+            )
+            self.volt_max = (
+                parse_value(self.volt_max_edit.text())
+                if self.volt_max_edit.text()
+                else None
+            )
         except ValueError:
             self.reset_view()
             return
@@ -361,12 +393,18 @@ class WaveformDialog(QDialog):
         filtered_data = self.full_data
 
         if self.time_min is not None:
-            filtered_data = [row for row in filtered_data if row.get("time", 0) >= self.time_min]
+            filtered_data = [
+                row for row in filtered_data if row.get("time", 0) >= self.time_min
+            ]
         if self.time_max is not None:
-            filtered_data = [row for row in filtered_data if row.get("time", 0) <= self.time_max]
+            filtered_data = [
+                row for row in filtered_data if row.get("time", 0) <= self.time_max
+            ]
 
         if (self.volt_min is not None or self.volt_max is not None) and filtered_data:
-            voltage_keys = [k for k in filtered_data[0].keys() if k.lower() not in ["time", "index"]]
+            voltage_keys = [
+                k for k in filtered_data[0].keys() if k.lower() not in ["time", "index"]
+            ]
 
             def voltage_in_range(row):
                 for key in voltage_keys:
@@ -413,12 +451,18 @@ class WaveformDialog(QDialog):
 
         all_headers = [h for h in self.view_data[0].keys() if h.lower() != "index"]
         # Filter headers based on visibility, always keeping 'time'
-        self.headers = [h for h in all_headers if h == "time" or self.column_visibility.get(h, False)]
+        self.headers = [
+            h
+            for h in all_headers
+            if h == "time" or self.column_visibility.get(h, False)
+        ]
 
         self.table.setColumnCount(len(self.headers))
         self.table.setHorizontalHeaderLabels(self.headers)
 
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
 
         # Load the first chunk of rows
         self._load_more_rows()
@@ -453,14 +497,18 @@ class WaveformDialog(QDialog):
         time_full = [row[time_key] for row in data]
 
         # Use only visible keys
-        visible_voltage_keys = [k for k in self.voltage_keys if self.column_visibility.get(k, False)]
+        visible_voltage_keys = [
+            k for k in self.voltage_keys if self.column_visibility.get(k, False)
+        ]
 
         # 1. Plot base lines using persistent colors
         for key in visible_voltage_keys:
             voltage_values = [row[key] for row in data]
             if len(time_full) == len(voltage_values):
                 color = self.plot_colors.get(key, "k")  # Use stored color
-                self.canvas.axes.plot(time_full, voltage_values, label=f"V({key})", color=color)
+                self.canvas.axes.plot(
+                    time_full, voltage_values, label=f"V({key})", color=color
+                )
 
         # 2. Highlighting logic: plot highlighted segments on top
         is_highlighting = (
@@ -532,7 +580,13 @@ class WaveformDialog(QDialog):
             if ov_time_key not in overlay_data[0]:
                 continue
             ov_time = [row[ov_time_key] for row in overlay_data]
-            ov_keys = sorted([k for k in overlay_data[0].keys() if k.lower() not in ["time", "index"]])
+            ov_keys = sorted(
+                [
+                    k
+                    for k in overlay_data[0].keys()
+                    if k.lower() not in ["time", "index"]
+                ]
+            )
             ls = overlay_linestyles[ds_idx % len(overlay_linestyles)]
 
             for key in ov_keys:
@@ -562,7 +616,9 @@ class WaveformDialog(QDialog):
         # Set up measurement cursors (re-attach after axes clear)
         if self._cursors is not None:
             self._cursors.remove()
-        self._cursors = MeasurementCursors(self.canvas.axes, self.canvas, on_cursor_moved=self._on_cursor_moved)
+        self._cursors = MeasurementCursors(
+            self.canvas.axes, self.canvas, on_cursor_moved=self._on_cursor_moved
+        )
         self._cursor_readout.set_cursors(self._cursors)
         if time_full:
             self._cursors.set_data(time_full)
@@ -574,7 +630,9 @@ class WaveformDialog(QDialog):
         from simulation.csv_exporter import export_transient_results, write_csv
 
         csv_content = export_transient_results(self.view_data)
-        filename, _ = QFileDialog.getSaveFileName(self, "Export Results to CSV", "", "CSV Files (*.csv);;All Files (*)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export Results to CSV", "", "CSV Files (*.csv);;All Files (*)"
+        )
         if filename:
             try:
                 write_csv(csv_content, filename)
@@ -596,7 +654,9 @@ class WaveformDialog(QDialog):
         time = np.array([row.get("time", 0) for row in self.full_data])
 
         # Get list of available signals (exclude time)
-        signal_names = [k for k in self.voltage_keys if self.column_visibility.get(k, True)]
+        signal_names = [
+            k for k in self.voltage_keys if self.column_visibility.get(k, True)
+        ]
 
         if not signal_names:
             QMessageBox.warning(
@@ -717,7 +777,9 @@ class FFTAnalysisDialog(QDialog):
         signal = np.array([row.get(signal_name, 0) for row in self.data])
 
         try:
-            self._fft_result = analyze_signal_spectrum(self.time, signal, signal_name, window_type)
+            self._fft_result = analyze_signal_spectrum(
+                self.time, signal, signal_name, window_type
+            )
             self._replot()
         except Exception as e:
             QMessageBox.critical(self, "FFT Error", f"Failed to compute FFT: {e}")

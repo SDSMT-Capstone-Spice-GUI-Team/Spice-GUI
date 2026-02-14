@@ -184,7 +184,9 @@ class TestDragUndoViaUndoManager:
 
         # Simulate drag commit
         controller.move_component(comp_id, (50, 50))
-        drag_cmd = MoveComponentCommand(controller, comp_id, (50, 50), old_position=(0, 0))
+        drag_cmd = MoveComponentCommand(
+            controller, comp_id, (50, 50), old_position=(0, 0)
+        )
         controller.undo_manager._undo_stack.append(drag_cmd)
         controller.undo_manager._redo_stack.clear()
 
@@ -198,8 +200,12 @@ class TestDragUndoViaUndoManager:
         r1 = controller.add_component("Resistor", (0, 0))
         r2 = controller.add_component("Capacitor", (100, 0))
 
-        cmd1 = MoveComponentCommand(controller, r1.component_id, (50, 50), old_position=(0, 0))
-        cmd2 = MoveComponentCommand(controller, r2.component_id, (150, 50), old_position=(100, 0))
+        cmd1 = MoveComponentCommand(
+            controller, r1.component_id, (50, 50), old_position=(0, 0)
+        )
+        cmd2 = MoveComponentCommand(
+            controller, r2.component_id, (150, 50), old_position=(100, 0)
+        )
         compound = CompoundCommand([cmd1, cmd2], "Move 2 components")
 
         assert compound.get_description() == "Move 2 components"

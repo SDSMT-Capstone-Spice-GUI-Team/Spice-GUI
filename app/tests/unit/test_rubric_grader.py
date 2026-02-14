@@ -4,7 +4,8 @@ import json
 
 import pytest
 from grading.grader import CircuitGrader, GradingResult
-from grading.rubric import Rubric, RubricCheck, load_rubric, save_rubric, validate_rubric
+from grading.rubric import (Rubric, RubricCheck, load_rubric, save_rubric,
+                            validate_rubric)
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
@@ -40,10 +41,30 @@ def _build_rc_filter(r_value="1k", c_value="100n", analysis="AC Sweep"):
         position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="C1", end_terminal=0),
-        WireData(start_component_id="C1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="R1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="C1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="C1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
     ]
     model.component_counter = {"V": 1, "R": 1, "C": 1, "GND": 1}
     model.analysis_type = analysis
@@ -77,7 +98,11 @@ def _build_rc_rubric():
                 check_id="r1_value",
                 check_type="component_value",
                 points=20,
-                params={"component_id": "R1", "expected_value": "1k", "tolerance_pct": 10},
+                params={
+                    "component_id": "R1",
+                    "expected_value": "1k",
+                    "tolerance_pct": 10,
+                },
                 feedback_pass="R1 value correct",
                 feedback_fail="R1 value should be approximately 1k",
             ),
@@ -289,7 +314,9 @@ class TestCircuitGraderPartialMarks:
         result = grader.grade(student, rubric)
 
         # C1 existence check should fail
-        c1_result = next(cr for cr in result.check_results if cr.check_id == "c1_exists")
+        c1_result = next(
+            cr for cr in result.check_results if cr.check_id == "c1_exists"
+        )
         assert c1_result.passed is False
         assert c1_result.points_earned == 0
 
@@ -331,22 +358,49 @@ class TestCircuitGraderTopology:
         """R1 and C1 not connected should fail topology check."""
         model = CircuitModel()
         model.components["V1"] = ComponentData(
-            component_id="V1", component_type="Voltage Source", value="5V", position=(0.0, 0.0)
+            component_id="V1",
+            component_type="Voltage Source",
+            value="5V",
+            position=(0.0, 0.0),
         )
         model.components["R1"] = ComponentData(
-            component_id="R1", component_type="Resistor", value="1k", position=(100.0, 0.0)
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(100.0, 0.0),
         )
         model.components["C1"] = ComponentData(
-            component_id="C1", component_type="Capacitor", value="100n", position=(200.0, 0.0)
+            component_id="C1",
+            component_type="Capacitor",
+            value="100n",
+            position=(200.0, 0.0),
         )
         model.components["GND1"] = ComponentData(
-            component_id="GND1", component_type="Ground", value="0V", position=(0.0, 100.0)
+            component_id="GND1",
+            component_type="Ground",
+            value="0V",
+            position=(0.0, 100.0),
         )
         # Wire V1-R1 and C1-GND but NOT R1-C1
         model.wires = [
-            WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-            WireData(start_component_id="C1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-            WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+            WireData(
+                start_component_id="V1",
+                start_terminal=1,
+                end_component_id="R1",
+                end_terminal=0,
+            ),
+            WireData(
+                start_component_id="C1",
+                start_terminal=1,
+                end_component_id="GND1",
+                end_terminal=0,
+            ),
+            WireData(
+                start_component_id="V1",
+                start_terminal=0,
+                end_component_id="GND1",
+                end_terminal=0,
+            ),
         ]
         model.analysis_type = "AC Sweep"
         model.rebuild_nodes()
@@ -355,7 +409,9 @@ class TestCircuitGraderTopology:
         grader = CircuitGrader()
         result = grader.grade(model, rubric)
 
-        topo_check = next(cr for cr in result.check_results if cr.check_id == "rc_connected")
+        topo_check = next(
+            cr for cr in result.check_results if cr.check_id == "rc_connected"
+        )
         assert topo_check.passed is False
 
 
@@ -363,7 +419,10 @@ class TestCircuitGraderGround:
     def test_missing_ground_fails(self):
         model = CircuitModel()
         model.components["R1"] = ComponentData(
-            component_id="R1", component_type="Resistor", value="1k", position=(0.0, 0.0)
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(0.0, 0.0),
         )
         model.rebuild_nodes()
 

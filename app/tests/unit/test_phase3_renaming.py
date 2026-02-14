@@ -37,7 +37,8 @@ def test_circuit_canvas_backward_compatibility():
 
 def test_gui_module_exports_both_names():
     """Test that GUI.__init__ exports both old and new names"""
-    from GUI import CircuitCanvas, CircuitCanvasView, ComponentGraphicsItem, WireGraphicsItem, WireItem
+    from GUI import (CircuitCanvas, CircuitCanvasView, ComponentGraphicsItem,
+                     WireGraphicsItem, WireItem)
 
     # New names should work
     assert ComponentGraphicsItem is not None
@@ -96,7 +97,8 @@ def test_wire_data_integration():
 
 def test_component_graphics_item_inheritance():
     """Test that component subclasses work with new name"""
-    from GUI.component_item import Capacitor, ComponentGraphicsItem, Ground, Resistor, VoltageSource
+    from GUI.component_item import (Capacitor, ComponentGraphicsItem, Ground,
+                                    Resistor, VoltageSource)
 
     # All component types should be subclasses of ComponentGraphicsItem
     assert issubclass(Resistor, ComponentGraphicsItem)
@@ -129,9 +131,13 @@ def test_phase3_no_functionality_regression():
     from models.wire import WireData
 
     # Create basic model objects
-    comp = ComponentData(component_id="R1", component_type="Resistor", value="1k", position=(0, 0))
+    comp = ComponentData(
+        component_id="R1", component_type="Resistor", value="1k", position=(0, 0)
+    )
 
-    wire = WireData(start_component_id="R1", start_terminal=0, end_component_id="R2", end_terminal=0)
+    wire = WireData(
+        start_component_id="R1", start_terminal=0, end_component_id="R2", end_terminal=0
+    )
 
     node = NodeData(terminals={("R1", 0), ("R2", 0)}, wire_indices={0})
 

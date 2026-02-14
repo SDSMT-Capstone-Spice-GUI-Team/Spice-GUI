@@ -8,21 +8,10 @@ FIND...WHEN), and timing measurements (TRIG...TARG).
 """
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFormLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QHeaderView,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+                             QGroupBox, QHBoxLayout, QHeaderView, QLabel,
+                             QLineEdit, QPushButton, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout)
 
 # Maps the GUI analysis type name to the .meas domain keyword
 ANALYSIS_DOMAIN_MAP = {
@@ -151,7 +140,9 @@ class MeasurementEntryDialog(QDialog):
         layout.addWidget(self.preview_label)
 
         # Buttons
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -179,21 +170,27 @@ class MeasurementEntryDialog(QDialog):
         if meas_type in ("AVG", "RMS", "MIN", "MAX", "PP", "INTEG"):
             self.from_edit = QLineEdit()
             self.from_edit.setPlaceholderText("optional, e.g., 0 or 1m")
-            self.from_edit.setToolTip("Start of measurement range (leave empty for full range)")
+            self.from_edit.setToolTip(
+                "Start of measurement range (leave empty for full range)"
+            )
             self.from_edit.textChanged.connect(self._update_preview)
             self._dynamic_layout.addRow("From:", self.from_edit)
             self._dynamic_widgets.append(self.from_edit)
 
             self.to_edit = QLineEdit()
             self.to_edit.setPlaceholderText("optional, e.g., 10m")
-            self.to_edit.setToolTip("End of measurement range (leave empty for full range)")
+            self.to_edit.setToolTip(
+                "End of measurement range (leave empty for full range)"
+            )
             self.to_edit.textChanged.connect(self._update_preview)
             self._dynamic_layout.addRow("To:", self.to_edit)
             self._dynamic_widgets.append(self.to_edit)
 
         elif meas_type == "FIND_AT":
             self.at_edit = QLineEdit("1m")
-            self.at_edit.setToolTip("The exact point (time/frequency/voltage) at which to sample the variable")
+            self.at_edit.setToolTip(
+                "The exact point (time/frequency/voltage) at which to sample the variable"
+            )
             self.at_edit.textChanged.connect(self._update_preview)
             self._dynamic_layout.addRow("At value:", self.at_edit)
             self._dynamic_widgets.append(self.at_edit)
@@ -206,14 +203,20 @@ class MeasurementEntryDialog(QDialog):
             self._dynamic_widgets.append(self.when_var_edit)
 
             self.when_val_edit = QLineEdit("0.5")
-            self.when_val_edit.setToolTip("Value that the condition variable must equal")
+            self.when_val_edit.setToolTip(
+                "Value that the condition variable must equal"
+            )
             self.when_val_edit.textChanged.connect(self._update_preview)
             self._dynamic_layout.addRow("Equals:", self.when_val_edit)
             self._dynamic_widgets.append(self.when_val_edit)
 
             self.cross_combo = QComboBox()
-            self.cross_combo.addItems(["", "RISE=1", "FALL=1", "CROSS=1", "RISE=2", "FALL=2"])
-            self.cross_combo.setToolTip("Which crossing to use (empty = first crossing)")
+            self.cross_combo.addItems(
+                ["", "RISE=1", "FALL=1", "CROSS=1", "RISE=2", "FALL=2"]
+            )
+            self.cross_combo.setToolTip(
+                "Which crossing to use (empty = first crossing)"
+            )
             self.cross_combo.currentIndexChanged.connect(self._update_preview)
             self._dynamic_layout.addRow("Crossing:", self.cross_combo)
             self._dynamic_widgets.append(self.cross_combo)
@@ -233,7 +236,9 @@ class MeasurementEntryDialog(QDialog):
 
             self.trig_edge_combo = QComboBox()
             self.trig_edge_combo.addItems(["RISE=1", "FALL=1", "CROSS=1"])
-            self.trig_edge_combo.setToolTip("Trigger edge: rising, falling, or any crossing")
+            self.trig_edge_combo.setToolTip(
+                "Trigger edge: rising, falling, or any crossing"
+            )
             self.trig_edge_combo.currentIndexChanged.connect(self._update_preview)
             self._dynamic_layout.addRow("Trigger edge:", self.trig_edge_combo)
             self._dynamic_widgets.append(self.trig_edge_combo)
@@ -252,7 +257,9 @@ class MeasurementEntryDialog(QDialog):
 
             self.targ_edge_combo = QComboBox()
             self.targ_edge_combo.addItems(["RISE=1", "FALL=1", "CROSS=1"])
-            self.targ_edge_combo.setToolTip("Target edge: rising, falling, or any crossing")
+            self.targ_edge_combo.setToolTip(
+                "Target edge: rising, falling, or any crossing"
+            )
             self.targ_edge_combo.currentIndexChanged.connect(self._update_preview)
             self._dynamic_layout.addRow("Target edge:", self.targ_edge_combo)
             self._dynamic_widgets.append(self.targ_edge_combo)
@@ -263,7 +270,9 @@ class MeasurementEntryDialog(QDialog):
         """Update the directive preview text."""
         data = self.get_data()
         if data:
-            directive = build_directive(self._domain, data["name"], data["meas_type"], data["params"])
+            directive = build_directive(
+                self._domain, data["name"], data["meas_type"], data["params"]
+            )
             self.preview_label.setText(directive)
         else:
             self.preview_label.setText("")
@@ -317,7 +326,12 @@ class MeasurementEntryDialog(QDialog):
                 params["targ_edge"] = self.targ_edge_combo.currentText()
 
         directive = build_directive(self._domain, name, meas_type, params)
-        return {"name": name, "meas_type": meas_type, "params": params, "directive": directive}
+        return {
+            "name": name,
+            "meas_type": meas_type,
+            "params": params,
+            "directive": directive,
+        }
 
     def _load_initial(self, data):
         """Pre-populate form from a data dict."""
@@ -437,7 +451,9 @@ class MeasurementDialog(QDialog):
         layout.addLayout(btn_layout)
 
         # OK / Cancel
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -457,7 +473,9 @@ class MeasurementDialog(QDialog):
             self.table.setItem(row, 1, type_item)
 
             directive_item = QTableWidgetItem(entry.get("directive", ""))
-            directive_item.setFlags(directive_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            directive_item.setFlags(
+                directive_item.flags() & ~Qt.ItemFlag.ItemIsEditable
+            )
             self.table.setItem(row, 2, directive_item)
 
         self._update_buttons()

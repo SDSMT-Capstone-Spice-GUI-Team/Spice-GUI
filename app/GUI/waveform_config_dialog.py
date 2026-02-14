@@ -1,14 +1,6 @@
-from PyQt6.QtWidgets import (
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFormLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+                             QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+                             QVBoxLayout)
 
 
 class WaveformConfigDialog(QDialog):
@@ -63,7 +55,9 @@ class WaveformConfigDialog(QDialog):
         self.on_type_changed(self.component.waveform_type)
 
         # Dialog buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -110,27 +104,51 @@ class WaveformConfigDialog(QDialog):
         # Add fields for selected waveform type
         if waveform_type == "SIN":
             self.params_layout.addRow("Offset (V):", self.param_inputs["SIN"]["offset"])
-            self.params_layout.addRow("Amplitude (V):", self.param_inputs["SIN"]["amplitude"])
-            self.params_layout.addRow("Frequency (Hz):", self.param_inputs["SIN"]["frequency"])
+            self.params_layout.addRow(
+                "Amplitude (V):", self.param_inputs["SIN"]["amplitude"]
+            )
+            self.params_layout.addRow(
+                "Frequency (Hz):", self.param_inputs["SIN"]["frequency"]
+            )
             self.params_layout.addRow("Delay (s):", self.param_inputs["SIN"]["delay"])
             self.params_layout.addRow("Theta (1/s):", self.param_inputs["SIN"]["theta"])
             self.params_layout.addRow("Phase (deg):", self.param_inputs["SIN"]["phase"])
 
         elif waveform_type == "PULSE":
-            self.params_layout.addRow("Initial Value (V):", self.param_inputs["PULSE"]["v1"])
-            self.params_layout.addRow("Pulsed Value (V):", self.param_inputs["PULSE"]["v2"])
-            self.params_layout.addRow("Delay Time (s):", self.param_inputs["PULSE"]["td"])
-            self.params_layout.addRow("Rise Time (s):", self.param_inputs["PULSE"]["tr"])
-            self.params_layout.addRow("Fall Time (s):", self.param_inputs["PULSE"]["tf"])
-            self.params_layout.addRow("Pulse Width (s):", self.param_inputs["PULSE"]["pw"])
+            self.params_layout.addRow(
+                "Initial Value (V):", self.param_inputs["PULSE"]["v1"]
+            )
+            self.params_layout.addRow(
+                "Pulsed Value (V):", self.param_inputs["PULSE"]["v2"]
+            )
+            self.params_layout.addRow(
+                "Delay Time (s):", self.param_inputs["PULSE"]["td"]
+            )
+            self.params_layout.addRow(
+                "Rise Time (s):", self.param_inputs["PULSE"]["tr"]
+            )
+            self.params_layout.addRow(
+                "Fall Time (s):", self.param_inputs["PULSE"]["tf"]
+            )
+            self.params_layout.addRow(
+                "Pulse Width (s):", self.param_inputs["PULSE"]["pw"]
+            )
             self.params_layout.addRow("Period (s):", self.param_inputs["PULSE"]["per"])
 
         elif waveform_type == "EXP":
-            self.params_layout.addRow("Initial Value (V):", self.param_inputs["EXP"]["v1"])
-            self.params_layout.addRow("Pulsed Value (V):", self.param_inputs["EXP"]["v2"])
-            self.params_layout.addRow("Rise Delay (s):", self.param_inputs["EXP"]["td1"])
+            self.params_layout.addRow(
+                "Initial Value (V):", self.param_inputs["EXP"]["v1"]
+            )
+            self.params_layout.addRow(
+                "Pulsed Value (V):", self.param_inputs["EXP"]["v2"]
+            )
+            self.params_layout.addRow(
+                "Rise Delay (s):", self.param_inputs["EXP"]["td1"]
+            )
             self.params_layout.addRow("Rise Tau (s):", self.param_inputs["EXP"]["tau1"])
-            self.params_layout.addRow("Fall Delay (s):", self.param_inputs["EXP"]["td2"])
+            self.params_layout.addRow(
+                "Fall Delay (s):", self.param_inputs["EXP"]["td2"]
+            )
             self.params_layout.addRow("Fall Tau (s):", self.param_inputs["EXP"]["tau2"])
 
         self.update_help_text()

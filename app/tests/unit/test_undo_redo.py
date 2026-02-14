@@ -2,18 +2,11 @@
 
 import pytest
 from controllers.circuit_controller import CircuitController
-from controllers.commands import (
-    AddComponentCommand,
-    AddWireCommand,
-    ChangeValueCommand,
-    CompoundCommand,
-    DeleteComponentCommand,
-    DeleteWireCommand,
-    FlipComponentCommand,
-    MoveComponentCommand,
-    PasteCommand,
-    RotateComponentCommand,
-)
+from controllers.commands import (AddComponentCommand, AddWireCommand,
+                                  ChangeValueCommand, CompoundCommand,
+                                  DeleteComponentCommand, DeleteWireCommand,
+                                  FlipComponentCommand, MoveComponentCommand,
+                                  PasteCommand, RotateComponentCommand)
 from controllers.undo_manager import UndoManager
 from models.circuit import CircuitModel
 

@@ -31,7 +31,9 @@ class AnalysisSettingsMixin:
                         3000,
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                QMessageBox.warning(
+                    self, "Invalid Parameters", "Please enter valid numeric values."
+                )
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -50,7 +52,9 @@ class AnalysisSettingsMixin:
                         3000,
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                QMessageBox.warning(
+                    self, "Invalid Parameters", "Please enter valid numeric values."
+                )
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -69,7 +73,9 @@ class AnalysisSettingsMixin:
                         3000,
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                QMessageBox.warning(
+                    self, "Invalid Parameters", "Please enter valid numeric values."
+                )
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -91,7 +97,9 @@ class AnalysisSettingsMixin:
                         3000,
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                QMessageBox.warning(
+                    self, "Invalid Parameters", "Please enter valid numeric values."
+                )
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)
@@ -110,7 +118,9 @@ class AnalysisSettingsMixin:
                         3000,
                     )
             else:
-                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid numeric values.")
+                QMessageBox.warning(
+                    self, "Invalid Parameters", "Please enter valid numeric values."
+                )
                 self.op_action.setChecked(True)
         else:
             self.op_action.setChecked(True)

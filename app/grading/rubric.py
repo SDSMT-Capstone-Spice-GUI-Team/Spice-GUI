@@ -110,7 +110,9 @@ def validate_rubric(data: dict) -> None:
 
         for required in ("check_id", "check_type", "points"):
             if required not in check:
-                raise ValueError(f"Check #{i + 1} is missing required field '{required}'.")
+                raise ValueError(
+                    f"Check #{i + 1} is missing required field '{required}'."
+                )
 
         if check["check_type"] not in VALID_CHECK_TYPES:
             raise ValueError(
@@ -125,7 +127,9 @@ def validate_rubric(data: dict) -> None:
         points_sum += check["points"]
 
     if points_sum != data["total_points"]:
-        raise ValueError(f"Check points sum to {points_sum}, but total_points is {data['total_points']}.")
+        raise ValueError(
+            f"Check points sum to {points_sum}, but total_points is {data['total_points']}."
+        )
 
 
 def save_rubric(rubric: Rubric, filepath) -> None:

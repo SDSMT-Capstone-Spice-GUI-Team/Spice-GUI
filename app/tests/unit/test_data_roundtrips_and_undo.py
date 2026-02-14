@@ -15,17 +15,11 @@ import json
 
 import pytest
 from controllers.circuit_controller import CircuitController
-from controllers.commands import (
-    AddAnnotationCommand,
-    AddComponentCommand,
-    ChangeValueCommand,
-    DeleteAnnotationCommand,
-    DeleteComponentCommand,
-    EditAnnotationCommand,
-    FlipComponentCommand,
-    MoveComponentCommand,
-    RotateComponentCommand,
-)
+from controllers.commands import (AddAnnotationCommand, AddComponentCommand,
+                                  ChangeValueCommand, DeleteAnnotationCommand,
+                                  DeleteComponentCommand,
+                                  EditAnnotationCommand, FlipComponentCommand,
+                                  MoveComponentCommand, RotateComponentCommand)
 from controllers.file_controller import FileController
 from models.annotation import AnnotationData
 from models.circuit import CircuitModel
@@ -91,7 +85,9 @@ def _build_circuit_with_all_fields():
 
     # Add annotation
     model.annotations.append(
-        AnnotationData(text="Test Label", x=50.0, y=50.0, font_size=14, bold=True, color="#FF0000")
+        AnnotationData(
+            text="Test Label", x=50.0, y=50.0, font_size=14, bold=True, color="#FF0000"
+        )
     )
 
     return model
@@ -121,10 +117,14 @@ class TestSerializationRoundTrips:
         restored = ComponentData.from_dict(data)
         assert restored.rotation == rotation
 
-    @pytest.mark.parametrize("flip_h,flip_v", [(True, False), (False, True), (True, True)])
+    @pytest.mark.parametrize(
+        "flip_h,flip_v", [(True, False), (False, True), (True, True)]
+    )
     def test_flip_state_round_trip(self, flip_h, flip_v):
         """Component flip states are preserved through serialization."""
-        comp = ComponentData("R1", "Resistor", "1k", (0, 0), flip_h=flip_h, flip_v=flip_v)
+        comp = ComponentData(
+            "R1", "Resistor", "1k", (0, 0), flip_h=flip_h, flip_v=flip_v
+        )
         data = comp.to_dict()
         restored = ComponentData.from_dict(data)
         assert restored.flip_h == flip_h
@@ -146,7 +146,9 @@ class TestSerializationRoundTrips:
 
     def test_waveform_pulse_params_round_trip(self):
         """PULSE waveform type and params survive round-trip."""
-        comp = ComponentData("VW1", "Waveform Source", "PULSE(0 5 0 1n 1n 500u 1m)", (0, 0))
+        comp = ComponentData(
+            "VW1", "Waveform Source", "PULSE(0 5 0 1n 1n 500u 1m)", (0, 0)
+        )
         comp.waveform_type = "PULSE"
         comp.waveform_params["PULSE"]["v2"] = "3.3"
 
@@ -198,7 +200,12 @@ class TestSerializationRoundTrips:
         """Analysis type and params survive circuit round-trip."""
         model = CircuitModel()
         model.analysis_type = "AC Sweep"
-        model.analysis_params = {"variation": "dec", "points": "10", "fstart": "1", "fstop": "1e6"}
+        model.analysis_params = {
+            "variation": "dec",
+            "points": "10",
+            "fstart": "1",
+            "fstop": "1e6",
+        }
 
         data = model.to_dict()
         restored = CircuitModel.from_dict(data)
@@ -215,7 +222,11 @@ class TestSerializationRoundTrips:
     def test_annotation_round_trip(self):
         """Annotation data survives circuit round-trip."""
         model = CircuitModel()
-        model.annotations.append(AnnotationData(text="Note", x=10.0, y=20.0, font_size=16, bold=True, color="#00FF00"))
+        model.annotations.append(
+            AnnotationData(
+                text="Note", x=10.0, y=20.0, font_size=16, bold=True, color="#00FF00"
+            )
+        )
         data = model.to_dict()
         restored = CircuitModel.from_dict(data)
         assert len(restored.annotations) == 1

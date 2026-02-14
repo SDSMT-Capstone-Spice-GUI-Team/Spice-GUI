@@ -42,13 +42,16 @@ class WireData:
 
     def connects_component(self, component_id: str) -> bool:
         """Check if this wire connects to the given component."""
-        return self.start_component_id == component_id or self.end_component_id == component_id
+        return (
+            self.start_component_id == component_id
+            or self.end_component_id == component_id
+        )
 
     def connects_terminal(self, component_id: str, terminal: int) -> bool:
         """Check if this wire connects to the given terminal."""
-        return (self.start_component_id == component_id and self.start_terminal == terminal) or (
-            self.end_component_id == component_id and self.end_terminal == terminal
-        )
+        return (
+            self.start_component_id == component_id and self.start_terminal == terminal
+        ) or (self.end_component_id == component_id and self.end_terminal == terminal)
 
     def to_dict(self) -> dict:
         """

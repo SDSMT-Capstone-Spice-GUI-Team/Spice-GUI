@@ -2,28 +2,12 @@
 and renderer strategy pattern (#327)."""
 
 import pytest
-from GUI.component_item import (
-    BJTNPN,
-    BJTPNP,
-    CCCS,
-    CCVS,
-    MOSFETNMOS,
-    MOSFETPMOS,
-    VCCS,
-    VCVS,
-    Capacitor,
-    CurrentSource,
-    Diode,
-    Ground,
-    Inductor,
-    LEDComponent,
-    OpAmp,
-    Resistor,
-    VCSwitch,
-    VoltageSource,
-    WaveformVoltageSource,
-    ZenerDiode,
-)
+from GUI.component_item import (BJTNPN, BJTPNP, CCCS, CCVS, MOSFETNMOS,
+                                MOSFETPMOS, VCCS, VCVS, Capacitor,
+                                CurrentSource, Diode, Ground, Inductor,
+                                LEDComponent, OpAmp, Resistor, VCSwitch,
+                                VoltageSource, WaveformVoltageSource,
+                                ZenerDiode)
 from GUI.renderers import get_renderer
 from GUI.styles import LightTheme, theme_manager
 from GUI.styles.theme_manager import COLOR_MODES, SYMBOL_STYLES

@@ -3,7 +3,9 @@
 import math
 
 from models.component import ComponentData
-from simulation.power_metrics import _fmt_eng, compute_rms, compute_transient_power_metrics, format_power_summary
+from simulation.power_metrics import (_fmt_eng, compute_rms,
+                                      compute_transient_power_metrics,
+                                      format_power_summary)
 
 # ---------------------------------------------------------------------------
 # compute_rms tests

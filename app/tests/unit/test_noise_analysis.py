@@ -318,7 +318,9 @@ class TestNoisePresets:
         required = {"output_node", "source", "fStart", "fStop", "points", "sweepType"}
         for preset in BUILTIN_PRESETS:
             if preset["analysis_type"] == "Noise":
-                assert required <= set(preset["params"].keys()), f"Preset {preset['name']} missing keys"
+                assert required <= set(
+                    preset["params"].keys()
+                ), f"Preset {preset['name']} missing keys"
 
 
 class TestNoiseCSVExport:

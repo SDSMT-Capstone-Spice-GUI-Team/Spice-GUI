@@ -225,7 +225,9 @@ def _emit_bipole(lines, comp, tikz_name, transform, include_ids, include_values)
         opt_str = ", ".join([tikz_name] + opts)
 
         lines.append(f"  \\draw {_coord(*out_start)} to[{opt_str}] {_coord(*out_end)};")
-        lines.append(f"  \\draw[dashed] {_coord(*ctrl_start)} to[short] {_coord(*ctrl_end)};")
+        lines.append(
+            f"  \\draw[dashed] {_coord(*ctrl_start)} to[short] {_coord(*ctrl_end)};"
+        )
         return
 
     # Standard 2-terminal bipole
@@ -258,7 +260,9 @@ def _emit_tripole(lines, comp, tikz_name, transform, include_ids):
     if include_ids:
         label_opt = f", label={{right:{comp.component_id}}}"
 
-    lines.append(f"  \\node[{tikz_name}{rotate_opt}{xscale}{label_opt}] ({node_id}) at {_coord(cx, cy)} {{}};")
+    lines.append(
+        f"  \\node[{tikz_name}{rotate_opt}{xscale}{label_opt}] ({node_id}) at {_coord(cx, cy)} {{}};"
+    )
 
     # Draw short wires from tripole anchors to terminal positions
     terminals = comp.get_terminal_positions()
@@ -278,7 +282,9 @@ def _emit_wires(wires, components, transform):
 
         start_terminals = start_comp.get_terminal_positions()
         end_terminals = end_comp.get_terminal_positions()
-        if wire.start_terminal >= len(start_terminals) or wire.end_terminal >= len(end_terminals):
+        if wire.start_terminal >= len(start_terminals) or wire.end_terminal >= len(
+            end_terminals
+        ):
             continue
 
         start_pos = transform(*start_terminals[wire.start_terminal])

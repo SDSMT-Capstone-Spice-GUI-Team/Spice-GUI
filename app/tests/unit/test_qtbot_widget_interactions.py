@@ -36,7 +36,14 @@ class TestAnalysisDialogInteractions:
 
     @pytest.mark.parametrize(
         "analysis_type",
-        ["DC Operating Point", "DC Sweep", "AC Sweep", "Transient", "Temperature Sweep", "Noise"],
+        [
+            "DC Operating Point",
+            "DC Sweep",
+            "AC Sweep",
+            "Transient",
+            "Temperature Sweep",
+            "Noise",
+        ],
     )
     def test_each_analysis_type_opens(self, qtbot, analysis_type):
         """Every analysis type dialog opens without error."""
@@ -54,7 +61,9 @@ class TestAnalysisDialogInteractions:
         assert dialog.desc_label.text() == expected
 
         dialog.type_combo.setCurrentText("DC Operating Point")
-        expected_dc = AnalysisDialog.ANALYSIS_CONFIGS["DC Operating Point"]["description"]
+        expected_dc = AnalysisDialog.ANALYSIS_CONFIGS["DC Operating Point"][
+            "description"
+        ]
         assert dialog.desc_label.text() == expected_dc
 
     def test_transient_fields_have_defaults(self, qtbot):
@@ -79,7 +88,14 @@ class TestAnalysisDialogInteractions:
         """Noise analysis has all 6 parameter fields."""
         dialog = AnalysisDialog(analysis_type="Noise")
         qtbot.addWidget(dialog)
-        expected_keys = {"output_node", "source", "fStart", "fStop", "points", "sweepType"}
+        expected_keys = {
+            "output_node",
+            "source",
+            "fStart",
+            "fStop",
+            "points",
+            "sweepType",
+        }
         assert set(dialog.field_widgets.keys()) == expected_keys
 
     def test_temp_sweep_command_generation(self, qtbot):
@@ -124,14 +140,18 @@ class TestComponentPaletteInteractions:
         """Searching 'op' shows Op-Amp."""
         palette.search_input.setText("op")
         lw = palette.list_widget
-        visible = [lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()]
+        visible = [
+            lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()
+        ]
         assert "Op-Amp" in visible
 
     def test_search_for_diode(self, palette):
         """Searching 'diode' shows Diode, LED, and Zener Diode."""
         palette.search_input.setText("diode")
         lw = palette.list_widget
-        visible = [lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()]
+        visible = [
+            lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()
+        ]
         assert "Diode" in visible
         assert "Zener Diode" in visible
 
@@ -305,7 +325,9 @@ class TestComponentTerminalGeometry:
         terminals = comp.get_terminal_positions()
         if len(terminals) > 1:
             positions = set(terminals)
-            assert len(positions) == len(terminals), f"{comp_type} has overlapping terminals"
+            assert len(positions) == len(
+                terminals
+            ), f"{comp_type} has overlapping terminals"
 
     @pytest.mark.parametrize("rotation", [0, 90, 180, 270])
     def test_rotation_preserves_terminal_count(self, rotation):
@@ -355,7 +377,18 @@ class TestComponentTerminalGeometry:
 
     @pytest.mark.parametrize(
         "comp_type",
-        ["Op-Amp", "VCVS", "CCVS", "VCCS", "CCCS", "BJT NPN", "BJT PNP", "MOSFET NMOS", "MOSFET PMOS", "VC Switch"],
+        [
+            "Op-Amp",
+            "VCVS",
+            "CCVS",
+            "VCCS",
+            "CCCS",
+            "BJT NPN",
+            "BJT PNP",
+            "MOSFET NMOS",
+            "MOSFET PMOS",
+            "VC Switch",
+        ],
     )
     def test_multi_terminal_component_geometry(self, comp_type):
         """Multi-terminal components have correct terminal count and non-overlapping positions."""

@@ -69,7 +69,9 @@ class CircuitController:
 
     # --- Component operations ---
 
-    def add_component(self, component_type: str, position: tuple[float, float]) -> ComponentData:
+    def add_component(
+        self, component_type: str, position: tuple[float, float]
+    ) -> ComponentData:
         """
         Create and add a new component to the circuit.
 
@@ -209,7 +211,9 @@ class CircuitController:
             self.model.remove_wire(wire_index)
             self._notify("wire_removed", wire_index)
 
-    def update_wire_waypoints(self, wire_index: int, waypoints: list[tuple[float, float]]) -> None:
+    def update_wire_waypoints(
+        self, wire_index: int, waypoints: list[tuple[float, float]]
+    ) -> None:
         """Update a wire's routing path."""
         if 0 <= wire_index < len(self.model.wires):
             wire = self.model.wires[wire_index]
@@ -283,7 +287,10 @@ class CircuitController:
 
         wire_dicts = []
         for wire in self.model.wires:
-            if wire.start_component_id in selected_set and wire.end_component_id in selected_set:
+            if (
+                wire.start_component_id in selected_set
+                and wire.end_component_id in selected_set
+            ):
                 wire_dicts.append(wire.to_dict())
 
         self._clipboard = ClipboardData(
@@ -335,7 +342,11 @@ class CircuitController:
                 position=(comp_data.position[0] + dx, comp_data.position[1] + dy),
                 rotation=comp_data.rotation,
                 waveform_type=comp_data.waveform_type,
-                waveform_params=(comp_data.waveform_params.copy() if comp_data.waveform_params else None),
+                waveform_params=(
+                    comp_data.waveform_params.copy()
+                    if comp_data.waveform_params
+                    else None
+                ),
             )
             self.model.add_component(new_comp)
             self._notify("component_added", new_comp)

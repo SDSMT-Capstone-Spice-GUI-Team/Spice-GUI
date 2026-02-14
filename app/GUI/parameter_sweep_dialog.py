@@ -3,17 +3,9 @@ Parameter Sweep Dialog — Configure sweeping a component parameter across a ran
 of values with a selectable base analysis type.
 """
 
-from PyQt6.QtWidgets import (
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFormLayout,
-    QGroupBox,
-    QLabel,
-    QLineEdit,
-    QSpinBox,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+                             QGroupBox, QLabel, QLineEdit, QSpinBox,
+                             QVBoxLayout)
 
 from .format_utils import format_value, parse_value
 
@@ -53,7 +45,11 @@ class ParameterSweepDialog(QDialog):
         self.setMinimumWidth(420)
 
         # Filter to sweepable components
-        self._sweepable = {cid: comp for cid, comp in components.items() if comp.component_type in SWEEPABLE_TYPES}
+        self._sweepable = {
+            cid: comp
+            for cid, comp in components.items()
+            if comp.component_type in SWEEPABLE_TYPES
+        }
 
         self._base_field_widgets = {}
         self._init_ui()
@@ -77,7 +73,9 @@ class ParameterSweepDialog(QDialog):
         self.component_combo.setToolTip("Select a component whose value will be swept")
         if self._sweepable:
             for cid, comp in sorted(self._sweepable.items()):
-                self.component_combo.addItem(f"{cid} ({comp.component_type}: {comp.value})", cid)
+                self.component_combo.addItem(
+                    f"{cid} ({comp.component_type}: {comp.value})", cid
+                )
         else:
             self.component_combo.addItem("(no sweepable components)")
             self.component_combo.setEnabled(False)
@@ -119,14 +117,18 @@ class ParameterSweepDialog(QDialog):
         self._build_base_form()
 
         # --- Buttons ---
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
         # Set defaults from first component
         self._update_defaults_from_component()
-        self.component_combo.currentIndexChanged.connect(lambda _: self._update_defaults_from_component())
+        self.component_combo.currentIndexChanged.connect(
+            lambda _: self._update_defaults_from_component()
+        )
 
     def _update_defaults_from_component(self):
         """Update start/stop defaults based on selected component's current value."""

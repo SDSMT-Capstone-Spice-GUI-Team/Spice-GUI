@@ -136,7 +136,11 @@ class SettingsMixin:
         if reply == QMessageBox.StandardButton.Yes:
             source = self.file_ctrl.load_auto_save()
             if source is not None:
-                title = f"Circuit Design GUI - {source}" if source else "Circuit Design GUI - (Recovered)"
+                title = (
+                    f"Circuit Design GUI - {source}"
+                    if source
+                    else "Circuit Design GUI - (Recovered)"
+                )
                 self.setWindowTitle(title)
                 self._sync_analysis_menu()
                 statusBar = self.statusBar()

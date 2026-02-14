@@ -11,18 +11,9 @@ from typing import TYPE_CHECKING, Optional
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
-from PyQt6.QtWidgets import (
-    QFileDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QListWidget,
-    QListWidgetItem,
-    QMessageBox,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QFileDialog, QGroupBox, QHBoxLayout, QLabel,
+                             QListWidget, QListWidgetItem, QMessageBox,
+                             QPushButton, QVBoxLayout, QWidget)
 
 if TYPE_CHECKING:
     from grading.grader import GradingResult
@@ -147,7 +138,9 @@ class GradingPanel(QWidget):
             if "template_version" in data and "starter_circuit" in data:
                 if data["starter_circuit"] is not None:
                     validate_circuit_data(data["starter_circuit"])
-                    self._student_circuit = CircuitModel.from_dict(data["starter_circuit"])
+                    self._student_circuit = CircuitModel.from_dict(
+                        data["starter_circuit"]
+                    )
                 else:
                     self._student_circuit = CircuitModel()
             else:
@@ -182,7 +175,9 @@ class GradingPanel(QWidget):
 
     def _update_grade_button(self):
         """Enable grade button when both student and rubric are loaded."""
-        self.grade_btn.setEnabled(self._student_circuit is not None and self._rubric is not None)
+        self.grade_btn.setEnabled(
+            self._student_circuit is not None and self._rubric is not None
+        )
 
     # --- Grading ---
 
@@ -213,13 +208,21 @@ class GradingPanel(QWidget):
 
         # Score header
         pct = result.percentage
-        self.score_label.setText(f"{result.earned_points}/{result.total_points} — {pct:.0f}%")
+        self.score_label.setText(
+            f"{result.earned_points}/{result.total_points} — {pct:.0f}%"
+        )
         if pct >= 90:
-            self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: green;")
+            self.score_label.setStyleSheet(
+                "font-size: 16px; font-weight: bold; color: green;"
+            )
         elif pct >= 70:
-            self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #CC8800;")
+            self.score_label.setStyleSheet(
+                "font-size: 16px; font-weight: bold; color: #CC8800;"
+            )
         else:
-            self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: red;")
+            self.score_label.setStyleSheet(
+                "font-size: 16px; font-weight: bold; color: red;"
+            )
 
         # Check results
         for cr in result.check_results:
@@ -291,7 +294,9 @@ class GradingPanel(QWidget):
                 ]
             )
             writer.writerow([])
-            writer.writerow(["Check ID", "Passed", "Points Earned", "Points Possible", "Feedback"])
+            writer.writerow(
+                ["Check ID", "Passed", "Points Earned", "Points Possible", "Feedback"]
+            )
             for cr in result.check_results:
                 writer.writerow(
                     [

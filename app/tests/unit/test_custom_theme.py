@@ -26,14 +26,18 @@ class TestColorOverrides:
     """Verify color overrides are applied correctly."""
 
     def test_override_applied(self):
-        theme = CustomTheme("Test", "light", {"background_primary": "#123456"}, theme_is_dark=False)
+        theme = CustomTheme(
+            "Test", "light", {"background_primary": "#123456"}, theme_is_dark=False
+        )
         assert theme.color_hex("background_primary") == "#123456"
 
     def test_fallback_to_base(self):
         """Keys not in overrides should come from the base theme."""
         theme = CustomTheme("Test", "light", {}, theme_is_dark=False)
         light = LightTheme()
-        assert theme.color_hex("background_primary") == light.color_hex("background_primary")
+        assert theme.color_hex("background_primary") == light.color_hex(
+            "background_primary"
+        )
 
     def test_get_color_overrides_returns_only_changes(self):
         overrides = {"wire_default": "#AABBCC"}
@@ -83,6 +87,8 @@ class TestDarkStylesheet:
         assert ss == ""
 
     def test_dark_stylesheet_uses_theme_colors(self):
-        theme = CustomTheme("D", "dark", {"background_primary": "#1A1A2E"}, theme_is_dark=True)
+        theme = CustomTheme(
+            "D", "dark", {"background_primary": "#1A1A2E"}, theme_is_dark=True
+        )
         ss = theme.generate_dark_stylesheet()
         assert "#1a1a2e" in ss.lower()

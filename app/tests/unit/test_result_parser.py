@@ -54,9 +54,7 @@ class TestParseOpResults:
 
 class TestParseDcResults:
     def test_valid_sweep(self):
-        output = (
-            "Index   v-sweep   v(nodeA)\n0       0.000     0.000\n1       1.000     0.500\n2       2.000     1.000\n"
-        )
+        output = "Index   v-sweep   v(nodeA)\n0       0.000     0.000\n1       1.000     0.500\n2       2.000     1.000\n"
         result = ResultParser.parse_dc_results(output)
         assert result is not None
         assert len(result["data"]) == 3

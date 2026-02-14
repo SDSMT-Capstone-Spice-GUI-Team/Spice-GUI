@@ -52,14 +52,20 @@ class TestBuiltinPresets:
 
 class TestUserPresets:
     def test_save_user_preset(self, mgr):
-        mgr.save_preset("My Sweep", "DC Sweep", {"source": "V2", "min": 0, "max": 3, "step": 0.5})
+        mgr.save_preset(
+            "My Sweep", "DC Sweep", {"source": "V2", "min": 0, "max": 3, "step": 0.5}
+        )
         p = mgr.get_preset_by_name("My Sweep", "DC Sweep")
         assert p is not None
         assert p["params"]["source"] == "V2"
 
     def test_save_overwrites_existing(self, mgr):
-        mgr.save_preset("My Sweep", "DC Sweep", {"source": "V1", "min": 0, "max": 5, "step": 0.1})
-        mgr.save_preset("My Sweep", "DC Sweep", {"source": "V2", "min": 0, "max": 10, "step": 1})
+        mgr.save_preset(
+            "My Sweep", "DC Sweep", {"source": "V1", "min": 0, "max": 5, "step": 0.1}
+        )
+        mgr.save_preset(
+            "My Sweep", "DC Sweep", {"source": "V2", "min": 0, "max": 10, "step": 1}
+        )
         presets = mgr.get_presets("DC Sweep")
         my_presets = [p for p in presets if p["name"] == "My Sweep"]
         assert len(my_presets) == 1
@@ -67,10 +73,16 @@ class TestUserPresets:
 
     def test_cannot_overwrite_builtin(self, mgr):
         with pytest.raises(ValueError, match="built-in"):
-            mgr.save_preset("Quick Transient", "Transient", {"duration": 1, "step": 0.001, "startTime": 0})
+            mgr.save_preset(
+                "Quick Transient",
+                "Transient",
+                {"duration": 1, "step": 0.001, "startTime": 0},
+            )
 
     def test_delete_user_preset(self, mgr):
-        mgr.save_preset("Temp", "DC Sweep", {"source": "V1", "min": 0, "max": 5, "step": 0.1})
+        mgr.save_preset(
+            "Temp", "DC Sweep", {"source": "V1", "min": 0, "max": 5, "step": 0.1}
+        )
         assert mgr.delete_preset("Temp", "DC Sweep") is True
         assert mgr.get_preset_by_name("Temp", "DC Sweep") is None
 
@@ -84,7 +96,9 @@ class TestUserPresets:
 class TestPresetPersistence:
     def test_presets_persist_to_disk(self, preset_file):
         mgr1 = PresetManager(preset_file)
-        mgr1.save_preset("Saved", "Transient", {"duration": 0.1, "step": 1e-06, "startTime": 0})
+        mgr1.save_preset(
+            "Saved", "Transient", {"duration": 0.1, "step": 1e-06, "startTime": 0}
+        )
 
         mgr2 = PresetManager(preset_file)
         p = mgr2.get_preset_by_name("Saved", "Transient")
@@ -103,7 +117,11 @@ class TestPresetPersistence:
 
     def test_file_format_is_json(self, preset_file):
         mgr = PresetManager(preset_file)
-        mgr.save_preset("Test", "AC Sweep", {"fStart": 10, "fStop": 1000, "points": 50, "sweepType": "dec"})
+        mgr.save_preset(
+            "Test",
+            "AC Sweep",
+            {"fStart": 10, "fStop": 1000, "points": 50, "sweepType": "dec"},
+        )
         data = json.loads(preset_file.read_text())
         assert "presets" in data
         assert len(data["presets"]) == 1
@@ -127,7 +145,9 @@ class TestDialogPresetUI:
         mgr = PresetManager(preset_file)
         dialog = AnalysisDialog("AC Sweep", preset_manager=mgr)
         qtbot.addWidget(dialog)
-        items = [dialog.preset_combo.itemText(i) for i in range(dialog.preset_combo.count())]
+        items = [
+            dialog.preset_combo.itemText(i) for i in range(dialog.preset_combo.count())
+        ]
         assert any("Audio AC Sweep" in item for item in items)
         assert any("Wide AC Sweep" in item for item in items)
 
@@ -166,7 +186,9 @@ class TestDialogPresetUI:
         mgr = PresetManager(preset_file)
         dialog = AnalysisDialog("DC Sweep", preset_manager=mgr)
         qtbot.addWidget(dialog)
-        items = [dialog.preset_combo.itemText(i) for i in range(dialog.preset_combo.count())]
+        items = [
+            dialog.preset_combo.itemText(i) for i in range(dialog.preset_combo.count())
+        ]
         # Should not show AC Sweep presets
         assert not any("Audio AC Sweep" in item for item in items)
         # Should show DC Sweep presets

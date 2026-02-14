@@ -4,7 +4,8 @@ import logging
 import os
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDialog
+from PyQt6.QtWidgets import (QApplication, QFileDialog, QMessageBox,
+                             QProgressDialog)
 
 from .monte_carlo_results_dialog import MonteCarloResultsDialog
 from .parameter_sweep_plot_dialog import ParameterSweepPlotDialog
@@ -39,7 +40,9 @@ class SimulationMixin:
 
         default_name = ""
         if hasattr(self, "file_ctrl") and self.file_ctrl.current_file:
-            base = os.path.splitext(os.path.basename(str(self.file_ctrl.current_file)))[0]
+            base = os.path.splitext(os.path.basename(str(self.file_ctrl.current_file)))[
+                0
+            ]
             default_name = base + ".cir"
 
         filename, _ = QFileDialog.getSaveFileName(
@@ -112,7 +115,9 @@ class SimulationMixin:
         if result.data:
             from .format_utils import format_value
 
-            result.data["sweep_labels"] = [format_value(v).strip() for v in result.data.get("sweep_values", [])]
+            result.data["sweep_labels"] = [
+                format_value(v).strip() for v in result.data.get("sweep_values", [])
+            ]
 
         return result
 
@@ -302,7 +307,9 @@ class SimulationMixin:
             self.results_text.append(f"  Frequency points: {len(freqs)}")
             self.results_text.append(f"  Signals: {', '.join(sorted(mag.keys()))}")
             if freqs:
-                self.results_text.append(f"  Range: {freqs[0]:.4g} Hz — {freqs[-1]:.4g} Hz")
+                self.results_text.append(
+                    f"  Range: {freqs[0]:.4g} Hz — {freqs[-1]:.4g} Hz"
+                )
             self.results_text.append("\nBode plot opened in a new window.")
             self._show_or_overlay_plot("AC Sweep", ac_data, ACSweepPlotDialog)
         else:
@@ -324,14 +331,19 @@ class SimulationMixin:
             self.results_text.append(table_string)
 
             # Power summary for resistors
-            from simulation.power_metrics import compute_transient_power_metrics, format_power_summary
+            from simulation.power_metrics import (
+                compute_transient_power_metrics, format_power_summary)
 
-            power_metrics = compute_transient_power_metrics(tran_data, self.model.components)
+            power_metrics = compute_transient_power_metrics(
+                tran_data, self.model.components
+            )
             if power_metrics:
                 self.results_text.append(format_power_summary(power_metrics))
 
             self.results_text.append("\n" + "-" * 40)
-            self.results_text.append("Waveform plot has also been generated in a new window.")
+            self.results_text.append(
+                "Waveform plot has also been generated in a new window."
+            )
 
             # Check for overlay on existing waveform dialog
             if self._waveform_dialog is not None and self._waveform_dialog.isVisible():
@@ -377,16 +389,24 @@ class SimulationMixin:
             self.results_text.append("-" * 40)
             self.results_text.append(f"  Frequency points: {len(freqs)}")
             if freqs:
-                self.results_text.append(f"  Range: {freqs[0]:.4g} Hz \u2014 {freqs[-1]:.4g} Hz")
+                self.results_text.append(
+                    f"  Range: {freqs[0]:.4g} Hz \u2014 {freqs[-1]:.4g} Hz"
+                )
             if onoise:
-                self.results_text.append(f"  Output noise (last): {onoise[-1]:.4e} V/sqrt(Hz)")
+                self.results_text.append(
+                    f"  Output noise (last): {onoise[-1]:.4e} V/sqrt(Hz)"
+                )
             if inoise:
-                self.results_text.append(f"  Input noise (last):  {inoise[-1]:.4e} V/sqrt(Hz)")
+                self.results_text.append(
+                    f"  Input noise (last):  {inoise[-1]:.4e} V/sqrt(Hz)"
+                )
             self.results_text.append("-" * 40)
 
             # Show tabular preview (first 20 rows)
             if freqs:
-                self.results_text.append(f"  {'Freq (Hz)':>12s}  {'onoise V/rtHz':>14s}  {'inoise V/rtHz':>14s}")
+                self.results_text.append(
+                    f"  {'Freq (Hz)':>12s}  {'onoise V/rtHz':>14s}  {'inoise V/rtHz':>14s}"
+                )
                 for i, f in enumerate(freqs[:20]):
                     o_val = f"{onoise[i]:.4e}" if i < len(onoise) else "N/A"
                     i_val = f"{inoise[i]:.4e}" if i < len(inoise) else "N/A"
@@ -405,11 +425,15 @@ class SimulationMixin:
             self._last_results = sens_data
             self.results_text.append("\nDC SENSITIVITY ANALYSIS:")
             self.results_text.append("-" * 70)
-            self.results_text.append(f"  {'Element':20s} {'Value':>14s} {'Sensitivity':>14s} {'Normalized':>14s}")
+            self.results_text.append(
+                f"  {'Element':20s} {'Value':>14s} {'Sensitivity':>14s} {'Normalized':>14s}"
+            )
             self.results_text.append("-" * 70)
 
             # Sort by absolute normalized sensitivity (most impactful first)
-            sorted_data = sorted(sens_data, key=lambda r: abs(r["normalized_sensitivity"]), reverse=True)
+            sorted_data = sorted(
+                sens_data, key=lambda r: abs(r["normalized_sensitivity"]), reverse=True
+            )
             for row in sorted_data:
                 self.results_text.append(
                     f"  {row['element']:20s} {row['value']:14.4e} "
@@ -442,9 +466,13 @@ class SimulationMixin:
             if gain is not None:
                 self.results_text.append(f"  {'Transfer function':20s} : {gain:.6g}")
             if z_in is not None:
-                self.results_text.append(f"  {'Input impedance':20s} : {format_si(z_in, 'Ω')}")
+                self.results_text.append(
+                    f"  {'Input impedance':20s} : {format_si(z_in, 'Ω')}"
+                )
             if z_out is not None:
-                self.results_text.append(f"  {'Output impedance':20s} : {format_si(z_out, 'Ω')}")
+                self.results_text.append(
+                    f"  {'Output impedance':20s} : {format_si(z_out, 'Ω')}"
+                )
 
             self.results_text.append("-" * 40)
         else:
@@ -479,7 +507,9 @@ class SimulationMixin:
 
             if zeros:
                 self.results_text.append(f"\n  ZEROS ({len(zeros)}):")
-                self.results_text.append(f"  {'#':>3s}  {'Real':>14s}  {'Imaginary':>14s}  {'Freq (Hz)':>12s}")
+                self.results_text.append(
+                    f"  {'#':>3s}  {'Real':>14s}  {'Imaginary':>14s}  {'Freq (Hz)':>12s}"
+                )
                 for i, z in enumerate(zeros, 1):
                     self.results_text.append(
                         f"  {i:3d}  {z['real']:14.4e}  {z['imag']:14.4e}  {format_si(z['frequency_hz'], 'Hz'):>12s}"
@@ -519,7 +549,9 @@ class SimulationMixin:
             for node, voltage in sorted(node_voltages.items()):
                 self.results_text.append(f"  {node:15s} : {voltage:12.6f} V")
             self.results_text.append("-" * 40)
-            self.results_text.append("Note: values shown are from the final temperature step.")
+            self.results_text.append(
+                "Note: values shown are from the final temperature step."
+            )
         else:
             self.results_text.append("\nNo results found. Check raw output below.")
         self.canvas.clear_op_results()
@@ -540,9 +572,13 @@ class SimulationMixin:
             self.results_text.append("-" * 40)
             self.results_text.append(f"  Component:      {comp_id}")
             self.results_text.append(f"  Base analysis:  {base_type}")
-            self.results_text.append(f"  Steps:          {ok_count}/{len(step_results)} succeeded")
+            self.results_text.append(
+                f"  Steps:          {ok_count}/{len(step_results)} succeeded"
+            )
             if labels:
-                self.results_text.append(f"  Range:          {labels[0]} to {labels[-1]}")
+                self.results_text.append(
+                    f"  Range:          {labels[0]} to {labels[-1]}"
+                )
             if sweep_data.get("cancelled"):
                 self.results_text.append("  (sweep was cancelled)")
             self.results_text.append("-" * 40)
@@ -572,7 +608,9 @@ class SimulationMixin:
             self.results_text.append("\nMONTE CARLO RESULTS:")
             self.results_text.append("-" * 40)
             self.results_text.append(f"  Base analysis:  {base_type}")
-            self.results_text.append(f"  Runs:           {ok_count}/{len(step_results)} succeeded")
+            self.results_text.append(
+                f"  Runs:           {ok_count}/{len(step_results)} succeeded"
+            )
             tolerances = mc_data.get("tolerances", {})
             for cid, tol in sorted(tolerances.items()):
                 self.results_text.append(
@@ -629,9 +667,13 @@ class SimulationMixin:
             self.results_text.append("-" * 40)
             for cid, p in sorted(power_data.items()):
                 sign = "dissipating" if p >= 0 else "supplying"
-                self.results_text.append(f"  {cid:15s} : {format_value(abs(p), 'W'):>12s} ({sign})")
+                self.results_text.append(
+                    f"  {cid:15s} : {format_value(abs(p), 'W'):>12s} ({sign})"
+                )
             self.results_text.append("-" * 40)
-            self.results_text.append(f"  {'Total':15s} : {format_value(abs(tp), 'W'):>12s}")
+            self.results_text.append(
+                f"  {'Total':15s} : {format_value(abs(tp), 'W'):>12s}"
+            )
         else:
             self.properties_panel.clear_simulation_results()
 
@@ -675,16 +717,18 @@ class SimulationMixin:
         if self._last_results is None:
             return
 
-        from simulation.csv_exporter import (
-            export_ac_results,
-            export_dc_sweep_results,
-            export_noise_results,
-            export_op_results,
-            export_transient_results,
-            write_csv,
-        )
+        from simulation.csv_exporter import (export_ac_results,
+                                             export_dc_sweep_results,
+                                             export_noise_results,
+                                             export_op_results,
+                                             export_transient_results,
+                                             write_csv)
 
-        circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+        circuit_name = (
+            os.path.basename(str(self.file_ctrl.current_file))
+            if self.file_ctrl.current_file
+            else ""
+        )
 
         if self._last_results_type == "DC Operating Point":
             csv_content = export_op_results(self._last_results, circuit_name)
@@ -699,7 +743,9 @@ class SimulationMixin:
         else:
             return
 
-        filename, _ = QFileDialog.getSaveFileName(self, "Export Results to CSV", "", "CSV Files (*.csv);;All Files (*)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export Results to CSV", "", "CSV Files (*.csv);;All Files (*)"
+        )
         if filename:
             try:
                 write_csv(csv_content, filename)
@@ -716,14 +762,20 @@ class SimulationMixin:
 
         from simulation.excel_exporter import export_to_excel
 
-        circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+        circuit_name = (
+            os.path.basename(str(self.file_ctrl.current_file))
+            if self.file_ctrl.current_file
+            else ""
+        )
 
         filename, _ = QFileDialog.getSaveFileName(
             self, "Export Results to Excel", "", "Excel Files (*.xlsx);;All Files (*)"
         )
         if filename:
             try:
-                export_to_excel(self._last_results, self._last_results_type, filename, circuit_name)
+                export_to_excel(
+                    self._last_results, self._last_results_type, filename, circuit_name
+                )
                 statusBar = self.statusBar()
                 if statusBar:
                     statusBar.showMessage(f"Results exported to {filename}", 3000)

@@ -109,7 +109,8 @@ class TestPdfExportEndToEnd:
         from PyQt6.QtCore import Qt
         from PyQt6.QtGui import QPainter
         from PyQt6.QtPrintSupport import QPrinter
-        from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsRectItem, QGraphicsScene
+        from PyQt6.QtWidgets import (QGraphicsLineItem, QGraphicsRectItem,
+                                     QGraphicsScene)
 
         scene = QGraphicsScene()
         # Simulate a component (rect) and wire (line)

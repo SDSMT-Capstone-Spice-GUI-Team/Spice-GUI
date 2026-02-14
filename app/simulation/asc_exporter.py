@@ -164,7 +164,9 @@ def export_asc(model):
 
     # Export analysis directive
     if model.analysis_type:
-        directive = _format_analysis_directive(model.analysis_type, model.analysis_params)
+        directive = _format_analysis_directive(
+            model.analysis_type, model.analysis_params
+        )
         if directive:
             lines.append(f"TEXT -32 280 Left 2 !{directive}")
 

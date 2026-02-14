@@ -94,7 +94,9 @@ class TestMVCFileOperations:
             file_ctrl.save_circuit(temp_path)
 
             # Create new controller and check session
-            new_file_ctrl = FileController(CircuitModel(), session_file="test_session.txt")
+            new_file_ctrl = FileController(
+                CircuitModel(), session_file="test_session.txt"
+            )
             last_file = new_file_ctrl.load_last_session()
 
             # Verify session file returns correct path
@@ -332,7 +334,8 @@ class TestMVCBackwardCompatibility:
         """Test that old import names still work after Phase 4"""
         # These should all work due to backward compatibility
         # Old names should map to new classes
-        from GUI import CircuitCanvas, CircuitCanvasView, WireGraphicsItem, WireItem
+        from GUI import (CircuitCanvas, CircuitCanvasView, WireGraphicsItem,
+                         WireItem)
 
         assert CircuitCanvas is CircuitCanvasView
         assert WireItem is WireGraphicsItem

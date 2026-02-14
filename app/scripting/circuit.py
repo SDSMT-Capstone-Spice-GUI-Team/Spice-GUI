@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Optional, Union
 
 from controllers.circuit_controller import CircuitController
-from controllers.simulation_controller import SimulationController, SimulationResult
+from controllers.simulation_controller import (SimulationController,
+                                               SimulationResult)
 from models.circuit import CircuitModel
 from models.component import COMPONENT_TYPES, ComponentData
 
@@ -115,7 +116,9 @@ class Circuit:
             ValueError: If the component_type is not recognized.
         """
         if component_type not in COMPONENT_TYPES:
-            raise ValueError(f"Unknown component type '{component_type}'. Valid types: {', '.join(COMPONENT_TYPES)}")
+            raise ValueError(
+                f"Unknown component type '{component_type}'. Valid types: {', '.join(COMPONENT_TYPES)}"
+            )
 
         comp = self._controller.add_component(component_type, position)
 
@@ -169,7 +172,9 @@ class Circuit:
         Returns:
             True if the wire was added, False if a duplicate wire exists.
         """
-        wire = self._controller.add_wire(start_component, start_terminal, end_component, end_terminal)
+        wire = self._controller.add_wire(
+            start_component, start_terminal, end_component, end_terminal
+        )
         return wire is not None
 
     # --- Analysis ---

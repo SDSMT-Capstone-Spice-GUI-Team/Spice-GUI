@@ -7,7 +7,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QTextEdit, QVBoxLayout
+from PyQt6.QtWidgets import (QComboBox, QDialog, QHBoxLayout, QLabel,
+                             QTextEdit, QVBoxLayout)
 from simulation.monte_carlo import compute_mc_statistics
 
 from .styles import theme_manager
@@ -107,7 +108,9 @@ class MonteCarloResultsDialog(QDialog):
                 continue
 
             if self._base_type == "DC Operating Point":
-                voltages = data.get("node_voltages", {}) if isinstance(data, dict) else data
+                voltages = (
+                    data.get("node_voltages", {}) if isinstance(data, dict) else data
+                )
                 if isinstance(voltages, dict):
                     for node, val in voltages.items():
                         key = f"V({node})"
@@ -194,10 +197,14 @@ class MonteCarloResultsDialog(QDialog):
                 if not isinstance(data, list) or not data:
                     continue
                 time_vals = [row.get("time", 0) for row in data]
-                signal_keys = sorted(k for k in data[0].keys() if k.lower() not in ("time", "index"))
+                signal_keys = sorted(
+                    k for k in data[0].keys() if k.lower() not in ("time", "index")
+                )
                 for j, key in enumerate(signal_keys):
                     vals = [row.get(key, 0) for row in data]
-                    ax.plot(time_vals, vals, alpha=0.2, color=cmap(j % 10), linewidth=0.5)
+                    ax.plot(
+                        time_vals, vals, alpha=0.2, color=cmap(j % 10), linewidth=0.5
+                    )
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Voltage (V)")
             ax.set_title("Transient — All Runs")
@@ -234,7 +241,9 @@ class MonteCarloResultsDialog(QDialog):
                 freqs = data.get("frequencies", [])
                 mag = data.get("magnitude", {})
                 for j, (node, vals) in enumerate(sorted(mag.items())):
-                    ax.semilogx(freqs, vals, alpha=0.2, color=cmap(j % 10), linewidth=0.5)
+                    ax.semilogx(
+                        freqs, vals, alpha=0.2, color=cmap(j % 10), linewidth=0.5
+                    )
             ax.set_xlabel("Frequency (Hz)")
             ax.set_ylabel("Magnitude")
             ax.set_title("AC Sweep — All Runs")
@@ -253,10 +262,17 @@ class MonteCarloResultsDialog(QDialog):
         values = self._metrics.get(metric, [])
 
         if not values:
-            ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes
+            )
             self._summary.setPlainText("No metric data available.")
         else:
-            ax.hist(values, bins=min(30, max(5, len(values) // 3)), edgecolor="black", alpha=0.7)
+            ax.hist(
+                values,
+                bins=min(30, max(5, len(values) // 3)),
+                edgecolor="black",
+                alpha=0.7,
+            )
             ax.set_xlabel(metric)
             ax.set_ylabel("Count")
             ax.set_title(f"Distribution — {metric}")

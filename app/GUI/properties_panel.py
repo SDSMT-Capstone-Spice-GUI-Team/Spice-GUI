@@ -1,7 +1,8 @@
 # waveform_dialog imported lazily in configure_waveform() for faster startup
 from models.component import DEFAULT_VALUES, OPAMP_MODELS
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QComboBox, QFormLayout, QGroupBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (QComboBox, QFormLayout, QGroupBox, QLabel,
+                             QLineEdit, QPushButton, QVBoxLayout, QWidget)
 
 from .format_utils import format_value, validate_component_value
 from .styles import theme_manager
@@ -11,7 +12,9 @@ class PropertiesPanel(QWidget):
     """Panel for editing component properties"""
 
     # Signal emitted when a property is changed
-    property_changed = pyqtSignal(str, str, object)  # component_id, property_name, new_value
+    property_changed = pyqtSignal(
+        str, str, object
+    )  # component_id, property_name, new_value
 
     def __init__(self):
         super().__init__()
@@ -36,7 +39,9 @@ class PropertiesPanel(QWidget):
         # Component ID field (read-only)
         self.id_label = QLabel("-")
         self.id_label.setStyleSheet(theme_manager.stylesheet("muted_label"))
-        self.id_label.setToolTip("Unique identifier for this component (auto-generated)")
+        self.id_label.setToolTip(
+            "Unique identifier for this component (auto-generated)"
+        )
         self.form_layout.addRow("ID:", self.id_label)
 
         # Component Type field (read-only)
@@ -48,14 +53,18 @@ class PropertiesPanel(QWidget):
         # Value field (editable)
         self.value_input = QLineEdit()
         self.value_input.setPlaceholderText("e.g., 10k, 100u, 5V")
-        self.value_input.setToolTip("Component value with optional SI suffix (e.g., 10k, 100n, 4.7M)")
+        self.value_input.setToolTip(
+            "Component value with optional SI suffix (e.g., 10k, 100n, 4.7M)"
+        )
         self.value_input.textChanged.connect(self.on_value_changed)
         self.form_layout.addRow("Value:", self.value_input)
 
         # Op-amp model selector (shown only for Op-Amp components)
         self.opamp_model_combo = QComboBox()
         self.opamp_model_combo.addItems(OPAMP_MODELS)
-        self.opamp_model_combo.setToolTip("Select the op-amp model (Ideal or a real device)")
+        self.opamp_model_combo.setToolTip(
+            "Select the op-amp model (Ideal or a real device)"
+        )
         self.opamp_model_combo.currentTextChanged.connect(self._on_opamp_model_changed)
         self.opamp_model_combo.setVisible(False)
         self.form_layout.addRow("Model:", self.opamp_model_combo)
@@ -85,7 +94,9 @@ class PropertiesPanel(QWidget):
 
         # Apply button
         self.apply_button = QPushButton("Apply Changes")
-        self.apply_button.setToolTip("Apply the changed value to the selected component")
+        self.apply_button.setToolTip(
+            "Apply the changed value to the selected component"
+        )
         self.apply_button.clicked.connect(self.apply_changes)
         self.apply_button.setEnabled(False)
         layout.addWidget(self.apply_button)
@@ -103,7 +114,9 @@ class PropertiesPanel(QWidget):
         self.results_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.power_label = QLabel("-")
-        self.power_label.setToolTip("Power dissipated by this component (P = V\u00b2/R or P = VI)")
+        self.power_label.setToolTip(
+            "Power dissipated by this component (P = V\u00b2/R or P = VI)"
+        )
         self.results_layout.addRow("Power:", self.power_label)
 
         self.voltage_label = QLabel("-")
@@ -111,7 +124,9 @@ class PropertiesPanel(QWidget):
         self.results_layout.addRow("V across:", self.voltage_label)
 
         self.total_power_label = QLabel("-")
-        self.total_power_label.setToolTip("Total power dissipated by all components in the circuit")
+        self.total_power_label.setToolTip(
+            "Total power dissipated by all components in the circuit"
+        )
         self.results_layout.addRow("Total P:", self.total_power_label)
 
         self.results_group.setVisible(False)
@@ -198,7 +213,9 @@ class PropertiesPanel(QWidget):
         else:
             self.value_input.setReadOnly(False)
             self.value_input.setVisible(True)
-            self.value_input.setPlaceholderText(f"Default: {DEFAULT_VALUES.get(component.component_type, '')}")
+            self.value_input.setPlaceholderText(
+                f"Default: {DEFAULT_VALUES.get(component.component_type, '')}"
+            )
             self.waveform_button.setVisible(False)
             self.opamp_model_combo.setVisible(False)
 
@@ -231,7 +248,9 @@ class PropertiesPanel(QWidget):
         if self.current_component.component_type != "Op-Amp":
             return
         if model_name != self.current_component.value:
-            self.property_changed.emit(self.current_component.component_id, "value", model_name)
+            self.property_changed.emit(
+                self.current_component.component_id, "value", model_name
+            )
 
     def on_value_changed(self):
         """Handle value input changes"""
@@ -247,7 +266,9 @@ class PropertiesPanel(QWidget):
         new_value = self.value_input.text().strip()
 
         # Validate value format
-        is_valid, error_msg = validate_component_value(new_value, self.current_component.component_type)
+        is_valid, error_msg = validate_component_value(
+            new_value, self.current_component.component_type
+        )
         if not is_valid:
             self.error_label.setText(error_msg)
             self.error_label.setVisible(True)
@@ -257,14 +278,18 @@ class PropertiesPanel(QWidget):
 
         # Emit signal if value changed
         if new_value != self.current_component.value:
-            self.property_changed.emit(self.current_component.component_id, "value", new_value)
+            self.property_changed.emit(
+                self.current_component.component_id, "value", new_value
+            )
 
         # Apply initial condition if applicable
         if self.current_component.component_type in ("Capacitor", "Inductor"):
             ic_value = self.ic_input.text().strip() or None
             old_ic = getattr(self.current_component, "initial_condition", None)
             if ic_value != old_ic:
-                self.property_changed.emit(self.current_component.component_id, "initial_condition", ic_value)
+                self.property_changed.emit(
+                    self.current_component.component_id, "initial_condition", ic_value
+                )
 
         self.apply_button.setEnabled(False)
 
@@ -294,7 +319,9 @@ class PropertiesPanel(QWidget):
                 self.current_component.value = spice_value
 
             # Emit property changed signal
-            self.property_changed.emit(self.current_component.component_id, "waveform", (waveform_type, params))
+            self.property_changed.emit(
+                self.current_component.component_id, "waveform", (waveform_type, params)
+            )
 
     def set_simulation_results(self, power_data, voltage_data=None, total_power=0.0):
         """Store simulation results for display when a component is selected.

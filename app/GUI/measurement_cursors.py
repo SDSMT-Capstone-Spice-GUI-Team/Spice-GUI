@@ -7,7 +7,8 @@ a readout panel showing X/Y values and deltas, and real-time updates.
 
 import numpy as np
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (QGroupBox, QHBoxLayout, QLabel, QPushButton,
+                             QVBoxLayout, QWidget)
 
 
 class MeasurementCursors:

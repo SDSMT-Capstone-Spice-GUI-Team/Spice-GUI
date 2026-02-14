@@ -1,6 +1,7 @@
 from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QDrag, QIcon, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (QLineEdit, QListWidget, QListWidgetItem,
+                             QVBoxLayout, QWidget)
 
 from .component_item import COMPONENT_CLASSES
 from .styles import COMPONENTS, theme_manager

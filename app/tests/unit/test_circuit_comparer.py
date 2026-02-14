@@ -1,7 +1,8 @@
 """Tests for the circuit comparison engine."""
 
 import pytest
-from grading.circuit_comparer import CheckResult, CircuitComparer, ComparisonResult, compare_values
+from grading.circuit_comparer import (CheckResult, CircuitComparer,
+                                      ComparisonResult, compare_values)
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
@@ -335,7 +336,9 @@ class TestFullComparison:
         comparer = CircuitComparer()
         result = comparer.compare(ref, student)
         assert result.score < 1.0
-        value_mismatches = [m for m in result.mismatches if m.check_type == "component_value"]
+        value_mismatches = [
+            m for m in result.mismatches if m.check_type == "component_value"
+        ]
         assert len(value_mismatches) == 1
         assert value_mismatches[0].component_id == "R1"
 
@@ -346,7 +349,9 @@ class TestFullComparison:
 
         comparer = CircuitComparer()
         result = comparer.compare(ref, student)
-        analysis_mismatches = [m for m in result.mismatches if m.check_type == "analysis_type"]
+        analysis_mismatches = [
+            m for m in result.mismatches if m.check_type == "analysis_type"
+        ]
         assert len(analysis_mismatches) == 1
 
     def test_topology_mismatch(self):
@@ -403,9 +408,14 @@ class TestFullComparison:
 
         comparer = CircuitComparer()
         result = comparer.compare(ref, student)
-        topology_mismatches = [m for m in result.mismatches if m.check_type == "topology"]
+        topology_mismatches = [
+            m for m in result.mismatches if m.check_type == "topology"
+        ]
         # R1 and R2 should be reported as not connected
-        assert any("R1" in m.component_id and "R2" in m.component_id for m in topology_mismatches)
+        assert any(
+            "R1" in m.component_id and "R2" in m.component_id
+            for m in topology_mismatches
+        )
 
 
 class TestComparisonResult:
@@ -454,5 +464,7 @@ class TestRealisticScenarios:
         comparer = CircuitComparer()
         result = comparer.compare(ref, student)
         assert result.score < 1.0
-        value_mismatches = [m for m in result.mismatches if m.check_type == "component_value"]
+        value_mismatches = [
+            m for m in result.mismatches if m.check_type == "component_value"
+        ]
         assert any(m.component_id == "C1" for m in value_mismatches)

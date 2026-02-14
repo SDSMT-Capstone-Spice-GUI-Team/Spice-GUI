@@ -158,7 +158,9 @@ def _parse_component_line(line, models):
         node_names = tokens[1:-1]
         comp_type = "Op-Amp" if "OPAMP" in subckt_name else None
         if comp_type is None:
-            logger.warning("Unknown subcircuit '%s' - skipping %s", subckt_name, comp_id)
+            logger.warning(
+                "Unknown subcircuit '%s' - skipping %s", subckt_name, comp_id
+            )
             return None
         return {
             "id": comp_id,

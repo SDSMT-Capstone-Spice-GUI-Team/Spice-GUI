@@ -26,35 +26,22 @@ Usage:
 """
 
 from . import theme_store
-
 # Core constants (always available, theme-independent)
-from .constants import (
-    COMPONENTS,
-    DEFAULT_COMPONENT_COUNTER,
-    DEFAULT_SPLITTER_SIZES,
-    DEFAULT_WINDOW_SIZE,
-    GRID_EXTENT,
-    GRID_SIZE,
-    INITIAL_LOAD_COUNT,
-    MAJOR_GRID_INTERVAL,
-    SCROLL_LOAD_COUNT,
-    SIMULATION_TIMEOUT,
-    TERMINAL_CLICK_RADIUS,
-    TERMINAL_HOVER_RADIUS,
-    WIRE_CLICK_WIDTH,
-    WIRE_UPDATE_DELAY_MS,
-    ZOOM_FACTOR,
-    ZOOM_FIT_PADDING,
-    ZOOM_MAX,
-    ZOOM_MIN,
-)
+from .constants import (COMPONENTS, DEFAULT_COMPONENT_COUNTER,
+                        DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE,
+                        GRID_EXTENT, GRID_SIZE, INITIAL_LOAD_COUNT,
+                        MAJOR_GRID_INTERVAL, SCROLL_LOAD_COUNT,
+                        SIMULATION_TIMEOUT, TERMINAL_CLICK_RADIUS,
+                        TERMINAL_HOVER_RADIUS, WIRE_CLICK_WIDTH,
+                        WIRE_UPDATE_DELAY_MS, ZOOM_FACTOR, ZOOM_FIT_PADDING,
+                        ZOOM_MAX, ZOOM_MIN)
 from .custom_theme import CustomTheme
 from .dark_theme import DarkTheme
 from .light_theme import LightTheme
-
 # Theme system
 from .theme import BaseTheme, ThemeProtocol
-from .theme_manager import COLOR_MODES, SYMBOL_STYLES, ThemeManager, theme_manager
+from .theme_manager import (COLOR_MODES, SYMBOL_STYLES, ThemeManager,
+                            theme_manager)
 
 __all__ = [
     # Constants

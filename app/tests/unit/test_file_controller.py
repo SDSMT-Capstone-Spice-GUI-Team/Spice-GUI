@@ -266,7 +266,9 @@ class TestHasFile:
 class TestValidateCircuitData:
     def test_valid_data_passes(self):
         data = {
-            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
+            "components": [
+                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}
+            ],
             "wires": [],
         }
         validate_circuit_data(data)  # Should not raise
@@ -277,7 +279,9 @@ class TestValidateCircuitData:
 
     def test_wire_references_unknown_component(self):
         data = {
-            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
+            "components": [
+                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}
+            ],
             "wires": [
                 {
                     "start_comp": "R1",
@@ -325,7 +329,9 @@ class TestRecentFiles:
 
     @patch("controllers.file_controller.os.path.exists")
     @patch("controllers.file_controller.QSettings")
-    def test_add_recent_file_moves_to_front_if_exists(self, mock_qsettings, mock_exists, tmp_path):
+    def test_add_recent_file_moves_to_front_if_exists(
+        self, mock_qsettings, mock_exists, tmp_path
+    ):
         """add_recent_file should move existing file to front."""
         file1 = str((tmp_path / "file1.json").absolute())
         file2 = str((tmp_path / "file2.json").absolute())
@@ -348,10 +354,14 @@ class TestRecentFiles:
 
     @patch("controllers.file_controller.os.path.exists")
     @patch("controllers.file_controller.QSettings")
-    def test_add_recent_file_maintains_max_limit(self, mock_qsettings, mock_exists, tmp_path):
+    def test_add_recent_file_maintains_max_limit(
+        self, mock_qsettings, mock_exists, tmp_path
+    ):
         """add_recent_file should keep only MAX_RECENT_FILES (10) files."""
         # Create 11 file paths
-        existing_files = [str((tmp_path / f"file{i}.json").absolute()) for i in range(10)]
+        existing_files = [
+            str((tmp_path / f"file{i}.json").absolute()) for i in range(10)
+        ]
         new_file = tmp_path / "file11.json"
 
         # Mock: all files exist
@@ -372,7 +382,9 @@ class TestRecentFiles:
 
     @patch("controllers.file_controller.QSettings")
     @patch("controllers.file_controller.os.path.exists")
-    def test_get_recent_files_filters_missing_files(self, mock_exists, mock_qsettings, tmp_path):
+    def test_get_recent_files_filters_missing_files(
+        self, mock_exists, mock_qsettings, tmp_path
+    ):
         """get_recent_files should filter out files that no longer exist."""
         file1 = str((tmp_path / "exists.json").absolute())
         file2 = str((tmp_path / "missing.json").absolute())

@@ -17,19 +17,9 @@ from controllers.file_controller import FileController
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import (
-    QHBoxLayout,
-    QLabel,
-    QMainWindow,
-    QMessageBox,
-    QPushButton,
-    QSplitter,
-    QStackedWidget,
-    QTabWidget,
-    QTextEdit,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QHBoxLayout, QLabel, QMainWindow, QMessageBox,
+                             QPushButton, QSplitter, QStackedWidget,
+                             QTabWidget, QTextEdit, QVBoxLayout, QWidget)
 
 from .circuit_canvas import CircuitCanvasView
 from .circuit_statistics_panel import CircuitStatisticsPanel
@@ -223,7 +213,9 @@ class MainWindow(
         right_panel_layout.addWidget(self.properties_stack)
 
         # Circuit statistics panel
-        self.statistics_panel = CircuitStatisticsPanel(self.model, self.circuit_ctrl, self.simulation_ctrl)
+        self.statistics_panel = CircuitStatisticsPanel(
+            self.model, self.circuit_ctrl, self.simulation_ctrl
+        )
         self.statistics_panel.setVisible(False)
         right_panel_layout.addWidget(self.statistics_panel)
 
@@ -272,7 +264,9 @@ class MainWindow(
         # Tab order: Palette -> Canvas -> Properties -> Action buttons
         self.setTabOrder(self.palette, self.canvas)
         self.setTabOrder(self.canvas, self.properties_panel.value_input)
-        self.setTabOrder(self.properties_panel.value_input, self.properties_panel.apply_button)
+        self.setTabOrder(
+            self.properties_panel.value_input, self.properties_panel.apply_button
+        )
         self.setTabOrder(self.properties_panel.apply_button, self.btn_save)
         self.setTabOrder(self.btn_save, self.btn_load)
         self.setTabOrder(self.btn_load, self.btn_clear)
@@ -331,7 +325,9 @@ class MainWindow(
             component.update()
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
+                statusBar.showMessage(
+                    f"Updated {component_id} value to {new_value}", 2000
+                )
 
         elif property_name == "rotation":
             component.rotation_angle = new_value
@@ -347,14 +343,18 @@ class MainWindow(
             component.update()
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
+                statusBar.showMessage(
+                    f"Updated {component_id} waveform configuration", 2000
+                )
 
         elif property_name == "initial_condition":
             component.initial_condition = new_value
             ic_display = new_value if new_value else "none"
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} initial condition to {ic_display}", 2000)
+                statusBar.showMessage(
+                    f"Updated {component_id} initial condition to {ic_display}", 2000
+                )
 
     def _refresh_netlist_preview(self):
         """Regenerate and display the netlist in the preview panel."""

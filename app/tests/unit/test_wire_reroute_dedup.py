@@ -42,7 +42,9 @@ class TestObserverRerouteOnMove:
         comp = ctrl.add_component("Resistor", (0, 0))
 
         data_received = []
-        ctrl.add_observer(lambda e, d: data_received.append(d) if e == "component_moved" else None)
+        ctrl.add_observer(
+            lambda e, d: data_received.append(d) if e == "component_moved" else None
+        )
 
         ctrl.move_component(comp.component_id, (50, 75))
 

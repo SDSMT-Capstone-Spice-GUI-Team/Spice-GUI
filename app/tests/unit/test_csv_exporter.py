@@ -4,13 +4,10 @@ import csv
 import io
 
 import pytest
-from simulation.csv_exporter import (
-    export_ac_results,
-    export_dc_sweep_results,
-    export_op_results,
-    export_transient_results,
-    write_csv,
-)
+from simulation.csv_exporter import (export_ac_results,
+                                     export_dc_sweep_results,
+                                     export_op_results,
+                                     export_transient_results, write_csv)
 
 
 class TestExportOpResults:
@@ -34,7 +31,9 @@ class TestExportOpResults:
         voltages = {"z_node": 1.0, "a_node": 2.0}
         result = export_op_results(voltages)
         lines = result.strip().split("\n")
-        data_lines = [l for l in lines if not l.startswith("#") and l.strip() and "Node" not in l]
+        data_lines = [
+            l for l in lines if not l.startswith("#") and l.strip() and "Node" not in l
+        ]
         assert "a_node" in data_lines[0]
         assert "z_node" in data_lines[1]
 
@@ -71,7 +70,9 @@ class TestExportDcSweepResults:
         reader = csv.reader(io.StringIO(result))
         rows = list(reader)
         # metadata (3) + blank + header + 3 data = 8
-        data_rows = [r for r in rows if r and not r[0].startswith("#") and r[0] != "Index"]
+        data_rows = [
+            r for r in rows if r and not r[0].startswith("#") and r[0] != "Index"
+        ]
         assert len(data_rows) == 3
 
     def test_empty_data(self):
@@ -133,7 +134,9 @@ class TestExportTransientResults:
         result = export_transient_results(data)
         reader = csv.reader(io.StringIO(result))
         rows = list(reader)
-        data_rows = [r for r in rows if r and not r[0].startswith("#") and r[0] != "time"]
+        data_rows = [
+            r for r in rows if r and not r[0].startswith("#") and r[0] != "time"
+        ]
         assert len(data_rows) == 10
 
     def test_empty_data(self):

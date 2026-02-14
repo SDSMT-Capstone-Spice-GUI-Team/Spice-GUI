@@ -19,7 +19,9 @@ from simulation.netlist_generator import NetlistGenerator
 # ---------------------------------------------------------------------------
 
 
-def _model_with_circuit(*components_and_wires, analysis_type="DC Operating Point", analysis_params=None):
+def _model_with_circuit(
+    *components_and_wires, analysis_type="DC Operating Point", analysis_params=None
+):
     """Build a CircuitModel, add components and wires, rebuild nodes."""
     model = CircuitModel()
     model.analysis_type = analysis_type
@@ -125,7 +127,9 @@ class TestSources:
         assert "10" in netlist
 
     def test_waveform_source_pulse(self):
-        vw1 = ComponentData("VW1", "Waveform Source", "PULSE(0 5 0 1n 1n 500u 1m)", (0, 0))
+        vw1 = ComponentData(
+            "VW1", "Waveform Source", "PULSE(0 5 0 1n 1n 500u 1m)", (0, 0)
+        )
         vw1.waveform_type = "PULSE"
         gnd = ComponentData("GND1", "Ground", "0V", (0, 100))
         w1 = WireData("VW1", 1, "GND1", 0)
@@ -153,7 +157,9 @@ class TestDiodes:
         assert ".model" in netlist.lower()
 
     def test_zener_with_model(self):
-        model = _simple_two_terminal_circuit("Zener Diode", "D1", "IS=1e-14 N=1 BV=5.1 IBV=1e-3")
+        model = _simple_two_terminal_circuit(
+            "Zener Diode", "D1", "IS=1e-14 N=1 BV=5.1 IBV=1e-3"
+        )
         netlist = _generate_from_model(model)
         assert "D1" in netlist
         assert "D_Zener" in netlist
@@ -317,7 +323,9 @@ class TestModelDeduplication:
         netlist = _generate_from_model(model)
 
         # Should have exactly one .model D_Ideal D(...) line
-        model_lines = [line for line in netlist.split("\n") if line.startswith(".model D_Ideal")]
+        model_lines = [
+            line for line in netlist.split("\n") if line.startswith(".model D_Ideal")
+        ]
         assert len(model_lines) == 1
 
     def test_mixed_diode_types_separate_models(self):
@@ -354,7 +362,14 @@ class TestAnalysisDirectives:
         w2 = WireData("R1", 1, "GND1", 0)
         w3 = WireData("V1", 1, "GND1", 0)
         return _model_with_circuit(
-            v1, r1, gnd, w1, w2, w3, analysis_type=analysis_type, analysis_params=analysis_params
+            v1,
+            r1,
+            gnd,
+            w1,
+            w2,
+            w3,
+            analysis_type=analysis_type,
+            analysis_params=analysis_params,
         )
 
     def test_dc_operating_point(self):
@@ -363,22 +378,31 @@ class TestAnalysisDirectives:
         assert ".op" in netlist
 
     def test_dc_sweep(self):
-        model = self._basic_circuit("DC Sweep", {"min": "0", "max": "10", "step": "0.1"})
+        model = self._basic_circuit(
+            "DC Sweep", {"min": "0", "max": "10", "step": "0.1"}
+        )
         netlist = _generate_from_model(model)
         assert ".dc V1 0 10 0.1" in netlist
 
     def test_ac_sweep(self):
-        model = self._basic_circuit("AC Sweep", {"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"})
+        model = self._basic_circuit(
+            "AC Sweep",
+            {"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+        )
         netlist = _generate_from_model(model)
         assert ".ac dec 10 1 1MEG" in netlist
 
     def test_transient(self):
-        model = self._basic_circuit("Transient", {"step": "1u", "duration": "10m", "start": "0"})
+        model = self._basic_circuit(
+            "Transient", {"step": "1u", "duration": "10m", "start": "0"}
+        )
         netlist = _generate_from_model(model)
         assert ".tran 1u 10m 0" in netlist
 
     def test_temperature_sweep(self):
-        model = self._basic_circuit("Temperature Sweep", {"tempStart": -40, "tempStop": 85, "tempStep": 25})
+        model = self._basic_circuit(
+            "Temperature Sweep", {"tempStart": -40, "tempStop": 85, "tempStep": 25}
+        )
         netlist = _generate_from_model(model)
         assert ".op" in netlist
         assert ".step temp -40 85 25" in netlist
@@ -467,9 +491,15 @@ class TestImportRoundTrip:
         imported_model, analysis = import_netlist(netlist)
 
         # The imported model should have matching component types
-        comp_types_original = {c.component_type for c in model.components.values() if c.component_type != "Ground"}
+        comp_types_original = {
+            c.component_type
+            for c in model.components.values()
+            if c.component_type != "Ground"
+        }
         comp_types_imported = {
-            c.component_type for c in imported_model.components.values() if c.component_type != "Ground"
+            c.component_type
+            for c in imported_model.components.values()
+            if c.component_type != "Ground"
         }
         assert comp_types_original == comp_types_imported
 

@@ -3,7 +3,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from controllers.simulation_controller import SimulationController, SimulationResult
+from controllers.simulation_controller import (SimulationController,
+                                               SimulationResult)
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
@@ -125,7 +126,9 @@ class TestGenerateNetlist:
 
 class TestSimulationResult:
     def test_success_result(self):
-        r = SimulationResult(success=True, analysis_type="DC Operating Point", data={"nodeA": 5.0})
+        r = SimulationResult(
+            success=True, analysis_type="DC Operating Point", data={"nodeA": 5.0}
+        )
         assert r.success
         assert r.data["nodeA"] == 5.0
 

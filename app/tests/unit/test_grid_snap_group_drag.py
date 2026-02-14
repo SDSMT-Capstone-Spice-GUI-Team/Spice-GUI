@@ -84,7 +84,9 @@ class TestOnGridGroupDrag:
 
         leader_x = new_pos.x()
         follower_x = follower.pos().x()
-        assert follower_x - leader_x == 50, f"Expected offset 50, got {follower_x - leader_x}"
+        assert (
+            follower_x - leader_x == 50
+        ), f"Expected offset 50, got {follower_x - leader_x}"
 
 
 class TestOffGridGroupDrag:
@@ -185,7 +187,9 @@ class TestGroupDragGuard:
             QPointF(210, 0),
         )
 
-        assert leader.pos().x() == 100, "Leader should not move when follower has _group_moving"
+        assert (
+            leader.pos().x() == 100
+        ), "Leader should not move when follower has _group_moving"
 
     def test_multiple_followers_all_snap(self, qtbot):
         """All followers in a group should snap independently to grid."""

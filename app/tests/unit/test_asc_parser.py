@@ -1,7 +1,8 @@
 """Tests for LTspice .asc file parser."""
 
 import pytest
-from simulation.asc_parser import AscParseError, _transform_pin, import_asc, parse_asc
+from simulation.asc_parser import (AscParseError, _transform_pin, import_asc,
+                                   parse_asc)
 
 # --- Sample .asc content for tests ---
 
@@ -293,7 +294,9 @@ class TestImportAsc:
 
     def test_creates_ground_components(self):
         model, _analysis, _warnings = import_asc(SIMPLE_RC)
-        ground_comps = [c for c in model.components.values() if c.component_type == "Ground"]
+        ground_comps = [
+            c for c in model.components.values() if c.component_type == "Ground"
+        ]
         assert len(ground_comps) >= 1
 
     def test_sets_analysis_type(self):
@@ -346,7 +349,9 @@ class TestImportAsc:
 
     def test_multiple_grounds(self):
         model, _analysis, _warnings = import_asc(MULTIPLE_GROUNDS)
-        ground_comps = [c for c in model.components.values() if c.component_type == "Ground"]
+        ground_comps = [
+            c for c in model.components.values() if c.component_type == "Ground"
+        ]
         assert len(ground_comps) >= 1
 
     def test_waveform_source_detection(self):

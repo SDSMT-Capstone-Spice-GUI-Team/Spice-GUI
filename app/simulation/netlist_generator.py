@@ -60,7 +60,9 @@ class NetlistGenerator:
         opamp_models_used = set()
         for c in self.components.values():
             if c.component_type == "Op-Amp":
-                opamp_models_used.add(c.value if c.value in OPAMP_SUBCIRCUITS else "Ideal")
+                opamp_models_used.add(
+                    c.value if c.value in OPAMP_SUBCIRCUITS else "Ideal"
+                )
         for model_name in sorted(opamp_models_used):
             lines.append(f"* {model_name} Op-Amp Subcircuit")
             lines.append(OPAMP_SUBCIRCUITS[model_name])
@@ -93,7 +95,9 @@ class NetlistGenerator:
                         node_map[key] = merged_node
 
         # Ground nodes should be 0
-        ground_comps = [c for c in self.components.values() if c.component_type == "Ground"]
+        ground_comps = [
+            c for c in self.components.values() if c.component_type == "Ground"
+        ]
         for gnd in ground_comps:
             key = (gnd.component_id, 0)
             if key in node_map:
@@ -149,10 +153,18 @@ class NetlistGenerator:
             if comp.component_type == "Resistor":
                 lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
             elif comp.component_type == "Capacitor":
-                ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
+                ic = (
+                    f" IC={comp.initial_condition}"
+                    if getattr(comp, "initial_condition", None)
+                    else ""
+                )
                 lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
             elif comp.component_type == "Inductor":
-                ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
+                ic = (
+                    f" IC={comp.initial_condition}"
+                    if getattr(comp, "initial_condition", None)
+                    else ""
+                )
                 lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
             elif comp.component_type == "Voltage Source":
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
@@ -175,25 +187,33 @@ class NetlistGenerator:
             elif comp.component_type == "VCVS":
                 # E<name> out+ out- ctrl+ ctrl- gain
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}")
+                lines.append(
+                    f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}"
+                )
             elif comp.component_type == "VCCS":
                 # G<name> out+ out- ctrl+ ctrl- transconductance
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}")
+                lines.append(
+                    f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}"
+                )
             elif comp.component_type == "CCVS":
                 # H<name> out+ out- Vname transresistance
                 # Insert hidden 0V voltage source for current sensing
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
                 sense_name = f"Vsense_{comp_id}"
                 lines.append(f"{sense_name} {nodes[0]} {nodes[1]} 0")
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}")
+                lines.append(
+                    f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}"
+                )
             elif comp.component_type == "CCCS":
                 # F<name> out+ out- Vname gain
                 # Insert hidden 0V voltage source for current sensing
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
                 sense_name = f"Vsense_{comp_id}"
                 lines.append(f"{sense_name} {nodes[0]} {nodes[1]} 0")
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}")
+                lines.append(
+                    f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}"
+                )
             elif comp.component_type == "BJT NPN":
                 # Q<name> collector base emitter model_name
                 # Terminals: 0=collector, 1=base, 2=emitter
@@ -205,16 +225,22 @@ class NetlistGenerator:
                 # M<name> drain gate source bulk model_name
                 # Terminals: 0=drain, 1=gate, 2=source
                 # Bulk (body) tied to source for simplicity
-                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {nodes[2]} {comp.value}")
+                lines.append(
+                    f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {nodes[2]} {comp.value}"
+                )
             elif comp.component_type == "VC Switch":
                 # S<name> switch+ switch- ctrl+ ctrl- model_name
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=switch+, 3=switch-
                 model_name = f"SW_{comp_id}"
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {model_name}")
+                lines.append(
+                    f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {model_name}"
+                )
             elif comp.component_type in ("Diode", "LED", "Zener Diode"):
                 # D<name> anode cathode model_name
                 # Terminals: 0=anode, 1=cathode
-                model_name = self._diode_model_map.get((comp.component_type, comp.value), f"D_{comp_id}")
+                model_name = self._diode_model_map.get(
+                    (comp.component_type, comp.value), f"D_{comp_id}"
+                )
                 lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {model_name}")
             elif comp.component_type == "Transformer":
                 # Transformer modeled as two coupled inductors + K coupling
@@ -265,7 +291,9 @@ class NetlistGenerator:
                     lines.append(f".model {model_name} PMOS(VTO=-0.7 KP=50u)")
 
         # Add VC Switch model directives
-        vc_switches = [c for c in self.components.values() if c.component_type == "VC Switch"]
+        vc_switches = [
+            c for c in self.components.values() if c.component_type == "VC Switch"
+        ]
         if vc_switches:
             lines.append("")
             lines.append("* Voltage-Controlled Switch Model Definitions")
@@ -277,7 +305,9 @@ class NetlistGenerator:
         if self._diode_model_map:
             lines.append("")
             lines.append("* Diode Model Definitions")
-            for (_dtype, params), model_name in sorted(self._diode_model_map.items(), key=lambda kv: kv[1]):
+            for (_dtype, params), model_name in sorted(
+                self._diode_model_map.items(), key=lambda kv: kv[1]
+            ):
                 lines.append(f".model {model_name} D({params})")
 
         # Add comments about labeled nodes
@@ -325,10 +355,16 @@ class NetlistGenerator:
 
         elif self.analysis_type == "DC Sweep":
             params = self.analysis_params
-            voltage_sources = [c for c in self.components.values() if c.component_type == "Voltage Source"]
+            voltage_sources = [
+                c
+                for c in self.components.values()
+                if c.component_type == "Voltage Source"
+            ]
             if voltage_sources:
                 source_name = voltage_sources[0].component_id
-                lines.append(f".dc {source_name} {params['min']} {params['max']} {params['step']}")
+                lines.append(
+                    f".dc {source_name} {params['min']} {params['max']} {params['step']}"
+                )
             else:
                 lines.append("* Warning: DC Sweep requires a voltage source")
                 lines.append(".op")
@@ -336,7 +372,9 @@ class NetlistGenerator:
         elif self.analysis_type == "AC Sweep":
             params = self.analysis_params
             sweep_type = params.get("sweep_type", "dec")
-            lines.append(f".ac {sweep_type} {params['points']} {params['fStart']} {params['fStop']}")
+            lines.append(
+                f".ac {sweep_type} {params['points']} {params['fStart']} {params['fStop']}"
+            )
 
         elif self.analysis_type == "Transient":
             params = self.analysis_params
@@ -360,7 +398,9 @@ class NetlistGenerator:
             pts = params.get("points", 100)
             fstart = params.get("fStart", 1)
             fstop = params.get("fStop", 1e6)
-            lines.append(f".noise v({output_node}) {source} {sweep_type} {pts} {fstart} {fstop}")
+            lines.append(
+                f".noise v({output_node}) {source} {sweep_type} {pts} {fstart} {fstop}"
+            )
 
         elif self.analysis_type == "Sensitivity":
             params = self.analysis_params
@@ -399,7 +439,9 @@ class NetlistGenerator:
         # Define variables for voltages across resistors
         resistor_voltages_let = []
         resistor_voltages_print = []
-        resistors = [c for c in self.components.values() if c.component_type == "Resistor"]
+        resistors = [
+            c for c in self.components.values() if c.component_type == "Resistor"
+        ]
         for res in resistors:
             try:
                 node1_num = node_map.get((res.component_id, 0))
@@ -448,13 +490,19 @@ class NetlistGenerator:
             # Generate appropriate print commands, excluding ground node 0.
             nodes_to_print = set(node_map.values())
             nodes_to_print.discard(0)
-            labeled_nodes_to_print = {num: label for num, label in node_labels.items() if num != 0}
+            labeled_nodes_to_print = {
+                num: label for num, label in node_labels.items() if num != 0
+            }
 
             all_print_vars = []
             if labeled_nodes_to_print:
-                all_print_vars.extend([f"v({label})" for label in sorted(labeled_nodes_to_print.values())])
+                all_print_vars.extend(
+                    [f"v({label})" for label in sorted(labeled_nodes_to_print.values())]
+                )
             elif nodes_to_print:
-                all_print_vars.extend([f"v({node})" for node in sorted(list(nodes_to_print))])
+                all_print_vars.extend(
+                    [f"v({node})" for node in sorted(list(nodes_to_print))]
+                )
 
             # Add resistor voltages to the print list
             all_print_vars.extend(resistor_voltages_print)

@@ -6,7 +6,8 @@ gain/phase margin, and edge cases.
 
 import numpy as np
 import pytest
-from simulation.freq_markers import _find_crossing, compute_markers, format_frequency
+from simulation.freq_markers import (_find_crossing, compute_markers,
+                                     format_frequency)
 
 # ── Crossing detection ───────────────────────────────────────────────
 

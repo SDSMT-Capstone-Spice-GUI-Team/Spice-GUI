@@ -143,7 +143,9 @@ class IEEEWaveformVoltageSource(ComponentRenderer):
         # Draw sine wave symbol
         from models.component import COMPONENT_COLORS
 
-        painter.setPen(QPen(QColor(COMPONENT_COLORS.get(component.component_type, "#E91E63")), 2))
+        painter.setPen(
+            QPen(QColor(COMPONENT_COLORS.get(component.component_type, "#E91E63")), 2)
+        )
         from PyQt6.QtGui import QPainterPath
 
         path = QPainterPath()

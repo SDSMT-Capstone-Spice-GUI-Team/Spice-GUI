@@ -26,13 +26,10 @@ from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 
 __version__ = "0.1.0"
-from simulation.csv_exporter import (
-    export_ac_results,
-    export_dc_sweep_results,
-    export_noise_results,
-    export_op_results,
-    export_transient_results,
-)
+from simulation.csv_exporter import (export_ac_results,
+                                     export_dc_sweep_results,
+                                     export_noise_results, export_op_results,
+                                     export_transient_results)
 
 
 def try_load_circuit(filepath: str) -> tuple[CircuitModel | None, str]:
@@ -267,7 +264,9 @@ def cmd_batch(args: argparse.Namespace) -> int:
         model, error = try_load_circuit(str(filepath))
 
         if model is None:
-            results_summary.append({"file": filepath.name, "status": "LOAD_ERROR", "error": error})
+            results_summary.append(
+                {"file": filepath.name, "status": "LOAD_ERROR", "error": error}
+            )
             any_failed = True
             if args.fail_fast:
                 break
@@ -282,7 +281,9 @@ def cmd_batch(args: argparse.Namespace) -> int:
         result = sim.run_simulation()
 
         if not result.success:
-            results_summary.append({"file": filepath.name, "status": "FAIL", "error": result.error})
+            results_summary.append(
+                {"file": filepath.name, "status": "FAIL", "error": result.error}
+            )
             any_failed = True
             if args.fail_fast:
                 break
@@ -465,16 +466,26 @@ def diff_circuits(model_a: CircuitModel, model_b: CircuitModel) -> dict:
 
     comp_diff = {}
     if added:
-        comp_diff["added"] = [{"id": cid, "type": model_b.components[cid].component_type} for cid in added]
+        comp_diff["added"] = [
+            {"id": cid, "type": model_b.components[cid].component_type} for cid in added
+        ]
     if removed:
-        comp_diff["removed"] = [{"id": cid, "type": model_a.components[cid].component_type} for cid in removed]
+        comp_diff["removed"] = [
+            {"id": cid, "type": model_a.components[cid].component_type}
+            for cid in removed
+        ]
     if changed:
         comp_diff["changed"] = changed
     diff["components"] = comp_diff
 
     # --- Wires ---
     def wire_key(w):
-        return (w.start_component_id, w.start_terminal, w.end_component_id, w.end_terminal)
+        return (
+            w.start_component_id,
+            w.start_terminal,
+            w.end_component_id,
+            w.end_terminal,
+        )
 
     wires_a = {wire_key(w) for w in model_a.wires}
     wires_b = {wire_key(w) for w in model_b.wires}
@@ -484,17 +495,27 @@ def diff_circuits(model_a: CircuitModel, model_b: CircuitModel) -> dict:
 
     wire_diff = {}
     if wire_added:
-        wire_diff["added"] = [{"start": f"{k[0]}:{k[1]}", "end": f"{k[2]}:{k[3]}"} for k in wire_added]
+        wire_diff["added"] = [
+            {"start": f"{k[0]}:{k[1]}", "end": f"{k[2]}:{k[3]}"} for k in wire_added
+        ]
     if wire_removed:
-        wire_diff["removed"] = [{"start": f"{k[0]}:{k[1]}", "end": f"{k[2]}:{k[3]}"} for k in wire_removed]
+        wire_diff["removed"] = [
+            {"start": f"{k[0]}:{k[1]}", "end": f"{k[2]}:{k[3]}"} for k in wire_removed
+        ]
     diff["wires"] = wire_diff
 
     # --- Analysis ---
     analysis_diff = {}
     if model_a.analysis_type != model_b.analysis_type:
-        analysis_diff["type"] = {"from": model_a.analysis_type, "to": model_b.analysis_type}
+        analysis_diff["type"] = {
+            "from": model_a.analysis_type,
+            "to": model_b.analysis_type,
+        }
     if model_a.analysis_params != model_b.analysis_params:
-        analysis_diff["params"] = {"from": model_a.analysis_params, "to": model_b.analysis_params}
+        analysis_diff["params"] = {
+            "from": model_a.analysis_params,
+            "to": model_b.analysis_params,
+        }
     diff["analysis"] = analysis_diff
 
     return diff
@@ -542,9 +563,13 @@ def _format_diff_text(diff: dict, name_a: str, name_b: str) -> str:
     if analysis:
         lines.append("Analysis:")
         if "type" in analysis:
-            lines.append(f"  type: {analysis['type']['from']} -> {analysis['type']['to']}")
+            lines.append(
+                f"  type: {analysis['type']['from']} -> {analysis['type']['to']}"
+            )
         if "params" in analysis:
-            lines.append(f"  params: {analysis['params']['from']} -> {analysis['params']['to']}")
+            lines.append(
+                f"  params: {analysis['params']['from']} -> {analysis['params']['to']}"
+            )
         lines.append("")
 
     return "\n".join(lines)
@@ -562,7 +587,11 @@ def cmd_diff(args: argparse.Namespace) -> int:
     if fmt == "json":
         print(json.dumps(diff, indent=2, default=str))
     else:
-        print(_format_diff_text(diff, Path(args.circuit_a).name, Path(args.circuit_b).name))
+        print(
+            _format_diff_text(
+                diff, Path(args.circuit_a).name, Path(args.circuit_b).name
+            )
+        )
 
     return 0 if identical else 1
 
@@ -634,68 +663,144 @@ def build_parser() -> argparse.ArgumentParser:
         prog="spice-gui-cli",
         description="Spice-GUI batch operations — simulate, validate, and export circuits from the command line.",
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # simulate
-    sim_parser = subparsers.add_parser("simulate", help="Run simulation and output results")
-    sim_parser.add_argument("circuit", help="Path to circuit JSON file (use '-' for stdin)")
-    sim_parser.add_argument("--format", choices=["json", "csv"], default="json", help="Output format (default: json)")
-    sim_parser.add_argument("--output", "-o", help="Write results to file instead of stdout")
+    sim_parser = subparsers.add_parser(
+        "simulate", help="Run simulation and output results"
+    )
+    sim_parser.add_argument(
+        "circuit", help="Path to circuit JSON file (use '-' for stdin)"
+    )
+    sim_parser.add_argument(
+        "--format",
+        choices=["json", "csv"],
+        default="json",
+        help="Output format (default: json)",
+    )
+    sim_parser.add_argument(
+        "--output", "-o", help="Write results to file instead of stdout"
+    )
     sim_parser.add_argument(
         "--analysis",
-        choices=["DC Operating Point", "DC Sweep", "AC Sweep", "Transient", "Temperature Sweep", "Noise"],
+        choices=[
+            "DC Operating Point",
+            "DC Sweep",
+            "AC Sweep",
+            "Transient",
+            "Temperature Sweep",
+            "Noise",
+        ],
         help="Override the analysis type configured in the circuit file",
     )
 
     # validate
-    val_parser = subparsers.add_parser("validate", help="Check circuit for errors without simulating")
-    val_parser.add_argument("circuit", help="Path to circuit JSON file (use '-' for stdin)")
+    val_parser = subparsers.add_parser(
+        "validate", help="Check circuit for errors without simulating"
+    )
+    val_parser.add_argument(
+        "circuit", help="Path to circuit JSON file (use '-' for stdin)"
+    )
 
     # export
-    exp_parser = subparsers.add_parser("export", help="Export circuit in specified format")
-    exp_parser.add_argument("circuit", help="Path to circuit JSON file (use '-' for stdin)")
-    exp_parser.add_argument(
-        "--format", "-f", choices=["cir", "json"], default="cir", help="Export format (default: cir)"
+    exp_parser = subparsers.add_parser(
+        "export", help="Export circuit in specified format"
     )
-    exp_parser.add_argument("--output", "-o", help="Write output to file instead of stdout")
+    exp_parser.add_argument(
+        "circuit", help="Path to circuit JSON file (use '-' for stdin)"
+    )
+    exp_parser.add_argument(
+        "--format",
+        "-f",
+        choices=["cir", "json"],
+        default="cir",
+        help="Export format (default: cir)",
+    )
+    exp_parser.add_argument(
+        "--output", "-o", help="Write output to file instead of stdout"
+    )
 
     # batch
-    batch_parser = subparsers.add_parser("batch", help="Run simulations on multiple circuit files")
-    batch_parser.add_argument("path", help="Directory or glob pattern matching circuit JSON files")
-    batch_parser.add_argument(
-        "--format", choices=["json", "csv"], default="json", help="Output format for per-file results (default: json)"
+    batch_parser = subparsers.add_parser(
+        "batch", help="Run simulations on multiple circuit files"
     )
-    batch_parser.add_argument("--output-dir", help="Write per-file results to this directory")
+    batch_parser.add_argument(
+        "path", help="Directory or glob pattern matching circuit JSON files"
+    )
+    batch_parser.add_argument(
+        "--format",
+        choices=["json", "csv"],
+        default="json",
+        help="Output format for per-file results (default: json)",
+    )
+    batch_parser.add_argument(
+        "--output-dir", help="Write per-file results to this directory"
+    )
     batch_parser.add_argument(
         "--analysis",
-        choices=["DC Operating Point", "DC Sweep", "AC Sweep", "Transient", "Temperature Sweep", "Noise"],
+        choices=[
+            "DC Operating Point",
+            "DC Sweep",
+            "AC Sweep",
+            "Transient",
+            "Temperature Sweep",
+            "Noise",
+        ],
         help="Override the analysis type for all circuits",
     )
-    batch_parser.add_argument("--fail-fast", action="store_true", help="Stop on first error")
+    batch_parser.add_argument(
+        "--fail-fast", action="store_true", help="Stop on first error"
+    )
 
     # repl
-    repl_parser = subparsers.add_parser("repl", help="Launch interactive Python REPL with scripting API")
-    repl_parser.add_argument("--load", help="Pre-load a circuit JSON file as 'circuit' variable")
+    repl_parser = subparsers.add_parser(
+        "repl", help="Launch interactive Python REPL with scripting API"
+    )
+    repl_parser.add_argument(
+        "--load", help="Pre-load a circuit JSON file as 'circuit' variable"
+    )
 
     # import
-    import_parser = subparsers.add_parser("import", help="Import a SPICE netlist to circuit JSON")
-    import_parser.add_argument("netlist", help="Path to SPICE netlist file (.cir, .spice, .sp)")
-    import_parser.add_argument("--output", "-o", help="Output JSON file path (default: same name with .json extension)")
+    import_parser = subparsers.add_parser(
+        "import", help="Import a SPICE netlist to circuit JSON"
+    )
+    import_parser.add_argument(
+        "netlist", help="Path to SPICE netlist file (.cir, .spice, .sp)"
+    )
+    import_parser.add_argument(
+        "--output",
+        "-o",
+        help="Output JSON file path (default: same name with .json extension)",
+    )
 
     # diff
-    diff_parser = subparsers.add_parser("diff", help="Compare two circuit files and report differences")
+    diff_parser = subparsers.add_parser(
+        "diff", help="Compare two circuit files and report differences"
+    )
     diff_parser.add_argument("circuit_a", help="Path to reference circuit JSON file")
     diff_parser.add_argument("circuit_b", help="Path to circuit JSON file to compare")
     diff_parser.add_argument(
-        "--format", "-f", choices=["text", "json"], default="text", help="Output format (default: text)"
+        "--format",
+        "-f",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
     )
 
     # stats
-    stats_parser = subparsers.add_parser("stats", help="Display circuit complexity statistics")
+    stats_parser = subparsers.add_parser(
+        "stats", help="Display circuit complexity statistics"
+    )
     stats_parser.add_argument("circuit", help="Path to circuit JSON file")
     stats_parser.add_argument(
-        "--format", "-f", choices=["text", "json"], default="text", help="Output format (default: text)"
+        "--format",
+        "-f",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
     )
 
     return parser

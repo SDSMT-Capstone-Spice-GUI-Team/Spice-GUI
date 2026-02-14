@@ -16,7 +16,9 @@ def _make_mock_comp():
     comp = MagicMock(spec=ComponentGraphicsItem)
     comp._position_update_timer = None
     comp._pending_position = None
-    comp._schedule_controller_update = lambda: ComponentGraphicsItem._schedule_controller_update(comp)
+    comp._schedule_controller_update = (
+        lambda: ComponentGraphicsItem._schedule_controller_update(comp)
+    )
     return comp
 
 
