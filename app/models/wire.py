@@ -55,28 +55,34 @@ class WireData:
         Serialize wire to dictionary.
 
         Format matches the existing JSON circuit file format for compatibility.
-        Note: waypoints are NOT serialized (they are recomputed on load).
+        Waypoints are persisted so wire layouts survive save/load.
         """
-        return {
+        data = {
             "start_comp": self.start_component_id,
             "start_term": self.start_terminal,
             "end_comp": self.end_component_id,
             "end_term": self.end_terminal,
         }
+        if self.waypoints:
+            data["waypoints"] = [[x, y] for x, y in self.waypoints]
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "WireData":
         """
         Deserialize wire from dictionary.
 
-        Handles the existing JSON circuit file format.
+        Handles both old format (no waypoints) and new format (with waypoints).
         """
-        return cls(
+        wire = cls(
             start_component_id=data["start_comp"],
             start_terminal=data["start_term"],
             end_component_id=data["end_comp"],
             end_terminal=data["end_term"],
         )
+        if "waypoints" in data:
+            wire.waypoints = [(float(x), float(y)) for x, y in data["waypoints"]]
+        return wire
 
     def __repr__(self) -> str:
         return (
