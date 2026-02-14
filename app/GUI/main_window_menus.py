@@ -473,6 +473,13 @@ class MenuBarMixin:
             create_rubric_action.triggered.connect(self._on_create_rubric)
             instructor_menu.addAction(create_rubric_action)
 
+            generate_rubric_action = QAction("&Generate Rubric from Circuit...", self)
+            generate_rubric_action.setToolTip(
+                "Auto-generate a rubric from the current circuit and open it in the editor"
+            )
+            generate_rubric_action.triggered.connect(self._on_generate_rubric)
+            instructor_menu.addAction(generate_rubric_action)
+
             instructor_menu.addSeparator()
 
             grade_action = QAction("&Grade Student Circuit...", self)

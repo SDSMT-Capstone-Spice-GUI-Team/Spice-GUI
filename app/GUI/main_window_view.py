@@ -73,6 +73,24 @@ class ViewOperationsMixin:
         dialog = RubricEditorDialog(parent=self)
         dialog.exec()
 
+    def _on_generate_rubric(self):
+        """Auto-generate a rubric from the current canvas circuit."""
+        from .rubric_editor_dialog import RubricEditorDialog
+
+        if not self.model.components:
+            QMessageBox.information(
+                self,
+                "Generate Rubric",
+                "The canvas is empty. Build a reference circuit first.",
+            )
+            return
+
+        from grading.rubric_generator import generate_rubric
+
+        rubric = generate_rubric(self.model, title="Auto-Generated Rubric")
+        dialog = RubricEditorDialog(rubric=rubric, parent=self)
+        dialog.exec()
+
     # Dirty flag (unsaved changes indicator)
 
     def _on_dirty_change(self, event: str, data) -> None:
