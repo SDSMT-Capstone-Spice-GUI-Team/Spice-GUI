@@ -123,15 +123,13 @@ class TestComponentPaletteInteractions:
     def test_search_for_op_amp(self, palette):
         """Searching 'op' shows Op-Amp."""
         palette.search_input.setText("op")
-        lw = palette.list_widget
-        visible = [lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()]
+        visible = palette.get_visible_component_names()
         assert "Op-Amp" in visible
 
     def test_search_for_diode(self, palette):
         """Searching 'diode' shows Diode, LED, and Zener Diode."""
         palette.search_input.setText("diode")
-        lw = palette.list_widget
-        visible = [lw.item(i).text() for i in range(lw.count()) if not lw.item(i).isHidden()]
+        visible = palette.get_visible_component_names()
         assert "Diode" in visible
         assert "Zener Diode" in visible
 
@@ -139,9 +137,8 @@ class TestComponentPaletteInteractions:
         """Clearing search shows all items again."""
         palette.search_input.setText("xyz_no_match")
         palette.search_input.clear()
-        lw = palette.list_widget
-        visible = sum(1 for i in range(lw.count()) if not lw.item(i).isHidden())
-        assert visible == lw.count()
+        visible = palette.get_visible_component_names()
+        assert len(visible) == len(palette.get_component_names())
 
 
 # ===========================================================================
