@@ -73,6 +73,111 @@ class ViewOperationsMixin:
         dialog = RubricEditorDialog(parent=self)
         dialog.exec()
 
+    def _on_open_assignment(self):
+        """Open a .spice-assignment bundle file."""
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Assignment",
+            "",
+            "Assignment Files (*.spice-assignment);;All Files (*)",
+        )
+        if not filename:
+            return
+
+        try:
+            from controllers.assignment_controller import extract_rubric, load_assignment
+
+            bundle = load_assignment(filename)
+
+            # Load template circuit if present
+            if bundle.template is not None:
+                from controllers.template_controller import TemplateController
+
+                model = TemplateController.create_circuit_from_template(bundle.template)
+                self.model.clear()
+                self.model.components = model.components
+                self.model.wires = model.wires
+                self.model.nodes = model.nodes
+                self.model.terminal_to_node = model.terminal_to_node
+                self.model.component_counter = model.component_counter
+                self.model.analysis_type = model.analysis_type
+                self.model.analysis_params = model.analysis_params
+                if hasattr(model, "annotations"):
+                    self.model.annotations = model.annotations
+                if self.circuit_ctrl:
+                    self.circuit_ctrl._notify("model_loaded", None)
+
+            # Load rubric into grading panel if present
+            if bundle.rubric is not None:
+                rubric = extract_rubric(bundle)
+                self.grading_panel._rubric = rubric
+                self.grading_panel.rubric_label.setText(f"Rubric: {rubric.title}")
+                self.grading_panel._update_grade_button()
+                self.grading_panel.setVisible(True)
+
+            self.statusBar().showMessage(f"Assignment loaded: {filename}", 3000)
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load assignment:\n{e}")
+
+    def _on_save_assignment(self):
+        """Save current circuit + rubric as a .spice-assignment bundle."""
+        if not self.model.components:
+            QMessageBox.information(
+                self,
+                "Save Assignment",
+                "The canvas is empty. Build a circuit first.",
+            )
+            return
+
+        # Get rubric file
+        rubric_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Rubric for Assignment",
+            "",
+            "Rubric Files (*.spice-rubric);;All Files (*)",
+        )
+        if not rubric_path:
+            return
+
+        try:
+            from grading.rubric import load_rubric
+
+            rubric = load_rubric(rubric_path)
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load rubric:\n{e}")
+            return
+
+        # Ask for save location
+        save_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Assignment Bundle",
+            "",
+            "Assignment Files (*.spice-assignment);;All Files (*)",
+        )
+        if not save_path:
+            return
+        if not save_path.endswith(".spice-assignment"):
+            save_path += ".spice-assignment"
+
+        try:
+            from controllers.assignment_controller import save_assignment
+            from models.assignment import AssignmentBundle
+            from models.template import TemplateData, TemplateMetadata
+
+            template = TemplateData(
+                metadata=TemplateMetadata(title=rubric.title),
+                starter_circuit=self.model.to_dict(),
+                reference_circuit=self.model.to_dict(),
+            )
+            bundle = AssignmentBundle(
+                template=template,
+                rubric=rubric.to_dict(),
+            )
+            save_assignment(bundle, save_path)
+            self.statusBar().showMessage(f"Assignment saved: {save_path}", 3000)
+        except OSError as e:
+            QMessageBox.critical(self, "Error", f"Failed to save assignment:\n{e}")
+
     # Dirty flag (unsaved changes indicator)
 
     def _on_dirty_change(self, event: str, data) -> None:
