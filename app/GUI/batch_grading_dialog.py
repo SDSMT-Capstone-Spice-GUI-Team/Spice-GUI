@@ -6,18 +6,9 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QDialog,
-    QFileDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QProgressBar,
-    QPushButton,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QDialog, QFileDialog, QGroupBox, QHBoxLayout,
+                             QLabel, QLineEdit, QMessageBox, QProgressBar,
+                             QPushButton, QVBoxLayout)
 
 if TYPE_CHECKING:
     from grading.batch_grader import BatchGradingResult
@@ -81,6 +72,11 @@ class BatchGradingDialog(QDialog):
         self.export_btn.setEnabled(False)
         self.export_btn.clicked.connect(self._on_export)
         btn_layout.addWidget(self.export_btn)
+
+        self.export_reports_btn = QPushButton("Export Student Reports...")
+        self.export_reports_btn.setEnabled(False)
+        self.export_reports_btn.clicked.connect(self._on_export_reports)
+        btn_layout.addWidget(self.export_reports_btn)
         layout.addLayout(btn_layout)
 
         # Progress bar
@@ -101,7 +97,9 @@ class BatchGradingDialog(QDialog):
         layout.addWidget(self.results_group)
 
     def _on_browse_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Student Submissions Folder")
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Student Submissions Folder"
+        )
         if folder:
             self.folder_path.setText(folder)
             self._update_grade_button()
@@ -124,7 +122,9 @@ class BatchGradingDialog(QDialog):
                 QMessageBox.critical(self, "Error", f"Failed to load rubric:\n{e}")
 
     def _update_grade_button(self):
-        self.grade_btn.setEnabled(bool(self.folder_path.text()) and self._rubric is not None)
+        self.grade_btn.setEnabled(
+            bool(self.folder_path.text()) and self._rubric is not None
+        )
 
     def _on_grade(self):
         from grading.batch_grader import BatchGrader
@@ -155,6 +155,7 @@ class BatchGradingDialog(QDialog):
         self._display_results(self._batch_result)
         self.grade_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
+        self.export_reports_btn.setEnabled(bool(self._batch_result.results))
         self.progress_label.setText("Grading complete")
 
     def _display_results(self, result: BatchGradingResult):
@@ -205,6 +206,29 @@ class BatchGradingDialog(QDialog):
             QMessageBox.information(self, "Exported", f"Gradebook saved to {filename}")
         except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to export:\n{e}")
+
+    def _on_export_reports(self):
+        """Export individual HTML feedback reports for each student."""
+        if self._batch_result is None or not self._batch_result.results:
+            return
+
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Output Folder for Student Reports"
+        )
+        if not folder:
+            return
+
+        try:
+            from grading.feedback_exporter import export_student_reports
+
+            created = export_student_reports(self._batch_result, folder)
+            QMessageBox.information(
+                self,
+                "Reports Exported",
+                f"Created {len(created)} student report(s) in:\n{folder}",
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to export reports:\n{e}")
 
     def get_result(self) -> Optional[BatchGradingResult]:
         return self._batch_result
