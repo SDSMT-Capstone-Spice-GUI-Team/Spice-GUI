@@ -31,6 +31,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _extract_component_ids(check_result) -> list[str]:
+    """Extract component IDs relevant to a check result.
+
+    Parses the check_id to find component ID patterns like R1, C1, V1, GND1.
+    """
+    import re
+
+    check_id = check_result.check_id
+    # Match component ID patterns: letter(s) followed by digits
+    # e.g., R1, C1, V1, GND1, r1, c1
+    matches = re.findall(r"([A-Za-z]+\d+)", check_id)
+    # Filter out common non-component tokens
+    skip = {"check"}
+    return [m.upper() for m in matches if m.lower() not in skip]
+
+
 class GradingPanel(QWidget):
     """Panel for grading student circuits against rubrics.
 
@@ -209,7 +225,7 @@ class GradingPanel(QWidget):
     def _display_results(self, result: GradingResult):
         """Populate the results list with check outcomes."""
         self.results_list.clear()
-        self._highlighted_components.clear()
+        self._clear_highlights()
 
         # Score header
         pct = result.percentage
@@ -243,7 +259,9 @@ class GradingPanel(QWidget):
         self.feedback_label.setText("Click a check to see feedback")
 
     def _on_check_selected(self, current, previous):
-        """Show feedback for the selected check."""
+        """Show feedback for the selected check and highlight affected components."""
+        self._clear_highlights()
+
         if current is None:
             self.feedback_label.setText("")
             return
@@ -253,6 +271,38 @@ class GradingPanel(QWidget):
             return
 
         self.feedback_label.setText(cr.feedback)
+
+        # Highlight components associated with this check
+        comp_ids = _extract_component_ids(cr)
+        canvas = self._get_canvas()
+        if canvas is None:
+            return
+
+        state = "passed" if cr.passed else "failed"
+        for comp_id in comp_ids:
+            comp_item = canvas.components.get(comp_id)
+            if comp_item is not None:
+                comp_item.set_grading_state(state, cr.feedback)
+                self._highlighted_components.append(comp_id)
+
+    # --- Highlight management ---
+
+    def _get_canvas(self):
+        """Get the circuit canvas from the parent window."""
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "canvas"):
+            return parent.canvas
+        return None
+
+    def _clear_highlights(self):
+        """Remove all grading overlays from canvas components."""
+        canvas = self._get_canvas()
+        if canvas is not None:
+            for comp_id in self._highlighted_components:
+                comp_item = canvas.components.get(comp_id)
+                if comp_item is not None:
+                    comp_item.clear_grading_state()
+        self._highlighted_components.clear()
 
     # --- Export ---
 
@@ -306,7 +356,8 @@ class GradingPanel(QWidget):
     # --- Public API ---
 
     def clear_results(self):
-        """Clear all grading results and reset the panel."""
+        """Clear all grading results, overlays, and reset the panel."""
+        self._clear_highlights()
         self._result = None
         self._student_circuit = None
         self._student_file = ""

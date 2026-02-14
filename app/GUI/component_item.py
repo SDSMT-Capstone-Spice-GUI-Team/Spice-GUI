@@ -3,8 +3,7 @@ import os
 import sys
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
-from PyQt6.QtGui import QBrush  # QPainterPath imported locally where needed
-from PyQt6.QtGui import QPen
+from PyQt6.QtGui import QBrush, QColor, QPen  # QPainterPath imported locally where needed
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -44,6 +43,10 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.is_being_dragged = False
         self._group_moving = False  # Guard against recursive group moves
         self._drag_start_positions = {}  # {comp_id: (x, y)} for undo
+
+        # Grading overlay state (temporary, not persisted)
+        self._grading_state = None  # "passed", "failed", or None
+        self._grading_feedback = ""
 
         # Phase 5: Debounced position updates to controller
         self._position_update_timer = None
@@ -279,6 +282,25 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.update_terminals()
         self.update()
 
+    def set_grading_state(self, state, feedback=""):
+        """Set the grading overlay state for this component.
+
+        Args:
+            state: "passed", "failed", or None to clear.
+            feedback: Tooltip text shown on hover.
+        """
+        self._grading_state = state
+        self._grading_feedback = feedback
+        self.setToolTip(feedback if feedback else "")
+        self.update()
+
+    def clear_grading_state(self):
+        """Remove grading overlay from this component."""
+        self._grading_state = None
+        self._grading_feedback = ""
+        self.setToolTip("")
+        self.update()
+
     def draw_component_body(self, painter):
         """Dispatch to the registered renderer for the current symbol style."""
         from .renderers import get_renderer
@@ -307,6 +329,16 @@ class ComponentGraphicsItem(QGraphicsItem):
         if self.isSelected():
             painter.setPen(theme_manager.pen("component_selected"))
             painter.drawRect(QRectF(-40, -20, 80, 40))
+
+        # Grading overlay (temporary visual feedback)
+        if self._grading_state == "passed":
+            painter.setPen(QPen(QColor(0, 200, 0, 200), 3))
+            painter.setBrush(QBrush(QColor(0, 200, 0, 40)))
+            painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
+        elif self._grading_state == "failed":
+            painter.setPen(QPen(QColor(220, 0, 0, 200), 3))
+            painter.setBrush(QBrush(QColor(220, 0, 0, 40)))
+            painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
 
         # Draw component body
         painter.setPen(QPen(color, 2))
