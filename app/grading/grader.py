@@ -12,6 +12,7 @@ from typing import Optional
 from grading.circuit_comparer import CircuitComparer
 from grading.rubric import Rubric, RubricCheck
 from models.circuit import CircuitModel
+from simulation.monte_carlo import parse_spice_value
 
 
 @dataclass
@@ -20,7 +21,7 @@ class CheckGradeResult:
 
     check_id: str
     passed: bool
-    points_earned: int
+    points_earned: float
     points_possible: int
     feedback: str
 
@@ -32,7 +33,7 @@ class GradingResult:
     student_file: str
     rubric_title: str
     total_points: int
-    earned_points: int
+    earned_points: float
     check_results: list[CheckGradeResult] = field(default_factory=list)
 
     @property
@@ -132,13 +133,69 @@ class CircuitGrader:
 
         cr = self._comparer.check_component_value(student, component_id, expected_value, tolerance_pct)
 
+        # If the basic check passes (within tolerance), award full credit
+        if cr.passed:
+            return CheckGradeResult(
+                check_id=check.check_id,
+                passed=True,
+                points_earned=check.points,
+                points_possible=check.points,
+                feedback=check.feedback_pass,
+            )
+
+        # If partial credit tiers are defined, evaluate them
+        if check.partial_credit:
+            earned = self._evaluate_partial_credit(check, student, component_id, expected_value)
+            if earned is not None:
+                return earned
+
         return CheckGradeResult(
             check_id=check.check_id,
-            passed=cr.passed,
-            points_earned=check.points if cr.passed else 0,
+            passed=False,
+            points_earned=0,
             points_possible=check.points,
-            feedback=check.feedback_pass if cr.passed else check.feedback_fail,
+            feedback=check.feedback_fail,
         )
+
+    def _evaluate_partial_credit(
+        self,
+        check: RubricCheck,
+        student: CircuitModel,
+        component_id: str,
+        expected_value: str,
+    ) -> Optional[CheckGradeResult]:
+        """Evaluate partial credit tiers for a component value check.
+
+        Returns a CheckGradeResult if a tier matches, or None if no tier applies.
+        """
+        comp = student.components.get(component_id)
+        if comp is None:
+            return None
+
+        expected_num = parse_spice_value(expected_value)
+        actual_num = parse_spice_value(comp.value)
+        if expected_num is None or actual_num is None:
+            return None
+        if expected_num == 0:
+            return None
+
+        deviation_pct = abs(actual_num - expected_num) / abs(expected_num) * 100
+
+        # Tiers are evaluated in order; first matching tier wins
+        for tier in check.partial_credit:
+            threshold_pct, credit_pct = tier[0], tier[1]
+            if deviation_pct <= threshold_pct:
+                earned = round(check.points * credit_pct / 100.0, 2)
+                return CheckGradeResult(
+                    check_id=check.check_id,
+                    passed=credit_pct >= 100,
+                    points_earned=earned,
+                    points_possible=check.points,
+                    feedback=f"{component_id} value {comp.value} within {threshold_pct}% "
+                    f"({credit_pct}% credit: {earned}/{check.points})",
+                )
+
+        return None
 
     def _check_component_count(
         self, check: RubricCheck, student: CircuitModel, reference: Optional[CircuitModel]

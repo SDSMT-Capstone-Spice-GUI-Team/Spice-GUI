@@ -27,7 +27,16 @@ VALID_CHECK_TYPES = frozenset(
 
 @dataclass
 class RubricCheck:
-    """A single check in a grading rubric."""
+    """A single check in a grading rubric.
+
+    The optional ``partial_credit`` field holds a list of tolerance tiers
+    for ``component_value`` checks.  Each tier is a pair
+    ``[threshold_pct, credit_pct]``.  Tiers are evaluated in order;
+    the first matching tier determines the awarded credit percentage.
+
+    Example: ``[[10, 100], [25, 75], [50, 50]]``
+    means within 10 % → full credit, within 25 % → 75 %, within 50 % → 50 %.
+    """
 
     check_id: str
     check_type: str
@@ -35,9 +44,10 @@ class RubricCheck:
     params: dict = field(default_factory=dict)
     feedback_pass: str = ""
     feedback_fail: str = ""
+    partial_credit: list | None = None
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "check_id": self.check_id,
             "check_type": self.check_type,
             "points": self.points,
@@ -45,6 +55,9 @@ class RubricCheck:
             "feedback_pass": self.feedback_pass,
             "feedback_fail": self.feedback_fail,
         }
+        if self.partial_credit is not None:
+            d["partial_credit"] = [list(tier) for tier in self.partial_credit]
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "RubricCheck":
@@ -55,6 +68,7 @@ class RubricCheck:
             params=dict(data.get("params", {})),
             feedback_pass=data.get("feedback_pass", ""),
             feedback_fail=data.get("feedback_fail", ""),
+            partial_credit=data.get("partial_credit"),
         )
 
 

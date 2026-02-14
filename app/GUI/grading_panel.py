@@ -213,7 +213,10 @@ class GradingPanel(QWidget):
 
         # Score header
         pct = result.percentage
-        self.score_label.setText(f"{result.earned_points}/{result.total_points} — {pct:.0f}%")
+        earned = result.earned_points
+        if isinstance(earned, float) and earned == int(earned):
+            earned = int(earned)
+        self.score_label.setText(f"{earned}/{result.total_points} — {pct:.0f}%")
         if pct >= 90:
             self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: green;")
         elif pct >= 70:
@@ -223,18 +226,27 @@ class GradingPanel(QWidget):
 
         # Check results
         for cr in result.check_results:
-            if cr.passed:
+            earned_display = cr.points_earned
+            if isinstance(earned_display, float) and earned_display == int(earned_display):
+                earned_display = int(earned_display)
+
+            is_partial = 0 < cr.points_earned < cr.points_possible
+            if cr.points_earned == cr.points_possible:
                 icon = "\u2714"  # checkmark
-                text = f"{icon} {cr.check_id}: +{cr.points_earned}/{cr.points_possible}"
+            elif is_partial:
+                icon = "\u25d1"  # half circle
             else:
                 icon = "\u2718"  # X mark
-                text = f"{icon} {cr.check_id}: 0/{cr.points_possible}"
+
+            text = f"{icon} {cr.check_id}: {earned_display}/{cr.points_possible}"
 
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, cr)
 
-            if cr.passed:
+            if cr.points_earned == cr.points_possible:
                 item.setForeground(QColor("green"))
+            elif is_partial:
+                item.setForeground(QColor("#CC8800"))
             else:
                 item.setForeground(QColor("red"))
 
