@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from controllers.file_controller import FileController
+from models.annotation import AnnotationData
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
@@ -196,6 +197,26 @@ class TestLoadAutoSave:
         ctrl2.load_auto_save()
         assert ctrl2.model.analysis_type == "AC Sweep"
         assert ctrl2.model.analysis_params["fStart"] == 1
+
+    def test_load_restores_annotations(self, tmp_path):
+        """Regression test for #410: annotations lost on crash recovery."""
+        autosave = str(tmp_path / "recovery.json")
+        model = _build_simple_circuit()
+        model.annotations = [
+            AnnotationData(text="Input stage", x=50.0, y=25.0, font_size=12, bold=True, color="#FF0000"),
+            AnnotationData(text="Output", x=200.0, y=75.0),
+        ]
+        ctrl = FileController(model, autosave_file=autosave)
+        ctrl.auto_save()
+
+        ctrl2 = FileController(autosave_file=autosave)
+        ctrl2.load_auto_save()
+        assert len(ctrl2.model.annotations) == 2
+        assert ctrl2.model.annotations[0].text == "Input stage"
+        assert ctrl2.model.annotations[0].x == 50.0
+        assert ctrl2.model.annotations[0].bold is True
+        assert ctrl2.model.annotations[0].color == "#FF0000"
+        assert ctrl2.model.annotations[1].text == "Output"
 
     def test_load_notifies_observers(self, tmp_path):
         from unittest.mock import MagicMock
