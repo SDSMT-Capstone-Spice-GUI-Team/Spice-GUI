@@ -6,18 +6,10 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QDialog,
-    QFileDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QProgressBar,
-    QPushButton,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QDialog, QFileDialog, QGroupBox, QHBoxLayout,
+                             QHeaderView, QLabel, QLineEdit, QMessageBox,
+                             QProgressBar, QPushButton, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout)
 
 if TYPE_CHECKING:
     from grading.batch_grader import BatchGradingResult
@@ -100,8 +92,29 @@ class BatchGradingDialog(QDialog):
         self.results_group.setVisible(False)
         layout.addWidget(self.results_group)
 
+        # Per-check analytics table
+        self.analytics_group = QGroupBox("Per-Check Analytics (sorted by pass rate)")
+        analytics_layout = QVBoxLayout(self.analytics_group)
+        self.analytics_table = QTableWidget()
+        self.analytics_table.setColumnCount(4)
+        self.analytics_table.setHorizontalHeaderLabels(
+            ["Check ID", "Pass", "Fail", "Pass Rate"]
+        )
+        self.analytics_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch
+        )
+        self.analytics_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.analytics_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
+        analytics_layout.addWidget(self.analytics_table)
+        self.analytics_group.setVisible(False)
+        layout.addWidget(self.analytics_group)
+
     def _on_browse_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Student Submissions Folder")
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Student Submissions Folder"
+        )
         if folder:
             self.folder_path.setText(folder)
             self._update_grade_button()
@@ -124,7 +137,9 @@ class BatchGradingDialog(QDialog):
                 QMessageBox.critical(self, "Error", f"Failed to load rubric:\n{e}")
 
     def _update_grade_button(self):
-        self.grade_btn.setEnabled(bool(self.folder_path.text()) and self._rubric is not None)
+        self.grade_btn.setEnabled(
+            bool(self.folder_path.text()) and self._rubric is not None
+        )
 
     def _on_grade(self):
         from grading.batch_grader import BatchGrader
@@ -184,6 +199,34 @@ class BatchGradingDialog(QDialog):
                 lines.append(f"  ... and {len(result.errors) - 5} more")
 
         self.results_label.setText("\n".join(lines))
+
+        # Show per-check analytics table
+        if result.results:
+            self._display_check_analytics(result)
+
+    def _display_check_analytics(self, result: BatchGradingResult):
+        """Populate the per-check analytics table."""
+        from grading.check_analytics import compute_check_analytics
+
+        analytics = compute_check_analytics(result)
+        if not analytics:
+            return
+
+        self.analytics_group.setVisible(True)
+        self.analytics_table.setRowCount(len(analytics))
+
+        for row, ca in enumerate(analytics):
+            self.analytics_table.setItem(row, 0, QTableWidgetItem(ca.check_id))
+            self.analytics_table.setItem(row, 1, QTableWidgetItem(str(ca.pass_count)))
+            self.analytics_table.setItem(row, 2, QTableWidgetItem(str(ca.fail_count)))
+
+            rate_item = QTableWidgetItem(f"{ca.pass_rate:.1f}%")
+            # Color-code: red for low pass rates, green for high
+            if ca.pass_rate < 50:
+                rate_item.setForeground(Qt.GlobalColor.red)
+            elif ca.pass_rate >= 80:
+                rate_item.setForeground(Qt.GlobalColor.darkGreen)
+            self.analytics_table.setItem(row, 3, rate_item)
 
     def _on_export(self):
         if self._batch_result is None:
