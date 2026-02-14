@@ -512,18 +512,32 @@ class FileOperationsMixin:
         self.templates_menu.addAction(browse_action)
 
     def _on_new_from_template(self):
-        """Open the template browser dialog."""
+        """Open the template browser dialog with preview."""
+        from controllers.template_controller import TemplateController
         from controllers.template_manager import TemplateManager
         from GUI.template_dialog import NewFromTemplateDialog
+        from GUI.template_preview_dialog import TemplatePreviewDialog
 
         if not hasattr(self, "_template_manager"):
             self._template_manager = TemplateManager()
 
         dialog = NewFromTemplateDialog(self._template_manager, self)
         if dialog.exec() == NewFromTemplateDialog.DialogCode.Accepted:
-            template = dialog.get_selected_template()
-            if template:
-                self._open_template(template.filepath)
+            template_info = dialog.get_selected_template()
+            if template_info is None:
+                return
+
+            # Load full template data for preview
+            try:
+                template_data = TemplateController.load_template(template_info.filepath)
+            except (OSError, ValueError):
+                # If preview load fails, fall back to direct load
+                self._open_template(template_info.filepath)
+                return
+
+            preview = TemplatePreviewDialog(template_data, self)
+            if preview.exec() == TemplatePreviewDialog.DialogCode.Accepted:
+                self._open_template(template_info.filepath)
 
     def _open_template(self, filepath: Path):
         """Load a circuit template, replacing the current circuit."""
