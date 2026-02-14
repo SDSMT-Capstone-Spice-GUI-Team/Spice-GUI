@@ -485,6 +485,18 @@ class MenuBarMixin:
             batch_grade_action.triggered.connect(self._on_batch_grade)
             instructor_menu.addAction(batch_grade_action)
 
+            instructor_menu.addSeparator()
+
+            open_assignment_action = QAction("&Open Assignment...", self)
+            open_assignment_action.setToolTip("Open a .spice-assignment bundle (template + rubric)")
+            open_assignment_action.triggered.connect(self._on_open_assignment)
+            instructor_menu.addAction(open_assignment_action)
+
+            save_assignment_action = QAction("&Save as Assignment...", self)
+            save_assignment_action.setToolTip("Bundle the current circuit and a rubric into a .spice-assignment file")
+            save_assignment_action.triggered.connect(self._on_save_assignment)
+            instructor_menu.addAction(save_assignment_action)
+
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")
         if settings_menu:
