@@ -45,6 +45,7 @@ class SimulationController:
         self.model = model or CircuitModel()
         self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
         self._runner = None
+        self._history = None
 
     @property
     def runner(self):
@@ -54,6 +55,25 @@ class SimulationController:
 
             self._runner = NgspiceRunner()
         return self._runner
+
+    @property
+    def history(self):
+        """Lazy initialization of SimulationHistory."""
+        if self._history is None:
+            from simulation.result_history import SimulationHistory
+
+            self._history = SimulationHistory()
+        return self._history
+
+    def _record_result(self, result: "SimulationResult") -> None:
+        """Store a completed simulation result in history."""
+        self.history.add(
+            analysis_type=result.analysis_type,
+            success=result.success,
+            data=result.data,
+            netlist=result.netlist,
+            measurements=result.measurements,
+        )
 
     def set_analysis(self, analysis_type: str, params: Optional[dict] = None) -> None:
         """Set the analysis type and parameters on the model."""
@@ -209,6 +229,9 @@ class SimulationController:
             raw_output=stdout,
             warnings=validation.warnings,
         )
+
+        # Record in history
+        self._record_result(result)
 
         # Phase 5: Notify simulation completed
         if self.circuit_ctrl:
