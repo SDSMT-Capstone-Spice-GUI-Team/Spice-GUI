@@ -54,7 +54,7 @@ CHECKBOX_RE = re.compile(r"^(- \[[ x]\] )(.+)$")
 def make_bug_url(item_text: str, issue_number: int) -> str:
     """Build a pre-filled GitHub new-issue URL."""
     # Strip any existing [report bug](...) suffix
-    item_text = re.sub(r"\s*\[report bug\]\([^)]*\)\s*$", "", item_text)
+    item_text = re.sub(r"\s*(?:—\s*)?\[report bug\]\([^)]*\)\s*$", "", item_text)
 
     # Clean text for title: strip markdown bold markers and PR refs
     clean = item_text.replace("**", "")
@@ -82,8 +82,24 @@ def make_bug_url(item_text: str, issue_number: int) -> str:
     return f"{BASE_URL}?{params}"
 
 
+REPLACEMENT_NOTE = (
+    "### How to Report a Bug\n"
+    "\n"
+    "Each checklist item above has a **report bug** link. "
+    "Click it to open a pre-filled bug report — just fill in the blanks and submit. "
+    "See the [detailed guide](https://github.com/SDSMT-Capstone-Spice-GUI-Team/"
+    "Spice-GUI/blob/develop/docs/how-to-file-a-bug.md) if you need help."
+)
+
+# Matches the old "Bug Report Template" section up to (but not including) <details>
+OLD_TEMPLATE_RE = re.compile(
+    r"### Bug Report Template\r?\n.*?(?=<details>|\Z)",
+    re.DOTALL,
+)
+
+
 def add_links_to_body(body: str, issue_number: int) -> str:
-    """Add [report bug] links to every checkbox line in the body."""
+    """Add [report bug] links to every checkbox line and replace old template."""
     lines = body.split("\n")
     result = []
     for line in lines:
@@ -93,13 +109,19 @@ def add_links_to_body(body: str, issue_number: int) -> str:
             item_text = m.group(2).strip()
             # Remove existing link if re-running
             item_text = re.sub(
-                r"\s*\[report bug\]\([^)]*\)\s*$", "", item_text
+                r"\s*(?:—\s*)?\[report bug\]\([^)]*\)\s*$", "", item_text
             ).strip()
             url = make_bug_url(item_text, issue_number)
             result.append(f"{prefix}{item_text} — [report bug]({url})")
         else:
             result.append(line)
-    return "\n".join(result)
+    body = "\n".join(result)
+
+    # Replace old "Bug Report Template" section with shorter note
+    if OLD_TEMPLATE_RE.search(body):
+        body = OLD_TEMPLATE_RE.sub(REPLACEMENT_NOTE + "\n\n", body)
+
+    return body
 
 
 def fetch_issue_body(issue_number: int) -> str:
@@ -108,6 +130,7 @@ def fetch_issue_body(issue_number: int) -> str:
         ["gh", "issue", "view", str(issue_number), "--repo", REPO, "--json", "body"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=True,
     )
     return json.loads(proc.stdout)["body"]

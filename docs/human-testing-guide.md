@@ -147,7 +147,7 @@ Each issue has checkboxes you can check off directly on GitHub (click the checkb
 
 1. Try the described action in the app
 2. If it works: check the box on the GitHub issue
-3. If it fails: leave a comment on the issue (see Part 4 below)
+3. If it fails: click the **report bug** link next to the item (see Part 4 below)
 
 ### 3.3 How to Read Test Items
 
