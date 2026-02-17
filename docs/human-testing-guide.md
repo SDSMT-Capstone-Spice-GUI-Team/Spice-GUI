@@ -184,26 +184,11 @@ Check off items directly on the GitHub issue as you test them. GitHub checkboxes
 
 ### 4.3 When Something Fails
 
-1. Leave a comment on the testing issue explaining what went wrong:
+Each checklist item has a **report bug** link next to it. Click it — a new tab opens with the title, item name, testing issue number, and `bug` label already filled in. Fill in the Expected/Actual/Steps/Screenshot blanks and submit. See [How to File a Bug](how-to-file-a-bug.md) for the detailed step-by-step.
 
-   ```
-   **Item**: Rotation works for all orientations
-   **Expected**: Diode should render correctly at 270 degrees
-   **Actual**: Diode disappears from the canvas after pressing R three times
-   **Steps to reproduce**: Place LED, press R three times, component vanishes
-   **Screenshot**: (drag and drop your screenshot here)
-   ```
+After filing, drag the testing issue to **"Bugs Found"** on the **[Human Testing board](https://github.com/orgs/SDSMT-Capstone-Spice-GUI-Team/projects/3)**.
 
-2. **Create a separate bug issue** so developers can track and fix it:
-   - Go to https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/issues/new
-   - Title: something clear like "BUG: Diode disappears after rotating 270 degrees"
-   - Body: paste the same bug details from your comment
-   - Label: add the `bug` label
-   - In the bug issue, mention the testing issue: "Found during #270 testing"
-
-3. On the **[Human Testing board](https://github.com/orgs/SDSMT-Capstone-Spice-GUI-Team/projects/3)**, drag the testing issue to **"Bugs Found"**
-
-> **Tip**: You can report some items passing and others failing in the same session. Check off what works, comment on what doesn't, file bugs for the failures.
+> **Tip**: You can report some items passing and others failing in the same session. Check off what works, leave failing ones unchecked, and click "report bug" for each failure.
 
 ### 4.4 If You're Not Sure Whether Something is a Bug
 
@@ -230,7 +215,7 @@ After a testing session:
 | **Claim it** | Drag the issue to "Testing" on the board |
 | **Test** | Try each item, check boxes directly on the GitHub issue |
 | **All passed** | Comment "all verified", move to "Passed" |
-| **Bug found** | Comment with details, create a separate `bug` issue, move to "Bugs Found" |
+| **Bug found** | Click "report bug" link on the item, fill in blanks, submit. Move to "Bugs Found" ([detailed guide](how-to-file-a-bug.md)) |
 | **Not sure** | Comment with question, leave in "Testing" |
 
 ---
@@ -245,3 +230,18 @@ After a testing session:
 | F5 doesn't show "Run Spice-GUI" | Make sure you opened the `Spice-GUI` folder itself in VSCode (not a parent folder). The file `.vscode/launch.json` must exist in the project. |
 | Everything looks weird or broken after pulling | Run `pip install -r app/requirements.txt` — new dependencies may have been added. |
 | Terminal says "not recognized" for `git` | Git is not installed. Download it from https://git-scm.com/download/win and restart VSCode. |
+
+---
+
+## For Agents: Adding New Testing Items
+
+When you ship a PR with UI-visible behavior, add a checkbox to the appropriate testing issue. After editing issue checklists, regenerate the pre-filled "report bug" links:
+
+```bash
+python scripts/generate_bug_links.py          # dry-run preview
+python scripts/generate_bug_links.py --apply   # update all issues on GitHub
+```
+
+The script is idempotent — it strips existing links and regenerates them, so it's safe to re-run after adding or editing items.
+
+To add a **new testing issue** to the set, add its number and section name to the `TESTING_ISSUES` dict in `scripts/generate_bug_links.py`.

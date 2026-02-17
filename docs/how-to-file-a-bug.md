@@ -4,7 +4,7 @@ You found something broken while testing — nice catch! This guide walks you th
 
 **Where you are**: You're working through a testing checklist (e.g., #270 Components) and one of the items didn't work as expected.
 
-**What you'll do**: Take a screenshot, comment on the testing issue, file a bug issue, and update the board. Four steps, about 5 minutes.
+**What you'll do**: Take a screenshot, click "report bug", fill in a few blanks, and update the board. Three steps, about 3 minutes.
 
 ---
 
@@ -20,82 +20,52 @@ Before you do anything else, capture what you're seeing:
 
 ---
 
-## Step 2: Comment on the Testing Issue
+## Step 2: Click "report bug" and Fill In the Form
 
-You should already have the testing issue open (e.g., #270 Components). Scroll to the bottom and add a comment:
+Every checklist item has a **report bug** link next to it. Here's what to do:
 
-1. Click the **comment box** at the bottom of the issue
-2. Copy and paste this template, then fill it in:
+### 2a. Click the Link
 
-   ```
-   **Item**: (copy the checkbox text from above)
-   **Expected**: (what should have happened)
-   **Actual**: (what actually happened)
-   **Steps to reproduce**:
-   1. (first thing you did)
-   2. (next thing you did)
-   3. (when it broke)
-   ```
+Find the checklist item that failed. At the end of the line you'll see a blue **report bug** link. Click it.
 
-3. Paste your screenshot — click in the comment box and press **Ctrl + V**. GitHub will upload it automatically.
-4. Click the green **"Comment"** button
+This opens a new browser tab with a pre-filled bug report. The title, item name, testing issue number, and `bug` label are already set for you.
+
+### 2b. Fill In the Blanks
+
+The form has a few fields for you to complete:
+
+| Field | What to write |
+|-------|---------------|
+| **Expected** | What should have happened |
+| **Actual** | What actually happened |
+| **Steps to reproduce** | Number the steps you took, starting from the app being open |
+| **Screenshot** | Click in the field and press **Ctrl + V** to paste your screenshot |
+
+### 2c. Submit
+
+Click the green **"Submit new issue"** button. That's it — the bug is filed with the right label and a link back to the testing issue.
 
 ### Example
 
+Here's what a filled-in bug report looks like:
+
 > **Item**: Rotation works for all orientations
+> **Testing issue**: #270
+>
 > **Expected**: Diode should render correctly at 270 degrees
+>
 > **Actual**: Diode disappears from the canvas after pressing R three times
+>
 > **Steps to reproduce**:
 > 1. Place an LED from the component palette
 > 2. Press R three times to rotate to 270 degrees
 > 3. Component vanishes from the canvas
 >
-> *(screenshot pasted here)*
+> **Screenshot**: *(pasted image here)*
 
 ---
 
-## Step 3: Create a Bug Issue
-
-Now you'll file a separate issue so the developers can track and fix the bug.
-
-### 3a. Open the New Issue Page
-
-Open a **new tab** and go to:
-https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/issues/new
-
-### 3b. Write the Title
-
-Start with `BUG:` followed by a short description of what went wrong. Examples:
-
-- `BUG: Diode disappears after rotating 270 degrees`
-- `BUG: Wire doesn't connect to resistor terminal`
-- `BUG: Undo crashes app after deleting annotation`
-
-### 3c. Write the Body
-
-Copy and paste the comment you just wrote in Step 2 — you don't need to rewrite it.
-
-Then add one line at the bottom:
-
-```
-Found during #270 testing
-```
-
-Replace `#270` with whichever testing issue you were working from. GitHub automatically turns `#270` into a clickable link.
-
-### 3d. Add the Bug Label
-
-1. In the **right sidebar**, click **"Labels"**
-2. Type `bug` in the search box
-3. Click the **`bug`** label to select it
-
-### 3e. Submit
-
-Click the green **"Submit new issue"** button.
-
----
-
-## Step 4: Update the Testing Board
+## Step 3: Update the Testing Board
 
 1. Go to the **[Human Testing board](https://github.com/orgs/SDSMT-Capstone-Spice-GUI-Team/projects/3)**
 2. Find your testing issue in the **"Testing"** column
@@ -110,9 +80,8 @@ Click the green **"Submit new issue"** button.
 | Step | What | Where |
 |------|------|-------|
 | 1 | Take a screenshot | **Win + Shift + S** |
-| 2 | Comment on the testing issue | Bottom of the testing issue (e.g., #270) |
-| 3 | Create a bug issue | [New issue page](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/issues/new) |
-| 4 | Move the card on the board | Testing board → "Bugs Found" |
+| 2 | Click **report bug** next to the failing item, fill in blanks, submit | Link on the checklist item |
+| 3 | Move the card on the board | Testing board → "Bugs Found" |
 
 ---
 
@@ -120,11 +89,11 @@ Click the green **"Submit new issue"** button.
 
 ### What if I find multiple bugs in one testing section?
 
-File a separate bug issue for each one (repeat Steps 1–3 for each). You only need to move the card to "Bugs Found" once.
+File a separate bug issue for each one (click "report bug" on each failing item). You only need to move the card to "Bugs Found" once.
 
 ### What if some items pass and some fail?
 
-That's normal. Check off the items that work, leave the failing ones unchecked, and file bugs for the failures.
+That's normal. Check off the items that work, leave the failing ones unchecked, and click "report bug" for the failures.
 
 ### What if I'm not sure whether it's a bug?
 
@@ -133,3 +102,7 @@ Leave a comment on the testing issue describing what you observed and ask: "Is t
 ### Do I need to assign the bug to someone?
 
 No. Leave it unassigned — the developers will triage and assign it.
+
+### What if the "report bug" link is missing?
+
+You can file a bug manually: go to the [new issue page](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/issues/new?template=bug-from-testing.md&labels=bug), fill in the template, and add `Found during #NNN testing` in the body (replace `#NNN` with your testing issue number).
