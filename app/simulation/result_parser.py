@@ -75,7 +75,9 @@ class ResultParser:
 
                 # Branch current patterns: i(device) = current or @device[current]
                 i_match = re.search(
-                    r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE
+                    r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)",
+                    line,
+                    re.IGNORECASE,
                 )
                 if i_match:
                     device = i_match.group(1) or i_match.group(2)
@@ -222,7 +224,11 @@ class ResultParser:
         """
         try:
             lines = output.split("\n")
-            noise_data = {"frequencies": [], "onoise_spectrum": [], "inoise_spectrum": []}
+            noise_data = {
+                "frequencies": [],
+                "onoise_spectrum": [],
+                "inoise_spectrum": [],
+            }
 
             header_found = False
             headers = []

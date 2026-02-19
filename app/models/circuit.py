@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from .annotation import AnnotationData
 from .component import ComponentData
 from .node import NodeData, reset_node_counter
+from .parameter import ParameterManager
 from .waveform_expression import WaveformExpressionManager
 from .wire import WireData
 
@@ -30,6 +31,9 @@ class CircuitModel:
     component_counter: dict[str, int] = field(default_factory=dict)
 
     annotations: list[AnnotationData] = field(default_factory=list)
+
+    # SPICE .param parameters
+    param_manager: ParameterManager = field(default_factory=ParameterManager)
 
     # Analysis configuration
     analysis_type: str = "DC Operating Point"
@@ -257,6 +261,7 @@ class CircuitModel:
         self.component_counter.clear()
         self.annotations.clear()
         self.expression_manager.clear()
+        self.param_manager.clear()
         self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
 
@@ -289,6 +294,10 @@ class CircuitModel:
         expressions = self.expression_manager.to_dict()
         if expressions:
             data["expressions"] = expressions
+
+        params = self.param_manager.to_dict()
+        if params:
+            data["parameters"] = params
 
         return data
 
@@ -327,5 +336,8 @@ class CircuitModel:
 
         if "expressions" in data:
             model.expression_manager = WaveformExpressionManager.from_dict(data["expressions"])
+
+        if "parameters" in data:
+            model.param_manager = ParameterManager.from_dict(data["parameters"])
 
         return model

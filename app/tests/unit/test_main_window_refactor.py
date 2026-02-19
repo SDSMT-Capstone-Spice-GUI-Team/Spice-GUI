@@ -118,7 +118,11 @@ class TestMainWindowHasAllExpectedMethods:
     def test_menu_methods(self):
         from GUI.main_window import MainWindow
 
-        for method in ["create_menu_bar", "_open_keybindings_dialog", "_apply_keybindings"]:
+        for method in [
+            "create_menu_bar",
+            "_open_keybindings_dialog",
+            "_apply_keybindings",
+        ]:
             assert hasattr(MainWindow, method), f"Missing: {method}"
 
     def test_file_operation_methods(self):

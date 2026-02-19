@@ -7,7 +7,7 @@ suggesting how to fix each problem.
 """
 
 
-def validate_circuit(components, wires, analysis_type):
+def validate_circuit(components, wires, analysis_type, param_manager=None):
     """
     Validate circuit before simulation.
 
@@ -15,6 +15,7 @@ def validate_circuit(components, wires, analysis_type):
         components: Dict[str, ComponentData] keyed by component ID
         wires: List[WireData]
         analysis_type: str (e.g. "DC Operating Point", "DC Sweep", "Transient")
+        param_manager: Optional[ParameterManager] for validating {param} references
 
     Returns:
         (is_valid, errors, warnings) where:
@@ -96,6 +97,12 @@ def validate_circuit(components, wires, analysis_type):
             "Add a Voltage Source or Current Source to provide power "
             "to the circuit."
         )
+
+    # 6. Validate parameter references
+    if param_manager is not None:
+        comp_values = {comp_id: comp.value for comp_id, comp in components.items() if comp.component_type != "Ground"}
+        param_errors = param_manager.validate_references(comp_values)
+        errors.extend(param_errors)
 
     is_valid = len(errors) == 0
     return is_valid, errors, warnings

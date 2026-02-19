@@ -6,6 +6,7 @@ configuration, circuit validation, netlist generation, ngspice
 execution, and result parsing.
 """
 
+import hashlib
 import logging
 import os
 from dataclasses import dataclass, field
@@ -13,6 +14,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from models.circuit import CircuitModel
+from models.simulation_history import SimulationHistoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,7 @@ class SimulationController:
         self.model = model or CircuitModel()
         self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
         self._runner = None
+        self.history = SimulationHistoryManager()
 
     @property
     def runner(self):
@@ -72,6 +75,7 @@ class SimulationController:
             self.model.components,
             [w for w in self.model.wires],
             self.model.analysis_type,
+            param_manager=self.model.param_manager,
         )
         return SimulationResult(
             success=is_valid,
@@ -93,6 +97,7 @@ class SimulationController:
 
         # Collect waveform expression let directives
         expr_directives = self.model.expression_manager.generate_let_directives()
+        param_directives = self.model.param_manager.generate_directives()
 
         generator = NetlistGenerator(
             components=self.model.components,
@@ -105,6 +110,7 @@ class SimulationController:
             spice_options=spice_options,
             measurements=measurements,
             expressions=expr_directives,
+            parameters=param_directives,
         )
         return generator.generate()
 
@@ -191,6 +197,7 @@ class SimulationController:
                             warnings=validation.warnings
                             + ["Simulation converged with relaxed tolerances (results may be less accurate)."],
                         )
+                        self._record_to_history(result)
                         if self.circuit_ctrl:
                             self.circuit_ctrl._notify("simulation_completed", result)
                         return result
@@ -214,6 +221,9 @@ class SimulationController:
             raw_output=stdout,
             warnings=validation.warnings,
         )
+
+        # Record successful result in history
+        self._record_to_history(result)
 
         # Phase 5: Notify simulation completed
         if self.circuit_ctrl:
@@ -513,7 +523,11 @@ class SimulationController:
                 success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
                 if not success:
                     step_results.append(
-                        SimulationResult(success=False, error=stderr or "Simulation failed", netlist=netlist)
+                        SimulationResult(
+                            success=False,
+                            error=stderr or "Simulation failed",
+                            netlist=netlist,
+                        )
                     )
                     errors.append(f"Run {i + 1}: {stderr or 'failed'}")
                     continue
@@ -552,6 +566,35 @@ class SimulationController:
             data=mc_data,
             errors=errors,
             warnings=validation.warnings,
+        )
+
+    def _compute_component_hash(self) -> str:
+        """Compute a hash of the circuit structure (components + wires).
+
+        This changes when components are added/removed or wires change,
+        but is stable across value-only modifications.
+        """
+        parts = []
+        for comp_id in sorted(self.model.components):
+            comp = self.model.components[comp_id]
+            parts.append(f"{comp_id}:{comp.component_type}")
+        for wire in self.model.wires:
+            parts.append(
+                f"W:{wire.start_component_id}:{wire.start_terminal}-{wire.end_component_id}:{wire.end_terminal}"
+            )
+        return hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
+
+    def _record_to_history(self, result: "SimulationResult") -> None:
+        """Record a successful simulation result in history."""
+        if not result.success or result.data is None:
+            return
+        comp_hash = self._compute_component_hash()
+        self.history.clear_on_structural_change(comp_hash)
+        self.history.add(
+            analysis_type=result.analysis_type,
+            data=result.data,
+            netlist=result.netlist,
+            component_hash=comp_hash,
         )
 
     @staticmethod
