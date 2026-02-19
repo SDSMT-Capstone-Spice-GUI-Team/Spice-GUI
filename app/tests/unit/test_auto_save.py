@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from controllers.file_controller import FileController
+from models.annotation import AnnotationData
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
@@ -183,6 +184,26 @@ class TestLoadAutoSave:
         autosave.write_text("not json")
         ctrl = FileController(autosave_file=str(autosave))
         assert ctrl.load_auto_save() is None
+
+    def test_load_restores_annotations(self, tmp_path):
+        """Annotations must survive auto-save round-trip (Issue #410)."""
+        autosave = str(tmp_path / "recovery.json")
+        model = _build_simple_circuit()
+        model.annotations = [
+            AnnotationData(text="Note 1", x=50.0, y=75.0, font_size=12, bold=True, color="#FF0000"),
+            AnnotationData(text="Note 2", x=200.0, y=150.0),
+        ]
+        ctrl = FileController(model, autosave_file=autosave)
+        ctrl.auto_save()
+
+        ctrl2 = FileController(autosave_file=autosave)
+        ctrl2.load_auto_save()
+        assert len(ctrl2.model.annotations) == 2
+        assert ctrl2.model.annotations[0].text == "Note 1"
+        assert ctrl2.model.annotations[0].x == 50.0
+        assert ctrl2.model.annotations[0].bold is True
+        assert ctrl2.model.annotations[0].color == "#FF0000"
+        assert ctrl2.model.annotations[1].text == "Note 2"
 
     def test_load_restores_analysis_settings(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
