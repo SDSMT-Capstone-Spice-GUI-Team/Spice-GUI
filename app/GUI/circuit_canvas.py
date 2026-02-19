@@ -158,6 +158,7 @@ class CircuitCanvasView(QGraphicsView):
             "annotation_added": self._handle_annotation_added,
             "annotation_removed": self._handle_annotation_removed,
             "annotation_updated": self._handle_annotation_updated,
+            "net_name_changed": self._handle_net_name_changed,
         }
 
         handler = handlers.get(event)
@@ -335,6 +336,13 @@ class CircuitCanvasView(QGraphicsView):
             ann = self.annotations.pop(index)
             self.scene.removeItem(ann)
             self.scene.update()
+
+    def _handle_net_name_changed(self, node) -> None:
+        """Update wire label displays when a net name is changed."""
+        for wire in self.wires:
+            if wire.node is node:
+                wire.update_net_label()
+        self.scene.update()
 
     def _handle_annotation_updated(self, annotation_data) -> None:
         """Update AnnotationItem text when annotation updated in model."""
@@ -1634,9 +1642,12 @@ class CircuitCanvasView(QGraphicsView):
 
         if ok:
             new_label = text.strip() if text else None
-            # Use public controller API to set net name and notify observers
+            # Use undo/redo command for net name changes
             if self.controller:
-                self.controller.set_net_name(node, new_label)
+                from controllers.commands import SetNetNameCommand
+
+                cmd = SetNetNameCommand(self.controller, node, new_label)
+                self.controller.execute_command(cmd)
             else:
                 node.set_custom_label(new_label)
             self.scene.update()

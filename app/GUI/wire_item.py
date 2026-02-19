@@ -6,8 +6,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # path_finding imported lazily in update_position() for faster startup
 from models.wire import WireData
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QBrush, QPainterPath, QPainterPathStroker, QPen
-from PyQt6.QtWidgets import QGraphicsPathItem
+from PyQt6.QtGui import QBrush, QFont, QPainterPath, QPainterPathStroker, QPen
+from PyQt6.QtWidgets import QGraphicsPathItem, QGraphicsSimpleTextItem
 
 from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, theme_manager
 
@@ -67,6 +67,14 @@ class WireGraphicsItem(QGraphicsPathItem):
         self.setPen(QPen(self.layer_color, theme_manager.wire_thickness_px))
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable)
         self.setZValue(1)  # Render wires above components (z=0)
+
+        # Net label display (child item, positioned at wire midpoint)
+        self._label_item = QGraphicsSimpleTextItem(self)
+        self._label_item.setFont(QFont("Arial", 8))
+        self._label_item.setBrush(QBrush(self.layer_color))
+        self._label_item.setZValue(2)
+        self._label_item.setVisible(False)
+
         self.update_position()
 
     # --- Data delegation properties ---
@@ -88,6 +96,23 @@ class WireGraphicsItem(QGraphicsPathItem):
         self.model.iterations = value
 
     # --- Methods ---
+
+    def update_net_label(self):
+        """Update the visual net name label based on the node's custom_label."""
+        if self.node and self.node.custom_label:
+            self._label_item.setText(self.node.custom_label)
+            self._label_item.setBrush(QBrush(self.layer_color))
+            # Position at the midpoint of the wire
+            if len(self.waypoints) >= 2:
+                mid_idx = len(self.waypoints) // 2
+                mid = self.waypoints[mid_idx]
+                if isinstance(mid, QPointF):
+                    self._label_item.setPos(mid.x() + 4, mid.y() - 14)
+                else:
+                    self._label_item.setPos(mid[0] + 4, mid[1] - 14)
+            self._label_item.setVisible(True)
+        else:
+            self._label_item.setVisible(False)
 
     def show_drag_preview(self):
         """Show a straight-line preview during component drag.
@@ -211,6 +236,7 @@ class WireGraphicsItem(QGraphicsPathItem):
             self.scene().update(self.boundingRect())
 
         self.update()  # Force item redraw
+        self.update_net_label()
 
     def _notify_routing_failed(self):
         """Show status bar message when wire routing fails."""

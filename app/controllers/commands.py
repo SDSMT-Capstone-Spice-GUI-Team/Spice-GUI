@@ -360,6 +360,27 @@ class EditAnnotationCommand(Command):
         return "Edit annotation"
 
 
+class SetNetNameCommand(Command):
+    """Command to set a custom net name on a node."""
+
+    def __init__(self, controller, node, new_label: str | None):
+        self.controller = controller
+        self.node = node
+        self.new_label = new_label
+        self.old_label: str | None = node.custom_label
+
+    def execute(self) -> None:
+        self.controller.set_net_name(self.node, self.new_label)
+
+    def undo(self) -> None:
+        self.controller.set_net_name(self.node, self.old_label)
+
+    def get_description(self) -> str:
+        if self.new_label:
+            return f'Set net name "{self.new_label}"'
+        return "Clear net name"
+
+
 class CompoundCommand(Command):
     """Command that groups multiple commands into a single undo step."""
 
