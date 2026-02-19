@@ -258,3 +258,100 @@ class TestSetNetNamePublicAPI:
 
         source = inspect.getsource(CircuitCanvas.label_node)
         assert "_notify" not in source, "label_node still calls _notify directly — use set_net_name instead"
+
+
+class TestSetNetNameCommand:
+    """Tests for SetNetNameCommand undo/redo behavior."""
+
+    def test_execute_sets_label(self):
+        from controllers.circuit_controller import CircuitController
+        from controllers.commands import SetNetNameCommand
+
+        ctrl = CircuitController()
+        node = NodeData(auto_label="nodeA")
+        cmd = SetNetNameCommand(ctrl, node, "Vout")
+        cmd.execute()
+        assert node.custom_label == "Vout"
+
+    def test_undo_restores_previous_label(self):
+        from controllers.circuit_controller import CircuitController
+        from controllers.commands import SetNetNameCommand
+
+        ctrl = CircuitController()
+        node = NodeData(auto_label="nodeA")
+        node.set_custom_label("Vcc")
+        cmd = SetNetNameCommand(ctrl, node, "Vout")
+        cmd.execute()
+        assert node.custom_label == "Vout"
+        cmd.undo()
+        assert node.custom_label == "Vcc"
+
+    def test_undo_clears_label_when_none_before(self):
+        from controllers.circuit_controller import CircuitController
+        from controllers.commands import SetNetNameCommand
+
+        ctrl = CircuitController()
+        node = NodeData(auto_label="nodeA")
+        cmd = SetNetNameCommand(ctrl, node, "Vout")
+        cmd.execute()
+        assert node.custom_label == "Vout"
+        cmd.undo()
+        assert node.custom_label is None
+        assert node.get_label() == "nodeA"
+
+    def test_clear_label_command(self):
+        from controllers.circuit_controller import CircuitController
+        from controllers.commands import SetNetNameCommand
+
+        ctrl = CircuitController()
+        node = NodeData(auto_label="nodeA")
+        node.set_custom_label("Vout")
+        cmd = SetNetNameCommand(ctrl, node, None)
+        cmd.execute()
+        assert node.custom_label is None
+        cmd.undo()
+        assert node.custom_label == "Vout"
+
+    def test_description(self):
+        from controllers.circuit_controller import CircuitController
+        from controllers.commands import SetNetNameCommand
+
+        ctrl = CircuitController()
+        node = NodeData(auto_label="nodeA")
+        cmd = SetNetNameCommand(ctrl, node, "Vout")
+        assert "Vout" in cmd.get_description()
+
+        cmd_clear = SetNetNameCommand(ctrl, node, None)
+        assert "Clear" in cmd_clear.get_description()
+
+    def test_undo_redo_via_manager(self):
+        """Test SetNetNameCommand works through the UndoManager."""
+        from controllers.circuit_controller import CircuitController
+        from controllers.commands import SetNetNameCommand
+        from controllers.undo_manager import UndoManager
+
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        manager = UndoManager()
+        ctrl.undo_manager = manager
+
+        node = NodeData(auto_label="nodeA")
+        cmd = SetNetNameCommand(ctrl, node, "Vout")
+        manager.execute(cmd)
+        assert node.custom_label == "Vout"
+
+        manager.undo()
+        assert node.custom_label is None
+
+        manager.redo()
+        assert node.custom_label == "Vout"
+
+    def test_label_node_uses_command(self):
+        """Verify canvas label_node uses SetNetNameCommand for undo/redo."""
+        import inspect
+
+        from GUI.circuit_canvas import CircuitCanvas
+
+        source = inspect.getsource(CircuitCanvas.label_node)
+        assert "SetNetNameCommand" in source, "label_node should use SetNetNameCommand for undo/redo"
+        assert "execute_command" in source, "label_node should call execute_command"
