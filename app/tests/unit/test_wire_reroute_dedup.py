@@ -149,6 +149,7 @@ class TestCoSelectedRerouteDedup:
         wire = Mock()
         wire.start_comp = comp_a
         wire.end_comp = comp_b
+        wire.model.locked = False
 
         canvas.wires = [wire]
 
@@ -176,6 +177,7 @@ class TestCoSelectedRerouteDedup:
         wire = Mock()
         wire.start_comp = comp_a
         wire.end_comp = comp_b
+        wire.model.locked = False
 
         canvas.wires = [wire]
 
@@ -203,6 +205,7 @@ class TestCoSelectedRerouteDedup:
         wire = Mock()
         wire.start_comp = comp_a
         wire.end_comp = comp_b
+        wire.model.locked = False
 
         canvas.wires = [wire]
 

@@ -28,6 +28,7 @@ class TestRerouteWiresNearComponents:
         wire = MagicMock()
         wire.start_comp = start_comp
         wire.end_comp = end_comp
+        wire.model.locked = False
         return wire
 
     def test_reroutes_wire_sharing_start_component(self):
