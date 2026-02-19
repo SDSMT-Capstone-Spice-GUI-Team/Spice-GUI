@@ -349,7 +349,142 @@ class TestWireDataRoutingFailed:
 
 
 # ===========================================================================
-# 12. Diagonal / 45-degree wire routing
+# 12. RoutingConfig and presets
+# ===========================================================================
+
+
+class TestRoutingConfig:
+    def test_default_values(self):
+        """Default RoutingConfig should match original hardcoded values."""
+        from GUI.path_finding import RoutingConfig
+
+        config = RoutingConfig()
+        assert config.bend_penalty == 2.0
+        assert config.crossing_penalty == 20.0
+        assert config.same_net_bonus == 0.1
+        assert config.base_cost == 1.0
+
+    def test_custom_values(self):
+        """RoutingConfig should accept custom values."""
+        from GUI.path_finding import RoutingConfig
+
+        config = RoutingConfig(bend_penalty=5.0, crossing_penalty=30.0, same_net_bonus=0.5, base_cost=2.0)
+        assert config.bend_penalty == 5.0
+        assert config.crossing_penalty == 30.0
+        assert config.same_net_bonus == 0.5
+        assert config.base_cost == 2.0
+
+    def test_to_dict(self):
+        """RoutingConfig.to_dict should serialize all fields."""
+        from GUI.path_finding import RoutingConfig
+
+        config = RoutingConfig(bend_penalty=3.0, crossing_penalty=15.0, same_net_bonus=0.2, base_cost=1.5)
+        d = config.to_dict()
+        assert d == {"bend_penalty": 3.0, "crossing_penalty": 15.0, "same_net_bonus": 0.2, "base_cost": 1.5}
+
+    def test_from_dict(self):
+        """RoutingConfig.from_dict should restore all fields."""
+        from GUI.path_finding import RoutingConfig
+
+        data = {"bend_penalty": 4.0, "crossing_penalty": 25.0, "same_net_bonus": 0.3, "base_cost": 1.2}
+        config = RoutingConfig.from_dict(data)
+        assert config.bend_penalty == 4.0
+        assert config.crossing_penalty == 25.0
+        assert config.same_net_bonus == 0.3
+        assert config.base_cost == 1.2
+
+    def test_from_dict_defaults(self):
+        """RoutingConfig.from_dict should use defaults for missing keys."""
+        from GUI.path_finding import RoutingConfig
+
+        config = RoutingConfig.from_dict({})
+        assert config.bend_penalty == 2.0
+        assert config.crossing_penalty == 20.0
+
+    def test_round_trip(self):
+        """RoutingConfig should survive a to_dict/from_dict round trip."""
+        from GUI.path_finding import RoutingConfig
+
+        original = RoutingConfig(bend_penalty=7.5, crossing_penalty=50.0, same_net_bonus=0.05, base_cost=3.0)
+        restored = RoutingConfig.from_dict(original.to_dict())
+        assert restored.bend_penalty == original.bend_penalty
+        assert restored.crossing_penalty == original.crossing_penalty
+        assert restored.same_net_bonus == original.same_net_bonus
+        assert restored.base_cost == original.base_cost
+
+
+class TestRoutingPresets:
+    def test_presets_exist(self):
+        """At least 2 built-in presets should exist."""
+        from GUI.path_finding import ROUTING_PRESETS
+
+        assert len(ROUTING_PRESETS) >= 2
+
+    def test_default_preset_matches_defaults(self):
+        """The 'Default' preset should match RoutingConfig defaults."""
+        from GUI.path_finding import ROUTING_PRESETS, RoutingConfig
+
+        default = ROUTING_PRESETS["Default"]
+        expected = RoutingConfig()
+        assert default.bend_penalty == expected.bend_penalty
+        assert default.crossing_penalty == expected.crossing_penalty
+
+    def test_minimal_bends_preset(self):
+        """'Minimal Bends' preset should have higher bend penalty than default."""
+        from GUI.path_finding import ROUTING_PRESETS
+
+        assert ROUTING_PRESETS["Minimal Bends"].bend_penalty > ROUTING_PRESETS["Default"].bend_penalty
+
+    def test_all_presets_are_routing_config(self):
+        """All presets should be RoutingConfig instances."""
+        from GUI.path_finding import ROUTING_PRESETS, RoutingConfig
+
+        for name, config in ROUTING_PRESETS.items():
+            assert isinstance(config, RoutingConfig), f"Preset '{name}' is not a RoutingConfig"
+
+
+class TestPathfinderRoutingConfig:
+    def test_default_config(self, pathfinder):
+        """Pathfinder with no config should use default values."""
+        assert pathfinder.bend_penalty_base == 2.0
+        assert pathfinder.base_cost == 1.0
+
+    def test_custom_config(self):
+        """Pathfinder should use values from supplied RoutingConfig."""
+        from GUI.path_finding import RoutingConfig
+
+        config = RoutingConfig(bend_penalty=5.0, base_cost=2.0)
+        pf = IDAStarPathfinder(grid_size=GRID, routing_config=config)
+        assert pf.bend_penalty_base == 5.0
+        assert pf.base_cost == 2.0
+
+    def test_high_bend_penalty_produces_straighter_paths(self):
+        """Higher bend penalty should produce paths with fewer bends."""
+        from GUI.path_finding import RoutingConfig
+
+        # Route around an obstacle — low bend penalty allows more bends
+        obstacles = {(2, 0)}
+        start, end = _grid(0, 0), _grid(4, 0)
+
+        low_config = RoutingConfig(bend_penalty=1.0)
+        high_config = RoutingConfig(bend_penalty=10.0)
+
+        pf_low = IDAStarPathfinder(grid_size=GRID, routing_config=low_config)
+        pf_high = IDAStarPathfinder(grid_size=GRID, routing_config=high_config)
+
+        wp_low, _, _, _ = pf_low.find_path(start, end, obstacles, bounds=BOUNDS)
+        wp_high, _, _, _ = pf_high.find_path(start, end, obstacles, bounds=BOUNDS)
+
+        # Both should reach the goal
+        assert _to_grid_tuples(wp_low)[-1] == (4, 0)
+        assert _to_grid_tuples(wp_high)[-1] == (4, 0)
+        # Both must avoid the obstacle
+        assert (2, 0) not in _to_grid_tuples(wp_low)
+        assert (2, 0) not in _to_grid_tuples(wp_high)
+
+
+# ===========================================================================
+# 13. Diagonal / 45-degree wire routing
 # ===========================================================================
 
 
@@ -439,11 +574,11 @@ class TestOctileHeuristic:
         assert diagonal_pathfinder._heuristic((0, 0), (0, 0)) == 0
 
     def test_octile_pure_diagonal(self, diagonal_pathfinder):
-        """Pure diagonal move: dx == dy, cost should be dx * √2."""
+        """Pure diagonal move: dx == dy, cost should be dx * sqrt(2)."""
         import math
 
         # (0,0) to (3,3): dx=3, dy=3, min=3
-        # octile = 3 + 3 + (√2 - 2) * 3 = 6 + 3√2 - 6 = 3√2
+        # octile = 3 + 3 + (sqrt(2) - 2) * 3 = 6 + 3*sqrt(2) - 6 = 3*sqrt(2)
         expected = 3 * math.sqrt(2)
         result = diagonal_pathfinder._heuristic((0, 0), (3, 3))
         assert abs(result - expected) < 1e-9

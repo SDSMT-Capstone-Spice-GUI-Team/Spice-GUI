@@ -170,7 +170,11 @@ class WireGraphicsItem(QGraphicsPathItem):
             )
 
             allow_diagonal = theme_manager.routing_mode == "diagonal"
-            pathfinder = IDAStarPathfinder(GRID_SIZE, allow_diagonal=allow_diagonal)
+            pathfinder = IDAStarPathfinder(
+                GRID_SIZE,
+                routing_config=theme_manager.routing_config,
+                allow_diagonal=allow_diagonal,
+            )
             result = pathfinder.find_path(start, end, obstacles, algorithm=self.algorithm)
 
             # Unpack result (waypoints, runtime, iterations, routing_failed)
