@@ -226,17 +226,19 @@ class GradingPanel(QWidget):
             if cr.passed:
                 icon = "\u2714"  # checkmark
                 text = f"{icon} {cr.check_id}: +{cr.points_earned}/{cr.points_possible}"
+                color = QColor("green")
+            elif cr.points_earned > 0:
+                icon = "\u25d1"  # half circle — partial credit
+                text = f"{icon} {cr.check_id}: +{cr.points_earned}/{cr.points_possible}"
+                color = QColor("#CC8800")
             else:
                 icon = "\u2718"  # X mark
                 text = f"{icon} {cr.check_id}: 0/{cr.points_possible}"
+                color = QColor("red")
 
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, cr)
-
-            if cr.passed:
-                item.setForeground(QColor("green"))
-            else:
-                item.setForeground(QColor("red"))
+            item.setForeground(color)
 
             self.results_list.addItem(item)
 

@@ -489,3 +489,328 @@ class TestGradingResult:
             earned_points=75,
         )
         assert result.percentage == 75.0
+
+
+# --- Tests: Partial credit ---
+
+
+class TestPartialCreditSerialization:
+    def test_partial_credit_to_dict_empty(self):
+        check = RubricCheck(check_id="v1", check_type="component_value", points=20)
+        d = check.to_dict()
+        assert "partial_credit" not in d
+
+    def test_partial_credit_to_dict_with_tiers(self):
+        check = RubricCheck(
+            check_id="v1",
+            check_type="component_value",
+            points=20,
+            partial_credit=[[10, 100], [25, 75], [50, 50]],
+        )
+        d = check.to_dict()
+        assert d["partial_credit"] == [[10, 100], [25, 75], [50, 50]]
+
+    def test_partial_credit_from_dict_missing(self):
+        data = {"check_id": "v1", "check_type": "component_value", "points": 20}
+        check = RubricCheck.from_dict(data)
+        assert check.partial_credit == []
+
+    def test_partial_credit_from_dict_round_trip(self):
+        tiers = [[10, 100], [25, 75], [50, 50]]
+        check = RubricCheck(
+            check_id="v1",
+            check_type="component_value",
+            points=20,
+            partial_credit=tiers,
+        )
+        restored = RubricCheck.from_dict(check.to_dict())
+        assert restored.partial_credit == tiers
+
+    def test_rubric_round_trip_with_partial_credit(self, tmp_path):
+        rubric = Rubric(
+            title="Partial Test",
+            total_points=20,
+            checks=[
+                RubricCheck(
+                    check_id="r1_val",
+                    check_type="component_value",
+                    points=20,
+                    params={"component_id": "R1", "expected_value": "1k"},
+                    partial_credit=[[10, 100], [25, 75], [50, 50]],
+                )
+            ],
+        )
+        filepath = tmp_path / "partial.spice-rubric"
+        save_rubric(rubric, filepath)
+        loaded = load_rubric(filepath)
+        assert loaded.checks[0].partial_credit == [[10, 100], [25, 75], [50, 50]]
+
+
+class TestValidatePartialCredit:
+    def test_valid_partial_credit(self):
+        data = {
+            "title": "Test",
+            "total_points": 10,
+            "checks": [
+                {
+                    "check_id": "v1",
+                    "check_type": "component_value",
+                    "points": 10,
+                    "partial_credit": [[10, 100], [25, 75], [50, 50]],
+                }
+            ],
+        }
+        validate_rubric(data)  # Should not raise
+
+    def test_partial_credit_not_a_list(self):
+        data = {
+            "title": "Test",
+            "total_points": 10,
+            "checks": [
+                {
+                    "check_id": "v1",
+                    "check_type": "component_value",
+                    "points": 10,
+                    "partial_credit": "invalid",
+                }
+            ],
+        }
+        with pytest.raises(ValueError, match="must be a list"):
+            validate_rubric(data)
+
+    def test_partial_credit_tier_not_a_pair(self):
+        data = {
+            "title": "Test",
+            "total_points": 10,
+            "checks": [
+                {
+                    "check_id": "v1",
+                    "check_type": "component_value",
+                    "points": 10,
+                    "partial_credit": [[10]],
+                }
+            ],
+        }
+        with pytest.raises(ValueError, match="pair"):
+            validate_rubric(data)
+
+    def test_partial_credit_negative_threshold(self):
+        data = {
+            "title": "Test",
+            "total_points": 10,
+            "checks": [
+                {
+                    "check_id": "v1",
+                    "check_type": "component_value",
+                    "points": 10,
+                    "partial_credit": [[-5, 50]],
+                }
+            ],
+        }
+        with pytest.raises(ValueError, match="non-negative"):
+            validate_rubric(data)
+
+    def test_partial_credit_credit_over_100(self):
+        data = {
+            "title": "Test",
+            "total_points": 10,
+            "checks": [
+                {
+                    "check_id": "v1",
+                    "check_type": "component_value",
+                    "points": 10,
+                    "partial_credit": [[10, 150]],
+                }
+            ],
+        }
+        with pytest.raises(ValueError, match="between 0 and 100"):
+            validate_rubric(data)
+
+    def test_rubric_without_partial_credit_still_valid(self):
+        data = {
+            "title": "Test",
+            "total_points": 10,
+            "checks": [
+                {"check_id": "g", "check_type": "ground", "points": 10},
+            ],
+        }
+        validate_rubric(data)  # Should not raise
+
+
+class TestPartialCreditGrading:
+    """Test graduated partial credit scoring for component_value checks."""
+
+    def _make_partial_rubric(self, tiers):
+        """Build a single-check rubric with partial credit tiers."""
+        return Rubric(
+            title="Partial Credit Test",
+            total_points=20,
+            checks=[
+                RubricCheck(
+                    check_id="r1_value",
+                    check_type="component_value",
+                    points=20,
+                    params={"component_id": "R1", "expected_value": "1k", "tolerance_pct": 5},
+                    feedback_pass="R1 value correct",
+                    feedback_fail="R1 value incorrect",
+                    partial_credit=tiers,
+                )
+            ],
+        )
+
+    def test_exact_value_gets_full_credit(self):
+        """Exact match still gets full credit with partial tiers configured."""
+        student = _build_rc_filter(r_value="1k")
+        rubric = self._make_partial_rubric([[10, 100], [25, 75], [50, 50]])
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        assert result.earned_points == 20
+        assert result.check_results[0].passed is True
+
+    def test_within_tolerance_gets_full_credit(self):
+        """Value within tolerance_pct passes regardless of partial tiers."""
+        student = _build_rc_filter(r_value="1.04k")  # 4% off, within 5% tolerance
+        rubric = self._make_partial_rubric([[10, 100], [25, 75], [50, 50]])
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        assert result.earned_points == 20
+        assert result.check_results[0].passed is True
+
+    def test_first_tier_partial_credit(self):
+        """Value within first tier but outside tolerance gets tier credit."""
+        student = _build_rc_filter(r_value="1.08k")  # 8% off, within 10% tier
+        rubric = self._make_partial_rubric([[10, 100], [25, 75], [50, 50]])
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        # 8% deviation > 5% tolerance → fails binary check
+        # 8% deviation <= 10% tier → 100% credit = 20 points
+        assert result.earned_points == 20
+        assert result.check_results[0].points_earned == 20
+
+    def test_second_tier_partial_credit(self):
+        """Value within second tier gets reduced credit."""
+        student = _build_rc_filter(r_value="1.2k")  # 20% off
+        rubric = self._make_partial_rubric([[10, 100], [25, 75], [50, 50]])
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        # 20% deviation → second tier (25%, 75%) → 75% of 20 = 15 points
+        assert result.check_results[0].points_earned == 15
+        assert result.check_results[0].passed is False
+        assert "Partial credit" in result.check_results[0].feedback
+        assert result.earned_points == 15
+
+    def test_third_tier_partial_credit(self):
+        """Value within third tier gets minimum credit."""
+        student = _build_rc_filter(r_value="1.4k")  # 40% off
+        rubric = self._make_partial_rubric([[10, 100], [25, 75], [50, 50]])
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        # 40% deviation → third tier (50%, 50%) → 50% of 20 = 10 points
+        assert result.check_results[0].points_earned == 10
+        assert result.earned_points == 10
+
+    def test_beyond_all_tiers_gets_zero(self):
+        """Value beyond all tiers gets zero points."""
+        student = _build_rc_filter(r_value="10k")  # 900% off
+        rubric = self._make_partial_rubric([[10, 100], [25, 75], [50, 50]])
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        assert result.check_results[0].points_earned == 0
+        assert result.check_results[0].passed is False
+
+    def test_missing_component_gets_zero_with_partial(self):
+        """Missing component gets zero even with partial credit configured."""
+        student = _build_rc_filter()
+        del student.components["R1"]
+        student.rebuild_nodes()
+        rubric = self._make_partial_rubric([[10, 100], [25, 75], [50, 50]])
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        assert result.check_results[0].points_earned == 0
+
+    def test_no_partial_credit_backward_compatible(self):
+        """Without partial_credit, binary pass/fail behavior is unchanged."""
+        student = _build_rc_filter(r_value="1.2k")  # 20% off, outside 5% tolerance
+        rubric = Rubric(
+            title="Binary Test",
+            total_points=20,
+            checks=[
+                RubricCheck(
+                    check_id="r1_value",
+                    check_type="component_value",
+                    points=20,
+                    params={"component_id": "R1", "expected_value": "1k", "tolerance_pct": 5},
+                    feedback_pass="OK",
+                    feedback_fail="Wrong",
+                )
+            ],
+        )
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        assert result.check_results[0].points_earned == 0
+        assert result.check_results[0].passed is False
+
+    def test_partial_credit_rounding(self):
+        """Partial credit points are rounded to nearest integer."""
+        # 75% of 7 = 5.25, should round to 5
+        rubric = Rubric(
+            title="Rounding Test",
+            total_points=7,
+            checks=[
+                RubricCheck(
+                    check_id="r1_value",
+                    check_type="component_value",
+                    points=7,
+                    params={"component_id": "R1", "expected_value": "1k", "tolerance_pct": 5},
+                    feedback_pass="OK",
+                    feedback_fail="Wrong",
+                    partial_credit=[[50, 75]],
+                )
+            ],
+        )
+        student = _build_rc_filter(r_value="1.2k")  # 20% off
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        assert result.check_results[0].points_earned == 5  # round(5.25)
+
+    def test_partial_credit_tiers_evaluated_in_threshold_order(self):
+        """Tiers are sorted by threshold — first matching tier wins."""
+        # Define tiers out of order; grader should still sort by threshold
+        rubric = self._make_partial_rubric([[50, 50], [10, 100], [25, 75]])
+        student = _build_rc_filter(r_value="1.08k")  # 8% off
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        # Should match 10% tier (100% credit) even though 50% tier was listed first
+        assert result.check_results[0].points_earned == 20
+
+
+class TestComputeValueDeviation:
+    """Tests for the compute_value_deviation helper."""
+
+    def test_exact_match(self):
+        from grading.circuit_comparer import compute_value_deviation
+
+        assert compute_value_deviation("1k", "1k") == 0.0
+
+    def test_percentage_deviation(self):
+        from grading.circuit_comparer import compute_value_deviation
+
+        dev = compute_value_deviation("1k", "1.1k")
+        assert dev is not None
+        assert abs(dev - 10.0) < 0.01
+
+    def test_unparseable_returns_none(self):
+        from grading.circuit_comparer import compute_value_deviation
+
+        assert compute_value_deviation("abc", "1k") is None
+
+    def test_zero_expected_zero_actual(self):
+        from grading.circuit_comparer import compute_value_deviation
+
+        assert compute_value_deviation("0", "0") == 0.0
+
+    def test_zero_expected_nonzero_actual(self):
+        from grading.circuit_comparer import compute_value_deviation
+
+        dev = compute_value_deviation("0", "1k")
+        assert dev == float("inf")
