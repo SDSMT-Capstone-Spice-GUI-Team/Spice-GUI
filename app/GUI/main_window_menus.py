@@ -526,6 +526,12 @@ class MenuBarMixin:
             keybindings_action.triggered.connect(self._open_keybindings_dialog)
             settings_menu.addAction(keybindings_action)
 
+            settings_menu.addSeparator()
+
+            routing_prefs_action = QAction("Wire &Routing Preferences...", self)
+            routing_prefs_action.triggered.connect(self._open_routing_preferences_dialog)
+            settings_menu.addAction(routing_prefs_action)
+
     def _open_preferences_dialog(self):
         """Open the unified preferences dialog (single-instance, non-modal)."""
         from .preferences_dialog import PreferencesDialog
@@ -546,6 +552,30 @@ class MenuBarMixin:
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # Re-apply shortcuts to all menu actions
             self._apply_keybindings()
+
+    def _open_routing_preferences_dialog(self):
+        """Open the wire routing preferences dialog."""
+        from .routing_preferences_dialog import RoutingPreferencesDialog
+        from .styles import theme_manager
+
+        def _reroute_all_wires():
+            """Reroute all wires in the circuit with current settings."""
+            for wire in self.canvas.wires:
+                wire.update_position()
+            self.statusBar().showMessage("All wires rerouted with new settings.", 3000)
+
+        dialog = RoutingPreferencesDialog(self, apply_all_callback=_reroute_all_wires)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            config = dialog.get_config()
+            theme_manager.set_routing_config(config)
+            # Persist to QSettings
+            from PyQt6.QtCore import QSettings
+
+            settings = QSettings("SDSMT", "SDM Spice")
+            settings.setValue("routing/bend_penalty", config.bend_penalty)
+            settings.setValue("routing/crossing_penalty", config.crossing_penalty)
+            settings.setValue("routing/same_net_bonus", config.same_net_bonus)
+            settings.setValue("routing/base_cost", config.base_cost)
 
     def _apply_keybindings(self):
         """Re-apply shortcuts from the registry to stored actions."""

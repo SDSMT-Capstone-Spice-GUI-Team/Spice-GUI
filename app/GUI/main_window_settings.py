@@ -34,6 +34,12 @@ class SettingsMixin:
         settings.setValue("view/color_mode", theme_manager.color_mode)
         settings.setValue("view/wire_thickness", theme_manager.wire_thickness)
         settings.setValue("view/show_junction_dots", theme_manager.show_junction_dots)
+        # Wire routing config
+        rc = theme_manager.routing_config
+        settings.setValue("routing/bend_penalty", rc.bend_penalty)
+        settings.setValue("routing/crossing_penalty", rc.crossing_penalty)
+        settings.setValue("routing/same_net_bonus", rc.same_net_bonus)
+        settings.setValue("routing/base_cost", rc.base_cost)
 
     def _restore_settings(self):
         """Restore user preferences from QSettings"""
@@ -115,6 +121,19 @@ class SettingsMixin:
         if saved_junction_dots is not None:
             show = saved_junction_dots == "true" or saved_junction_dots is True
             self._set_show_junction_dots(show)
+
+        # Wire routing config
+        saved_bend = settings.value("routing/bend_penalty")
+        if saved_bend is not None:
+            from .path_finding import RoutingConfig
+
+            config = RoutingConfig(
+                bend_penalty=float(saved_bend),
+                crossing_penalty=float(settings.value("routing/crossing_penalty", 20.0)),
+                same_net_bonus=float(settings.value("routing/same_net_bonus", 0.1)),
+                base_cost=float(settings.value("routing/base_cost", 1.0)),
+            )
+            theme_manager.set_routing_config(config)
 
     def closeEvent(self, event):
         """Save settings before closing"""

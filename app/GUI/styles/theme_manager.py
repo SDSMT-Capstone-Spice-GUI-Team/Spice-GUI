@@ -68,6 +68,8 @@ class ThemeManager:
 
     def __new__(cls) -> "ThemeManager":
         if cls._instance is None:
+            from ..path_finding import RoutingConfig
+
             cls._instance = super().__new__(cls)
             cls._instance._theme = LightTheme()
             cls._instance._listeners = []
@@ -75,6 +77,7 @@ class ThemeManager:
             cls._instance._color_mode = "color"
             cls._instance._wire_thickness = "normal"
             cls._instance._show_junction_dots = True
+            cls._instance._routing_config = RoutingConfig()
         return cls._instance
 
     @property
@@ -167,6 +170,22 @@ class ThemeManager:
         if show != self._show_junction_dots:
             self._show_junction_dots = show
             self._notify_listeners()
+
+    # ===== Wire routing preferences =====
+
+    @property
+    def routing_config(self):
+        """Get the current wire routing configuration."""
+        return self._routing_config
+
+    def set_routing_config(self, config) -> None:
+        """Set the wire routing configuration and notify listeners.
+
+        Args:
+            config: RoutingConfig instance with cost parameters
+        """
+        self._routing_config = config
+        self._notify_listeners()
 
     def on_theme_changed(self, callback: Callable[[ThemeProtocol], None]) -> None:
         """

@@ -6,9 +6,50 @@ IDA* pathfinding for grid-aligned wire routing in circuit schematics.
 
 import time
 from abc import ABC, abstractmethod
-from typing import Set, Tuple
+from dataclasses import dataclass
+from typing import Dict, Set, Tuple
 
 from PyQt6.QtCore import QPointF
+
+
+@dataclass
+class RoutingConfig:
+    """Configuration for wire routing cost parameters.
+
+    Controls how the pathfinder weighs different routing decisions
+    (bends, crossings, bundling). Higher penalties make the pathfinder
+    avoid those situations more aggressively.
+    """
+
+    bend_penalty: float = 2.0
+    crossing_penalty: float = 20.0
+    same_net_bonus: float = 0.1
+    base_cost: float = 1.0
+
+    def to_dict(self) -> Dict[str, float]:
+        return {
+            "bend_penalty": self.bend_penalty,
+            "crossing_penalty": self.crossing_penalty,
+            "same_net_bonus": self.same_net_bonus,
+            "base_cost": self.base_cost,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "RoutingConfig":
+        return cls(
+            bend_penalty=float(data.get("bend_penalty", 2.0)),
+            crossing_penalty=float(data.get("crossing_penalty", 20.0)),
+            same_net_bonus=float(data.get("same_net_bonus", 0.1)),
+            base_cost=float(data.get("base_cost", 1.0)),
+        )
+
+
+ROUTING_PRESETS: Dict[str, RoutingConfig] = {
+    "Default": RoutingConfig(),
+    "Minimal Bends": RoutingConfig(bend_penalty=5.0, crossing_penalty=20.0, same_net_bonus=0.1, base_cost=1.0),
+    "Compact": RoutingConfig(bend_penalty=1.5, crossing_penalty=10.0, same_net_bonus=0.01, base_cost=1.0),
+    "Spread Out": RoutingConfig(bend_penalty=2.0, crossing_penalty=40.0, same_net_bonus=1.0, base_cost=1.0),
+}
 
 
 class WeightedPathfinder(ABC):
@@ -19,19 +60,22 @@ class WeightedPathfinder(ABC):
     used by the IDA* implementation.
     """
 
-    def __init__(self, grid_size=20):
+    def __init__(self, grid_size=20, routing_config=None):
         """
         Initialize the pathfinder with grid configuration and weight parameters.
 
         Args:
             grid_size: Size of grid cells in pixels
+            routing_config: Optional RoutingConfig for cost parameters (uses defaults if None)
         """
         self.grid_size = grid_size
 
-        # Edge weight parameters
-        self.bend_penalty_base = 2  # Exponential base for bend penalties (2^n)
-        self.crossing_penalty = 20  # Penalty for crossing different nets
-        self.same_net_cost = 0.1  # Low cost for same-net bundling
+        # Apply routing config (or defaults)
+        config = routing_config or RoutingConfig()
+        self.bend_penalty_base = config.bend_penalty
+        self.crossing_penalty = config.crossing_penalty
+        self.same_net_cost = config.same_net_bonus
+        self.base_cost = config.base_cost
         self.body_crossing_penalty = float("inf")  # Component body crossing (blocked)
         self.non_net_crossing_penalty = float("inf")  # Non-net terminal crossing (blocked)
 
@@ -206,8 +250,8 @@ class WeightedPathfinder(ABC):
 class IDAStarPathfinder(WeightedPathfinder):
     """IDA* (Iterative Deepening A*) algorithm - memory-efficient A* variant"""
 
-    def __init__(self, grid_size=20):
-        super().__init__(grid_size)
+    def __init__(self, grid_size=20, routing_config=None):
+        super().__init__(grid_size, routing_config=routing_config)
 
     def find_path(
         self,
@@ -244,7 +288,7 @@ class IDAStarPathfinder(WeightedPathfinder):
         current_net=None,
     ):
         """Calculate edge cost"""
-        return 1  # Base cost
+        return self.base_cost
 
     def _find_path_impl(
         self,
@@ -358,7 +402,7 @@ class IDAStarPathfinder(WeightedPathfinder):
             if neighbor in obstacles:
                 continue
 
-            edge_cost = 1
+            edge_cost = self.base_cost
             new_bend_count = bend_count
 
             if direction is not None and direction != new_direction:

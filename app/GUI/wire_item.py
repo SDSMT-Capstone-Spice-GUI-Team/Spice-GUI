@@ -165,7 +165,7 @@ class WireGraphicsItem(QGraphicsPathItem):
                 current_node=self.node,
             )
 
-            pathfinder = IDAStarPathfinder(GRID_SIZE)
+            pathfinder = IDAStarPathfinder(GRID_SIZE, routing_config=theme_manager.routing_config)
             result = pathfinder.find_path(start, end, obstacles, algorithm=self.algorithm)
 
             # Unpack result (waypoints, runtime, iterations, routing_failed)
