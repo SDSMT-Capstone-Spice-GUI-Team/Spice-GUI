@@ -34,6 +34,7 @@ class SettingsMixin:
         settings.setValue("view/color_mode", theme_manager.color_mode)
         settings.setValue("view/wire_thickness", theme_manager.wire_thickness)
         settings.setValue("view/show_junction_dots", theme_manager.show_junction_dots)
+        settings.setValue("view/routing_mode", theme_manager.routing_mode)
 
     def _restore_settings(self):
         """Restore user preferences from QSettings"""
@@ -115,6 +116,10 @@ class SettingsMixin:
         if saved_junction_dots is not None:
             show = saved_junction_dots == "true" or saved_junction_dots is True
             self._set_show_junction_dots(show)
+
+        saved_routing_mode = settings.value("view/routing_mode")
+        if saved_routing_mode in ("orthogonal", "diagonal"):
+            self._set_routing_mode(saved_routing_mode)
 
     def closeEvent(self, event):
         """Save settings before closing"""

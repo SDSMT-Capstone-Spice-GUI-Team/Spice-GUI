@@ -75,7 +75,10 @@ class WireGraphicsItem(QGraphicsPathItem):
         self._label_item.setZValue(2)
         self._label_item.setVisible(False)
 
-        self.update_position()
+        if self.model.waypoints:
+            self._restore_waypoints()
+        else:
+            self.update_position()
 
     # --- Data delegation properties ---
 
@@ -190,7 +193,8 @@ class WireGraphicsItem(QGraphicsPathItem):
                 current_node=self.node,
             )
 
-            pathfinder = IDAStarPathfinder(GRID_SIZE)
+            allow_diagonal = theme_manager.routing_mode == "diagonal"
+            pathfinder = IDAStarPathfinder(GRID_SIZE, allow_diagonal=allow_diagonal)
             result = pathfinder.find_path(start, end, obstacles, algorithm=self.algorithm)
 
             # Unpack result (waypoints, runtime, iterations, routing_failed)
@@ -237,6 +241,16 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         self.update()  # Force item redraw
         self.update_net_label()
+
+    def _restore_waypoints(self):
+        """Restore wire path from persisted waypoints without running pathfinding."""
+        self.waypoints = [QPointF(x, y) for x, y in self.model.waypoints]
+        path = QPainterPath()
+        if self.waypoints:
+            path.moveTo(self.waypoints[0])
+            for waypoint in self.waypoints[1:]:
+                path.lineTo(waypoint)
+        self.setPath(path)
 
     def _notify_routing_failed(self):
         """Show status bar message when wire routing fails."""
