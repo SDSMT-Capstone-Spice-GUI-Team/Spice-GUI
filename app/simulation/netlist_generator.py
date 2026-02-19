@@ -27,6 +27,7 @@ class NetlistGenerator:
         wrdata_filepath="transient_data.txt",
         spice_options=None,
         measurements=None,
+        parameters=None,
     ):
         """
         Args:
@@ -39,6 +40,7 @@ class NetlistGenerator:
             wrdata_filepath: str - path for wrdata output file
             spice_options: Optional[dict[str, str]] - extra .options key=value pairs
             measurements: Optional[list[str]] - .meas directive strings
+            parameters: Optional[list[str]] - .param directive strings
         """
         self.components = components
         self.wires = wires
@@ -49,6 +51,7 @@ class NetlistGenerator:
         self.wrdata_filepath = wrdata_filepath
         self.spice_options = spice_options or {}
         self.measurements = measurements or []
+        self.parameters = parameters or []
 
     def generate(self):
         """Generate complete SPICE netlist"""
@@ -64,6 +67,16 @@ class NetlistGenerator:
         for model_name in sorted(opamp_models_used):
             lines.append(f"* {model_name} Op-Amp Subcircuit")
             lines.append(OPAMP_SUBCIRCUITS[model_name])
+            lines.append("")
+
+        # Emit .param directives
+        if self.parameters:
+            lines.append("* Parameter Definitions")
+            for param_line in self.parameters:
+                directive = param_line.strip()
+                if not directive.lower().startswith(".param"):
+                    directive = f".param {directive}"
+                lines.append(directive)
             lines.append("")
 
         # Build node connectivity map

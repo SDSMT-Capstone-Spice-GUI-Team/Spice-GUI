@@ -72,6 +72,7 @@ class SimulationController:
             self.model.components,
             [w for w in self.model.wires],
             self.model.analysis_type,
+            param_manager=self.model.param_manager,
         )
         return SimulationResult(
             success=is_valid,
@@ -90,6 +91,7 @@ class SimulationController:
         from simulation import NetlistGenerator
 
         self.model.rebuild_nodes()
+        param_directives = self.model.param_manager.generate_directives()
         generator = NetlistGenerator(
             components=self.model.components,
             wires=self.model.wires,
@@ -100,6 +102,7 @@ class SimulationController:
             wrdata_filepath=wrdata_filepath or "transient_data.txt",
             spice_options=spice_options,
             measurements=measurements,
+            parameters=param_directives,
         )
         return generator.generate()
 

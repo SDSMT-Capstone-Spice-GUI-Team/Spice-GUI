@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from .annotation import AnnotationData
 from .component import ComponentData
 from .node import NodeData, reset_node_counter
+from .parameter import ParameterManager
 from .wire import WireData
 
 
@@ -29,6 +30,9 @@ class CircuitModel:
     component_counter: dict[str, int] = field(default_factory=dict)
 
     annotations: list[AnnotationData] = field(default_factory=list)
+
+    # SPICE .param parameters
+    param_manager: ParameterManager = field(default_factory=ParameterManager)
 
     # Analysis configuration
     analysis_type: str = "DC Operating Point"
@@ -252,6 +256,7 @@ class CircuitModel:
         self.terminal_to_node.clear()
         self.component_counter.clear()
         self.annotations.clear()
+        self.param_manager.clear()
         self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
 
@@ -280,6 +285,10 @@ class CircuitModel:
 
         if self.annotations:
             data["annotations"] = [a.to_dict() for a in self.annotations]
+
+        params = self.param_manager.to_dict()
+        if params:
+            data["parameters"] = params
 
         return data
 
@@ -315,5 +324,8 @@ class CircuitModel:
 
         for ann_data in data.get("annotations", []):
             model.annotations.append(AnnotationData.from_dict(ann_data))
+
+        if "parameters" in data:
+            model.param_manager = ParameterManager.from_dict(data["parameters"])
 
         return model
