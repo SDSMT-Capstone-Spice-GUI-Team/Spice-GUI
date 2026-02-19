@@ -77,12 +77,12 @@ jobs:
         working-directory: app
         env:
           QT_QPA_PLATFORM: offscreen
-        run: xvfb-run python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
+        run: xvfb-run python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing --cov-fail-under=80
 
       - name: Run tests with coverage (Windows)
         if: runner.os == 'Windows'
         working-directory: app
-        run: python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
+        run: python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing --cov-fail-under=80
 
   import-check:
     name: Import Check

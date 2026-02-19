@@ -6,8 +6,8 @@ help:  ## Show this help message
 	@echo 'Available targets:'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-test:  ## Run pytest test suite
-	cd app && python -m pytest tests/ -v --tb=short
+test:  ## Run pytest test suite with coverage
+	cd app && python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing --cov-fail-under=80
 
 lint:  ## Run linting checks (ruff + isort + ruff-format + black)
 	ruff check app/
