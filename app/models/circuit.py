@@ -11,6 +11,7 @@ from .annotation import AnnotationData
 from .component import ComponentData
 from .node import NodeData, reset_node_counter
 from .parameter import ParameterManager
+from .waveform_expression import WaveformExpressionManager
 from .wire import WireData
 
 
@@ -37,6 +38,9 @@ class CircuitModel:
     # Analysis configuration
     analysis_type: str = "DC Operating Point"
     analysis_params: dict = field(default_factory=dict)
+
+    # Waveform expression manager
+    expression_manager: WaveformExpressionManager = field(default_factory=WaveformExpressionManager)
 
     # --- Component operations ---
 
@@ -256,6 +260,7 @@ class CircuitModel:
         self.terminal_to_node.clear()
         self.component_counter.clear()
         self.annotations.clear()
+        self.expression_manager.clear()
         self.param_manager.clear()
         self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
@@ -285,6 +290,10 @@ class CircuitModel:
 
         if self.annotations:
             data["annotations"] = [a.to_dict() for a in self.annotations]
+
+        expressions = self.expression_manager.to_dict()
+        if expressions:
+            data["expressions"] = expressions
 
         params = self.param_manager.to_dict()
         if params:
@@ -324,6 +333,9 @@ class CircuitModel:
 
         for ann_data in data.get("annotations", []):
             model.annotations.append(AnnotationData.from_dict(ann_data))
+
+        if "expressions" in data:
+            model.expression_manager = WaveformExpressionManager.from_dict(data["expressions"])
 
         if "parameters" in data:
             model.param_manager = ParameterManager.from_dict(data["parameters"])

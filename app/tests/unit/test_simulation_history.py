@@ -251,7 +251,12 @@ class TestStructuralChangeDetection:
         mgr = SimulationHistoryManager()
         mgr.add(analysis_type="Transient", data={}, label="Pinned", component_hash="hash_v1")
         mgr.pin(0)
-        mgr.add(analysis_type="Transient", data={}, label="Not pinned", component_hash="hash_v1")
+        mgr.add(
+            analysis_type="Transient",
+            data={},
+            label="Not pinned",
+            component_hash="hash_v1",
+        )
 
         cleared = mgr.clear_on_structural_change("hash_v2")
         assert cleared is True

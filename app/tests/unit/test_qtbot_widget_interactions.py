@@ -36,7 +36,14 @@ class TestAnalysisDialogInteractions:
 
     @pytest.mark.parametrize(
         "analysis_type",
-        ["DC Operating Point", "DC Sweep", "AC Sweep", "Transient", "Temperature Sweep", "Noise"],
+        [
+            "DC Operating Point",
+            "DC Sweep",
+            "AC Sweep",
+            "Transient",
+            "Temperature Sweep",
+            "Noise",
+        ],
     )
     def test_each_analysis_type_opens(self, qtbot, analysis_type):
         """Every analysis type dialog opens without error."""
@@ -79,7 +86,14 @@ class TestAnalysisDialogInteractions:
         """Noise analysis has all 6 parameter fields."""
         dialog = AnalysisDialog(analysis_type="Noise")
         qtbot.addWidget(dialog)
-        expected_keys = {"output_node", "source", "fStart", "fStop", "points", "sweepType"}
+        expected_keys = {
+            "output_node",
+            "source",
+            "fStart",
+            "fStop",
+            "points",
+            "sweepType",
+        }
         assert set(dialog.field_widgets.keys()) == expected_keys
 
     def test_temp_sweep_command_generation(self, qtbot):
@@ -355,7 +369,18 @@ class TestComponentTerminalGeometry:
 
     @pytest.mark.parametrize(
         "comp_type",
-        ["Op-Amp", "VCVS", "CCVS", "VCCS", "CCCS", "BJT NPN", "BJT PNP", "MOSFET NMOS", "MOSFET PMOS", "VC Switch"],
+        [
+            "Op-Amp",
+            "VCVS",
+            "CCVS",
+            "VCCS",
+            "CCCS",
+            "BJT NPN",
+            "BJT PNP",
+            "MOSFET NMOS",
+            "MOSFET PMOS",
+            "VC Switch",
+        ],
     )
     def test_multi_terminal_component_geometry(self, comp_type):
         """Multi-terminal components have correct terminal count and non-overlapping positions."""

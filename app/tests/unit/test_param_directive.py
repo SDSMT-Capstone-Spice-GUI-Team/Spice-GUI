@@ -440,7 +440,10 @@ class TestParameterValidationIntegration:
         model.param_manager.add_parameter("R_load", "1k")
 
         is_valid, errors, warnings = validate_circuit(
-            model.components, model.wires, model.analysis_type, param_manager=model.param_manager
+            model.components,
+            model.wires,
+            model.analysis_type,
+            param_manager=model.param_manager,
         )
         assert is_valid is True
 
@@ -459,7 +462,10 @@ class TestParameterValidationIntegration:
         r1.value = "{R_undefined}"
 
         is_valid, errors, warnings = validate_circuit(
-            model.components, model.wires, model.analysis_type, param_manager=model.param_manager
+            model.components,
+            model.wires,
+            model.analysis_type,
+            param_manager=model.param_manager,
         )
         assert is_valid is False
         assert any("R_undefined" in e for e in errors)

@@ -27,6 +27,7 @@ class NetlistGenerator:
         wrdata_filepath="transient_data.txt",
         spice_options=None,
         measurements=None,
+        expressions=None,
         parameters=None,
     ):
         """
@@ -40,6 +41,7 @@ class NetlistGenerator:
             wrdata_filepath: str - path for wrdata output file
             spice_options: Optional[dict[str, str]] - extra .options key=value pairs
             measurements: Optional[list[str]] - .meas directive strings
+            expressions: Optional[list[str]] - let directive strings for computed waveforms
             parameters: Optional[list[str]] - .param directive strings
         """
         self.components = components
@@ -51,6 +53,7 @@ class NetlistGenerator:
         self.wrdata_filepath = wrdata_filepath
         self.spice_options = spice_options or {}
         self.measurements = measurements or []
+        self.expressions = expressions or []
         self.parameters = parameters or []
 
     def generate(self):
@@ -444,6 +447,16 @@ class NetlistGenerator:
         if resistor_voltages_let:
             lines.extend(resistor_voltages_let)
 
+        # Add user-defined waveform expression let directives
+        if self.expressions:
+            lines.append("")
+            lines.append("* User-defined waveform expressions")
+            for expr_let in self.expressions:
+                directive = expr_let.strip()
+                if not directive.lower().startswith("let "):
+                    directive = f"let {directive}"
+                lines.append(directive)
+
         lines.append("")
         lines.append("* Print to stdout (for parser)")
 
@@ -471,6 +484,17 @@ class NetlistGenerator:
 
             # Add resistor voltages to the print list
             all_print_vars.extend(resistor_voltages_print)
+
+            # Add user-defined expression variables to the print list
+            for expr_let in self.expressions:
+                directive = expr_let.strip()
+                if directive.lower().startswith("let "):
+                    directive = directive[4:]
+                parts = directive.split("=", 1)
+                if parts:
+                    var_name = parts[0].strip()
+                    if var_name:
+                        all_print_vars.append(var_name)
 
             print_vars = " ".join(all_print_vars)
 

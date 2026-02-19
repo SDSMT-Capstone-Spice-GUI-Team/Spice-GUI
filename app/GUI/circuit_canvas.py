@@ -616,7 +616,10 @@ class CircuitCanvasView(QGraphicsView):
                 if main_window and hasattr(main_window, "statusBar"):
                     status = main_window.statusBar()
                     if status:
-                        status.showMessage("No simulation results available. Run a simulation first.", 3000)
+                        status.showMessage(
+                            "No simulation results available. Run a simulation first.",
+                            3000,
+                        )
             event.accept()
             return
 

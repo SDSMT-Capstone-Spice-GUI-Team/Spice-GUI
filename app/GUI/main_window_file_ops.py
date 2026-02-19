@@ -79,7 +79,11 @@ class FileOperationsMixin:
             data = json.loads(json_str)
             validate_circuit_data(data)
         except (json.JSONDecodeError, ValueError) as e:
-            QMessageBox.critical(self, "Invalid Circuit Data", f"Clipboard does not contain valid circuit JSON:\n{e}")
+            QMessageBox.critical(
+                self,
+                "Invalid Circuit Data",
+                f"Clipboard does not contain valid circuit JSON:\n{e}",
+            )
             return
 
         if self.model.components:
@@ -328,7 +332,10 @@ class FileOperationsMixin:
             return
 
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Export as LTspice Schematic", "", "LTspice Schematics (*.asc);;All Files (*)"
+            self,
+            "Export as LTspice Schematic",
+            "",
+            "LTspice Schematics (*.asc);;All Files (*)",
         )
         if not filename:
             return
