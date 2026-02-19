@@ -38,6 +38,23 @@ COMPONENT_TYPES = [
     "Transformer",
 ]
 
+# Category groupings for the component palette
+COMPONENT_CATEGORIES = {
+    "Passive": ["Resistor", "Capacitor", "Inductor"],
+    "Sources": ["Voltage Source", "Current Source", "Waveform Source"],
+    "Semiconductors": [
+        "Diode",
+        "LED",
+        "Zener Diode",
+        "BJT NPN",
+        "BJT PNP",
+        "MOSFET NMOS",
+        "MOSFET PMOS",
+    ],
+    "Controlled Sources": ["VCVS", "CCVS", "VCCS", "CCCS"],
+    "Other": ["Op-Amp", "VC Switch", "Ground", "Transformer"],
+}
+
 # Mapping of component types to SPICE symbols
 SPICE_SYMBOLS = {
     "Resistor": "R",
