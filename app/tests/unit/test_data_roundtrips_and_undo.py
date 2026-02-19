@@ -308,6 +308,88 @@ class TestWireDataPersistence:
         assert node2.custom_label == "Vout"
         assert node2.get_label() == "Vout"
 
+    def test_waypoints_round_trip(self):
+        """Wire waypoints survive serialization round-trip."""
+        wire = WireData("V1", 0, "R1", 1)
+        wire.waypoints = [(10.0, 20.0), (30.0, 20.0), (30.0, 40.0)]
+        data = wire.to_dict()
+        assert "waypoints" in data
+        assert data["waypoints"] == [[10.0, 20.0], [30.0, 20.0], [30.0, 40.0]]
+
+        restored = WireData.from_dict(data)
+        assert restored.waypoints == [(10.0, 20.0), (30.0, 20.0), (30.0, 40.0)]
+
+    def test_empty_waypoints_omitted_from_dict(self):
+        """Wires with no waypoints don't include waypoints key in JSON."""
+        wire = WireData("V1", 0, "R1", 1)
+        data = wire.to_dict()
+        assert "waypoints" not in data
+
+    def test_old_format_without_waypoints_loads(self):
+        """Old circuit files without waypoints field load without error."""
+        data = {
+            "start_comp": "V1",
+            "start_term": 0,
+            "end_comp": "R1",
+            "end_term": 1,
+        }
+        wire = WireData.from_dict(data)
+        assert wire.waypoints == []
+
+    def test_waypoints_persist_through_file_save_load(self, tmp_path):
+        """Wire waypoints survive save/load through FileController."""
+        model = CircuitModel()
+        r1 = ComponentData("R1", "Resistor", "1k", (0, 0))
+        r2 = ComponentData("R2", "Resistor", "2k", (100, 0))
+        model.add_component(r1)
+        model.add_component(r2)
+        model.component_counter = {"R": 2}
+
+        wire = WireData("R1", 0, "R2", 0)
+        wire.waypoints = [(30.0, 0.0), (50.0, 0.0), (70.0, 0.0)]
+        model.add_wire(wire)
+
+        ctrl = FileController(model)
+        filepath = tmp_path / "waypoints.json"
+        ctrl.save_circuit(filepath)
+
+        ctrl2 = FileController()
+        ctrl2.load_circuit(filepath)
+        assert len(ctrl2.model.wires) == 1
+        assert ctrl2.model.wires[0].waypoints == [(30.0, 0.0), (50.0, 0.0), (70.0, 0.0)]
+
+    def test_multiple_wires_waypoints_persist(self, tmp_path):
+        """Multiple wires each keep their own waypoints through save/load."""
+        model = CircuitModel()
+        r1 = ComponentData("R1", "Resistor", "1k", (0, 0))
+        r2 = ComponentData("R2", "Resistor", "2k", (100, 0))
+        gnd = ComponentData("GND1", "Ground", "0V", (50, 100))
+        model.add_component(r1)
+        model.add_component(r2)
+        model.add_component(gnd)
+        model.component_counter = {"R": 2, "GND": 1}
+
+        w1 = WireData("R1", 0, "R2", 0)
+        w1.waypoints = [(10.0, 0.0), (90.0, 0.0)]
+        w2 = WireData("R2", 1, "GND1", 0)
+        w2.waypoints = [(100.0, 30.0), (100.0, 50.0), (50.0, 50.0), (50.0, 90.0)]
+        model.add_wire(w1)
+        model.add_wire(w2)
+
+        ctrl = FileController(model)
+        filepath = tmp_path / "multi_wp.json"
+        ctrl.save_circuit(filepath)
+
+        ctrl2 = FileController()
+        ctrl2.load_circuit(filepath)
+        assert ctrl2.model.wires[0].waypoints == [(10.0, 0.0), (90.0, 0.0)]
+        assert ctrl2.model.wires[1].waypoints == [
+            (100.0, 30.0),
+            (100.0, 50.0),
+            (50.0, 50.0),
+            (50.0, 90.0),
+        ]
+
     def test_wire_count_preserved_through_save_load(self, tmp_path):
         """The exact number of wires is preserved through save/load."""
         model = CircuitModel()

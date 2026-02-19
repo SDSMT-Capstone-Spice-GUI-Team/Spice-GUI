@@ -63,6 +63,14 @@ class ViewOperationsMixin:
             self.show_junction_dots_action.setChecked(show)
         self.canvas.scene.update()
 
+    def _set_routing_mode(self, mode: str):
+        """Switch wire routing mode between orthogonal and diagonal."""
+        theme_manager.set_routing_mode(mode)
+        if hasattr(self, "routing_mode_actions"):
+            for m, action in self.routing_mode_actions.items():
+                action.setChecked(m == mode)
+        self.canvas.scene.update()
+
     def _toggle_statistics_panel(self, checked):
         """Toggle the circuit statistics panel visibility."""
         self.statistics_panel.setVisible(checked)

@@ -84,7 +84,7 @@ class TestTabOrder:
 
         palette = ComponentPalette()
         qtbot.addWidget(palette)
-        # QListWidget default or set by MainWindow
+        # QTreeWidget default or set by MainWindow
         policy = palette.focusPolicy()
         # Should accept some form of focus
         assert policy != Qt.FocusPolicy.NoFocus
