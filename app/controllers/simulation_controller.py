@@ -90,6 +90,10 @@ class SimulationController:
         from simulation import NetlistGenerator
 
         self.model.rebuild_nodes()
+
+        # Collect waveform expression let directives
+        expr_directives = self.model.expression_manager.generate_let_directives()
+
         generator = NetlistGenerator(
             components=self.model.components,
             wires=self.model.wires,
@@ -100,6 +104,7 @@ class SimulationController:
             wrdata_filepath=wrdata_filepath or "transient_data.txt",
             spice_options=spice_options,
             measurements=measurements,
+            expressions=expr_directives,
         )
         return generator.generate()
 
