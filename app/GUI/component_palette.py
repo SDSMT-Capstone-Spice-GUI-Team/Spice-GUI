@@ -1,6 +1,7 @@
-from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
+from models.component import COMPONENT_CATEGORIES
+from PyQt6.QtCore import QMimeData, QSettings, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QDrag, QFont, QIcon, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import QLineEdit, QListWidget, QListWidgetItem, QMenu, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QLineEdit, QMenu, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from .component_item import COMPONENT_CLASSES
 from .styles import COMPONENTS, theme_manager
@@ -95,7 +96,7 @@ def _save_favorites(favorites):
 
 
 class ComponentPalette(QWidget):
-    """Component palette with search filter, drag support, and pinned favorites"""
+    """Component palette with collapsible category groups, search filter, drag support, and pinned favorites"""
 
     # Signal emitted when component is double-clicked
     componentDoubleClicked = pyqtSignal(str)  # component_type
@@ -117,64 +118,94 @@ class ComponentPalette(QWidget):
         # Load persisted favorites
         self._favorites = _load_favorites()
 
-        # Component list
-        self.list_widget = _PaletteListWidget()
-        self.list_widget.setDragEnabled(True)
-        self.list_widget.setDefaultDropAction(Qt.DropAction.CopyAction)
-        self.list_widget.setIconSize(QSize(48, 48))
-        self.list_widget.setSpacing(4)
-        self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
+        # Component tree with collapsible categories
+        self.tree_widget = _PaletteTreeWidget()
+        self.tree_widget.setHeaderHidden(True)
+        self.tree_widget.setDragEnabled(True)
+        self.tree_widget.setDefaultDropAction(Qt.DropAction.CopyAction)
+        self.tree_widget.setIconSize(QSize(48, 48))
+        self.tree_widget.setIndentation(16)
+        self.tree_widget.setAnimated(True)
+        self.tree_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
 
-        self._rebuild_list()
+        # Track category items for persistence and search
+        self._category_items: dict[str, QTreeWidgetItem] = {}
 
-        self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        layout.addWidget(self.list_widget)
+        # Load saved expanded state
+        expanded_state = self._load_expanded_state()
 
-    def _rebuild_list(self):
-        """Rebuild the list widget with favorites section and all components."""
-        self.list_widget.clear()
+        # Build the favorites section and category tree
+        self._rebuild_favorites()
 
-        # Add favorites section if there are pinned items
-        if self._favorites:
-            header = QListWidgetItem(FAVORITES_HEADER_TEXT)
-            header.setData(ITEM_ROLE, ITEM_TYPE_HEADER)
-            header.setFlags(Qt.ItemFlag.NoItemFlags)
+        for category_name, component_names in COMPONENT_CATEGORIES.items():
+            category_item = QTreeWidgetItem(self.tree_widget, [category_name])
+            category_item.setFlags(Qt.ItemFlag.ItemIsEnabled)  # clickable but not selectable/draggable
             bold_font = QFont()
             bold_font.setBold(True)
-            header.setFont(bold_font)
-            self.list_widget.addItem(header)
+            category_item.setFont(0, bold_font)
+            self._category_items[category_name] = category_item
 
-            for component_name in self._favorites:
-                item = QListWidgetItem(component_name)
-                item.setData(ITEM_ROLE, ITEM_TYPE_FAVORITE)
-                item.setIcon(create_component_icon(component_name))
-                tooltip = COMPONENT_TOOLTIPS.get(component_name, component_name)
-                item.setToolTip(tooltip)
-                self.list_widget.addItem(item)
+            for component_name in component_names:
+                if component_name not in COMPONENTS:
+                    continue
+                child = QTreeWidgetItem(category_item, [component_name])
+                child.setData(0, ITEM_ROLE, ITEM_TYPE_COMPONENT)
+                child.setIcon(0, create_component_icon(component_name))
+                child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, component_name))
+                child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
 
-        # Add all components
-        for component_name in COMPONENTS.keys():
-            item = QListWidgetItem(component_name)
-            item.setData(ITEM_ROLE, ITEM_TYPE_COMPONENT)
-            item.setIcon(create_component_icon(component_name))
-            item.setToolTip(COMPONENT_TOOLTIPS.get(component_name, component_name))
-            self.list_widget.addItem(item)
+            # Restore expanded state (default: expanded)
+            is_expanded = expanded_state.get(category_name, True)
+            category_item.setExpanded(is_expanded)
 
-        # Re-apply current filter if active
-        if self.search_input.text():
-            self._filter_components(self.search_input.text())
+        self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.tree_widget.itemExpanded.connect(self._save_expanded_state)
+        self.tree_widget.itemCollapsed.connect(self._save_expanded_state)
+        layout.addWidget(self.tree_widget)
+
+    def _rebuild_favorites(self):
+        """Rebuild the favorites section at the top of the tree widget."""
+        # Remove existing favorites category if present
+        if FAVORITES_HEADER_TEXT in self._category_items:
+            old_fav = self._category_items.pop(FAVORITES_HEADER_TEXT)
+            index = self.tree_widget.indexOfTopLevelItem(old_fav)
+            if index >= 0:
+                self.tree_widget.takeTopLevelItem(index)
+
+        if not self._favorites:
+            return
+
+        # Create favorites category at the top
+        fav_category = QTreeWidgetItem([FAVORITES_HEADER_TEXT])
+        fav_category.setData(0, ITEM_ROLE, ITEM_TYPE_HEADER)
+        fav_category.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        bold_font = QFont()
+        bold_font.setBold(True)
+        fav_category.setFont(0, bold_font)
+
+        for component_name in self._favorites:
+            child = QTreeWidgetItem(fav_category, [component_name])
+            child.setData(0, ITEM_ROLE, ITEM_TYPE_FAVORITE)
+            child.setIcon(0, create_component_icon(component_name))
+            child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, component_name))
+            child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+
+        # Insert at position 0 (top of tree)
+        self.tree_widget.insertTopLevelItem(0, fav_category)
+        fav_category.setExpanded(True)
+        self._category_items[FAVORITES_HEADER_TEXT] = fav_category
 
     def _show_context_menu(self, position):
         """Show right-click context menu for pin/unpin actions."""
-        item = self.list_widget.itemAt(position)
+        item = self.tree_widget.itemAt(position)
         if item is None:
             return
-        item_type = item.data(ITEM_ROLE)
-        if item_type == ITEM_TYPE_HEADER:
+        # Only show menu for component/favorite items (not category headers)
+        if item.parent() is None:
             return
 
-        component_name = item.text()
+        component_name = item.text(0)
         menu = QMenu(self)
 
         if component_name in self._favorites:
@@ -184,73 +215,121 @@ class ComponentPalette(QWidget):
             action = menu.addAction("Pin to Favorites")
             action.triggered.connect(lambda: self._pin_favorite(component_name))
 
-        menu.exec(self.list_widget.viewport().mapToGlobal(position))
+        menu.exec(self.tree_widget.viewport().mapToGlobal(position))
 
     def _pin_favorite(self, component_name):
         """Pin a component to favorites."""
         if component_name not in self._favorites:
             self._favorites.append(component_name)
             _save_favorites(self._favorites)
-            self._rebuild_list()
+            self._rebuild_favorites()
+            # Re-apply current filter if active
+            if self.search_input.text():
+                self._filter_components(self.search_input.text())
 
     def _unpin_favorite(self, component_name):
         """Unpin a component from favorites."""
         if component_name in self._favorites:
             self._favorites.remove(component_name)
             _save_favorites(self._favorites)
-            self._rebuild_list()
+            self._rebuild_favorites()
+            # Re-apply current filter if active
+            if self.search_input.text():
+                self._filter_components(self.search_input.text())
 
     def get_favorites(self):
         """Return the current list of pinned favorites."""
         return list(self._favorites)
 
-    def _on_item_double_clicked(self, item):
-        """Handle double-click on palette item"""
-        item_type = item.data(ITEM_ROLE)
-        if item_type == ITEM_TYPE_HEADER:
-            return
-        self.componentDoubleClicked.emit(item.text())
+    def _on_item_double_clicked(self, item, column):
+        """Handle double-click on palette item (ignore category headers)."""
+        if item.parent() is not None:
+            self.componentDoubleClicked.emit(item.text(0))
 
     def _filter_components(self, text):
-        """Show/hide components based on search text."""
+        """Show/hide components based on search text. Auto-expand matching categories."""
         text = text.lower()
-        has_visible_favorite = False
+        is_searching = bool(text)
 
-        for i in range(self.list_widget.count()):
-            item = self.list_widget.item(i)
-            if item is None:
+        for category_name, category_item in self._category_items.items():
+            any_child_visible = False
+            for i in range(category_item.childCount()):
+                child = category_item.child(i)
+                name = child.text(0).lower()
+                tooltip = (child.toolTip(0) or "").lower()
+                matches = text in name or text in tooltip
+                child.setHidden(not matches)
+                if matches:
+                    any_child_visible = True
+
+            # Hide entire category if no children match
+            category_item.setHidden(not any_child_visible)
+
+            # Auto-expand categories with matches during search
+            if is_searching and any_child_visible:
+                category_item.setExpanded(True)
+
+        # Restore saved expanded state when search is cleared
+        if not is_searching:
+            saved_state = self._load_expanded_state()
+            for category_name, category_item in self._category_items.items():
+                if category_name == FAVORITES_HEADER_TEXT:
+                    # Favorites are always expanded
+                    category_item.setExpanded(True)
+                else:
+                    category_item.setExpanded(saved_state.get(category_name, True))
+
+    def _load_expanded_state(self) -> dict[str, bool]:
+        """Load category expanded/collapsed state from QSettings."""
+        settings = QSettings("SDSMT", "SDM Spice")
+        state = {}
+        for category_name in COMPONENT_CATEGORIES:
+            val = settings.value(f"palette/expanded/{category_name}")
+            if val is not None:
+                state[category_name] = val == "true" or val is True
+            else:
+                state[category_name] = True  # default expanded
+        return state
+
+    def _save_expanded_state(self, _item=None):
+        """Save category expanded/collapsed state to QSettings."""
+        # Don't save while searching (search auto-expands categories)
+        if self.search_input.text():
+            return
+        settings = QSettings("SDSMT", "SDM Spice")
+        for category_name, category_item in self._category_items.items():
+            # Don't save favorites expanded state (always expanded)
+            if category_name == FAVORITES_HEADER_TEXT:
                 continue
-            item_type = item.data(ITEM_ROLE)
+            settings.setValue(f"palette/expanded/{category_name}", category_item.isExpanded())
 
-            if item_type == ITEM_TYPE_HEADER:
-                # Header visibility is set after scanning favorites
+    def get_all_component_items(self) -> list[QTreeWidgetItem]:
+        """Return all component (leaf) items across all categories (excluding favorites)."""
+        items = []
+        for category_name, category_item in self._category_items.items():
+            if category_name == FAVORITES_HEADER_TEXT:
                 continue
+            for i in range(category_item.childCount()):
+                items.append(category_item.child(i))
+        return items
 
-            name = item.text().lower()
-            tooltip = (item.toolTip() or "").lower()
-            matches = not text or text in name or text in tooltip
-            item.setHidden(not matches)
-
-            if item_type == ITEM_TYPE_FAVORITE and matches:
-                has_visible_favorite = True
-
-        # Show/hide the favorites header based on whether any favorites match
-        for i in range(self.list_widget.count()):
-            item = self.list_widget.item(i)
-            if item is not None and item.data(ITEM_ROLE) == ITEM_TYPE_HEADER:
-                item.setHidden(not has_visible_favorite)
-                break
+    def get_favorite_items(self) -> list[QTreeWidgetItem]:
+        """Return all favorite (leaf) items from the favorites category."""
+        fav_category = self._category_items.get(FAVORITES_HEADER_TEXT)
+        if fav_category is None:
+            return []
+        return [fav_category.child(i) for i in range(fav_category.childCount())]
 
 
-class _PaletteListWidget(QListWidget):
-    """Internal list widget with drag support for the component palette."""
+class _PaletteTreeWidget(QTreeWidget):
+    """Internal tree widget with drag support for the component palette."""
 
     def startDrag(self, supportedActions):
-        """Start drag operation"""
+        """Start drag operation for component items only."""
         item = self.currentItem()
-        if item and item.data(ITEM_ROLE) != ITEM_TYPE_HEADER:
+        if item and item.parent() is not None:
             drag = QDrag(self)
             mime_data = QMimeData()
-            mime_data.setText(item.text())
+            mime_data.setText(item.text(0))
             drag.setMimeData(mime_data)
             drag.exec(Qt.DropAction.CopyAction)
