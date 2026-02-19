@@ -14,6 +14,7 @@ from controllers.commands import (
     PasteCommand,
     RerouteWireCommand,
     RotateComponentCommand,
+    ToggleWireLockCommand,
 )
 from controllers.undo_manager import UndoManager
 from models.circuit import CircuitModel
@@ -416,6 +417,93 @@ class TestCircuitControllerIntegration:
 
         assert not controller.can_undo()
         assert not controller.can_redo()
+
+
+class TestToggleWireLockCommand:
+    """Test wire lock/unlock command with undo."""
+
+    def _setup_circuit_with_wire(self):
+        """Helper to create a circuit with two components and one wire."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        r1 = controller.add_component("Resistor", (0, 0))
+        r2 = controller.add_component("Resistor", (100, 0))
+        controller.add_wire(r1.component_id, 0, r2.component_id, 0)
+        return model, controller
+
+    def test_lock_wire(self):
+        """Locking a wire sets locked=True."""
+        model, controller = self._setup_circuit_with_wire()
+        assert not model.wires[0].locked
+
+        cmd = ToggleWireLockCommand(controller, 0, True)
+        cmd.execute()
+        assert model.wires[0].locked
+
+    def test_unlock_wire(self):
+        """Unlocking a wire sets locked=False."""
+        model, controller = self._setup_circuit_with_wire()
+        model.wires[0].locked = True
+
+        cmd = ToggleWireLockCommand(controller, 0, False)
+        cmd.execute()
+        assert not model.wires[0].locked
+
+    def test_undo_lock(self):
+        """Undo restores previous locked state."""
+        model, controller = self._setup_circuit_with_wire()
+
+        cmd = ToggleWireLockCommand(controller, 0, True)
+        cmd.execute()
+        assert model.wires[0].locked
+
+        cmd.undo()
+        assert not model.wires[0].locked
+
+    def test_undo_unlock(self):
+        """Undo of unlock re-locks the wire."""
+        model, controller = self._setup_circuit_with_wire()
+        model.wires[0].locked = True
+
+        cmd = ToggleWireLockCommand(controller, 0, False)
+        cmd.execute()
+        assert not model.wires[0].locked
+
+        cmd.undo()
+        assert model.wires[0].locked
+
+    def test_description_lock(self):
+        """Lock command has correct description."""
+        model, controller = self._setup_circuit_with_wire()
+        cmd = ToggleWireLockCommand(controller, 0, True)
+        assert cmd.get_description() == "Lock wire"
+
+    def test_description_unlock(self):
+        """Unlock command has correct description."""
+        model, controller = self._setup_circuit_with_wire()
+        cmd = ToggleWireLockCommand(controller, 0, False)
+        assert cmd.get_description() == "Unlock wire"
+
+    def test_invalid_wire_index_no_op(self):
+        """Toggle on invalid wire index does nothing."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        cmd = ToggleWireLockCommand(controller, 99, True)
+        cmd.execute()  # Should not raise
+        cmd.undo()  # Should not raise
+
+    def test_lock_via_controller_undoable(self):
+        """Lock executed through controller is undoable."""
+        model, controller = self._setup_circuit_with_wire()
+
+        cmd = ToggleWireLockCommand(controller, 0, True)
+        controller.execute_command(cmd)
+
+        assert model.wires[0].locked
+        assert controller.can_undo()
+
+        controller.undo()
+        assert not model.wires[0].locked
 
 
 class TestRerouteWireCommand:

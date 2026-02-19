@@ -164,6 +164,38 @@ class TestWireRoundTrip:
         assert wire.connects_terminal("V1", 1)
         assert not wire.connects_terminal("R1", 1)
 
+    def test_locked_wire_round_trip(self):
+        """Locked flag persists through to_dict/from_dict."""
+        wire = WireData(
+            start_component_id="R1",
+            start_terminal=0,
+            end_component_id="V1",
+            end_terminal=1,
+            locked=True,
+        )
+        data = wire.to_dict()
+        assert data["locked"] is True
+
+        restored = WireData.from_dict(data)
+        assert restored.locked is True
+
+    def test_unlocked_wire_omits_locked_from_dict(self):
+        """Unlocked wires don't include 'locked' key to keep files compact."""
+        wire = make_wire("R1", 0, "V1", 1)
+        data = wire.to_dict()
+        assert "locked" not in data
+
+    def test_old_format_without_locked_defaults_false(self):
+        """Files saved before lock feature load with locked=False."""
+        data = {
+            "start_comp": "R1",
+            "start_term": 0,
+            "end_comp": "V1",
+            "end_term": 1,
+        }
+        wire = WireData.from_dict(data)
+        assert wire.locked is False
+
 
 # ── Full circuit dict round-trip ─────────────────────────────────────
 

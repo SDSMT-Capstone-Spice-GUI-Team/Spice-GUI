@@ -27,6 +27,7 @@ class WireData:
     runtime: float = 0.0  # Time taken to route (seconds)
     iterations: int = 0  # Pathfinding iterations
     routing_failed: bool = False  # True when pathfinding fell back to straight line
+    locked: bool = False  # True when wire path is locked (skip auto-reroute)
 
     def get_terminals(self) -> list[tuple[str, int]]:
         """
@@ -65,6 +66,8 @@ class WireData:
         }
         if self.waypoints:
             data["waypoints"] = [[x, y] for x, y in self.waypoints]
+        if self.locked:
+            data["locked"] = True
         return data
 
     @classmethod
@@ -79,6 +82,7 @@ class WireData:
             start_terminal=data["start_term"],
             end_component_id=data["end_comp"],
             end_terminal=data["end_term"],
+            locked=data.get("locked", False),
         )
         if "waypoints" in data:
             wire.waypoints = [(float(x), float(y)) for x, y in data["waypoints"]]
