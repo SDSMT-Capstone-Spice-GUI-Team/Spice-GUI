@@ -152,6 +152,7 @@ class CircuitCanvasView(QGraphicsView):
             "wire_added": self._handle_wire_added,
             "wire_removed": self._handle_wire_removed,
             "wire_routed": self._handle_wire_routed,
+            "wire_reroute_requested": self._handle_wire_reroute_requested,
             "circuit_cleared": self._handle_circuit_cleared,
             "nodes_rebuilt": self._handle_nodes_rebuilt,
             "model_loaded": self._handle_model_loaded,
@@ -314,6 +315,15 @@ class CircuitCanvasView(QGraphicsView):
                 wire.waypoints = [QPointF(x, y) for x, y in wire_data.waypoints]
                 if hasattr(wire, "update_path"):
                     wire.update_path()
+
+    def _handle_wire_reroute_requested(self, wire_index) -> None:
+        """Force fresh pathfinding on a wire."""
+        if 0 <= wire_index < len(self.wires):
+            wire = self.wires[wire_index]
+            wire.update_position()
+            # Sync the new waypoints back to the model
+            model_wire = self.controller.model.wires[wire_index]
+            model_wire.waypoints = [(wp.x(), wp.y()) for wp in wire.waypoints]
 
     def _handle_annotation_added(self, annotation_data) -> None:
         """Create AnnotationItem when annotation added to model."""
@@ -966,13 +976,24 @@ class CircuitCanvasView(QGraphicsView):
             delete_action.triggered.connect(lambda: self.delete_wire(item))
             menu.addAction(delete_action)
 
+            menu.addSeparator()
+
+            # Check if multiple wires are selected
+            selected_wires = [i for i in self.scene.selectedItems() if isinstance(i, WireItem)]
+            if len(selected_wires) > 1 and item in selected_wires:
+                reroute_action = QAction(f"Reroute Selected Wires ({len(selected_wires)})", self)
+                reroute_action.triggered.connect(lambda: self.reroute_selected_wires(selected_wires))
+            else:
+                reroute_action = QAction("Reroute Wire", self)
+                reroute_action.triggered.connect(lambda: self.reroute_wire(item))
+            menu.addAction(reroute_action)
+
             if item.node:
                 menu.addSeparator()
                 current = item.node.get_label()
                 label_action = QAction(f"Set Net Name ({current})...", self)
                 label_action.triggered.connect(lambda: self.label_node(item.node))
                 menu.addAction(label_action)
-            pass
         else:
             # Check if we clicked near a terminal to set its net name
             clicked_node = self.find_node_at_position(scene_pos)
@@ -1088,6 +1109,40 @@ class CircuitCanvasView(QGraphicsView):
         wire_index = self.wires.index(wire)
         cmd = DeleteWireCommand(self.controller, wire_index)
         self.controller.execute_command(cmd)
+
+    def reroute_wire(self, wire):
+        """Reroute a single wire via undo/redo command."""
+        if wire is None:
+            return
+        if not self.controller:
+            logger.warning("Cannot reroute wire: no controller available")
+            return
+        if wire not in self.wires:
+            return
+
+        from controllers.commands import RerouteWireCommand
+
+        wire_index = self.wires.index(wire)
+        cmd = RerouteWireCommand(self.controller, wire_index)
+        self.controller.execute_command(cmd)
+
+    def reroute_selected_wires(self, selected_wires):
+        """Reroute multiple selected wires as a single undoable operation."""
+        if not self.controller:
+            logger.warning("Cannot reroute wires: no controller available")
+            return
+
+        from controllers.commands import CompoundCommand, RerouteWireCommand
+
+        commands = []
+        for wire in selected_wires:
+            if wire in self.wires:
+                wire_index = self.wires.index(wire)
+                commands.append(RerouteWireCommand(self.controller, wire_index))
+
+        if commands:
+            compound = CompoundCommand(commands, f"Reroute {len(commands)} wires")
+            self.controller.execute_command(compound)
 
     def rotate_component(self, component, clockwise=True):
         """Rotate a single component - Phase 5: uses controller"""

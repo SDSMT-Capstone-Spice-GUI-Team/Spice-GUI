@@ -356,6 +356,27 @@ class MenuBarMixin:
         self.show_junction_dots_action.triggered.connect(self._set_show_junction_dots)
         view_menu.addAction(self.show_junction_dots_action)
 
+        # Wire Routing Mode submenu
+        routing_mode_menu = view_menu.addMenu("Wire &Routing Mode")
+        self.routing_mode_actions = {}
+
+        orthogonal_action = QAction("&Orthogonal (4-direction)", self)
+        orthogonal_action.setCheckable(True)
+        orthogonal_action.setChecked(True)
+        orthogonal_action.triggered.connect(lambda: self._set_routing_mode("orthogonal"))
+        routing_mode_menu.addAction(orthogonal_action)
+        self.routing_mode_actions["orthogonal"] = orthogonal_action
+
+        diagonal_action = QAction("&Diagonal (8-direction, 45°)", self)
+        diagonal_action.setCheckable(True)
+        diagonal_action.triggered.connect(lambda: self._set_routing_mode("diagonal"))
+        routing_mode_menu.addAction(diagonal_action)
+        self.routing_mode_actions["diagonal"] = diagonal_action
+
+        self.routing_mode_group = QActionGroup(self)
+        self.routing_mode_group.addAction(orthogonal_action)
+        self.routing_mode_group.addAction(diagonal_action)
+
         view_menu.addSeparator()
 
         zoom_in_action = QAction("Zoom &In", self)

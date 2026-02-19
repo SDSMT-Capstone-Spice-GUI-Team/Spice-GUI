@@ -23,6 +23,9 @@ COLOR_MODES = ("color", "monochrome")
 WIRE_THICKNESSES = ("thin", "normal", "thick")
 WIRE_THICKNESS_PX = {"thin": 1, "normal": 2, "thick": 3}
 
+# Valid wire routing modes
+ROUTING_MODES = ("orthogonal", "diagonal")
+
 
 class ThemeManager:
     """
@@ -65,6 +68,7 @@ class ThemeManager:
     _color_mode: str
     _wire_thickness: str
     _show_junction_dots: bool
+    _routing_mode: str
 
     def __new__(cls) -> "ThemeManager":
         if cls._instance is None:
@@ -78,6 +82,7 @@ class ThemeManager:
             cls._instance._wire_thickness = "normal"
             cls._instance._show_junction_dots = True
             cls._instance._routing_config = RoutingConfig()
+            cls._instance._routing_mode = "orthogonal"
         return cls._instance
 
     @property
@@ -186,6 +191,24 @@ class ThemeManager:
         """
         self._routing_config = config
         self._notify_listeners()
+
+    @property
+    def routing_mode(self) -> str:
+        """Get the current wire routing mode ('orthogonal' or 'diagonal')."""
+        return self._routing_mode
+
+    def set_routing_mode(self, mode: str) -> None:
+        """Set the wire routing mode and notify listeners.
+
+        Args:
+            mode: 'orthogonal' for 4-direction or 'diagonal' for 8-direction routing
+        """
+        if mode not in ROUTING_MODES:
+            logger.warning("Unknown routing mode %r, ignoring", mode)
+            return
+        if mode != self._routing_mode:
+            self._routing_mode = mode
+            self._notify_listeners()
 
     def on_theme_changed(self, callback: Callable[[ThemeProtocol], None]) -> None:
         """

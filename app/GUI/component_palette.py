@@ -1,6 +1,7 @@
-from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QBrush, QDrag, QIcon, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
+from models.component import COMPONENT_CATEGORIES
+from PyQt6.QtCore import QMimeData, QSettings, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QBrush, QDrag, QFont, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from .component_item import COMPONENT_CLASSES
 from .styles import COMPONENTS, theme_manager
@@ -65,7 +66,7 @@ def create_component_icon(component_type, size=48):
 
 
 class ComponentPalette(QWidget):
-    """Component palette with search filter and drag support"""
+    """Component palette with collapsible category groups, search filter, and drag support"""
 
     # Signal emitted when component is double-clicked
     componentDoubleClicked = pyqtSignal(str)  # component_type
@@ -84,46 +85,119 @@ class ComponentPalette(QWidget):
         self.search_input.textChanged.connect(self._filter_components)
         layout.addWidget(self.search_input)
 
-        # Component list
-        self.list_widget = _PaletteListWidget()
-        self.list_widget.setDragEnabled(True)
-        self.list_widget.setDefaultDropAction(Qt.DropAction.CopyAction)
-        self.list_widget.setIconSize(QSize(48, 48))
-        self.list_widget.setSpacing(4)
+        # Component tree with collapsible categories
+        self.tree_widget = _PaletteTreeWidget()
+        self.tree_widget.setHeaderHidden(True)
+        self.tree_widget.setDragEnabled(True)
+        self.tree_widget.setDefaultDropAction(Qt.DropAction.CopyAction)
+        self.tree_widget.setIconSize(QSize(48, 48))
+        self.tree_widget.setIndentation(16)
+        self.tree_widget.setAnimated(True)
 
-        for component_name in COMPONENTS.keys():
-            item = QListWidgetItem(component_name)
-            item.setIcon(create_component_icon(component_name))
-            item.setToolTip(COMPONENT_TOOLTIPS.get(component_name, component_name))
-            self.list_widget.addItem(item)
+        # Track category items for persistence and search
+        self._category_items: dict[str, QTreeWidgetItem] = {}
 
-        self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        layout.addWidget(self.list_widget)
+        # Load saved expanded state
+        expanded_state = self._load_expanded_state()
 
-    def _on_item_double_clicked(self, item):
-        """Handle double-click on palette item"""
-        self.componentDoubleClicked.emit(item.text())
+        for category_name, component_names in COMPONENT_CATEGORIES.items():
+            category_item = QTreeWidgetItem(self.tree_widget, [category_name])
+            category_item.setFlags(Qt.ItemFlag.ItemIsEnabled)  # clickable but not selectable/draggable
+            bold_font = QFont()
+            bold_font.setBold(True)
+            category_item.setFont(0, bold_font)
+            self._category_items[category_name] = category_item
+
+            for component_name in component_names:
+                if component_name not in COMPONENTS:
+                    continue
+                child = QTreeWidgetItem(category_item, [component_name])
+                child.setIcon(0, create_component_icon(component_name))
+                child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, component_name))
+                child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+
+            # Restore expanded state (default: expanded)
+            is_expanded = expanded_state.get(category_name, True)
+            category_item.setExpanded(is_expanded)
+
+        self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.tree_widget.itemExpanded.connect(self._save_expanded_state)
+        self.tree_widget.itemCollapsed.connect(self._save_expanded_state)
+        layout.addWidget(self.tree_widget)
+
+    def _on_item_double_clicked(self, item, column):
+        """Handle double-click on palette item (ignore category headers)."""
+        if item.parent() is not None:
+            self.componentDoubleClicked.emit(item.text(0))
 
     def _filter_components(self, text):
-        """Show/hide components based on search text."""
+        """Show/hide components based on search text. Auto-expand matching categories."""
         text = text.lower()
-        for i in range(self.list_widget.count()):
-            item = self.list_widget.item(i)
-            if item is not None:
-                name = item.text().lower()
-                tooltip = (item.toolTip() or "").lower()
-                item.setHidden(text not in name and text not in tooltip)
+        is_searching = bool(text)
+
+        for category_name, category_item in self._category_items.items():
+            any_child_visible = False
+            for i in range(category_item.childCount()):
+                child = category_item.child(i)
+                name = child.text(0).lower()
+                tooltip = (child.toolTip(0) or "").lower()
+                matches = text in name or text in tooltip
+                child.setHidden(not matches)
+                if matches:
+                    any_child_visible = True
+
+            # Hide entire category if no children match
+            category_item.setHidden(not any_child_visible)
+
+            # Auto-expand categories with matches during search
+            if is_searching and any_child_visible:
+                category_item.setExpanded(True)
+
+        # Restore saved expanded state when search is cleared
+        if not is_searching:
+            saved_state = self._load_expanded_state()
+            for category_name, category_item in self._category_items.items():
+                category_item.setExpanded(saved_state.get(category_name, True))
+
+    def _load_expanded_state(self) -> dict[str, bool]:
+        """Load category expanded/collapsed state from QSettings."""
+        settings = QSettings("SDSMT", "SDM Spice")
+        state = {}
+        for category_name in COMPONENT_CATEGORIES:
+            val = settings.value(f"palette/expanded/{category_name}")
+            if val is not None:
+                state[category_name] = val == "true" or val is True
+            else:
+                state[category_name] = True  # default expanded
+        return state
+
+    def _save_expanded_state(self, _item=None):
+        """Save category expanded/collapsed state to QSettings."""
+        # Don't save while searching (search auto-expands categories)
+        if self.search_input.text():
+            return
+        settings = QSettings("SDSMT", "SDM Spice")
+        for category_name, category_item in self._category_items.items():
+            settings.setValue(f"palette/expanded/{category_name}", category_item.isExpanded())
+
+    def get_all_component_items(self) -> list[QTreeWidgetItem]:
+        """Return all component (leaf) items across all categories."""
+        items = []
+        for category_item in self._category_items.values():
+            for i in range(category_item.childCount()):
+                items.append(category_item.child(i))
+        return items
 
 
-class _PaletteListWidget(QListWidget):
-    """Internal list widget with drag support for the component palette."""
+class _PaletteTreeWidget(QTreeWidget):
+    """Internal tree widget with drag support for the component palette."""
 
     def startDrag(self, supportedActions):
-        """Start drag operation"""
+        """Start drag operation for component items only."""
         item = self.currentItem()
-        if item:
+        if item and item.parent() is not None:
             drag = QDrag(self)
             mime_data = QMimeData()
-            mime_data.setText(item.text())
+            mime_data.setText(item.text(0))
             drag.setMimeData(mime_data)
             drag.exec(Qt.DropAction.CopyAction)

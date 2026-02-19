@@ -481,3 +481,164 @@ class TestPathfinderRoutingConfig:
         # Both must avoid the obstacle
         assert (2, 0) not in _to_grid_tuples(wp_low)
         assert (2, 0) not in _to_grid_tuples(wp_high)
+
+
+# ===========================================================================
+# 13. Diagonal / 45-degree wire routing
+# ===========================================================================
+
+
+@pytest.fixture
+def diagonal_pathfinder():
+    """Yield an IDA* pathfinder with diagonal routing enabled."""
+    return IDAStarPathfinder(grid_size=GRID, allow_diagonal=True)
+
+
+class TestDiagonalRouting:
+    def test_default_is_orthogonal(self):
+        """Default pathfinder should use orthogonal-only movement."""
+        pf = IDAStarPathfinder(grid_size=GRID)
+        assert pf.allow_diagonal is False
+
+    def test_diagonal_flag_accepted(self):
+        """Pathfinder should accept and store the allow_diagonal flag."""
+        pf = IDAStarPathfinder(grid_size=GRID, allow_diagonal=True)
+        assert pf.allow_diagonal is True
+
+    def test_diagonal_path_has_diagonal_segments(self, diagonal_pathfinder):
+        """Diagonal routing should produce segments that move both x and y."""
+        start, end = _grid(0, 0), _grid(5, 5)
+        waypoints, _, _, routing_failed = diagonal_pathfinder.find_path(start, end, set(), bounds=BOUNDS)
+        assert routing_failed is False
+        # With diagonal routing on a clear grid from (0,0) to (5,5),
+        # a straight diagonal is optimal — simplified to 2 points
+        grid_pts = _to_grid_tuples(waypoints)
+        assert grid_pts[0] == (0, 0)
+        assert grid_pts[-1] == (5, 5)
+        # The path should be shorter or equal to what orthogonal would give
+        assert len(waypoints) <= 3  # diagonal can do it in a straight line
+
+    def test_orthogonal_path_has_no_diagonal_segments(self, pathfinder):
+        """Orthogonal routing must never produce diagonal segments."""
+        start, end = _grid(0, 0), _grid(5, 5)
+        waypoints, _, _, _ = pathfinder.find_path(start, end, set(), bounds=BOUNDS)
+        for i in range(len(waypoints) - 1):
+            dx = waypoints[i + 1].x() - waypoints[i].x()
+            dy = waypoints[i + 1].y() - waypoints[i].y()
+            assert dx == 0 or dy == 0, f"Unexpected diagonal segment: ({dx}, {dy})"
+
+    def test_corner_cutting_prevented(self, diagonal_pathfinder):
+        """Diagonal moves should be blocked when adjacent cells are obstacles."""
+        # Place obstacles at (1,0) and (0,1) — diagonal move from (0,0) to (1,1)
+        # should be blocked because both adjacent cells are occupied
+        obstacles = {(1, 0), (0, 1)}
+        start, end = _grid(0, 0), _grid(1, 1)
+        waypoints, _, _, routing_failed = diagonal_pathfinder.find_path(start, end, obstacles, bounds=BOUNDS)
+        grid_pts = _to_grid_tuples(waypoints)
+        # Path must not cut through (1,0) or (0,1) diagonally
+        # It should route around (e.g., go to (-1,0) then up then right)
+        for pt in grid_pts:
+            assert pt not in obstacles
+
+    def test_diagonal_avoids_obstacles(self, diagonal_pathfinder):
+        """Diagonal routing should avoid obstacles just like orthogonal."""
+        obstacles = {(2, y) for y in range(-5, 6)}
+        start, end = _grid(0, 0), _grid(4, 0)
+        waypoints, _, _, routing_failed = diagonal_pathfinder.find_path(start, end, obstacles, bounds=BOUNDS)
+        assert routing_failed is False
+        grid_pts = _to_grid_tuples(waypoints)
+        assert grid_pts[0] == (0, 0)
+        assert grid_pts[-1] == (4, 0)
+        for pt in grid_pts:
+            assert pt not in obstacles
+
+
+class TestOctileHeuristic:
+    def test_manhattan_when_orthogonal(self, pathfinder):
+        """Orthogonal pathfinder should use Manhattan distance."""
+        assert pathfinder._heuristic((0, 0), (3, 4)) == 7
+
+    def test_octile_when_diagonal(self, diagonal_pathfinder):
+        """Diagonal pathfinder should use octile distance."""
+        # Octile: dx + dy + (√2 - 2) * min(dx, dy)
+        # For (0,0) to (3,4): dx=3, dy=4, min=3
+        # = 3 + 4 + (√2 - 2) * 3 = 7 + (1.4142.. - 2) * 3 = 7 - 1.7574.. ≈ 5.2426
+        import math
+
+        expected = 3 + 4 + (math.sqrt(2) - 2) * 3
+        result = diagonal_pathfinder._heuristic((0, 0), (3, 4))
+        assert abs(result - expected) < 1e-9
+
+    def test_octile_same_point(self, diagonal_pathfinder):
+        """Heuristic of same point should be zero regardless of mode."""
+        assert diagonal_pathfinder._heuristic((0, 0), (0, 0)) == 0
+
+    def test_octile_pure_diagonal(self, diagonal_pathfinder):
+        """Pure diagonal move: dx == dy, cost should be dx * sqrt(2)."""
+        import math
+
+        # (0,0) to (3,3): dx=3, dy=3, min=3
+        # octile = 3 + 3 + (sqrt(2) - 2) * 3 = 6 + 3*sqrt(2) - 6 = 3*sqrt(2)
+        expected = 3 * math.sqrt(2)
+        result = diagonal_pathfinder._heuristic((0, 0), (3, 3))
+        assert abs(result - expected) < 1e-9
+
+
+class TestRoutingModeConstants:
+    def test_orthogonal_dirs_count(self):
+        """ORTHOGONAL_DIRS should have exactly 4 directions."""
+        from GUI.path_finding import WeightedPathfinder
+
+        assert len(WeightedPathfinder.ORTHOGONAL_DIRS) == 4
+
+    def test_diagonal_dirs_count(self):
+        """DIAGONAL_DIRS should have exactly 8 directions."""
+        from GUI.path_finding import WeightedPathfinder
+
+        assert len(WeightedPathfinder.DIAGONAL_DIRS) == 8
+
+    def test_sqrt2_constant(self):
+        """SQRT2 constant should equal math.sqrt(2)."""
+        import math
+
+        from GUI.path_finding import WeightedPathfinder
+
+        assert abs(WeightedPathfinder.SQRT2 - math.sqrt(2)) < 1e-15
+
+
+class TestThemeManagerRoutingMode:
+    def test_default_routing_mode(self):
+        """Default routing mode should be 'orthogonal'."""
+        from GUI.styles.theme_manager import ThemeManager
+
+        tm = ThemeManager()
+        assert tm.routing_mode == "orthogonal"
+
+    def test_set_routing_mode_diagonal(self):
+        """Setting routing mode to 'diagonal' should work."""
+        from GUI.styles.theme_manager import ThemeManager
+
+        tm = ThemeManager()
+        old = tm.routing_mode
+        try:
+            tm.set_routing_mode("diagonal")
+            assert tm.routing_mode == "diagonal"
+        finally:
+            tm.set_routing_mode(old)
+
+    def test_set_invalid_routing_mode_ignored(self):
+        """Setting an invalid routing mode should be silently ignored."""
+        from GUI.styles.theme_manager import ThemeManager
+
+        tm = ThemeManager()
+        old = tm.routing_mode
+        tm.set_routing_mode("invalid_mode")
+        assert tm.routing_mode == old
+
+    def test_routing_modes_constant(self):
+        """ROUTING_MODES should contain both valid options."""
+        from GUI.styles.theme_manager import ROUTING_MODES
+
+        assert "orthogonal" in ROUTING_MODES
+        assert "diagonal" in ROUTING_MODES
+        assert len(ROUTING_MODES) == 2

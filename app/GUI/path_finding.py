@@ -4,6 +4,7 @@ pathfinding.py
 IDA* pathfinding for grid-aligned wire routing in circuit schematics.
 """
 
+import math
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -60,15 +61,23 @@ class WeightedPathfinder(ABC):
     used by the IDA* implementation.
     """
 
-    def __init__(self, grid_size=20, routing_config=None):
+    # 4-direction orthogonal moves
+    ORTHOGONAL_DIRS = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    # 8-direction moves (orthogonal + diagonal)
+    DIAGONAL_DIRS = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+    SQRT2 = math.sqrt(2)
+
+    def __init__(self, grid_size=20, routing_config=None, allow_diagonal=False):
         """
         Initialize the pathfinder with grid configuration and weight parameters.
 
         Args:
             grid_size: Size of grid cells in pixels
             routing_config: Optional RoutingConfig for cost parameters (uses defaults if None)
+            allow_diagonal: If True, allow 45-degree diagonal wire segments
         """
         self.grid_size = grid_size
+        self.allow_diagonal = allow_diagonal
 
         # Apply routing config (or defaults)
         config = routing_config or RoutingConfig()
@@ -167,16 +176,24 @@ class WeightedPathfinder(ABC):
 
     def _heuristic(self, a, b):
         """
-        Manhattan distance heuristic for A* algorithms.
+        Distance heuristic for A* algorithms.
+
+        Uses Manhattan distance for orthogonal routing, octile distance
+        for diagonal routing (consistent with 8-direction movement).
 
         Args:
             a: (x, y) tuple - start position
             b: (x, y) tuple - goal position
 
         Returns:
-            float: Manhattan distance
+            float: Estimated distance
         """
-        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        dx = abs(a[0] - b[0])
+        dy = abs(a[1] - b[1])
+        if self.allow_diagonal:
+            # Octile distance: min(dx,dy) diagonal steps + remaining straight steps
+            return (dx + dy) + (self.SQRT2 - 2) * min(dx, dy)
+        return dx + dy
 
     def _reconstruct_path(self, came_from, current):
         """
@@ -250,8 +267,8 @@ class WeightedPathfinder(ABC):
 class IDAStarPathfinder(WeightedPathfinder):
     """IDA* (Iterative Deepening A*) algorithm - memory-efficient A* variant"""
 
-    def __init__(self, grid_size=20, routing_config=None):
-        super().__init__(grid_size, routing_config=routing_config)
+    def __init__(self, grid_size=20, routing_config=None, allow_diagonal=False):
+        super().__init__(grid_size, routing_config=routing_config, allow_diagonal=allow_diagonal)
 
     def find_path(
         self,
@@ -391,7 +408,8 @@ class IDAStarPathfinder(WeightedPathfinder):
 
         min_threshold = float("inf")
 
-        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+        directions = self.DIAGONAL_DIRS if self.allow_diagonal else self.ORTHOGONAL_DIRS
+        for dx, dy in directions:
             neighbor = (current[0] + dx, current[1] + dy)
             new_direction = (dx, dy)
 
@@ -402,7 +420,17 @@ class IDAStarPathfinder(WeightedPathfinder):
             if neighbor in obstacles:
                 continue
 
-            edge_cost = self.base_cost
+            # For diagonal moves, check that both adjacent orthogonal cells are clear
+            # (prevents corner-cutting through obstacles)
+            is_diagonal = dx != 0 and dy != 0
+            if is_diagonal:
+                adj1 = (current[0] + dx, current[1])
+                adj2 = (current[0], current[1] + dy)
+                if adj1 in obstacles or adj2 in obstacles:
+                    continue
+
+            # Diagonal moves cost √2 * base_cost, orthogonal moves cost base_cost
+            edge_cost = self.base_cost * (self.SQRT2 if is_diagonal else 1)
             new_bend_count = bend_count
 
             if direction is not None and direction != new_direction:

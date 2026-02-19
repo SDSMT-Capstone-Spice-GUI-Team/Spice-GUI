@@ -40,6 +40,7 @@ class SettingsMixin:
         settings.setValue("routing/crossing_penalty", rc.crossing_penalty)
         settings.setValue("routing/same_net_bonus", rc.same_net_bonus)
         settings.setValue("routing/base_cost", rc.base_cost)
+        settings.setValue("view/routing_mode", theme_manager.routing_mode)
 
     def _restore_settings(self):
         """Restore user preferences from QSettings"""
@@ -134,6 +135,10 @@ class SettingsMixin:
                 base_cost=float(settings.value("routing/base_cost", 1.0)),
             )
             theme_manager.set_routing_config(config)
+
+        saved_routing_mode = settings.value("view/routing_mode")
+        if saved_routing_mode in ("orthogonal", "diagonal"):
+            self._set_routing_mode(saved_routing_mode)
 
     def closeEvent(self, event):
         """Save settings before closing"""
