@@ -67,7 +67,11 @@ class WireGraphicsItem(QGraphicsPathItem):
         self.setPen(QPen(self.layer_color, theme_manager.wire_thickness_px))
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable)
         self.setZValue(1)  # Render wires above components (z=0)
-        self.update_position()
+
+        if self.model.waypoints:
+            self._restore_waypoints()
+        else:
+            self.update_position()
 
     # --- Data delegation properties ---
 
@@ -211,6 +215,16 @@ class WireGraphicsItem(QGraphicsPathItem):
             self.scene().update(self.boundingRect())
 
         self.update()  # Force item redraw
+
+    def _restore_waypoints(self):
+        """Restore wire path from persisted waypoints without running pathfinding."""
+        self.waypoints = [QPointF(x, y) for x, y in self.model.waypoints]
+        path = QPainterPath()
+        if self.waypoints:
+            path.moveTo(self.waypoints[0])
+            for waypoint in self.waypoints[1:]:
+                path.lineTo(waypoint)
+        self.setPath(path)
 
     def _notify_routing_failed(self):
         """Show status bar message when wire routing fails."""
