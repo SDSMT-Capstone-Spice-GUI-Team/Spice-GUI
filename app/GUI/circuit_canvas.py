@@ -152,6 +152,7 @@ class CircuitCanvasView(QGraphicsView):
             "wire_added": self._handle_wire_added,
             "wire_removed": self._handle_wire_removed,
             "wire_routed": self._handle_wire_routed,
+            "wire_lock_changed": self._handle_wire_lock_changed,
             "circuit_cleared": self._handle_circuit_cleared,
             "nodes_rebuilt": self._handle_nodes_rebuilt,
             "model_loaded": self._handle_model_loaded,
@@ -314,6 +315,12 @@ class CircuitCanvasView(QGraphicsView):
                 wire.waypoints = [QPointF(x, y) for x, y in wire_data.waypoints]
                 if hasattr(wire, "update_path"):
                     wire.update_path()
+
+    def _handle_wire_lock_changed(self, data) -> None:
+        """Update wire visual when lock state changes."""
+        wire_index, locked = data
+        if 0 <= wire_index < len(self.wires):
+            self.wires[wire_index].update()
 
     def _handle_annotation_added(self, annotation_data) -> None:
         """Create AnnotationItem when annotation added to model."""
@@ -502,6 +509,9 @@ class CircuitCanvasView(QGraphicsView):
         wire_count = 0
         for wire in self.wires:
             if wire.start_comp == component or wire.end_comp == component:
+                # Skip locked wires (user pinned the path)
+                if wire.model.locked:
+                    continue
                 # Skip if both endpoints are co-selected and the other has lower ID
                 # (that endpoint's reroute call will handle this wire)
                 other = wire.end_comp if wire.start_comp == component else wire.start_comp
@@ -537,6 +547,8 @@ class CircuitCanvasView(QGraphicsView):
         rerouted = 0
         for wire in self.wires:
             if wire.start_comp in components or wire.end_comp in components:
+                if wire.model.locked:
+                    continue
                 wire.update_position()
                 rerouted += 1
         if rerouted > 0:
@@ -966,13 +978,23 @@ class CircuitCanvasView(QGraphicsView):
             delete_action.triggered.connect(lambda: self.delete_wire(item))
             menu.addAction(delete_action)
 
+            menu.addSeparator()
+
+            # Lock/Unlock wire path toggle
+            if item.model.locked:
+                lock_action = QAction("Unlock Wire Path", self)
+                lock_action.triggered.connect(lambda: self.toggle_wire_lock(item, False))
+            else:
+                lock_action = QAction("Lock Wire Path", self)
+                lock_action.triggered.connect(lambda: self.toggle_wire_lock(item, True))
+            menu.addAction(lock_action)
+
             if item.node:
                 menu.addSeparator()
                 current = item.node.get_label()
                 label_action = QAction(f"Set Net Name ({current})...", self)
                 label_action.triggered.connect(lambda: self.label_node(item.node))
                 menu.addAction(label_action)
-            pass
         else:
             # Check if we clicked near a terminal to set its net name
             clicked_node = self.find_node_at_position(scene_pos)
@@ -1087,6 +1109,22 @@ class CircuitCanvasView(QGraphicsView):
 
         wire_index = self.wires.index(wire)
         cmd = DeleteWireCommand(self.controller, wire_index)
+        self.controller.execute_command(cmd)
+
+    def toggle_wire_lock(self, wire, locked):
+        """Lock or unlock a wire's path via undo/redo command."""
+        if wire is None:
+            return
+        if not self.controller:
+            logger.warning("Cannot toggle wire lock: no controller available")
+            return
+        if wire not in self.wires:
+            return
+
+        from controllers.commands import ToggleWireLockCommand
+
+        wire_index = self.wires.index(wire)
+        cmd = ToggleWireLockCommand(self.controller, wire_index, locked)
         self.controller.execute_command(cmd)
 
     def rotate_component(self, component, clockwise=True):

@@ -261,6 +261,30 @@ class DeleteWireCommand(Command):
         return "Delete wire"
 
 
+class ToggleWireLockCommand(Command):
+    """Command to lock or unlock a wire's path."""
+
+    def __init__(self, controller, wire_index: int, locked: bool):
+        self.controller = controller
+        self.wire_index = wire_index
+        self.locked = locked
+
+    def execute(self) -> None:
+        """Set the wire's locked state."""
+        if self.wire_index < len(self.controller.model.wires):
+            self.controller.model.wires[self.wire_index].locked = self.locked
+            self.controller._notify("wire_lock_changed", (self.wire_index, self.locked))
+
+    def undo(self) -> None:
+        """Restore previous locked state."""
+        if self.wire_index < len(self.controller.model.wires):
+            self.controller.model.wires[self.wire_index].locked = not self.locked
+            self.controller._notify("wire_lock_changed", (self.wire_index, not self.locked))
+
+    def get_description(self) -> str:
+        return "Lock wire" if self.locked else "Unlock wire"
+
+
 class PasteCommand(Command):
     """Command to paste clipboard contents."""
 

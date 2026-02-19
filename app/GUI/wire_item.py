@@ -235,6 +235,9 @@ class WireGraphicsItem(QGraphicsPathItem):
         elif self.model.routing_failed:
             pen = QPen(Qt.GlobalColor.red, width, Qt.PenStyle.DashLine)
             painter.setPen(pen)
+        elif self.model.locked:
+            pen = QPen(self.layer_color, width, Qt.PenStyle.DotLine)
+            painter.setPen(pen)
         else:
             painter.setPen(QPen(self.layer_color, width))
 

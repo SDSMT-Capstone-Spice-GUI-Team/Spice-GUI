@@ -27,6 +27,7 @@ class WireData:
     runtime: float = 0.0  # Time taken to route (seconds)
     iterations: int = 0  # Pathfinding iterations
     routing_failed: bool = False  # True when pathfinding fell back to straight line
+    locked: bool = False  # True when wire path is locked (skip auto-reroute)
 
     def get_terminals(self) -> list[tuple[str, int]]:
         """
@@ -57,12 +58,15 @@ class WireData:
         Format matches the existing JSON circuit file format for compatibility.
         Note: waypoints are NOT serialized (they are recomputed on load).
         """
-        return {
+        d = {
             "start_comp": self.start_component_id,
             "start_term": self.start_terminal,
             "end_comp": self.end_component_id,
             "end_term": self.end_terminal,
         }
+        if self.locked:
+            d["locked"] = True
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "WireData":
@@ -76,6 +80,7 @@ class WireData:
             start_terminal=data["start_term"],
             end_component_id=data["end_comp"],
             end_terminal=data["end_term"],
+            locked=data.get("locked", False),
         )
 
     def __repr__(self) -> str:
