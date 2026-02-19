@@ -12,6 +12,7 @@ from controllers.commands import (
     FlipComponentCommand,
     MoveComponentCommand,
     PasteCommand,
+    RerouteWireCommand,
     RotateComponentCommand,
 )
 from controllers.undo_manager import UndoManager
@@ -415,3 +416,121 @@ class TestCircuitControllerIntegration:
 
         assert not controller.can_undo()
         assert not controller.can_redo()
+
+
+class TestRerouteWireCommand:
+    """Test reroute wire command with undo."""
+
+    def _setup_circuit_with_wire(self):
+        """Helper to create a circuit with two components and one wire with waypoints."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        r1 = controller.add_component("Resistor", (0, 0))
+        r2 = controller.add_component("Resistor", (100, 0))
+        controller.add_wire(r1.component_id, 0, r2.component_id, 0)
+        # Simulate existing waypoints on the wire
+        model.wires[0].waypoints = [(0.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+        return model, controller
+
+    def test_execute_clears_waypoints(self):
+        """Reroute command clears waypoints to trigger fresh pathfinding."""
+        model, controller = self._setup_circuit_with_wire()
+        assert model.wires[0].waypoints == [(0.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+
+        cmd = RerouteWireCommand(controller, 0)
+        cmd.execute()
+
+        # Waypoints cleared (canvas handler would run pathfinding)
+        assert model.wires[0].waypoints == []
+
+    def test_undo_restores_old_waypoints(self):
+        """Undo restores the waypoints that existed before reroute."""
+        model, controller = self._setup_circuit_with_wire()
+        original_waypoints = [(0.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+
+        cmd = RerouteWireCommand(controller, 0)
+        cmd.execute()
+
+        # Undo should restore original waypoints
+        cmd.undo()
+        assert model.wires[0].waypoints == original_waypoints
+
+    def test_redo_clears_waypoints_again(self):
+        """Redo after undo clears waypoints again."""
+        model, controller = self._setup_circuit_with_wire()
+
+        cmd = RerouteWireCommand(controller, 0)
+        cmd.execute()
+        cmd.undo()
+        assert model.wires[0].waypoints == [(0.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+
+        cmd.execute()
+        assert model.wires[0].waypoints == []
+
+    def test_description(self):
+        """Command has correct description."""
+        model, controller = self._setup_circuit_with_wire()
+        cmd = RerouteWireCommand(controller, 0)
+        assert cmd.get_description() == "Reroute wire"
+
+    def test_invalid_wire_index_no_op(self):
+        """Reroute with invalid index does nothing."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+
+        cmd = RerouteWireCommand(controller, 99)
+        cmd.execute()  # Should not raise
+        cmd.undo()  # Should not raise
+
+    def test_reroute_preserves_other_wire_data(self):
+        """Reroute only affects waypoints, not connection endpoints."""
+        model, controller = self._setup_circuit_with_wire()
+        wire = model.wires[0]
+        start_comp = wire.start_component_id
+        start_term = wire.start_terminal
+        end_comp = wire.end_component_id
+        end_term = wire.end_terminal
+
+        cmd = RerouteWireCommand(controller, 0)
+        cmd.execute()
+
+        assert wire.start_component_id == start_comp
+        assert wire.start_terminal == start_term
+        assert wire.end_component_id == end_comp
+        assert wire.end_terminal == end_term
+
+    def test_reroute_via_controller_is_undoable(self):
+        """Reroute executed through controller can be undone with controller.undo()."""
+        model, controller = self._setup_circuit_with_wire()
+        original_waypoints = [(0.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+
+        cmd = RerouteWireCommand(controller, 0)
+        controller.execute_command(cmd)
+
+        assert controller.can_undo()
+
+        controller.undo()
+        assert model.wires[0].waypoints == original_waypoints
+
+    def test_compound_reroute_multiple_wires(self):
+        """Rerouting multiple wires as a compound command is undoable as one step."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+        r1 = controller.add_component("Resistor", (0, 0))
+        r2 = controller.add_component("Resistor", (100, 0))
+        r3 = controller.add_component("Resistor", (200, 0))
+        controller.add_wire(r1.component_id, 0, r2.component_id, 0)
+        controller.add_wire(r2.component_id, 1, r3.component_id, 0)
+        model.wires[0].waypoints = [(0.0, 0.0), (100.0, 0.0)]
+        model.wires[1].waypoints = [(100.0, 0.0), (200.0, 0.0)]
+
+        commands = [RerouteWireCommand(controller, 0), RerouteWireCommand(controller, 1)]
+        compound = CompoundCommand(commands, "Reroute 2 wires")
+        controller.execute_command(compound)
+
+        assert model.wires[0].waypoints == []
+        assert model.wires[1].waypoints == []
+
+        controller.undo()
+        assert model.wires[0].waypoints == [(0.0, 0.0), (100.0, 0.0)]
+        assert model.wires[1].waypoints == [(100.0, 0.0), (200.0, 0.0)]
