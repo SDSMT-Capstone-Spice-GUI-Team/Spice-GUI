@@ -52,6 +52,29 @@ class ComparisonResult:
             self.mismatches.append(result)
 
 
+def compute_value_deviation(expected_str: str, actual_str: str) -> float | None:
+    """Compute the percentage deviation between two SPICE value strings.
+
+    Args:
+        expected_str: Expected value (e.g., "1k", "4.7u").
+        actual_str: Actual value to check.
+
+    Returns:
+        Percentage deviation as a float, or None if either value
+        cannot be parsed as a number.
+    """
+    expected = parse_spice_value(expected_str)
+    actual = parse_spice_value(actual_str)
+
+    if expected is None or actual is None:
+        return None
+
+    if expected == 0:
+        return 0.0 if actual == 0 else float("inf")
+
+    return abs(actual - expected) / abs(expected) * 100
+
+
 def compare_values(expected_str: str, actual_str: str, tolerance_pct: float = 0.0) -> bool:
     """Compare two SPICE value strings with optional tolerance.
 

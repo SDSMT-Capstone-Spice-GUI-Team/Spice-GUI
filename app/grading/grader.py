@@ -9,7 +9,7 @@ No Qt dependencies — pure Python module.
 from dataclasses import dataclass, field
 from typing import Optional
 
-from grading.circuit_comparer import CircuitComparer
+from grading.circuit_comparer import CircuitComparer, compute_value_deviation
 from grading.rubric import Rubric, RubricCheck
 from models.circuit import CircuitModel
 
@@ -132,12 +132,37 @@ class CircuitGrader:
 
         cr = self._comparer.check_component_value(student, component_id, expected_value, tolerance_pct)
 
+        if cr.passed:
+            return CheckGradeResult(
+                check_id=check.check_id,
+                passed=True,
+                points_earned=check.points,
+                points_possible=check.points,
+                feedback=check.feedback_pass,
+            )
+
+        # Check failed — try partial credit tiers if configured
+        if check.partial_credit and cr.actual != "component not found":
+            deviation = compute_value_deviation(expected_value, cr.actual)
+            if deviation is not None:
+                for threshold, credit in sorted(check.partial_credit, key=lambda t: t[0]):
+                    if deviation <= threshold:
+                        earned = round(credit / 100.0 * check.points)
+                        return CheckGradeResult(
+                            check_id=check.check_id,
+                            passed=False,
+                            points_earned=earned,
+                            points_possible=check.points,
+                            feedback=f"Partial credit ({credit}%): "
+                            f"{cr.actual} is within {threshold}% of expected {expected_value}",
+                        )
+
         return CheckGradeResult(
             check_id=check.check_id,
-            passed=cr.passed,
-            points_earned=check.points if cr.passed else 0,
+            passed=False,
+            points_earned=0,
             points_possible=check.points,
-            feedback=check.feedback_pass if cr.passed else check.feedback_fail,
+            feedback=check.feedback_fail,
         )
 
     def _check_component_count(

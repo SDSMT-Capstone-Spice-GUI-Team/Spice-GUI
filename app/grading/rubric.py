@@ -27,7 +27,18 @@ VALID_CHECK_TYPES = frozenset(
 
 @dataclass
 class RubricCheck:
-    """A single check in a grading rubric."""
+    """A single check in a grading rubric.
+
+    Attributes:
+        partial_credit: Optional list of [threshold_pct, credit_pct] tiers
+            for graduated scoring on component_value checks. Tiers are
+            evaluated in ascending threshold order; the first tier whose
+            threshold >= the actual deviation is used.
+            Example: [[10, 100], [25, 75], [50, 50]]
+              - within 10% → full credit
+              - within 25% → 75% credit
+              - within 50% → 50% credit
+    """
 
     check_id: str
     check_type: str
@@ -35,9 +46,10 @@ class RubricCheck:
     params: dict = field(default_factory=dict)
     feedback_pass: str = ""
     feedback_fail: str = ""
+    partial_credit: list = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "check_id": self.check_id,
             "check_type": self.check_type,
             "points": self.points,
@@ -45,6 +57,9 @@ class RubricCheck:
             "feedback_pass": self.feedback_pass,
             "feedback_fail": self.feedback_fail,
         }
+        if self.partial_credit:
+            d["partial_credit"] = [list(tier) for tier in self.partial_credit]
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "RubricCheck":
@@ -55,6 +70,7 @@ class RubricCheck:
             params=dict(data.get("params", {})),
             feedback_pass=data.get("feedback_pass", ""),
             feedback_fail=data.get("feedback_fail", ""),
+            partial_credit=[list(tier) for tier in data.get("partial_credit", [])],
         )
 
 
@@ -123,6 +139,29 @@ def validate_rubric(data: dict) -> None:
         check_ids.add(check["check_id"])
 
         points_sum += check["points"]
+
+        # Validate partial_credit if present
+        partial_credit = check.get("partial_credit")
+        if partial_credit is not None:
+            if not isinstance(partial_credit, list):
+                raise ValueError(f"Check '{check['check_id']}': partial_credit must be a list.")
+            for j, tier in enumerate(partial_credit):
+                if not isinstance(tier, (list, tuple)) or len(tier) != 2:
+                    raise ValueError(
+                        f"Check '{check['check_id']}': partial_credit tier #{j + 1} "
+                        f"must be a [threshold_pct, credit_pct] pair."
+                    )
+                threshold, credit = tier
+                if not isinstance(threshold, (int, float)) or threshold < 0:
+                    raise ValueError(
+                        f"Check '{check['check_id']}': partial_credit tier #{j + 1} "
+                        f"threshold must be a non-negative number."
+                    )
+                if not isinstance(credit, (int, float)) or credit < 0 or credit > 100:
+                    raise ValueError(
+                        f"Check '{check['check_id']}': partial_credit tier #{j + 1} "
+                        f"credit_pct must be between 0 and 100."
+                    )
 
     if points_sum != data["total_points"]:
         raise ValueError(f"Check points sum to {points_sum}, but total_points is {data['total_points']}.")
