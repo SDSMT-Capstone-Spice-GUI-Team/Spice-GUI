@@ -90,10 +90,27 @@ class RubricEditorDialog(QDialog):
         title_layout.addWidget(self.title_edit)
         layout.addLayout(title_layout)
 
-        # Points summary
+        # Points summary with optional target
+        points_layout = QHBoxLayout()
         self.points_label = QLabel("Total Points: 0")
         self.points_label.setStyleSheet("font-weight: bold;")
-        layout.addWidget(self.points_label)
+        points_layout.addWidget(self.points_label)
+
+        points_layout.addStretch()
+
+        points_layout.addWidget(QLabel("Target:"))
+        self.target_points_spin = QSpinBox()
+        self.target_points_spin.setRange(0, 10000)
+        self.target_points_spin.setValue(0)
+        self.target_points_spin.setToolTip("Set a target total; 0 means no target. Warns if check points don't match.")
+        self.target_points_spin.valueChanged.connect(self._on_target_changed)
+        points_layout.addWidget(self.target_points_spin)
+
+        self.points_mismatch_label = QLabel("")
+        self.points_mismatch_label.setStyleSheet("color: orange; font-weight: bold;")
+        points_layout.addWidget(self.points_mismatch_label)
+
+        layout.addLayout(points_layout)
 
         # Splitter: check list (left) | check editor (right)
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -293,6 +310,11 @@ class RubricEditorDialog(QDialog):
 
     # --- Detail editing ---
 
+    def _on_target_changed(self):
+        """Re-validate when target points changes."""
+        self._update_points_total()
+        self._validate()
+
     def _on_title_changed(self):
         """Re-validate when title changes."""
         self._validate()
@@ -436,6 +458,17 @@ class RubricEditorDialog(QDialog):
                 if not params.get(rp):
                     errors.append(f"Check '{cid}': missing required parameter '{rp}'.")
 
+        # Point sum mismatch against target
+        target = self.target_points_spin.value()
+        if target > 0:
+            total = sum(
+                (self.checks_list.item(i).data(Qt.ItemDataRole.UserRole) or {}).get("points", 0)
+                for i in range(count)
+                if self.checks_list.item(i) is not None
+            )
+            if total != target:
+                errors.append(f"Points sum ({total}) does not match target ({target}).")
+
         self.validation_label.setText("\n".join(errors))
         return errors
 
@@ -453,7 +486,7 @@ class RubricEditorDialog(QDialog):
         return reqs.get(check_type, [])
 
     def _update_points_total(self):
-        """Update the total points label from all checks."""
+        """Update the total points label and check against target."""
         total = 0
         for i in range(self.checks_list.count()):
             item = self.checks_list.item(i)
@@ -462,6 +495,12 @@ class RubricEditorDialog(QDialog):
             data = item.data(Qt.ItemDataRole.UserRole) or {}
             total += data.get("points", 0)
         self.points_label.setText(f"Total Points: {total}")
+
+        target = self.target_points_spin.value()
+        if target > 0 and total != target:
+            self.points_mismatch_label.setText(f"(expected {target})")
+        else:
+            self.points_mismatch_label.setText("")
 
     def _get_all_check_ids(self) -> set[str]:
         """Get all check IDs currently in the list."""
@@ -527,6 +566,7 @@ class RubricEditorDialog(QDialog):
         self._updating_ui = True
         try:
             self.title_edit.setText(rubric.title)
+            self.target_points_spin.setValue(rubric.total_points)
             self.checks_list.clear()
 
             for check in rubric.checks:

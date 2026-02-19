@@ -300,3 +300,45 @@ class TestRubricEditorDialog:
 
         for ct in VALID_CHECK_TYPES:
             assert ct in _CHECK_TYPE_PARAMS, f"Missing params for check type: {ct}"
+
+    def test_target_points_mismatch_warning(self, dialog, qtbot):
+        """Setting a target shows a mismatch warning when points differ."""
+        dialog.add_btn.click()
+        dialog.points_spin.setValue(5)
+
+        # No target set (0) — no mismatch label
+        assert dialog.points_mismatch_label.text() == ""
+
+        # Set target to 10, check sum is 5 → mismatch
+        dialog.target_points_spin.setValue(10)
+        assert "expected 10" in dialog.points_mismatch_label.text()
+
+        # Adjust points to match target → no mismatch
+        dialog.points_spin.setValue(10)
+        assert dialog.points_mismatch_label.text() == ""
+
+    def test_target_points_mismatch_validation_error(self, dialog, qtbot):
+        """Validation reports an error when points don't match target."""
+        dialog.title_edit.setText("Test")
+        dialog.add_btn.click()
+        dialog.check_type_combo.setCurrentText("ground")
+        dialog.points_spin.setValue(5)
+
+        # No target — no mismatch error
+        errors = dialog._validate()
+        assert not any("does not match" in e for e in errors)
+
+        # Set target to 10 — mismatch error
+        dialog.target_points_spin.setValue(10)
+        errors = dialog._validate()
+        assert any("does not match" in e for e in errors)
+
+        # Match target — no error
+        dialog.points_spin.setValue(10)
+        errors = dialog._validate()
+        assert not any("does not match" in e for e in errors)
+
+    def test_load_rubric_sets_target_points(self, dialog, sample_rubric, qtbot):
+        """Loading a rubric sets the target points spinner."""
+        dialog._load_rubric_into_ui(sample_rubric)
+        assert dialog.target_points_spin.value() == 15
