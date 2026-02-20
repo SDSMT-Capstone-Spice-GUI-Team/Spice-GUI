@@ -263,6 +263,12 @@ class CircuitCanvasView(QGraphicsView):
         """Update graphics item flip"""
         comp = self.components.get(component_data.component_id)
         if comp:
+            # Sync flip state: the graphics item holds a separate ComponentData
+            # copy (created via from_dict in _handle_component_added), so we
+            # must propagate the controller model's flip values explicitly before
+            # calling update_terminals() or paint().
+            comp.model.flip_h = component_data.flip_h
+            comp.model.flip_v = component_data.flip_v
             comp.update_terminals()
             comp.update()
             self.reroute_connected_wires(comp)
