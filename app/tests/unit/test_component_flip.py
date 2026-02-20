@@ -6,6 +6,77 @@ import pytest
 from models.component import ComponentData
 
 
+class TestFlipHandlerSync:
+    """Regression tests for issue #113 (human testing failure).
+
+    _handle_component_flipped in circuit_canvas creates graphics items with a
+    *separate* ComponentData copy (via from_dict).  Before the fix, the handler
+    called update_terminals() without first syncing flip_h/flip_v from the
+    controller model, so the visual transform was never applied.
+
+    These tests verify the correct behaviour at the model layer: after syncing
+    flip state from the "controller model" to the "graphics item model" and
+    recomputing terminal positions, the terminals reflect the flip.
+    """
+
+    def test_sync_flip_h_then_update_terminals(self):
+        """Syncing flip_h and recomputing terminals produces mirrored x positions."""
+        ctrl_model = ComponentData("R1", "Resistor", "1k", (0.0, 0.0))
+        item_model = ComponentData("R1", "Resistor", "1k", (0.0, 0.0))
+        base = item_model.get_base_terminal_positions()
+
+        # Simulate controller flip_component():
+        ctrl_model.flip_h = not ctrl_model.flip_h  # True
+
+        # Simulate the fixed _handle_component_flipped handler:
+        item_model.flip_h = ctrl_model.flip_h
+        item_model.flip_v = ctrl_model.flip_v
+
+        # Recompute terminal positions as update_terminals() would
+        world = item_model.get_terminal_positions()
+
+        for (bx, by), (wx, wy) in zip(base, world):
+            assert wx == pytest.approx(-bx), "flip_h must negate the x terminal offset"
+            assert wy == pytest.approx(by)
+
+    def test_sync_flip_v_then_update_terminals(self):
+        """Syncing flip_v and recomputing terminals produces mirrored y positions."""
+        ctrl_model = ComponentData("R1", "Resistor", "1k", (0.0, 0.0))
+        item_model = ComponentData("R1", "Resistor", "1k", (0.0, 0.0))
+        base = item_model.get_base_terminal_positions()
+
+        ctrl_model.flip_v = not ctrl_model.flip_v
+
+        item_model.flip_h = ctrl_model.flip_h
+        item_model.flip_v = ctrl_model.flip_v
+
+        world = item_model.get_terminal_positions()
+
+        for (bx, by), (wx, wy) in zip(base, world):
+            assert wx == pytest.approx(bx)
+            assert wy == pytest.approx(-by), "flip_v must negate the y terminal offset"
+
+    def test_without_sync_terminals_are_unchanged(self):
+        """Without the sync step, item model terminals do not reflect the flip.
+
+        This documents the pre-fix bug: update_terminals() called on an item
+        whose model still has flip_h=False produces unchanged positions.
+        """
+        ctrl_model = ComponentData("R1", "Resistor", "1k", (0.0, 0.0))
+        item_model = ComponentData("R1", "Resistor", "1k", (0.0, 0.0))
+        base = item_model.get_base_terminal_positions()
+
+        ctrl_model.flip_h = True
+        # NOT syncing: item_model.flip_h remains False
+
+        world = item_model.get_terminal_positions()
+
+        # Terminals should be unchanged (bug: they look unflipped)
+        for (bx, by), (wx, wy) in zip(base, world):
+            assert wx == pytest.approx(bx), "without sync, x is unchanged (the old bug)"
+            assert wy == pytest.approx(by)
+
+
 @pytest.fixture
 def resistor():
     """A standard 2-terminal resistor at origin."""

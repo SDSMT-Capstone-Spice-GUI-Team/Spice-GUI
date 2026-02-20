@@ -25,10 +25,16 @@ class SettingsMixin:
         if settings.value("autosave/enabled") is None:
             settings.setValue("autosave/enabled", True)
         settings.setValue("view/show_statistics", self.statistics_panel.isVisible())
+        # Preserve default zoom if not yet set
+        if settings.value("view/default_zoom") is None:
+            settings.setValue("view/default_zoom", 100)
         settings.setValue("view/theme_key", theme_manager.get_theme_key())
         settings.setValue("view/theme", theme_manager.current_theme.name)
         settings.setValue("view/symbol_style", theme_manager.symbol_style)
         settings.setValue("view/color_mode", theme_manager.color_mode)
+        settings.setValue("view/wire_thickness", theme_manager.wire_thickness)
+        settings.setValue("view/show_junction_dots", theme_manager.show_junction_dots)
+        settings.setValue("view/routing_mode", theme_manager.routing_mode)
 
     def _restore_settings(self):
         """Restore user preferences from QSettings"""
@@ -78,6 +84,10 @@ class SettingsMixin:
             self.statistics_panel.setVisible(checked)
             self.show_statistics_action.setChecked(checked)
 
+        default_zoom = settings.value("view/default_zoom")
+        if default_zoom is not None:
+            self.canvas.set_default_zoom(int(default_zoom))
+
         saved_theme_key = settings.value("view/theme_key")
         if saved_theme_key and saved_theme_key != "light":
             theme_manager.set_theme_by_key(saved_theme_key)
@@ -97,6 +107,19 @@ class SettingsMixin:
         saved_color_mode = settings.value("view/color_mode")
         if saved_color_mode in ("color", "monochrome"):
             self._set_color_mode(saved_color_mode)
+
+        saved_wire_thickness = settings.value("view/wire_thickness")
+        if saved_wire_thickness in ("thin", "normal", "thick"):
+            self._set_wire_thickness(saved_wire_thickness)
+
+        saved_junction_dots = settings.value("view/show_junction_dots")
+        if saved_junction_dots is not None:
+            show = saved_junction_dots == "true" or saved_junction_dots is True
+            self._set_show_junction_dots(show)
+
+        saved_routing_mode = settings.value("view/routing_mode")
+        if saved_routing_mode in ("orthogonal", "diagonal"):
+            self._set_routing_mode(saved_routing_mode)
 
     def closeEvent(self, event):
         """Save settings before closing"""

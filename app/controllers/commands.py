@@ -261,6 +261,56 @@ class DeleteWireCommand(Command):
         return "Delete wire"
 
 
+class ToggleWireLockCommand(Command):
+    """Command to lock or unlock a wire's path."""
+
+    def __init__(self, controller, wire_index: int, locked: bool):
+        self.controller = controller
+        self.wire_index = wire_index
+        self.locked = locked
+
+    def execute(self) -> None:
+        """Set the wire's locked state."""
+        if self.wire_index < len(self.controller.model.wires):
+            self.controller.model.wires[self.wire_index].locked = self.locked
+            self.controller._notify("wire_lock_changed", (self.wire_index, self.locked))
+
+    def undo(self) -> None:
+        """Restore previous locked state."""
+        if self.wire_index < len(self.controller.model.wires):
+            self.controller.model.wires[self.wire_index].locked = not self.locked
+            self.controller._notify("wire_lock_changed", (self.wire_index, not self.locked))
+
+    def get_description(self) -> str:
+        return "Lock wire" if self.locked else "Unlock wire"
+
+
+class RerouteWireCommand(Command):
+    """Command to reroute a wire (force fresh pathfinding)."""
+
+    def __init__(self, controller, wire_index: int):
+        self.controller = controller
+        self.wire_index = wire_index
+        self.old_waypoints: list[tuple[float, float]] = []
+
+    def execute(self) -> None:
+        """Save old waypoints and signal that the wire needs rerouting."""
+        if self.wire_index < len(self.controller.model.wires):
+            wire = self.controller.model.wires[self.wire_index]
+            self.old_waypoints = list(wire.waypoints)
+            # Clear waypoints to force fresh pathfinding
+            wire.waypoints = []
+            self.controller._notify("wire_reroute_requested", self.wire_index)
+
+    def undo(self) -> None:
+        """Restore old waypoints."""
+        if self.wire_index < len(self.controller.model.wires):
+            self.controller.update_wire_waypoints(self.wire_index, self.old_waypoints)
+
+    def get_description(self) -> str:
+        return "Reroute wire"
+
+
 class PasteCommand(Command):
     """Command to paste clipboard contents."""
 

@@ -538,6 +538,10 @@ class Ground(ComponentGraphicsItem):
 
         painter.save()
         painter.rotate(self.rotation_angle)
+        sx = -1 if self.model.flip_h else 1
+        sy = -1 if self.model.flip_v else 1
+        if sx != 1 or sy != 1:
+            painter.scale(sx, sy)
 
         if self.isSelected():
             painter.setPen(theme_manager.pen("component_selected"))

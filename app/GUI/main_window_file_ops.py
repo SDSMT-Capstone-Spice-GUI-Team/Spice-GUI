@@ -4,6 +4,7 @@ import json
 import logging
 from pathlib import Path
 
+from PyQt6.QtCore import QSettings
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
@@ -12,6 +13,12 @@ logger = logging.getLogger(__name__)
 
 class FileOperationsMixin:
     """Mixin providing file I/O, clipboard, undo/redo, and examples menu."""
+
+    def _apply_default_zoom(self):
+        """Apply the user's preferred default zoom level to the canvas."""
+        settings = QSettings("SDSMT", "SDM Spice")
+        zoom_percent = int(settings.value("view/default_zoom", 100))
+        self.canvas.set_default_zoom(zoom_percent)
 
     def _on_new(self):
         """Create a new circuit"""
@@ -29,6 +36,7 @@ class FileOperationsMixin:
         # Phase 5: No sync needed - observer pattern handles canvas update
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.results_text.clear()
+        self._apply_default_zoom()
 
     def copy_selected(self):
         """Copy selected components to internal clipboard."""
@@ -79,7 +87,11 @@ class FileOperationsMixin:
             data = json.loads(json_str)
             validate_circuit_data(data)
         except (json.JSONDecodeError, ValueError) as e:
-            QMessageBox.critical(self, "Invalid Circuit Data", f"Clipboard does not contain valid circuit JSON:\n{e}")
+            QMessageBox.critical(
+                self,
+                "Invalid Circuit Data",
+                f"Clipboard does not contain valid circuit JSON:\n{e}",
+            )
             return
 
         if self.model.components:
@@ -169,6 +181,7 @@ class FileOperationsMixin:
                 # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {filename}")
                 self._sync_analysis_menu()
+                self._apply_default_zoom()
                 QMessageBox.information(self, "Success", "Circuit loaded successfully!")
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to load: {e}")
@@ -328,7 +341,10 @@ class FileOperationsMixin:
             return
 
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Export as LTspice Schematic", "", "LTspice Schematics (*.asc);;All Files (*)"
+            self,
+            "Export as LTspice Schematic",
+            "",
+            "LTspice Schematics (*.asc);;All Files (*)",
         )
         if not filename:
             return
@@ -561,6 +577,7 @@ class FileOperationsMixin:
 
             self.setWindowTitle(f"Circuit Design GUI - {filepath.stem} (Template)")
             self._sync_analysis_menu()
+            self._apply_default_zoom()
             self.file_ctrl.current_file = None
             self._set_dirty(True)
         except (OSError, ValueError) as e:
@@ -608,6 +625,7 @@ class FileOperationsMixin:
             self.file_ctrl.load_circuit(filepath)
             self.setWindowTitle(f"Circuit Design GUI - {filepath.name} (Example)")
             self._sync_analysis_menu()
+            self._apply_default_zoom()
             # Don't set as current file (keep it as example, not saved)
             self.file_ctrl.current_file = None
         except (OSError, ValueError) as e:
