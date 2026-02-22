@@ -139,7 +139,7 @@ class MenuBarMixin:
         self.undo_action = undo_action  # Store reference to update enabled state
 
         redo_action = QAction("&Redo", self)
-        redo_action.setShortcut(kb.get("edit.redo"))
+        redo_action.setShortcuts([kb.get("edit.redo"), "Ctrl+Y"])
         redo_action.triggered.connect(self._on_redo)
         edit_menu.addAction(redo_action)
         self.redo_action = redo_action  # Store reference to update enabled state
