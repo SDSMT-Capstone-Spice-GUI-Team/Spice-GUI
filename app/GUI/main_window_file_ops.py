@@ -42,17 +42,32 @@ class FileOperationsMixin:
         """Copy selected components to internal clipboard."""
         ids = self.canvas.get_selected_component_ids()
         if ids:
-            self.canvas.copy_selected_components(ids)
+            self.circuit_ctrl.copy_components(ids)
+            n = len(ids)
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", 2000)
 
     def cut_selected(self):
         """Cut selected components to internal clipboard."""
         ids = self.canvas.get_selected_component_ids()
         if ids:
-            self.canvas.cut_selected_components(ids)
+            self.circuit_ctrl.cut_components(ids)
 
     def paste_components(self):
         """Paste components from internal clipboard."""
-        self.canvas.paste_components()
+        new_comps, new_wires = self.circuit_ctrl.paste_components()
+        if new_comps:
+            # Select newly pasted items on the canvas
+            self.canvas.scene.clearSelection()
+            for comp_data in new_comps:
+                comp_item = self.canvas.components.get(comp_data.component_id)
+                if comp_item is not None:
+                    comp_item.setSelected(True)
+            n = len(new_comps)
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
 
     def copy_circuit_json(self):
         """Copy the entire circuit to system clipboard as JSON."""
