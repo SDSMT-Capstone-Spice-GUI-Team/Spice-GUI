@@ -353,3 +353,54 @@ class TestBatchGradingDialog:
         dialog = BatchGradingDialog()
         qtbot.addWidget(dialog)
         assert not dialog.results_group.isVisible()
+
+    def test_show_comparison_does_not_crash(self, qtbot):
+        """Regression test for #501: NameError on undefined 'result' variable."""
+        from grading.batch_grader import BatchGradingResult
+        from grading.grader import CheckGradeResult, GradingResult
+        from GUI.batch_grading_dialog import BatchGradingDialog
+        from models.grading_session import GradingSessionData
+
+        dialog = BatchGradingDialog()
+        qtbot.addWidget(dialog)
+
+        # Set up a batch result on the dialog
+        gr = GradingResult(
+            student_file="alice.json",
+            rubric_title="Test",
+            total_points=10,
+            earned_points=10,
+            check_results=[
+                CheckGradeResult(
+                    check_id="r1_exists",
+                    passed=True,
+                    points_earned=10,
+                    points_possible=10,
+                    feedback="OK",
+                )
+            ],
+        )
+        dialog._batch_result = BatchGradingResult(
+            rubric_title="Test",
+            total_students=1,
+            successful=1,
+            failed=0,
+            results=[gr],
+        )
+
+        # Build a previous session to compare against
+        old_session = GradingSessionData(
+            rubric_title="Test",
+            results=[
+                {
+                    "student_file": "alice.json",
+                    "rubric_title": "Test",
+                    "total_points": 10,
+                    "earned_points": 5,
+                    "check_results": [],
+                }
+            ],
+        )
+
+        # This previously raised NameError: name 'result' is not defined
+        dialog._show_comparison(old_session)
