@@ -256,7 +256,12 @@ class MonteCarloResultsDialog(QDialog):
             ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
             self._summary.setPlainText("No metric data available.")
         else:
-            ax.hist(values, bins=min(30, max(5, len(values) // 3)), edgecolor="black", alpha=0.7)
+            ax.hist(
+                values,
+                bins=min(30, max(5, len(values) // 3)),
+                edgecolor="black",
+                alpha=0.7,
+            )
             ax.set_xlabel(metric)
             ax.set_ylabel("Count")
             ax.set_title(f"Distribution — {metric}")

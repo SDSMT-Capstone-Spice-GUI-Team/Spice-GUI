@@ -779,7 +779,10 @@ class SimulationMixin:
         from simulation.markdown_exporter import write_markdown
 
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Export Results to Markdown", "", "Markdown Files (*.md);;All Files (*)"
+            self,
+            "Export Results to Markdown",
+            "",
+            "Markdown Files (*.md);;All Files (*)",
         )
         if filename:
             try:

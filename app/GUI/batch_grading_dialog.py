@@ -84,6 +84,11 @@ class BatchGradingDialog(QDialog):
         self.export_btn.setEnabled(False)
         self.export_btn.clicked.connect(self._on_export)
         btn_layout.addWidget(self.export_btn)
+
+        self.save_histogram_btn = QPushButton("Save Histogram")
+        self.save_histogram_btn.setEnabled(False)
+        self.save_histogram_btn.clicked.connect(self._on_save_histogram)
+        btn_layout.addWidget(self.save_histogram_btn)
         layout.addLayout(btn_layout)
 
         # Progress bar
@@ -115,6 +120,8 @@ class BatchGradingDialog(QDialog):
         analytics_layout.addWidget(self.analytics_table)
         self.analytics_group.setVisible(False)
         layout.addWidget(self.analytics_group)
+        # Histogram placeholder (populated after grading)
+        self._histogram_canvas = None
 
     def _on_browse_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Student Submissions Folder")
@@ -171,6 +178,7 @@ class BatchGradingDialog(QDialog):
         self._display_results(self._batch_result)
         self.grade_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
+        self.save_histogram_btn.setEnabled(bool(self._batch_result.results))
         self.progress_label.setText("Grading complete")
 
     def _display_results(self, result: BatchGradingResult):
@@ -228,6 +236,55 @@ class BatchGradingDialog(QDialog):
             elif ca.pass_rate >= 80:
                 rate_item.setForeground(Qt.GlobalColor.darkGreen)
             self.analytics_table.setItem(row, 3, rate_item)
+        # Show histogram if there are results
+        if result.results:
+            self._show_histogram(result)
+
+    def _show_histogram(self, result: BatchGradingResult):
+        """Embed a matplotlib histogram in the results group."""
+        try:
+            from grading.histogram import create_histogram_figure
+            from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+        except ImportError:
+            logger.warning("matplotlib not available for histogram")
+            return
+
+        # Remove previous histogram canvas if re-grading
+        if self._histogram_canvas is not None:
+            self.results_group.layout().removeWidget(self._histogram_canvas)
+            self._histogram_canvas.deleteLater()
+            self._histogram_canvas = None
+
+        fig = create_histogram_figure(result)
+        canvas = FigureCanvas(fig)
+        canvas.setMinimumHeight(250)
+        self.results_group.layout().addWidget(canvas)
+        self._histogram_canvas = canvas
+
+        # Resize dialog to fit histogram
+        self.setMinimumWidth(600)
+
+    def _on_save_histogram(self):
+        """Save the histogram as a PNG file."""
+        if self._batch_result is None or not self._batch_result.results:
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Histogram",
+            "",
+            "PNG Images (*.png);;All Files (*)",
+        )
+        if not filename:
+            return
+
+        try:
+            from grading.histogram import save_histogram_png
+
+            save_histogram_png(self._batch_result, filename)
+            QMessageBox.information(self, "Saved", f"Histogram saved to {filename}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save histogram:\n{e}")
 
     def _on_export(self):
         if self._batch_result is None:

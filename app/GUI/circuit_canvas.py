@@ -1,6 +1,6 @@
 import logging
 
-from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsLineItem,
@@ -104,6 +104,8 @@ class CircuitCanvasView(QGraphicsView):
         self.wire_start_comp = None
         self.wire_start_term = None
         self.temp_wire_line = None  # Temporary line while drawing wire
+        self._wire_waypoints: list[QPointF] = []  # In-progress waypoints (click-to-place)
+        self._wire_waypoint_markers: list = []  # Visual markers for placed waypoints
 
         # Rubber band selection
         self._rubber_band = None
@@ -707,12 +709,23 @@ class CircuitCanvasView(QGraphicsView):
 
                         if can_connect:
                             if self.controller:
+                                # Build manual waypoints if the user clicked intermediate points
+                                manual_wps = None
+                                if self._wire_waypoints:
+                                    start_pos = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+                                    end_pos = clicked_component.get_terminal_pos(target_term)
+                                    manual_wps = (
+                                        [(start_pos.x(), start_pos.y())]
+                                        + [(wp.x(), wp.y()) for wp in self._wire_waypoints]
+                                        + [(end_pos.x(), end_pos.y())]
+                                    )
                                 # Controller creates wire, observer creates graphics item
                                 self.controller.add_wire(
                                     self.wire_start_comp.component_id,
                                     self.wire_start_term,
                                     clicked_component.component_id,
                                     target_term,
+                                    waypoints=manual_wps,
                                 )
                                 self.wireAdded.emit(
                                     self.wire_start_comp.component_id,
@@ -742,9 +755,16 @@ class CircuitCanvasView(QGraphicsView):
                     # Wire completed, allow normal behavior to continue
                     # Don't accept - let event propagate for other handling
 
-            # If we're in wire drawing mode but clicked elsewhere, cancel it
+            # If we're in wire drawing mode but clicked elsewhere, place a waypoint
             elif self.wire_start_comp is not None:
-                self.cancel_wire_drawing()
+                snapped = QPointF(
+                    round(scene_pos.x() / GRID_SIZE) * GRID_SIZE,
+                    round(scene_pos.y() / GRID_SIZE) * GRID_SIZE,
+                )
+                self._wire_waypoints.append(snapped)
+                self._add_waypoint_marker(snapped)
+                event.accept()
+                return
 
             # If we didn't click a terminal, check if we clicked an empty area
             else:
@@ -771,11 +791,14 @@ class CircuitCanvasView(QGraphicsView):
             return
 
         if self.wire_start_comp is not None and self.temp_wire_line is not None:
-            # Update temporary wire to follow mouse
+            # Update temporary wire to follow mouse from last waypoint (or start terminal)
             pos = event.position().toPoint()
             scene_pos = self.mapToScene(pos)
-            start_pos = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
-            self.temp_wire_line.setLine(start_pos.x(), start_pos.y(), scene_pos.x(), scene_pos.y())
+            if self._wire_waypoints:
+                anchor = self._wire_waypoints[-1]
+            else:
+                anchor = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+            self.temp_wire_line.setLine(anchor.x(), anchor.y(), scene_pos.x(), scene_pos.y())
             self.temp_wire_line.update()
             event.accept()
             return
@@ -816,6 +839,27 @@ class CircuitCanvasView(QGraphicsView):
             self.temp_wire_line = None
         self.wire_start_comp = None
         self.wire_start_term = None
+        self._wire_waypoints.clear()
+        self._remove_waypoint_markers()
+
+    def _add_waypoint_marker(self, pos: QPointF):
+        """Draw a small dot at a placed waypoint during wire drawing."""
+        from PyQt6.QtWidgets import QGraphicsEllipseItem
+
+        r = 4
+        marker = QGraphicsEllipseItem(-r, -r, 2 * r, 2 * r)
+        marker.setPos(pos)
+        marker.setBrush(QBrush(theme_manager.color("wire_preview")))
+        marker.setPen(QPen(Qt.PenStyle.NoPen))
+        marker.setZValue(101)
+        self.scene.addItem(marker)
+        self._wire_waypoint_markers.append(marker)
+
+    def _remove_waypoint_markers(self):
+        """Remove all placed-waypoint visual markers."""
+        for marker in self._wire_waypoint_markers:
+            self.scene.removeItem(marker)
+        self._wire_waypoint_markers.clear()
 
     def focusOutEvent(self, event):
         """Cancel wire drawing when the canvas loses focus (e.g. modal dialog opens)."""

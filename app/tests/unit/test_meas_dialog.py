@@ -16,7 +16,12 @@ class TestBuildDirective:
         assert d == ".meas tran avg_out AVG v(out)"
 
     def test_rms_with_range(self):
-        d = build_directive("tran", "rms_out", "RMS", {"variable": "v(out)", "from_val": "1m", "to_val": "10m"})
+        d = build_directive(
+            "tran",
+            "rms_out",
+            "RMS",
+            {"variable": "v(out)", "from_val": "1m", "to_val": "10m"},
+        )
         assert d == ".meas tran rms_out RMS v(out) FROM=1m TO=10m"
 
     def test_min_no_range(self):
@@ -32,7 +37,12 @@ class TestBuildDirective:
         assert d == ".meas tran swing PP v(out)"
 
     def test_integ(self):
-        d = build_directive("tran", "charge", "INTEG", {"variable": "i(R1)", "from_val": "0", "to_val": "5m"})
+        d = build_directive(
+            "tran",
+            "charge",
+            "INTEG",
+            {"variable": "i(R1)", "from_val": "0", "to_val": "5m"},
+        )
         assert d == ".meas tran charge INTEG i(R1) FROM=0 TO=5m"
 
     def test_find_at(self):
@@ -44,13 +54,21 @@ class TestBuildDirective:
             "tran",
             "crossing",
             "FIND_WHEN",
-            {"variable": "v(out)", "when_var": "v(in)", "when_val": "0.5", "cross": "RISE=1"},
+            {
+                "variable": "v(out)",
+                "when_var": "v(in)",
+                "when_val": "0.5",
+                "cross": "RISE=1",
+            },
         )
         assert d == ".meas tran crossing FIND v(out) WHEN v(in)=0.5 RISE=1"
 
     def test_find_when_no_cross(self):
         d = build_directive(
-            "tran", "thresh", "FIND_WHEN", {"variable": "v(out)", "when_var": "v(in)", "when_val": "2.5", "cross": ""}
+            "tran",
+            "thresh",
+            "FIND_WHEN",
+            {"variable": "v(out)", "when_var": "v(in)", "when_val": "2.5", "cross": ""},
         )
         assert d == ".meas tran thresh FIND v(out) WHEN v(in)=2.5"
 
@@ -288,13 +306,23 @@ class TestAnalysisDialogMeasIntegration:
         assert "No measurements" in dialog.meas_label.text()
 
         dialog._measurements = [
-            {"name": "m1", "meas_type": "AVG", "params": {}, "directive": ".meas tran m1 AVG v(out)"},
+            {
+                "name": "m1",
+                "meas_type": "AVG",
+                "params": {},
+                "directive": ".meas tran m1 AVG v(out)",
+            },
         ]
         dialog._update_meas_label()
         assert "1 measurement" in dialog.meas_label.text()
 
         dialog._measurements.append(
-            {"name": "m2", "meas_type": "MAX", "params": {}, "directive": ".meas tran m2 MAX v(out)"},
+            {
+                "name": "m2",
+                "meas_type": "MAX",
+                "params": {},
+                "directive": ".meas tran m2 MAX v(out)",
+            },
         )
         dialog._update_meas_label()
         assert "2 measurements" in dialog.meas_label.text()
