@@ -182,6 +182,27 @@ class TestPasteComponents:
         assert len(ctrl.model.components) == 4
         assert len(ctrl.model.wires) == 2
 
+    def test_paste_then_delete(self, controller):
+        """Pasted components must be deletable (regression: #443)."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.copy_components(["R1"])
+        new_comps, _ = controller.paste_components()
+        pasted_id = new_comps[0].component_id
+        assert pasted_id in controller.model.components
+        controller.remove_component(pasted_id)
+        assert pasted_id not in controller.model.components
+
+    def test_paste_ids_never_collide(self, controller):
+        """Multiple pastes must produce unique IDs (regression: #443)."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.copy_components(["R1"])
+        all_ids = {"R1"}
+        for _ in range(5):
+            new_comps, _ = controller.paste_components()
+            new_id = new_comps[0].component_id
+            assert new_id not in all_ids, f"Duplicate ID: {new_id}"
+            all_ids.add(new_id)
+
 
 class TestCutComponents:
     def test_cut_copies_and_deletes(self, controller, events):
