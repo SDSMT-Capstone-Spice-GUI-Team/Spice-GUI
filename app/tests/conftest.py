@@ -4,8 +4,25 @@ Shared test fixtures for the Spice-GUI test suite.
 All fixtures build pure-Python model objects (no Qt dependencies).
 """
 
+import os
 import sys
 from pathlib import Path
+
+# Prevent matplotlib.use("QtAgg") from failing in headless environments.
+# The monte_carlo_results_dialog module calls matplotlib.use("QtAgg") at
+# import time which raises ImportError when Qt's offscreen platform is active.
+# Patching here ensures the entire test suite can collect and run.
+if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+    import matplotlib
+
+    _orig_mpl_use = matplotlib.use
+
+    def _safe_mpl_use(backend, **kwargs):
+        if backend == "QtAgg":
+            return  # silently skip in headless mode
+        return _orig_mpl_use(backend, **kwargs)
+
+    matplotlib.use = _safe_mpl_use
 
 # Ensure app/ is on sys.path so bare imports (models, simulation, GUI, controllers)
 # work when running individual test files (e.g., python -m pytest app/tests/unit/test_foo.py).

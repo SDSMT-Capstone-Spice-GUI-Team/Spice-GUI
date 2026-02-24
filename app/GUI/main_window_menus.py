@@ -234,6 +234,13 @@ class MenuBarMixin:
 
         edit_menu.addSeparator()
 
+        recommended_action = QAction("Edit &Recommended Components...", self)
+        recommended_action.setToolTip("Edit file-level recommended components shown at the top of the palette")
+        recommended_action.triggered.connect(self._edit_recommended_components)
+        edit_menu.addAction(recommended_action)
+
+        edit_menu.addSeparator()
+
         clear_action = QAction("&Clear Canvas", self)
         clear_action.setShortcut(kb.get("edit.clear"))
         clear_action.triggered.connect(self.clear_canvas)

@@ -821,3 +821,32 @@ class FileOperationsMixin:
 
         circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
         export_to_excel(self._last_results, self._last_results_type, path, circuit_name)
+
+    # --- Recommended / Used-in-File Components ---
+
+    def _edit_recommended_components(self):
+        """Open dialog to edit file-level recommended components."""
+        from .recommended_components_dialog import RecommendedComponentsDialog
+
+        dialog = RecommendedComponentsDialog(self.model.recommended_components, self)
+        if dialog.exec() == RecommendedComponentsDialog.DialogCode.Accepted:
+            new_recs = dialog.get_recommended()
+            self.model.recommended_components = new_recs
+            self.palette.set_recommended_components(new_recs)
+            self._set_dirty(True)
+            statusBar = self.statusBar()
+            if statusBar:
+                count = len(new_recs)
+                statusBar.showMessage(
+                    f"Updated recommended components ({count} selected)" if count else "Cleared recommended components",
+                    3000,
+                )
+
+    def _sync_palette_used_in_file(self):
+        """Update the palette 'Used in File' section from the current model."""
+        used_types = [comp.component_type for comp in self.model.components.values()]
+        self.palette.update_used_in_file(used_types)
+
+    def _sync_palette_recommendations(self):
+        """Update the palette Recommended section from the current model."""
+        self.palette.set_recommended_components(self.model.recommended_components)
