@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Optional
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -24,9 +24,40 @@ from PyQt6.QtWidgets import (
 
 if TYPE_CHECKING:
     from grading.batch_grader import BatchGradingResult
+    from grading.rubric import Rubric
+    from models.circuit import CircuitModel
     from models.grading_session import GradingSessionData
 
 logger = logging.getLogger(__name__)
+
+
+class _GradingWorker(QThread):
+    """Background thread that runs batch grading without freezing the UI."""
+
+    progress = pyqtSignal(int, int, str)
+    finished_grading = pyqtSignal(object)
+
+    def __init__(self, folder: str, rubric: Rubric, reference_circuit: Optional[CircuitModel] = None):
+        super().__init__()
+        self._folder = folder
+        self._rubric = rubric
+        self._reference_circuit = reference_circuit
+
+    def run(self):
+        from grading.batch_grader import BatchGrader
+
+        grader = BatchGrader()
+
+        def progress_callback(current, total, filename):
+            self.progress.emit(current, total, filename)
+
+        result = grader.grade_folder(
+            folder_path=self._folder,
+            rubric=self._rubric,
+            reference_circuit=self._reference_circuit,
+            progress_callback=progress_callback,
+        )
+        self.finished_grading.emit(result)
 
 
 class BatchGradingDialog(QDialog):
@@ -40,6 +71,7 @@ class BatchGradingDialog(QDialog):
         self._rubric = None
         self._batch_result: Optional[BatchGradingResult] = None
         self._loaded_session: Optional[GradingSessionData] = None
+        self._worker: Optional[_GradingWorker] = None
         self._init_ui()
 
     def _init_ui(self):
@@ -174,8 +206,6 @@ class BatchGradingDialog(QDialog):
         self.grade_btn.setEnabled(bool(self.folder_path.text()) and self._rubric is not None)
 
     def _on_grade(self):
-        from grading.batch_grader import BatchGrader
-
         folder = self.folder_path.text()
         if not folder or self._rubric is None:
             return
@@ -184,20 +214,20 @@ class BatchGradingDialog(QDialog):
         self.progress_bar.setValue(0)
         self.grade_btn.setEnabled(False)
 
-        grader = BatchGrader()
+        self._worker = _GradingWorker(folder, self._rubric, self._reference_circuit)
+        self._worker.progress.connect(self._on_worker_progress)
+        self._worker.finished_grading.connect(self._on_grading_finished)
+        self._worker.start()
 
-        def progress_callback(current, total, filename):
-            if total > 0:
-                self.progress_bar.setMaximum(total)
-                self.progress_bar.setValue(current)
-            self.progress_label.setText(f"Grading: {filename}")
+    def _on_worker_progress(self, current: int, total: int, filename: str):
+        if total > 0:
+            self.progress_bar.setMaximum(total)
+            self.progress_bar.setValue(current)
+        self.progress_label.setText(f"Grading: {filename}")
 
-        self._batch_result = grader.grade_folder(
-            folder_path=folder,
-            rubric=self._rubric,
-            reference_circuit=self._reference_circuit,
-            progress_callback=progress_callback,
-        )
+    def _on_grading_finished(self, result):
+        self._worker = None
+        self._batch_result = result
 
         self._display_results(self._batch_result)
         self.grade_btn.setEnabled(True)

@@ -404,3 +404,36 @@ class TestBatchGradingDialog:
 
         # This previously raised NameError: name 'result' is not defined
         dialog._show_comparison(old_session)
+
+    def test_grading_runs_in_background_thread(self, qtbot, tmp_path):
+        """Regression test for #533: grading should run in a QThread, not the UI thread."""
+        from GUI.batch_grading_dialog import BatchGradingDialog, _GradingWorker
+
+        submissions = tmp_path / "submissions"
+        submissions.mkdir()
+        _save_circuit(_build_circuit(), submissions / "student.json")
+
+        rubric = _build_rubric()
+
+        dialog = BatchGradingDialog()
+        qtbot.addWidget(dialog)
+        dialog._rubric = rubric
+        dialog.folder_path.setText(str(submissions))
+
+        # Trigger grading — should launch a _GradingWorker, not block
+        dialog._on_grade()
+        assert dialog._worker is not None
+        assert isinstance(dialog._worker, _GradingWorker)
+
+        # Wait for the worker thread to finish
+        dialog._worker.wait(5000)
+
+        # Process pending signals so _on_grading_finished fires
+        from PyQt6.QtCore import QCoreApplication
+
+        QCoreApplication.processEvents()
+
+        # After finishing, results should be populated
+        assert dialog._batch_result is not None
+        assert dialog._batch_result.successful == 1
+        assert dialog._worker is None  # Worker cleaned up
