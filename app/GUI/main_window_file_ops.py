@@ -683,3 +683,141 @@ class FileOperationsMixin:
             self.file_ctrl.current_file = None
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load example: {e}")
+
+    # ------------------------------------------------------------------
+    # Recent exports tracking and re-export
+    # ------------------------------------------------------------------
+
+    def _track_export(self, path, fmt, export_function):
+        """Record a completed export for the Recent Exports menu."""
+        from .recent_exports import add_recent_export
+
+        add_recent_export(path, fmt, export_function)
+
+    def _populate_recent_exports_menu(self):
+        """Rebuild the Recent Exports submenu from QSettings."""
+        from .recent_exports import get_recent_exports
+
+        menu = self._recent_exports_menu
+        menu.clear()
+        entries = get_recent_exports()
+
+        if not entries:
+            empty = menu.addAction("(no recent exports)")
+            empty.setEnabled(False)
+            return
+
+        for entry in entries:
+            label = f"[{entry['format']}] {Path(entry['path']).name}"
+            action = menu.addAction(label)
+            path = entry["path"]
+            func_name = entry["export_function"]
+            action.triggered.connect(lambda checked=False, p=path, f=func_name: self._re_export_to(p, f))
+
+    def _on_re_export_last(self):
+        """Re-export using the most recent export settings."""
+        from .recent_exports import get_recent_exports
+
+        entries = get_recent_exports()
+        if not entries:
+            QMessageBox.information(self, "Re-export", "No recent exports to repeat.")
+            return
+
+        last = entries[0]
+        self._re_export_to(last["path"], last["export_function"])
+
+    def _re_export_to(self, path, export_function):
+        """Repeat an export operation to the given path."""
+        import os
+
+        try:
+            if export_function == "export_netlist":
+                netlist = self.simulation_ctrl.generate_netlist()
+                with open(path, "w") as f:
+                    f.write(netlist)
+            elif export_function == "export_image":
+                self.canvas.export_image(path, include_grid=False)
+            elif export_function == "export_bom_csv":
+                from simulation.bom_exporter import export_bom_csv, write_bom_csv
+
+                circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+                content = export_bom_csv(self.model.components, circuit_name=circuit_name)
+                write_bom_csv(content, path)
+            elif export_function == "export_bom_excel":
+                from simulation.bom_exporter import export_bom_excel
+
+                circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+                export_bom_excel(self.model.components, path, circuit_name=circuit_name)
+            elif export_function == "export_results_csv":
+                self._re_export_results_csv(path)
+            elif export_function == "export_results_excel":
+                self._re_export_results_excel(path)
+            elif export_function == "export_circuitikz":
+                from simulation.circuitikz_exporter import generate
+
+                content = generate(
+                    self.model.components,
+                    self.model.wires,
+                    self.model.nodes,
+                    self.model.terminal_to_node,
+                )
+                with open(path, "w") as f:
+                    f.write(content)
+            elif export_function == "export_asc":
+                from simulation.asc_exporter import export_asc, write_asc
+
+                content = export_asc(self.model)
+                write_asc(content, path)
+            elif export_function == "export_results_markdown":
+                md = self._get_markdown_content()
+                if md:
+                    from simulation.markdown_exporter import write_markdown
+
+                    write_markdown(md, path)
+            else:
+                QMessageBox.warning(self, "Re-export", f"Unknown export type: {export_function}")
+                return
+
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Re-exported to {Path(path).name}", 3000)
+        except Exception as e:
+            QMessageBox.critical(self, "Re-export Error", f"Failed to re-export:\n{e}")
+
+    def _re_export_results_csv(self, path):
+        """Re-export simulation results to CSV at the given path."""
+        if self._last_results is None:
+            return
+        import os
+
+        from simulation.csv_exporter import (
+            export_ac_results,
+            export_dc_sweep_results,
+            export_noise_results,
+            export_op_results,
+            export_transient_results,
+            write_csv,
+        )
+
+        circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+        dispatch = {
+            "DC Operating Point": export_op_results,
+            "DC Sweep": export_dc_sweep_results,
+            "AC Sweep": export_ac_results,
+            "Transient": export_transient_results,
+            "Noise": export_noise_results,
+        }
+        func = dispatch.get(self._last_results_type)
+        if func:
+            write_csv(func(self._last_results, circuit_name), path)
+
+    def _re_export_results_excel(self, path):
+        """Re-export simulation results to Excel at the given path."""
+        if self._last_results is None:
+            return
+        import os
+
+        from simulation.excel_exporter import export_to_excel
+
+        circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+        export_to_excel(self._last_results, self._last_results_type, path, circuit_name)
