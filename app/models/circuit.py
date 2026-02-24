@@ -30,6 +30,9 @@ class CircuitModel:
 
     annotations: list[AnnotationData] = field(default_factory=list)
 
+    # File-level recommended components (advisory list for palette)
+    recommended_components: list[str] = field(default_factory=list)
+
     # Analysis configuration
     analysis_type: str = "DC Operating Point"
     analysis_params: dict = field(default_factory=dict)
@@ -252,6 +255,7 @@ class CircuitModel:
         self.terminal_to_node.clear()
         self.component_counter.clear()
         self.annotations.clear()
+        self.recommended_components.clear()
         self.analysis_type = "DC Operating Point"
         self.analysis_params = {}
 
@@ -280,6 +284,9 @@ class CircuitModel:
 
         if self.annotations:
             data["annotations"] = [a.to_dict() for a in self.annotations]
+
+        if self.recommended_components:
+            data["recommended_components"] = list(self.recommended_components)
 
         return data
 
@@ -315,5 +322,7 @@ class CircuitModel:
 
         for ann_data in data.get("annotations", []):
             model.annotations.append(AnnotationData.from_dict(ann_data))
+
+        model.recommended_components = list(data.get("recommended_components", []))
 
         return model
