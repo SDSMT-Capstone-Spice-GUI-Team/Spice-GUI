@@ -71,6 +71,72 @@ class TestAnalysisCommands:
         assert ".dc" in netlist
         assert "V1" in netlist
 
+    def test_dc_sweep_uses_selected_source(self):
+        """DC Sweep must use the source specified in params, not always the first (#512)."""
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "V2": make_component("Voltage Source", "V2", "12V", (200, 0)),
+            "R1": make_component("Resistor", "R1", "1k", (100, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "V2", 0),
+            make_wire("V1", 1, "GND1", 0),
+            make_wire("V2", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_b = NodeData(
+            terminals={("R1", 1), ("V2", 0)},
+            wire_indices={1},
+            auto_label="nodeB",
+        )
+        node_gnd = NodeData(
+            terminals={("V1", 1), ("V2", 1), ("GND1", 0)},
+            wire_indices={2, 3},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_b, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_b,
+            ("V2", 0): node_b,
+            ("V1", 1): node_gnd,
+            ("V2", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+        }
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Sweep",
+            analysis_params={"source": "V2", "min": "0", "max": "15", "step": "0.5"},
+        )
+        # Should use V2, not V1
+        assert ".dc V2 0 15 0.5" in netlist
+
+    def test_dc_sweep_fallback_without_source_param(self, simple_resistor_circuit):
+        """Without 'source' in params, DC Sweep should fall back to first voltage source."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Sweep",
+            analysis_params={"min": "0", "max": "10", "step": "0.1"},
+        )
+        assert ".dc V1" in netlist
+
     def test_ac_sweep(self, simple_resistor_circuit):
         components, wires, nodes, t2n = simple_resistor_circuit
         netlist = _generate(
