@@ -329,6 +329,8 @@ class MainWindow(
         if property_name == "value":
             component.value = new_value
             component.update()
+            # Sync to controller model so netlist generation sees the updated value
+            self.circuit_ctrl.update_component_value(component_id, new_value)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
@@ -351,6 +353,10 @@ class MainWindow(
 
         elif property_name == "initial_condition":
             component.initial_condition = new_value
+            # Sync to controller model so netlist generation sees the updated value
+            ctrl_comp = self.circuit_ctrl.model.components.get(component_id)
+            if ctrl_comp:
+                ctrl_comp.initial_condition = new_value
             ic_display = new_value if new_value else "none"
             statusBar = self.statusBar()
             if statusBar:

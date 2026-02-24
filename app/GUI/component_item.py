@@ -223,6 +223,11 @@ class ComponentGraphicsItem(QGraphicsItem):
             _scene = self.scene()
             if _scene is not None:
                 _scene.update()
+            # Sync to controller model so netlist generation sees the updated value
+            if _scene is not None and _scene.views():
+                canvas = _scene.views()[0]
+                if hasattr(canvas, "controller") and canvas.controller:
+                    canvas.controller.update_component_value(self.component_id, new_value)
 
     # --- Geometry ---
 
