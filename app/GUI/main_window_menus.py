@@ -102,6 +102,11 @@ class MenuBarMixin:
         export_asc_action.triggered.connect(self._on_export_asc)
         file_menu.addAction(export_asc_action)
 
+        export_bom_action = QAction("Export &BOM...", self)
+        export_bom_action.setToolTip("Export Bill of Materials listing all components with quantities")
+        export_bom_action.triggered.connect(self._on_export_bom)
+        file_menu.addAction(export_bom_action)
+
         generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
         generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
         generate_report_action.triggered.connect(self._on_generate_report)

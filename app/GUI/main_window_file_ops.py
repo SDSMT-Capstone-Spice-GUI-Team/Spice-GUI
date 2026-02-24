@@ -332,6 +332,44 @@ class FileOperationsMixin:
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Import Error", f"Failed to import LTspice schematic:\n{e}")
 
+    def _on_export_bom(self):
+        """Export a Bill of Materials (BOM) as CSV or Excel."""
+        from simulation.bom_exporter import export_bom_csv, export_bom_excel, write_bom_csv
+
+        if not self.model.components:
+            QMessageBox.information(self, "Export BOM", "Nothing to export — the canvas is empty.")
+            return
+
+        filename, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Export Bill of Materials",
+            "",
+            "CSV Files (*.csv);;Excel Files (*.xlsx);;All Files (*)",
+        )
+        if not filename:
+            return
+
+        try:
+            circuit_name = ""
+            if hasattr(self, "file_ctrl") and self.file_ctrl.current_file:
+                circuit_name = self.file_ctrl.current_file.name
+
+            if filename.lower().endswith(".xlsx") or "Excel" in selected_filter:
+                if not filename.lower().endswith(".xlsx"):
+                    filename += ".xlsx"
+                export_bom_excel(self.model.components, filename, circuit_name=circuit_name)
+            else:
+                if not filename.lower().endswith(".csv"):
+                    filename += ".csv"
+                content = export_bom_csv(self.model.components, circuit_name=circuit_name)
+                write_bom_csv(content, filename)
+
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"BOM exported to {filename}", 3000)
+        except (OSError, Exception) as e:
+            QMessageBox.critical(self, "Error", f"Failed to export BOM: {e}")
+
     def _on_export_asc(self):
         """Export the circuit as an LTspice .asc schematic file."""
         from simulation.asc_exporter import export_asc, write_asc
