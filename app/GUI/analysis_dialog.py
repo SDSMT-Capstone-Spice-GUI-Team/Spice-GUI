@@ -452,7 +452,11 @@ class AnalysisDialog(QDialog):
         """Save current parameters as a named preset."""
         params = self.get_parameters()
         if params is None:
-            QMessageBox.warning(self, "Invalid Parameters", "Please enter valid parameters before saving a preset.")
+            QMessageBox.warning(
+                self,
+                "Invalid Parameters",
+                "Please enter valid parameters before saving a preset.",
+            )
             return
 
         # Remove analysis_type key from params (stored separately)

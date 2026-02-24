@@ -31,6 +31,12 @@ COMPONENT_TOOLTIPS = {
     "Transformer": "Transformer (K) — Coupled inductors / ideal transformer",
 }
 
+# Name for the recommended section in the palette
+_RECOMMENDED_CATEGORY = "Recommended"
+
+# Name for the used-in-file section in the palette
+_USED_IN_FILE_CATEGORY = "Used in File"
+
 
 def create_component_icon(component_type, size=48):
     """Create a QIcon by rendering component symbol to QPixmap"""
@@ -97,6 +103,13 @@ class ComponentPalette(QWidget):
         # Track category items for persistence and search
         self._category_items: dict[str, QTreeWidgetItem] = {}
 
+        # Track the recommended section separately
+        self._recommended_item: QTreeWidgetItem | None = None
+        self._recommended_components: list[str] = []
+
+        # Track the "Used in File" section
+        self._used_in_file_item: QTreeWidgetItem | None = None
+
         # Load saved expanded state
         expanded_state = self._load_expanded_state()
 
@@ -130,10 +143,101 @@ class ComponentPalette(QWidget):
         if item.parent() is not None:
             self.componentDoubleClicked.emit(item.text(0))
 
+    def set_recommended_components(self, component_names: list[str]) -> None:
+        """Set file-level recommended components.
+
+        When recommendations are active a "Recommended" section appears at the
+        top of the palette and all other categories are auto-collapsed.  When
+        the list is empty the section is removed and categories are restored.
+        """
+        # Validate names against known component types
+        valid_names = [n for n in component_names if n in COMPONENTS]
+        self._recommended_components = valid_names
+
+        # Remove previous recommended section if it exists
+        self._remove_recommended_section()
+
+        if not valid_names:
+            # Restore user-preferred expanded state
+            saved_state = self._load_expanded_state()
+            for category_name, category_item in self._category_items.items():
+                category_item.setExpanded(saved_state.get(category_name, True))
+            return
+
+        # Create the Recommended category at the top of the tree
+        rec_item = QTreeWidgetItem()
+        rec_item.setText(0, _RECOMMENDED_CATEGORY)
+        rec_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        bold_font = QFont()
+        bold_font.setBold(True)
+        bold_font.setItalic(True)
+        rec_item.setFont(0, bold_font)
+
+        for component_name in valid_names:
+            child = QTreeWidgetItem(rec_item, [component_name])
+            child.setIcon(0, create_component_icon(component_name))
+            child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, component_name))
+            child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+
+        # Insert at position 0 (top of tree)
+        self.tree_widget.insertTopLevelItem(0, rec_item)
+        rec_item.setExpanded(True)
+        self._recommended_item = rec_item
+
+        # Auto-collapse all other categories when recommendations are active
+        for category_item in self._category_items.values():
+            category_item.setExpanded(False)
+
+    def get_recommended_components(self) -> list[str]:
+        """Return the current list of recommended component names."""
+        return list(self._recommended_components)
+
+    def has_recommendations(self) -> bool:
+        """Return True when file-level recommendations are active."""
+        return self._recommended_item is not None
+
+    def _remove_recommended_section(self) -> None:
+        """Remove the Recommended top-level item if present."""
+        if self._recommended_item is not None:
+            index = self.tree_widget.indexOfTopLevelItem(self._recommended_item)
+            if index >= 0:
+                self.tree_widget.takeTopLevelItem(index)
+            self._recommended_item = None
+
     def _filter_components(self, text):
         """Show/hide components based on search text. Auto-expand matching categories."""
         text = text.lower()
         is_searching = bool(text)
+
+        # Filter the recommended section
+        if self._recommended_item is not None:
+            any_rec_visible = False
+            for i in range(self._recommended_item.childCount()):
+                child = self._recommended_item.child(i)
+                name = child.text(0).lower()
+                tooltip = (child.toolTip(0) or "").lower()
+                matches = text in name or text in tooltip
+                child.setHidden(not matches)
+                if matches:
+                    any_rec_visible = True
+            self._recommended_item.setHidden(not any_rec_visible)
+            if is_searching and any_rec_visible:
+                self._recommended_item.setExpanded(True)
+
+        # Filter the "Used in File" section
+        if self._used_in_file_item is not None:
+            any_uif_visible = False
+            for i in range(self._used_in_file_item.childCount()):
+                child = self._used_in_file_item.child(i)
+                name = child.text(0).lower()
+                tooltip = (child.toolTip(0) or "").lower()
+                matches = text in name or text in tooltip
+                child.setHidden(not matches)
+                if matches:
+                    any_uif_visible = True
+            self._used_in_file_item.setHidden(not any_uif_visible)
+            if is_searching and any_uif_visible:
+                self._used_in_file_item.setExpanded(True)
 
         for category_name, category_item in self._category_items.items():
             any_child_visible = False
@@ -155,9 +259,18 @@ class ComponentPalette(QWidget):
 
         # Restore saved expanded state when search is cleared
         if not is_searching:
-            saved_state = self._load_expanded_state()
-            for category_name, category_item in self._category_items.items():
-                category_item.setExpanded(saved_state.get(category_name, True))
+            if self._recommended_item is not None:
+                # Recommendations active: keep others collapsed
+                for category_item in self._category_items.values():
+                    category_item.setExpanded(False)
+                self._recommended_item.setExpanded(True)
+            else:
+                saved_state = self._load_expanded_state()
+                for category_name, category_item in self._category_items.items():
+                    category_item.setExpanded(saved_state.get(category_name, True))
+            # Keep "Used in File" expanded when not searching
+            if self._used_in_file_item is not None:
+                self._used_in_file_item.setExpanded(True)
 
     def _load_expanded_state(self) -> dict[str, bool]:
         """Load category expanded/collapsed state from QSettings."""
@@ -176,9 +289,67 @@ class ComponentPalette(QWidget):
         # Don't save while searching (search auto-expands categories)
         if self.search_input.text():
             return
+        # Don't persist the recommended section's state or override user
+        # prefs when recommendations auto-collapse categories
+        if self._recommended_item is not None:
+            return
         settings = QSettings("SDSMT", "SDM Spice")
         for category_name, category_item in self._category_items.items():
             settings.setValue(f"palette/expanded/{category_name}", category_item.isExpanded())
+
+    def update_used_in_file(self, component_types: list[str]) -> None:
+        """Show a 'Used in File' section at the top of the palette.
+
+        Derives a unique, sorted list of component types currently placed on
+        the canvas and displays them in a special category above all others.
+        When the list is empty the section is removed.
+        """
+        # Deduplicate and preserve only known types
+        seen: set[str] = set()
+        unique: list[str] = []
+        for ct in component_types:
+            if ct not in seen and ct in COMPONENTS:
+                seen.add(ct)
+                unique.append(ct)
+        unique.sort()
+
+        self._remove_used_in_file_section()
+
+        if not unique:
+            return
+
+        uif_item = QTreeWidgetItem()
+        uif_item.setText(0, _USED_IN_FILE_CATEGORY)
+        uif_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        bold_font = QFont()
+        bold_font.setBold(True)
+        bold_font.setItalic(True)
+        uif_item.setFont(0, bold_font)
+
+        for component_name in unique:
+            child = QTreeWidgetItem(uif_item, [component_name])
+            child.setIcon(0, create_component_icon(component_name))
+            child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, component_name))
+            child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+
+        # Insert after recommended section if present, otherwise at position 0
+        insert_pos = 0
+        if self._recommended_item is not None:
+            idx = self.tree_widget.indexOfTopLevelItem(self._recommended_item)
+            if idx >= 0:
+                insert_pos = idx + 1
+
+        self.tree_widget.insertTopLevelItem(insert_pos, uif_item)
+        uif_item.setExpanded(True)
+        self._used_in_file_item = uif_item
+
+    def _remove_used_in_file_section(self) -> None:
+        """Remove the 'Used in File' top-level item if present."""
+        if self._used_in_file_item is not None:
+            index = self.tree_widget.indexOfTopLevelItem(self._used_in_file_item)
+            if index >= 0:
+                self.tree_widget.takeTopLevelItem(index)
+            self._used_in_file_item = None
 
     def get_all_component_items(self) -> list[QTreeWidgetItem]:
         """Return all component (leaf) items across all categories."""

@@ -43,7 +43,14 @@ class TestAnnotationData:
         assert d["color"] == "#FFFFFF"
 
     def test_from_dict(self):
-        d = {"text": "Loaded", "x": 10.0, "y": 20.0, "font_size": 12, "bold": True, "color": "#00FF00"}
+        d = {
+            "text": "Loaded",
+            "x": 10.0,
+            "y": 20.0,
+            "font_size": 12,
+            "bold": True,
+            "color": "#00FF00",
+        }
         ann = AnnotationData.from_dict(d)
         assert ann.text == "Loaded"
         assert ann.x == 10.0

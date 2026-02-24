@@ -2,11 +2,12 @@
 Unit tests for ComponentPalette.
 
 Tests component listing, signal emission on double-click,
-drag support configuration, search filtering, and collapsible categories.
+drag support configuration, search filtering, collapsible categories,
+recommended components, and used-in-file auto-detection.
 """
 
 import pytest
-from GUI.component_palette import ComponentPalette
+from GUI.component_palette import _RECOMMENDED_CATEGORY, _USED_IN_FILE_CATEGORY, ComponentPalette
 from GUI.styles import COMPONENTS
 from models.component import COMPONENT_CATEGORIES
 from PyQt6.QtCore import QSettings, Qt
@@ -207,3 +208,185 @@ class TestComponentPaletteSettingsPersistence:
         qtbot.addWidget(p2)
         assert not p2._category_items["Passive"].isExpanded()
         assert p2._category_items["Sources"].isExpanded()
+
+
+class TestRecommendedComponents:
+    """Test file-level recommended components section."""
+
+    def test_set_recommended_creates_section(self, palette):
+        palette.set_recommended_components(["Resistor", "Capacitor"])
+        assert palette.has_recommendations()
+        assert palette._recommended_item is not None
+        assert palette._recommended_item.text(0) == _RECOMMENDED_CATEGORY
+
+    def test_set_recommended_children(self, palette):
+        palette.set_recommended_components(["Resistor", "Capacitor"])
+        child_names = [
+            palette._recommended_item.child(i).text(0) for i in range(palette._recommended_item.childCount())
+        ]
+        assert "Resistor" in child_names
+        assert "Capacitor" in child_names
+
+    def test_set_empty_removes_section(self, palette):
+        palette.set_recommended_components(["Resistor"])
+        assert palette.has_recommendations()
+        palette.set_recommended_components([])
+        assert not palette.has_recommendations()
+        assert palette._recommended_item is None
+
+    def test_get_recommended_returns_copy(self, palette):
+        palette.set_recommended_components(["Resistor"])
+        result = palette.get_recommended_components()
+        assert result == ["Resistor"]
+        result.append("Capacitor")
+        assert palette.get_recommended_components() == ["Resistor"]
+
+    def test_invalid_names_filtered_out(self, palette):
+        palette.set_recommended_components(["Resistor", "NotAComponent"])
+        assert palette.get_recommended_components() == ["Resistor"]
+
+    def test_recommended_auto_collapses_categories(self, palette):
+        for cat in palette._category_items.values():
+            assert cat.isExpanded()
+        palette.set_recommended_components(["Resistor"])
+        for cat in palette._category_items.values():
+            assert not cat.isExpanded()
+
+    def test_recommended_is_expanded(self, palette):
+        palette.set_recommended_components(["Resistor"])
+        assert palette._recommended_item.isExpanded()
+
+    def test_recommended_at_tree_top(self, palette):
+        palette.set_recommended_components(["Resistor"])
+        first = palette.tree_widget.topLevelItem(0)
+        assert first.text(0) == _RECOMMENDED_CATEGORY
+
+
+class TestUsedInFile:
+    """Test 'Used in File' auto-detection section."""
+
+    def test_update_creates_section(self, palette):
+        palette.update_used_in_file(["Resistor", "Capacitor"])
+        assert palette._used_in_file_item is not None
+        assert palette._used_in_file_item.text(0) == _USED_IN_FILE_CATEGORY
+
+    def test_update_deduplicates(self, palette):
+        palette.update_used_in_file(["Resistor", "Resistor", "Capacitor"])
+        count = palette._used_in_file_item.childCount()
+        assert count == 2
+
+    def test_update_sorts_types(self, palette):
+        palette.update_used_in_file(["Resistor", "Capacitor"])
+        names = [palette._used_in_file_item.child(i).text(0) for i in range(palette._used_in_file_item.childCount())]
+        assert names == sorted(names)
+
+    def test_update_empty_removes_section(self, palette):
+        palette.update_used_in_file(["Resistor"])
+        assert palette._used_in_file_item is not None
+        palette.update_used_in_file([])
+        assert palette._used_in_file_item is None
+
+    def test_update_filters_invalid_types(self, palette):
+        palette.update_used_in_file(["Resistor", "BogusComponent"])
+        count = palette._used_in_file_item.childCount()
+        assert count == 1
+
+    def test_used_in_file_children_are_draggable(self, palette):
+        palette.update_used_in_file(["Resistor"])
+        child = palette._used_in_file_item.child(0)
+        assert child.flags() & Qt.ItemFlag.ItemIsDragEnabled
+
+    def test_used_in_file_after_recommended(self, palette):
+        palette.set_recommended_components(["Capacitor"])
+        palette.update_used_in_file(["Resistor"])
+        first = palette.tree_widget.topLevelItem(0)
+        second = palette.tree_widget.topLevelItem(1)
+        assert first.text(0) == _RECOMMENDED_CATEGORY
+        assert second.text(0) == _USED_IN_FILE_CATEGORY
+
+    def test_used_in_file_at_top_when_no_recommended(self, palette):
+        palette.update_used_in_file(["Resistor"])
+        first = palette.tree_widget.topLevelItem(0)
+        assert first.text(0) == _USED_IN_FILE_CATEGORY
+
+    def test_used_in_file_is_expanded(self, palette):
+        palette.update_used_in_file(["Resistor"])
+        assert palette._used_in_file_item.isExpanded()
+
+    def test_search_filters_used_in_file(self, palette):
+        palette.update_used_in_file(["Resistor", "Capacitor"])
+        palette.search_input.setText("resistor")
+        for i in range(palette._used_in_file_item.childCount()):
+            child = palette._used_in_file_item.child(i)
+            if child.text(0) == "Resistor":
+                assert not child.isHidden()
+            elif child.text(0) == "Capacitor":
+                assert child.isHidden()
+
+
+class TestRecommendedComponentsDialog:
+    """Test the RecommendedComponentsDialog."""
+
+    def test_dialog_creates(self, qtbot):
+        from GUI.recommended_components_dialog import RecommendedComponentsDialog
+
+        dialog = RecommendedComponentsDialog(["Resistor"], None)
+        qtbot.addWidget(dialog)
+        result = dialog.get_recommended()
+        assert "Resistor" in result
+
+    def test_dialog_empty_recommendations(self, qtbot):
+        from GUI.recommended_components_dialog import RecommendedComponentsDialog
+
+        dialog = RecommendedComponentsDialog([], None)
+        qtbot.addWidget(dialog)
+        assert dialog.get_recommended() == []
+
+    def test_dialog_preserves_recommendations(self, qtbot):
+        from GUI.recommended_components_dialog import RecommendedComponentsDialog
+
+        recs = ["Resistor", "Capacitor"]
+        dialog = RecommendedComponentsDialog(recs, None)
+        qtbot.addWidget(dialog)
+        result = dialog.get_recommended()
+        assert set(result) == set(recs)
+
+
+class TestCircuitModelRecommendedPersistence:
+    """Test that recommended_components persists in CircuitModel serialization."""
+
+    def test_to_dict_includes_recommended(self):
+        from models.circuit import CircuitModel
+
+        model = CircuitModel()
+        model.recommended_components = ["Resistor", "Capacitor"]
+        data = model.to_dict()
+        assert data["recommended_components"] == ["Resistor", "Capacitor"]
+
+    def test_to_dict_omits_empty_recommended(self):
+        from models.circuit import CircuitModel
+
+        model = CircuitModel()
+        data = model.to_dict()
+        assert "recommended_components" not in data
+
+    def test_from_dict_restores_recommended(self):
+        from models.circuit import CircuitModel
+
+        data = {"recommended_components": ["Resistor", "Inductor"]}
+        model = CircuitModel.from_dict(data)
+        assert model.recommended_components == ["Resistor", "Inductor"]
+
+    def test_from_dict_defaults_to_empty(self):
+        from models.circuit import CircuitModel
+
+        model = CircuitModel.from_dict({})
+        assert model.recommended_components == []
+
+    def test_clear_resets_recommended(self):
+        from models.circuit import CircuitModel
+
+        model = CircuitModel()
+        model.recommended_components = ["Resistor"]
+        model.clear()
+        assert model.recommended_components == []

@@ -1,7 +1,7 @@
 """Menu bar construction and keybinding management for MainWindow."""
 
-from PyQt6.QtGui import QAction, QActionGroup
-from PyQt6.QtWidgets import QDialog
+from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
+from PyQt6.QtWidgets import QDialog, QMenu
 
 
 class MenuBarMixin:
@@ -76,6 +76,11 @@ class MenuBarMixin:
         import_asc_action.triggered.connect(self._on_import_asc)
         file_menu.addAction(import_asc_action)
 
+        import_tikz_action = QAction("Import Circui&TikZ LaTeX...", self)
+        import_tikz_action.setToolTip("Import a circuit from CircuiTikZ LaTeX code (.tex)")
+        import_tikz_action.triggered.connect(self._on_import_circuitikz)
+        file_menu.addAction(import_tikz_action)
+
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
         export_netlist_action.setToolTip("Export the generated SPICE netlist to a .cir file")
@@ -107,10 +112,30 @@ class MenuBarMixin:
         export_bom_action.triggered.connect(self._on_export_bom)
         file_menu.addAction(export_bom_action)
 
+        export_markdown_action = QAction("Export Results as &Markdown...", self)
+        export_markdown_action.setToolTip("Export simulation results as a Markdown table (.md file)")
+        export_markdown_action.triggered.connect(self.export_results_markdown)
+        file_menu.addAction(export_markdown_action)
+
         generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
         generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
         generate_report_action.triggered.connect(self._on_generate_report)
         file_menu.addAction(generate_report_action)
+
+        export_bundle_action = QAction("Export Lab &Bundle (.zip)...", self)
+        export_bundle_action.setToolTip("Export all circuit artifacts as a ZIP bundle for lab submission")
+        export_bundle_action.triggered.connect(self._on_export_bundle)
+        file_menu.addAction(export_bundle_action)
+
+        re_export_action = QAction("Re-export &Last", self)
+        re_export_action.setShortcut(QKeySequence("Ctrl+Shift+E"))
+        re_export_action.setToolTip("Repeat the most recent export operation")
+        re_export_action.triggered.connect(self._on_re_export_last)
+        file_menu.addAction(re_export_action)
+
+        self._recent_exports_menu = QMenu("Recent E&xports", self)
+        file_menu.addMenu(self._recent_exports_menu)
+        self._recent_exports_menu.aboutToShow.connect(self._populate_recent_exports_menu)
 
         file_menu.addSeparator()
 
@@ -216,6 +241,13 @@ class MenuBarMixin:
         flip_v_action.setShortcut(kb.get("edit.flip_v"))
         flip_v_action.triggered.connect(lambda: self.canvas.flip_selected(False))
         edit_menu.addAction(flip_v_action)
+
+        edit_menu.addSeparator()
+
+        recommended_action = QAction("Edit &Recommended Components...", self)
+        recommended_action.setToolTip("Edit file-level recommended components shown at the top of the palette")
+        recommended_action.triggered.connect(self._edit_recommended_components)
+        edit_menu.addAction(recommended_action)
 
         edit_menu.addSeparator()
 
@@ -553,6 +585,18 @@ class MenuBarMixin:
             batch_grade_action.triggered.connect(self._on_batch_grade)
             instructor_menu.addAction(batch_grade_action)
 
+            instructor_menu.addSeparator()
+
+            open_assignment_action = QAction("&Open Assignment...", self)
+            open_assignment_action.setToolTip("Open a .spice-assignment bundle (template + rubric)")
+            open_assignment_action.triggered.connect(self._on_open_assignment)
+            instructor_menu.addAction(open_assignment_action)
+
+            save_assignment_action = QAction("&Save as Assignment...", self)
+            save_assignment_action.setToolTip("Bundle the current circuit and a rubric into a .spice-assignment file")
+            save_assignment_action.triggered.connect(self._on_save_assignment)
+            instructor_menu.addAction(save_assignment_action)
+
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")
         if settings_menu:
@@ -565,6 +609,20 @@ class MenuBarMixin:
             keybindings_action = QAction("&Keybindings...", self)
             keybindings_action.triggered.connect(self._open_keybindings_dialog)
             settings_menu.addAction(keybindings_action)
+
+        # Help menu
+        help_menu = menubar.addMenu("&Help")
+        if help_menu:
+            help_action = QAction("&Help Topics...", self)
+            help_action.setShortcut(QKeySequence("F1"))
+            help_action.setToolTip("Open searchable help")
+            help_action.triggered.connect(self._show_help)
+            help_menu.addAction(help_action)
+
+            tutorial_action = QAction("Guided &Tutorial...", self)
+            tutorial_action.setToolTip("Step-by-step tutorial for building your first circuit")
+            tutorial_action.triggered.connect(self._start_tutorial)
+            help_menu.addAction(tutorial_action)
 
     def _open_preferences_dialog(self):
         """Open the unified preferences dialog (single-instance, non-modal)."""

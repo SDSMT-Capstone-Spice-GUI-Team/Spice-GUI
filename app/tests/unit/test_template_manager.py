@@ -166,8 +166,18 @@ class TestLoadTemplate:
             "name": "Test",
             "category": "Test",
             "components": [
-                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}},
-                {"id": "R2", "type": "Resistor", "value": "2k", "pos": {"x": 100, "y": 0}},
+                {
+                    "id": "R1",
+                    "type": "Resistor",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "id": "R2",
+                    "type": "Resistor",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
             ],
             "wires": [],
             "counters": {"R": 2},
@@ -189,9 +199,24 @@ class TestLoadTemplate:
             "name": "Test",
             "category": "Test",
             "components": [
-                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}},
-                {"id": "R3", "type": "Resistor", "value": "2k", "pos": {"x": 100, "y": 0}},
-                {"id": "V1", "type": "VoltageSource", "value": "5V", "pos": {"x": 200, "y": 0}},
+                {
+                    "id": "R1",
+                    "type": "Resistor",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "id": "R3",
+                    "type": "Resistor",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
+                {
+                    "id": "V1",
+                    "type": "VoltageSource",
+                    "value": "5V",
+                    "pos": {"x": 200, "y": 0},
+                },
             ],
             "wires": [],
             "counters": {"R": 999, "V": 999},

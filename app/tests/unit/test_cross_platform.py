@@ -32,7 +32,10 @@ class TestNgspiceRunnerPlatformDetection:
         with (
             patch("shutil.which", return_value=None),
             patch("platform.system", return_value="Linux"),
-            patch("os.path.exists", side_effect=lambda p: (checked_paths.append(p), False)[1]),
+            patch(
+                "os.path.exists",
+                side_effect=lambda p: (checked_paths.append(p), False)[1],
+            ),
         ):
             runner.find_ngspice()
         assert "/usr/bin/ngspice" in checked_paths
@@ -44,7 +47,10 @@ class TestNgspiceRunnerPlatformDetection:
         with (
             patch("shutil.which", return_value=None),
             patch("platform.system", return_value="Darwin"),
-            patch("os.path.exists", side_effect=lambda p: (checked_paths.append(p), False)[1]),
+            patch(
+                "os.path.exists",
+                side_effect=lambda p: (checked_paths.append(p), False)[1],
+            ),
         ):
             runner.find_ngspice()
         assert "/usr/local/bin/ngspice" in checked_paths
@@ -56,7 +62,10 @@ class TestNgspiceRunnerPlatformDetection:
         with (
             patch("shutil.which", return_value=None),
             patch("platform.system", return_value="Windows"),
-            patch("os.path.exists", side_effect=lambda p: (checked_paths.append(p), False)[1]),
+            patch(
+                "os.path.exists",
+                side_effect=lambda p: (checked_paths.append(p), False)[1],
+            ),
         ):
             runner.find_ngspice()
         assert any("ngspice" in p.lower() for p in checked_paths)

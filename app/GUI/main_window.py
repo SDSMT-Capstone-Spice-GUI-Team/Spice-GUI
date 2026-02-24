@@ -7,6 +7,7 @@ MainWindow is composed from focused mixin modules:
 - AnalysisSettingsMixin: analysis type configuration dialogs
 - ViewOperationsMixin: theme, toggles, probe, zoom, image export
 - PrintExportMixin: print, print preview, PDF export
+- HelpMixin: in-app help dialog and guided tutorial
 - SettingsMixin: QSettings persistence, autosave, closeEvent
 """
 
@@ -39,6 +40,7 @@ from .grading_panel import GradingPanel
 from .keybindings import KeybindingsRegistry
 from .main_window_analysis import AnalysisSettingsMixin
 from .main_window_file_ops import FileOperationsMixin
+from .main_window_help import HelpMixin
 from .main_window_menus import MenuBarMixin
 from .main_window_print import PrintExportMixin
 from .main_window_settings import SettingsMixin
@@ -57,6 +59,7 @@ class MainWindow(
     AnalysisSettingsMixin,
     ViewOperationsMixin,
     PrintExportMixin,
+    HelpMixin,
     SettingsMixin,
     QMainWindow,
 ):
@@ -196,6 +199,10 @@ class MainWindow(
         self.btn_export_excel.setEnabled(False)
         self.btn_export_excel.clicked.connect(self.export_results_excel)
         results_header.addWidget(self.btn_export_excel)
+        self.btn_copy_markdown = QPushButton("Copy Markdown")
+        self.btn_copy_markdown.setEnabled(False)
+        self.btn_copy_markdown.clicked.connect(self.copy_results_markdown)
+        results_header.addWidget(self.btn_copy_markdown)
         results_header.addStretch()
         results_layout.addLayout(results_header)
         self.results_text = QTextEdit()
@@ -333,6 +340,8 @@ class MainWindow(
         if property_name == "value":
             component.value = new_value
             component.update()
+            # Sync to controller model so netlist generation sees the updated value
+            self.circuit_ctrl.update_component_value(component_id, new_value)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
@@ -355,6 +364,10 @@ class MainWindow(
 
         elif property_name == "initial_condition":
             component.initial_condition = new_value
+            # Sync to controller model so netlist generation sees the updated value
+            ctrl_comp = self.circuit_ctrl.model.components.get(component_id)
+            if ctrl_comp:
+                ctrl_comp.initial_condition = new_value
             ic_display = new_value if new_value else "none"
             statusBar = self.statusBar()
             if statusBar:

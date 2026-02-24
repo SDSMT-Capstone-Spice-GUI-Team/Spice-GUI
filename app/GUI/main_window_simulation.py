@@ -191,6 +191,7 @@ class SimulationMixin:
         if self._last_results is not None:
             self.btn_export_csv.setEnabled(True)
             self.btn_export_excel.setEnabled(True)
+            self.btn_copy_markdown.setEnabled(True)
 
     def _display_simulation_errors(self, result):
         """Display validation/simulation errors in the results panel."""
@@ -729,3 +730,65 @@ class SimulationMixin:
                     statusBar.showMessage(f"Results exported to {filename}", 3000)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export Excel: {e}")
+
+    def _get_markdown_content(self):
+        """Generate Markdown content from the last simulation results."""
+        if self._last_results is None:
+            return None
+
+        from simulation.markdown_exporter import (
+            export_ac_results,
+            export_dc_sweep_results,
+            export_noise_results,
+            export_op_results,
+            export_transient_results,
+        )
+
+        circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+
+        if self._last_results_type == "DC Operating Point":
+            return export_op_results(self._last_results, circuit_name)
+        elif self._last_results_type == "DC Sweep":
+            return export_dc_sweep_results(self._last_results, circuit_name)
+        elif self._last_results_type == "AC Sweep":
+            return export_ac_results(self._last_results, circuit_name)
+        elif self._last_results_type == "Transient":
+            return export_transient_results(self._last_results, circuit_name)
+        elif self._last_results_type == "Noise":
+            return export_noise_results(self._last_results, circuit_name)
+        return None
+
+    def copy_results_markdown(self):
+        """Copy the last simulation results as Markdown to the clipboard."""
+        md_content = self._get_markdown_content()
+        if md_content is None:
+            return
+
+        clipboard = QApplication.clipboard()
+        clipboard.setText(md_content)
+        statusBar = self.statusBar()
+        if statusBar:
+            statusBar.showMessage("Results copied as Markdown", 3000)
+
+    def export_results_markdown(self):
+        """Export the last simulation results to a Markdown (.md) file."""
+        md_content = self._get_markdown_content()
+        if md_content is None:
+            return
+
+        from simulation.markdown_exporter import write_markdown
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Results to Markdown",
+            "",
+            "Markdown Files (*.md);;All Files (*)",
+        )
+        if filename:
+            try:
+                write_markdown(md_content, filename)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(f"Results exported to {filename}", 3000)
+            except OSError as e:
+                QMessageBox.critical(self, "Error", f"Failed to export Markdown: {e}")
