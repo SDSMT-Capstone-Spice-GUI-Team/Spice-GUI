@@ -209,7 +209,10 @@ class TestSavePlot:
         ax.set_title("Test")
 
         out = tmp_path / "plot.png"
-        with patch("GUI.results_plot_dialog.QFileDialog.getSaveFileName", return_value=(str(out), "")):
+        with patch(
+            "GUI.results_plot_dialog.QFileDialog.getSaveFileName",
+            return_value=(str(out), ""),
+        ):
             result = save_plot(fig)
 
         assert result == str(out)
@@ -222,7 +225,10 @@ class TestSavePlot:
         ax.plot([0, 1], [0, 1])
 
         out = tmp_path / "plot.svg"
-        with patch("GUI.results_plot_dialog.QFileDialog.getSaveFileName", return_value=(str(out), "")):
+        with patch(
+            "GUI.results_plot_dialog.QFileDialog.getSaveFileName",
+            return_value=(str(out), ""),
+        ):
             result = save_plot(fig)
 
         assert result == str(out)

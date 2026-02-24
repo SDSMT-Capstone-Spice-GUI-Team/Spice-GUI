@@ -394,6 +394,46 @@ class FileController:
 
         return warnings
 
+    def import_circuitikz(self, filepath) -> list[str]:
+        """Import a CircuiTikZ LaTeX file into the current model.
+
+        Parses the LaTeX code, maps CircuiTikZ components to Spice-GUI
+        types, reconstructs wire connections, and reverses the coordinate
+        transform.
+
+        Args:
+            filepath: Path or string to the .tex file.
+
+        Returns:
+            List of warning messages (unsupported components, etc.)
+
+        Raises:
+            OSError: If the file cannot be read.
+            simulation.circuitikz_parser.CircuitikzParseError: If parsing fails.
+        """
+        from simulation.circuitikz_parser import import_circuitikz
+
+        filepath = Path(filepath)
+        with open(filepath, "r") as f:
+            text = f.read()
+
+        new_model, warnings = import_circuitikz(text)
+
+        self.model.clear()
+        self.model.components = new_model.components
+        self.model.wires = new_model.wires
+        self.model.nodes = new_model.nodes
+        self.model.terminal_to_node = new_model.terminal_to_node
+        self.model.component_counter = new_model.component_counter
+
+        self.current_file = None
+        self.add_recent_file(filepath)
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify("model_loaded", None)
+
+        return warnings
+
     def clear_auto_save(self) -> None:
         """Delete the auto-save recovery file if it exists."""
         try:

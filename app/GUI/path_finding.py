@@ -23,7 +23,16 @@ class WeightedPathfinder(ABC):
     # 4-direction orthogonal moves
     ORTHOGONAL_DIRS = [(0, 1), (0, -1), (1, 0), (-1, 0)]
     # 8-direction moves (orthogonal + diagonal)
-    DIAGONAL_DIRS = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+    DIAGONAL_DIRS = [
+        (0, 1),
+        (0, -1),
+        (1, 0),
+        (-1, 0),
+        (1, 1),
+        (1, -1),
+        (-1, 1),
+        (-1, -1),
+    ]
     SQRT2 = math.sqrt(2)
 
     def __init__(self, grid_size=20, allow_diagonal=False):

@@ -7,11 +7,58 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from models.wire import WireData
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QBrush, QPainterPath, QPainterPathStroker, QPen
-from PyQt6.QtWidgets import QGraphicsPathItem
+from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem
 
 from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, theme_manager
 
+# Radius of the draggable waypoint handles (in scene units)
+_HANDLE_RADIUS = 5
+
 logger = logging.getLogger(__name__)
+
+
+class WaypointHandle(QGraphicsEllipseItem):
+    """Small draggable circle displayed at a wire waypoint.
+
+    When the user drags a handle the parent wire's waypoints list is
+    updated in real time and the wire path is redrawn.  On release the
+    model is synced and the wire is marked locked so auto-rerouting
+    won't overwrite the manual adjustment.
+    """
+
+    def __init__(self, wire: "WireGraphicsItem", index: int, pos: QPointF):
+        r = _HANDLE_RADIUS
+        super().__init__(-r, -r, 2 * r, 2 * r)
+        self._wire = wire
+        self._index = index
+        self.setPos(pos)
+        self.setBrush(QBrush(theme_manager.color("wire_selected")))
+        self.setPen(QPen(Qt.GlobalColor.white, 1))
+        self.setZValue(200)  # Above everything
+        self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.setCursor(Qt.CursorShape.SizeAllCursor)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsEllipseItem.GraphicsItemChange.ItemPositionHasChanged:
+            new_pos = value
+            # Snap to grid
+            snapped = QPointF(
+                round(new_pos.x() / GRID_SIZE) * GRID_SIZE,
+                round(new_pos.y() / GRID_SIZE) * GRID_SIZE,
+            )
+            self._wire._move_waypoint(self._index, snapped)
+        return super().itemChange(change, value)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        # Snap position visually after drag
+        snapped = QPointF(
+            round(self.pos().x() / GRID_SIZE) * GRID_SIZE,
+            round(self.pos().y() / GRID_SIZE) * GRID_SIZE,
+        )
+        self.setPos(snapped)
+        self._wire._finish_waypoint_drag()
 
 
 class WireGraphicsItem(QGraphicsPathItem):
@@ -64,8 +111,11 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         self.waypoints = []  # List of QPointF waypoints (computed during routing)
 
+        self._waypoint_handles: list[WaypointHandle] = []
+
         self.setPen(QPen(self.layer_color, theme_manager.wire_thickness_px))
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemSendsGeometryChanges)
         self.setZValue(1)  # Render wires above components (z=0)
 
         if self.model.waypoints:
@@ -284,6 +334,78 @@ class WireGraphicsItem(QGraphicsPathItem):
         stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
         stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         return stroker.createStroke(self.path())
+
+    # --- Waypoint handle management ---
+
+    def itemChange(self, change, value):
+        """Show / hide waypoint handles when selection state changes."""
+        if change == QGraphicsPathItem.GraphicsItemChange.ItemSelectedHasChanged:
+            if value:
+                self._show_handles()
+            else:
+                self._hide_handles()
+        return super().itemChange(change, value)
+
+    def _show_handles(self):
+        """Create draggable handles at each interior waypoint."""
+        self._hide_handles()
+        if len(self.waypoints) < 3:
+            return  # Only start/end — nothing to drag
+        scene = self.scene()
+        if scene is None:
+            return
+        for i, wp in enumerate(self.waypoints):
+            if i == 0 or i == len(self.waypoints) - 1:
+                continue  # Skip terminal endpoints
+            pt = wp if isinstance(wp, QPointF) else QPointF(wp[0], wp[1])
+            handle = WaypointHandle(self, i, pt)
+            scene.addItem(handle)
+            self._waypoint_handles.append(handle)
+
+    def _hide_handles(self):
+        """Remove all waypoint handles from the scene."""
+        scene = self.scene()
+        for handle in self._waypoint_handles:
+            if scene:
+                scene.removeItem(handle)
+        self._waypoint_handles.clear()
+
+    def _move_waypoint(self, index: int, new_pos: QPointF):
+        """Called by WaypointHandle during drag to update the wire path."""
+        if 0 < index < len(self.waypoints):
+            self.waypoints[index] = new_pos
+            self._rebuild_path_from_waypoints()
+
+    def _finish_waypoint_drag(self):
+        """Called by WaypointHandle on mouse release to persist changes."""
+        # Sync to model
+        self.model.waypoints = [
+            (
+                wp.x() if isinstance(wp, QPointF) else wp[0],
+                wp.y() if isinstance(wp, QPointF) else wp[1],
+            )
+            for wp in self.waypoints
+        ]
+        self.model.locked = True
+        # Notify controller if available
+        if self.canvas and hasattr(self.canvas, "controller") and self.canvas.controller:
+            self.canvas.controller._notify("wire_routed", self.model)
+
+    def _rebuild_path_from_waypoints(self):
+        """Rebuild the QPainterPath from the current waypoints list."""
+        old_rect = self.boundingRect()
+        self.prepareGeometryChange()
+        path = QPainterPath()
+        if self.waypoints:
+            first = self.waypoints[0]
+            path.moveTo(first if isinstance(first, QPointF) else QPointF(first[0], first[1]))
+            for wp in self.waypoints[1:]:
+                path.lineTo(wp if isinstance(wp, QPointF) else QPointF(wp[0], wp[1]))
+        self.setPath(path)
+        if self.scene():
+            self.scene().update(old_rect)
+            self.scene().update(self.boundingRect())
+        self.update()
 
     def get_terminals(self):
         """Get both terminal identifiers for this wire"""

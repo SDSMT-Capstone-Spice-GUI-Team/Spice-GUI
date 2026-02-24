@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import QMainWindow
 
 
 class TestMixinClassesImportable:
-    """Verify all 7 mixin classes can be imported."""
+    """Verify all 8 mixin classes can be imported."""
 
     def test_menu_bar_mixin(self):
         from GUI.main_window_menus import MenuBarMixin
@@ -53,6 +53,11 @@ class TestMixinClassesImportable:
         from GUI.main_window_settings import SettingsMixin
 
         assert SettingsMixin is not None
+
+    def test_help_mixin(self):
+        from GUI.main_window_help import HelpMixin
+
+        assert HelpMixin is not None
 
 
 class TestMainWindowInheritsAllMixins:
@@ -100,6 +105,12 @@ class TestMainWindowInheritsAllMixins:
 
         assert issubclass(MainWindow, SettingsMixin)
 
+    def test_inherits_help_mixin(self):
+        from GUI.main_window import MainWindow
+        from GUI.main_window_help import HelpMixin
+
+        assert issubclass(MainWindow, HelpMixin)
+
     def test_inherits_qmainwindow(self):
         from GUI.main_window import MainWindow
 
@@ -118,7 +129,11 @@ class TestMainWindowHasAllExpectedMethods:
     def test_menu_methods(self):
         from GUI.main_window import MainWindow
 
-        for method in ["create_menu_bar", "_open_keybindings_dialog", "_apply_keybindings"]:
+        for method in [
+            "create_menu_bar",
+            "_open_keybindings_dialog",
+            "_apply_keybindings",
+        ]:
             assert hasattr(MainWindow, method), f"Missing: {method}"
 
     def test_file_operation_methods(self):

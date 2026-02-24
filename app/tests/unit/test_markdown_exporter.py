@@ -75,18 +75,30 @@ class TestExportDcSweepResults:
 
 class TestExportAcResults:
     def test_contains_frequency_header(self):
-        data = {"frequencies": [100.0], "magnitude": {"out": [1.0]}, "phase": {"out": [45.0]}}
+        data = {
+            "frequencies": [100.0],
+            "magnitude": {"out": [1.0]},
+            "phase": {"out": [45.0]},
+        }
         md = export_ac_results(data)
         assert "Frequency (Hz)" in md
 
     def test_contains_mag_and_phase(self):
-        data = {"frequencies": [100.0], "magnitude": {"out": [1.0]}, "phase": {"out": [45.0]}}
+        data = {
+            "frequencies": [100.0],
+            "magnitude": {"out": [1.0]},
+            "phase": {"out": [45.0]},
+        }
         md = export_ac_results(data)
         assert "|V(out)|" in md
         assert "phase(V(out))" in md
 
     def test_data_values(self):
-        data = {"frequencies": [1000.0], "magnitude": {"out": [0.707]}, "phase": {"out": [-45.0]}}
+        data = {
+            "frequencies": [1000.0],
+            "magnitude": {"out": [0.707]},
+            "phase": {"out": [-45.0]},
+        }
         md = export_ac_results(data)
         assert "1000" in md
         assert "0.707" in md
@@ -113,20 +125,32 @@ class TestExportTransientResults:
 
 class TestExportNoiseResults:
     def test_contains_headers(self):
-        data = {"frequencies": [100.0], "onoise_spectrum": [1e-6], "inoise_spectrum": [2e-6]}
+        data = {
+            "frequencies": [100.0],
+            "onoise_spectrum": [1e-6],
+            "inoise_spectrum": [2e-6],
+        }
         md = export_noise_results(data)
         assert "Frequency (Hz)" in md
         assert "Output Noise" in md
         assert "Input Noise" in md
 
     def test_data_values(self):
-        data = {"frequencies": [1000.0], "onoise_spectrum": [1.5e-6], "inoise_spectrum": []}
+        data = {
+            "frequencies": [1000.0],
+            "onoise_spectrum": [1.5e-6],
+            "inoise_spectrum": [],
+        }
         md = export_noise_results(data)
         assert "1000" in md
         assert "1.5e-06" in md
 
     def test_omits_empty_columns(self):
-        data = {"frequencies": [100.0], "onoise_spectrum": [1e-6], "inoise_spectrum": []}
+        data = {
+            "frequencies": [100.0],
+            "onoise_spectrum": [1e-6],
+            "inoise_spectrum": [],
+        }
         md = export_noise_results(data)
         assert "Output Noise" in md
         assert "Input Noise" not in md

@@ -30,6 +30,13 @@ _app_dir = str(Path(__file__).resolve().parent.parent)
 if _app_dir not in sys.path:
     sys.path.insert(0, _app_dir)
 
+# Create QApplication before any matplotlib import so the QtAgg backend works.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+from PyQt6.QtWidgets import QApplication as _QApp
+
+if _QApp.instance() is None:
+    _qapp_instance = _QApp([])
+
 import pytest
 from models.component import ComponentData
 from models.node import NodeData, reset_node_counter
