@@ -4,6 +4,7 @@ Shared test fixtures for the Spice-GUI test suite.
 All fixtures build pure-Python model objects (no Qt dependencies).
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -12,6 +13,13 @@ from pathlib import Path
 _app_dir = str(Path(__file__).resolve().parent.parent)
 if _app_dir not in sys.path:
     sys.path.insert(0, _app_dir)
+
+# Create QApplication before any matplotlib import so the QtAgg backend works.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+from PyQt6.QtWidgets import QApplication as _QApp
+
+if _QApp.instance() is None:
+    _qapp_instance = _QApp([])
 
 import pytest
 from models.component import ComponentData
