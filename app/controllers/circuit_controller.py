@@ -48,6 +48,7 @@ class CircuitController:
         self._observers: list[Callable[[str, Any], None]] = []
         self._clipboard = ClipboardData()
         self.undo_manager = UndoManager(max_depth=max_undo_depth)
+        self._locked_components: set[str] = set()
 
     def add_observer(self, callback: Callable[[str, Any], None]) -> None:
         """Register a callback for model change events."""
@@ -98,7 +99,11 @@ class CircuitController:
         Remove a component and all connected wires.
 
         Wires are removed in reverse index order to preserve indices.
+        Locked components cannot be removed.
         """
+        if self.is_component_locked(component_id):
+            logger.info("Cannot remove locked component: %s", component_id)
+            return
         wire_indices = self.model.remove_component(component_id)
         for idx in sorted(wire_indices, reverse=True):
             self.model.remove_wire(idx)
@@ -106,7 +111,9 @@ class CircuitController:
         self._notify("component_removed", component_id)
 
     def rotate_component(self, component_id: str, clockwise: bool = True) -> None:
-        """Rotate a component 90 degrees."""
+        """Rotate a component 90 degrees. Locked components cannot be rotated."""
+        if self.is_component_locked(component_id):
+            return
         component = self.model.components.get(component_id)
         if component is None:
             return
@@ -115,7 +122,9 @@ class CircuitController:
         self._notify("component_rotated", component)
 
     def flip_component(self, component_id: str, horizontal: bool = True) -> None:
-        """Flip (mirror) a component horizontally or vertically."""
+        """Flip (mirror) a component. Locked components cannot be flipped."""
+        if self.is_component_locked(component_id):
+            return
         component = self.model.components.get(component_id)
         if component is None:
             return
@@ -126,7 +135,9 @@ class CircuitController:
         self._notify("component_flipped", component)
 
     def update_component_value(self, component_id: str, value: str) -> None:
-        """Update a component's value."""
+        """Update a component's value. Locked components cannot be changed."""
+        if self.is_component_locked(component_id):
+            return
         component = self.model.components.get(component_id)
         if component is None:
             return
@@ -134,12 +145,34 @@ class CircuitController:
         self._notify("component_value_changed", component)
 
     def move_component(self, component_id: str, position: tuple[float, float]) -> None:
-        """Move a component to a new position."""
+        """Move a component to a new position. Locked components cannot be moved."""
+        if self.is_component_locked(component_id):
+            return
         component = self.model.components.get(component_id)
         if component is None:
             return
         component.position = position
         self._notify("component_moved", component)
+
+    # --- Locked component management ---
+
+    def set_locked_components(self, component_ids: list[str]) -> None:
+        """Set which components are locked (non-editable by students)."""
+        self._locked_components = set(component_ids)
+        self._notify("locked_components_changed", list(self._locked_components))
+
+    def is_component_locked(self, component_id: str) -> bool:
+        """Check if a component is locked."""
+        return component_id in self._locked_components
+
+    def get_locked_components(self) -> set[str]:
+        """Return the set of locked component IDs."""
+        return set(self._locked_components)
+
+    def clear_locked_components(self) -> None:
+        """Remove all component locks."""
+        self._locked_components.clear()
+        self._notify("locked_components_changed", [])
 
     # --- Wire operations ---
 
