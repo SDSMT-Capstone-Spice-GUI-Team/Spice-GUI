@@ -8,6 +8,19 @@ import os
 import sys
 from pathlib import Path
 
+# Prevent matplotlib.use("QtAgg") from failing in headless environments.
+if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+    import matplotlib
+
+    _orig_mpl_use = matplotlib.use
+
+    def _safe_mpl_use(backend, **kwargs):
+        if backend == "QtAgg":
+            return
+        return _orig_mpl_use(backend, **kwargs)
+
+    matplotlib.use = _safe_mpl_use
+
 # Ensure app/ is on sys.path so bare imports (models, simulation, GUI, controllers)
 # work when running individual test files (e.g., python -m pytest app/tests/unit/test_foo.py).
 _app_dir = str(Path(__file__).resolve().parent.parent)
