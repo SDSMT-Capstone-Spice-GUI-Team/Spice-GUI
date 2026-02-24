@@ -30,9 +30,17 @@ def export_gradebook_csv(result: BatchGradingResult, filepath: str) -> None:
             writer.writerow(["No results to export"])
         return
 
-    # Build header from first result's check IDs
-    first = result.results[0]
-    check_headers = [f"{cr.check_id} ({cr.points_possible}pts)" for cr in first.check_results]
+    # Collect all unique check IDs across all results (preserving first-seen order)
+    check_columns: list[tuple[str, int]] = []  # (check_id, points_possible)
+    seen_ids: set[str] = set()
+    for gr in result.results:
+        for cr in gr.check_results:
+            if cr.check_id not in seen_ids:
+                seen_ids.add(cr.check_id)
+                check_columns.append((cr.check_id, cr.points_possible))
+
+    check_headers = [f"{cid} ({pts}pts)" for cid, pts in check_columns]
+    check_ids = [cid for cid, _ in check_columns]
 
     header = ["Student File", "Total Score", "Percentage"] + check_headers
 
@@ -46,8 +54,9 @@ def export_gradebook_csv(result: BatchGradingResult, filepath: str) -> None:
                 f"{gr.earned_points}/{gr.total_points}",
                 f"{gr.percentage:.1f}%",
             ]
-            for cr in gr.check_results:
-                row.append(cr.points_earned)
+            scores_by_id = {cr.check_id: cr.points_earned for cr in gr.check_results}
+            for cid in check_ids:
+                row.append(scores_by_id.get(cid, ""))
             writer.writerow(row)
 
         # Summary row
