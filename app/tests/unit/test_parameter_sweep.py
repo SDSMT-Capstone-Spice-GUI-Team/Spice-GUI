@@ -302,6 +302,22 @@ class TestParameterSweepExecution:
         values = result.data["sweep_values"]
         assert values == [100, 200, 300, 400, 500]
 
+    def test_sweep_single_step_no_division_error(self):
+        """num_steps=1 must not raise ZeroDivisionError (#528)."""
+        ctrl, mock_runner = self._make_ctrl_with_mock_runner()
+        config = {
+            "component_id": "R1",
+            "start": 1000,
+            "stop": 5000,
+            "num_steps": 1,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {"analysis_type": "DC Operating Point"},
+        }
+        result = ctrl.run_parameter_sweep(config)
+        assert result.success
+        assert result.data["sweep_values"] == [1000]
+        assert mock_runner.run_simulation.call_count == 1
+
 
 class TestParameterSweepSingleStep:
     """Issue #495: num_steps=1 must not cause ZeroDivisionError."""
