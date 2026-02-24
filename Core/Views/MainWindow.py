@@ -1,12 +1,10 @@
 import sys
-from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
-    QCursor, QFont, QFontDatabase, QGradient,
-    QIcon, QImage, QKeySequence, QLinearGradient,
-    QPainter, QPalette, QPixmap, QRadialGradient,
-    QTransform)
-from PySide6 import QtWidgets, QtCore
-from PySide6.QtWidgets import (QApplication, QDockWidget, QMainWindow, QMenu,
-    QMenuBar, QSizePolicy, QStatusBar, QWidget)
+from PyQt6 import QtCore, QtWidgets
+from PyQt6.QtGui import QAction
+
+from Core.Views.ComponentPalette import ComponentPalette
+from Core.Views.PropertiesPanel import PropertiesPanel
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -26,7 +24,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         #Setup Component Palette
         left_panel = QtWidgets.QVBoxLayout()
-        left_panel.addWidget(QtWidgets.QLabel("Component Palette"))
+        self.components = ComponentPalette()
+        left_panel.addWidget(self.components)
         main_layout.addLayout(left_panel)
 
         #Setup Canvas and Results
@@ -37,7 +36,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         #Setup Properties Panel
         right_panel = QtWidgets.QVBoxLayout()
-        right_panel.addWidget(QtWidgets.QLabel("Properties"))
+        self.propertiesPanel = PropertiesPanel()
+        right_panel.addWidget(self.propertiesPanel)
         main_layout.addLayout(right_panel)
 
     def __init_menubar(self):
@@ -109,7 +109,7 @@ class MyWidget(QtWidgets.QWidget):
         self.loadCircuitButton = QtWidgets.QPushButton("Load Circuit")
         self.preferencesButton = QtWidgets.QPushButton("Preferences")
         self.aboutButton = QtWidgets.QPushButton("About SDM-Spice")
-        self.text = QtWidgets.QLabel("Welcome to SDM-Spice", alignment=QtCore.Qt.AlignCenter)
+        self.text = QtWidgets.QLabel("Welcome to SDM-Spice")
         self.image = QtWidgets.QLabel("I'm a picture, shhhhhh")
 
         self.layout = QtWidgets.QGridLayout(self)
@@ -138,7 +138,7 @@ def main():
     widget = MyWidget()
     widget.show()
 
-    with open("darkMode.qss", "r") as file:
+    with open("../darkMode.qss", "r") as file:
         _style = file.read()
         app.setStyleSheet(_style)
 
