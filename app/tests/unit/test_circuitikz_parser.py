@@ -232,6 +232,71 @@ class TestControlledSourceDisambiguation:
         assert reimported.components["F1"].component_type == "CCCS"
 
 
+class TestFourTerminalControlPair:
+    """Issue #523: 4-terminal component control pair lost during reimport."""
+
+    def test_vcvs_control_pair_imported(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (4.5, 0.5) to[american controlled voltage source, l=$E1$, a={10}] (4.5, -0.5);
+  \draw[dashed] (1.5, 0.5) to[short] (1.5, -0.5); % ctrl: E1
+\end{circuitikz}
+"""
+        model, warnings = import_circuitikz(tex)
+        assert "E1" in model.components
+        comp = model.components["E1"]
+        assert comp.component_type == "VCVS"
+        # 4-terminal component should have 4 terminal positions recorded
+        terms = comp.get_terminal_positions()
+        assert len(terms) == 4
+
+    def test_vccs_control_pair_imported(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (4.5, 0.5) to[american controlled current source, l=$G1$, a={1m}] (4.5, -0.5);
+  \draw[dashed] (1.5, 0.5) to[short] (1.5, -0.5); % ctrl: G1
+\end{circuitikz}
+"""
+        model, warnings = import_circuitikz(tex)
+        comp = model.components["G1"]
+        assert comp.component_type == "VCCS"
+        terms = comp.get_terminal_positions()
+        assert len(terms) == 4
+
+    def test_full_round_trip_four_terminal(self):
+        """Export a VCVS and reimport — all 4 terminal positions should survive."""
+        from models.circuit import CircuitModel
+        from models.component import ComponentData
+        from simulation.circuitikz_exporter import generate
+
+        vcvs = ComponentData("E1", "VCVS", "10", position=(100, 100))
+        model = CircuitModel()
+        model.add_component(vcvs)
+        model.rebuild_nodes()
+
+        tex = generate(model.components, model.wires, model.nodes, model.terminal_to_node)
+        reimported, warnings = import_circuitikz(tex)
+
+        assert len(warnings) == 0
+        comp = reimported.components["E1"]
+        assert comp.component_type == "VCVS"
+        terms = comp.get_terminal_positions()
+        assert len(terms) == 4
+
+    def test_vc_switch_control_pair_imported(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (4.5, 0.5) to[closing switch, l=$S1$, a={VT=2.5 RON=1 ROFF=1e6}] (4.5, -0.5);
+  \draw[dashed] (1.5, 0.5) to[short] (1.5, -0.5); % ctrl: S1
+\end{circuitikz}
+"""
+        model, warnings = import_circuitikz(tex)
+        comp = model.components["S1"]
+        assert comp.component_type == "VC Switch"
+        terms = comp.get_terminal_positions()
+        assert len(terms) == 4
+
+
 class TestWarnings:
     def test_unsupported_component_warning(self):
         tex = r"""

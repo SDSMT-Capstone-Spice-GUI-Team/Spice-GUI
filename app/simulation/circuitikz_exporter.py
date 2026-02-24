@@ -230,7 +230,9 @@ def _emit_bipole(lines, comp, tikz_name, transform, include_ids, include_values)
         if comp.component_type in ("CCVS", "CCCS"):
             type_comment = f" % spice: {comp.component_type}"
         lines.append(f"  \\draw {_coord(*out_start)} to[{opt_str}] {_coord(*out_end)};{type_comment}")
-        lines.append(f"  \\draw[dashed] {_coord(*ctrl_start)} to[short] {_coord(*ctrl_end)};")
+        lines.append(
+            f"  \\draw[dashed] {_coord(*ctrl_start)} to[short] {_coord(*ctrl_end)}; % ctrl: {comp.component_id}"
+        )
         return
 
     # Standard 2-terminal bipole
