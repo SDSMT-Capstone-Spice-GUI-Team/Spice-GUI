@@ -85,7 +85,14 @@ class ParameterSweepPlotDialog(QDialog):
                 all_nodes.update(r.data.keys())
 
         if not all_nodes:
-            ax.text(0.5, 0.5, "No data available", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "No data available",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
             return
 
         cmap = plt.get_cmap("tab10")
@@ -131,7 +138,14 @@ class ParameterSweepPlotDialog(QDialog):
 
             for node in nodes:
                 values = [pt[node] for pt in r.data]
-                ax.plot(times, values, color=color, label=f"{node} ({component_id}={label})", alpha=0.8, linewidth=1)
+                ax.plot(
+                    times,
+                    values,
+                    color=color,
+                    label=f"{node} ({component_id}={label})",
+                    alpha=0.8,
+                    linewidth=1,
+                )
 
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Voltage (V)")
@@ -165,10 +179,20 @@ class ParameterSweepPlotDialog(QDialog):
             color = cmap(i / max(n - 1, 1))
 
             for node, mag_vals in sorted(magnitude.items()):
-                ax_mag.semilogx(freqs, mag_vals, color=color, label=f"{node} ({component_id}={label})", alpha=0.8)
+                ax_mag.semilogx(
+                    freqs,
+                    mag_vals,
+                    color=color,
+                    label=f"{node} ({component_id}={label})",
+                    alpha=0.8,
+                )
                 if node in phase:
                     ax_phase.semilogx(
-                        freqs, phase[node], color=color, label=f"{node} ({component_id}={label})", alpha=0.8
+                        freqs,
+                        phase[node],
+                        color=color,
+                        label=f"{node} ({component_id}={label})",
+                        alpha=0.8,
                     )
 
         ax_mag.set_ylabel("Magnitude")
@@ -213,7 +237,13 @@ class ParameterSweepPlotDialog(QDialog):
             for col_idx in range(2, len(headers)):
                 col_label = headers[col_idx]
                 values = [row[col_idx] for row in rows]
-                ax.plot(sweep_vals, values, color=color, label=f"{col_label} ({component_id}={label})", alpha=0.8)
+                ax.plot(
+                    sweep_vals,
+                    values,
+                    color=color,
+                    label=f"{col_label} ({component_id}={label})",
+                    alpha=0.8,
+                )
 
         ax.set_xlabel(x_label)
         ax.set_ylabel("Voltage (V)")

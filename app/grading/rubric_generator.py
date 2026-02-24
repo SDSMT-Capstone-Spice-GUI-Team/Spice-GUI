@@ -105,7 +105,11 @@ def generate_rubric_from_circuit(
                 check_id=f"topo_{pair[0]}_{pair[1]}",
                 check_type="topology",
                 points=0,
-                params={"component_a": pair[0], "component_b": pair[1], "shared_node": True},
+                params={
+                    "component_a": pair[0],
+                    "component_b": pair[1],
+                    "shared_node": True,
+                },
                 feedback_pass=f"{pair[0]} and {pair[1]} are connected.",
                 feedback_fail=f"{pair[0]} and {pair[1]} should be connected but are not.",
             )
