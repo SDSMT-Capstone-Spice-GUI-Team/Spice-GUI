@@ -5,12 +5,15 @@ This module contains no Qt dependencies. It holds all circuit data
 (components, wires, nodes) and provides node graph operations.
 """
 
+import logging
 from dataclasses import dataclass, field
 
 from .annotation import AnnotationData
 from .component import ComponentData
 from .node import NodeData, reset_node_counter
 from .wire import WireData
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -296,32 +299,53 @@ class CircuitModel:
         Deserialize circuit from dictionary.
 
         Rebuilds the node graph after loading components and wires.
+        Corrupt individual components, wires, or annotations are
+        skipped with a warning rather than crashing the entire load.
         """
         model = cls()
         model.component_counter = data.get("counters", {}).copy()
         model.analysis_type = data.get("analysis_type", "DC Operating Point")
         model.analysis_params = data.get("analysis_params", {}).copy()
 
-        for comp_data in data.get("components", []):
-            component = ComponentData.from_dict(comp_data)
-            model.components[component.component_id] = component
+        for i, comp_data in enumerate(data.get("components", [])):
+            try:
+                component = ComponentData.from_dict(comp_data)
+                model.components[component.component_id] = component
+            except Exception as exc:
+                logger.warning("Skipping corrupt component #%d: %s", i + 1, exc)
 
-        for wire_data in data.get("wires", []):
-            wire = WireData.from_dict(wire_data)
-            model.wires.append(wire)
+        for i, wire_data in enumerate(data.get("wires", [])):
+            try:
+                wire = WireData.from_dict(wire_data)
+                # Skip wires that reference components not in the model
+                if wire.start_component_id not in model.components or wire.end_component_id not in model.components:
+                    logger.warning(
+                        "Skipping wire #%d: references missing component(s)",
+                        i + 1,
+                    )
+                    continue
+                model.wires.append(wire)
+            except Exception as exc:
+                logger.warning("Skipping corrupt wire #%d: %s", i + 1, exc)
 
         model.rebuild_nodes()
 
         # Restore custom net names
         for key, label in data.get("net_names", {}).items():
-            comp_id, term_idx_str = key.split(":", 1)
-            terminal_key = (comp_id, int(term_idx_str))
-            node = model.terminal_to_node.get(terminal_key)
-            if node:
-                node.set_custom_label(label)
+            try:
+                comp_id, term_idx_str = key.split(":", 1)
+                terminal_key = (comp_id, int(term_idx_str))
+                node = model.terminal_to_node.get(terminal_key)
+                if node:
+                    node.set_custom_label(label)
+            except (ValueError, TypeError) as exc:
+                logger.warning("Skipping corrupt net name %r: %s", key, exc)
 
-        for ann_data in data.get("annotations", []):
-            model.annotations.append(AnnotationData.from_dict(ann_data))
+        for i, ann_data in enumerate(data.get("annotations", [])):
+            try:
+                model.annotations.append(AnnotationData.from_dict(ann_data))
+            except Exception as exc:
+                logger.warning("Skipping corrupt annotation #%d: %s", i + 1, exc)
 
         model.recommended_components = list(data.get("recommended_components", []))
 
