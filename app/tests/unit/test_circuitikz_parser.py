@@ -297,6 +297,87 @@ class TestFourTerminalControlPair:
         assert len(terms) == 4
 
 
+class TestWaveformSourceRoundTrip:
+    """Issue #524: Waveform Source parameters lost in CircuiTikZ round-trip."""
+
+    def test_sin_waveform_params_restored(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (0, 1) to[sV, l=$VW1$, a={SIN(0 5 1k 0 0 0)}] (0, 0);
+\end{circuitikz}
+"""
+        model, _ = import_circuitikz(tex)
+        comp = model.components["VW1"]
+        assert comp.component_type == "Waveform Source"
+        assert comp.waveform_type == "SIN"
+        assert comp.waveform_params["SIN"]["offset"] == "0"
+        assert comp.waveform_params["SIN"]["amplitude"] == "5"
+        assert comp.waveform_params["SIN"]["frequency"] == "1k"
+
+    def test_pulse_waveform_params_restored(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (0, 1) to[sV, l=$VW1$, a={PULSE(0 5 0 1n 1n 500u 1m)}] (0, 0);
+\end{circuitikz}
+"""
+        model, _ = import_circuitikz(tex)
+        comp = model.components["VW1"]
+        assert comp.waveform_type == "PULSE"
+        assert comp.waveform_params["PULSE"]["v1"] == "0"
+        assert comp.waveform_params["PULSE"]["v2"] == "5"
+        assert comp.waveform_params["PULSE"]["per"] == "1m"
+
+    def test_exp_waveform_params_restored(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (0, 1) to[sV, l=$VW1$, a={EXP(0 5 0 1u 2u 2u)}] (0, 0);
+\end{circuitikz}
+"""
+        model, _ = import_circuitikz(tex)
+        comp = model.components["VW1"]
+        assert comp.waveform_type == "EXP"
+        assert comp.waveform_params["EXP"]["v1"] == "0"
+        assert comp.waveform_params["EXP"]["tau2"] == "2u"
+
+    def test_waveform_default_when_no_value(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (0, 1) to[sV, l=$VW1$] (0, 0);
+\end{circuitikz}
+"""
+        model, _ = import_circuitikz(tex)
+        comp = model.components["VW1"]
+        assert comp.component_type == "Waveform Source"
+        # Default waveform params should be initialized by ComponentData.__post_init__
+        assert comp.waveform_type == "SIN"
+        assert comp.waveform_params is not None
+
+    def test_full_round_trip_preserves_waveform(self):
+        """Export a waveform source and reimport — params must survive."""
+        from models.circuit import CircuitModel
+        from models.component import ComponentData
+        from simulation.circuitikz_exporter import generate
+
+        ws = ComponentData("VW1", "Waveform Source", "SIN(0 10 2k)", position=(100, 100))
+        ws.waveform_type = "SIN"
+        ws.waveform_params["SIN"]["offset"] = "0"
+        ws.waveform_params["SIN"]["amplitude"] = "10"
+        ws.waveform_params["SIN"]["frequency"] = "2k"
+
+        model = CircuitModel()
+        model.add_component(ws)
+        model.rebuild_nodes()
+
+        tex = generate(model.components, model.wires, model.nodes, model.terminal_to_node)
+        reimported, warnings = import_circuitikz(tex)
+
+        assert len(warnings) == 0
+        comp = reimported.components["VW1"]
+        assert comp.waveform_type == "SIN"
+        assert comp.waveform_params["SIN"]["amplitude"] == "10"
+        assert comp.waveform_params["SIN"]["frequency"] == "2k"
+
+
 class TestWarnings:
     def test_unsupported_component_warning(self):
         tex = r"""
