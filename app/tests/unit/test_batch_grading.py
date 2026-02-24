@@ -319,6 +319,66 @@ class TestGradeExporter:
         assert "r1_exists (25pts)" in header
         assert "r1_value (25pts)" in header
 
+    def test_csv_handles_differing_check_results(self, tmp_path):
+        """Regression test for #534: CSV export should not assume identical check_results."""
+        from grading.grader import CheckGradeResult, GradingResult
+
+        # Student A has checks [r1_exists, r1_value]
+        # Student B has only [r1_exists] (different checks)
+        gr_a = GradingResult(
+            student_file="alice.json",
+            rubric_title="Test",
+            total_points=50,
+            earned_points=50,
+            check_results=[
+                CheckGradeResult(
+                    check_id="r1_exists", passed=True, points_earned=25, points_possible=25, feedback="OK"
+                ),
+                CheckGradeResult(check_id="r1_value", passed=True, points_earned=25, points_possible=25, feedback="OK"),
+            ],
+        )
+        gr_b = GradingResult(
+            student_file="bob.json",
+            rubric_title="Test",
+            total_points=50,
+            earned_points=25,
+            check_results=[
+                CheckGradeResult(
+                    check_id="r1_exists", passed=True, points_earned=25, points_possible=25, feedback="OK"
+                ),
+            ],
+        )
+        result = BatchGradingResult(
+            rubric_title="Test",
+            total_students=2,
+            successful=2,
+            failed=0,
+            results=[gr_a, gr_b],
+        )
+
+        csv_path = tmp_path / "gradebook.csv"
+        export_gradebook_csv(result, str(csv_path))
+
+        with open(csv_path) as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            row_a = next(reader)
+            row_b = next(reader)
+
+        # Both check columns should be in the header
+        assert "r1_exists (25pts)" in header
+        assert "r1_value (25pts)" in header
+
+        # Alice should have scores in both columns
+        r1_exists_idx = header.index("r1_exists (25pts)")
+        r1_value_idx = header.index("r1_value (25pts)")
+        assert row_a[r1_exists_idx] == "25"
+        assert row_a[r1_value_idx] == "25"
+
+        # Bob should have r1_exists but empty for r1_value
+        assert row_b[r1_exists_idx] == "25"
+        assert row_b[r1_value_idx] == ""
+
 
 class TestBatchGradingDialog:
     def test_dialog_creates(self, qtbot):
