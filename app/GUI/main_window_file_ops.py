@@ -487,6 +487,121 @@ class FileOperationsMixin:
         except (OSError, Exception) as e:
             QMessageBox.critical(self, "Report Error", f"Failed to generate report:\n{e}")
 
+    def _on_export_bundle(self):
+        """Export all circuit artifacts as a ZIP bundle for lab submission."""
+        import os
+        import tempfile
+
+        from simulation.bundle_exporter import create_bundle, suggest_bundle_name
+
+        if not self.model.components:
+            QMessageBox.information(self, "Export Bundle", "Nothing to export — the canvas is empty.")
+            return
+
+        circuit_name = ""
+        if self.file_ctrl.current_file:
+            circuit_name = self.file_ctrl.current_file.name
+
+        suggested = suggest_bundle_name(circuit_name)
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Lab Bundle",
+            suggested,
+            "ZIP Files (*.zip);;All Files (*)",
+        )
+        if not filename:
+            return
+        if not filename.lower().endswith(".zip"):
+            filename += ".zip"
+
+        try:
+            # Circuit JSON
+            circuit_json = self.model.to_dict()
+
+            # Netlist
+            netlist = None
+            try:
+                netlist = self.simulation_ctrl.generate_netlist()
+            except Exception:
+                pass
+
+            # Schematic PNG (rendered at 2x via canvas)
+            schematic_png = None
+            try:
+                tmp_img = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                tmp_img.close()
+                self.canvas.export_image(tmp_img.name, include_grid=False)
+                with open(tmp_img.name, "rb") as f:
+                    schematic_png = f.read()
+                os.unlink(tmp_img.name)
+            except Exception:
+                pass
+
+            # Results CSV (only if simulation was run)
+            results_csv = None
+            if self._last_results is not None:
+                try:
+                    from simulation.csv_exporter import (
+                        export_ac_results,
+                        export_dc_sweep_results,
+                        export_noise_results,
+                        export_op_results,
+                        export_transient_results,
+                    )
+
+                    cn = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+                    dispatch = {
+                        "DC Operating Point": export_op_results,
+                        "DC Sweep": export_dc_sweep_results,
+                        "AC Sweep": export_ac_results,
+                        "Transient": export_transient_results,
+                        "Noise": export_noise_results,
+                    }
+                    func = dispatch.get(self._last_results_type)
+                    if func:
+                        results_csv = func(self._last_results, cn)
+                except Exception:
+                    pass
+
+            # Results Excel (only if simulation was run)
+            results_xlsx_path = None
+            if self._last_results is not None:
+                try:
+                    from simulation.excel_exporter import export_to_excel
+
+                    cn = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+                    tmp_xlsx = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
+                    tmp_xlsx.close()
+                    export_to_excel(self._last_results, self._last_results_type, tmp_xlsx.name, cn)
+                    results_xlsx_path = tmp_xlsx.name
+                except Exception:
+                    pass
+
+            included = create_bundle(
+                filepath=filename,
+                circuit_json=circuit_json,
+                netlist=netlist,
+                schematic_png=schematic_png,
+                results_csv=results_csv,
+                results_xlsx_path=results_xlsx_path,
+                circuit_name=circuit_name,
+            )
+
+            # Clean up temp xlsx
+            if results_xlsx_path:
+                try:
+                    os.unlink(results_xlsx_path)
+                except OSError:
+                    pass
+
+            QMessageBox.information(
+                self,
+                "Bundle Exported",
+                f"Lab bundle saved to {Path(filename).name}\n\nIncludes: {', '.join(included)}",
+            )
+        except (OSError, Exception) as e:
+            QMessageBox.critical(self, "Error", f"Failed to export bundle: {e}")
+
     def _load_last_session(self):
         """Load last session using FileController"""
         last_file = self.file_ctrl.load_last_session()

@@ -122,6 +122,11 @@ class MenuBarMixin:
         generate_report_action.triggered.connect(self._on_generate_report)
         file_menu.addAction(generate_report_action)
 
+        export_bundle_action = QAction("Export Lab &Bundle (.zip)...", self)
+        export_bundle_action.setToolTip("Export all circuit artifacts as a ZIP bundle for lab submission")
+        export_bundle_action.triggered.connect(self._on_export_bundle)
+        file_menu.addAction(export_bundle_action)
+
         re_export_action = QAction("Re-export &Last", self)
         re_export_action.setShortcut(QKeySequence("Ctrl+Shift+E"))
         re_export_action.setToolTip("Repeat the most recent export operation")
