@@ -612,7 +612,10 @@ class TestRerouteWireCommand:
         model.wires[0].waypoints = [(0.0, 0.0), (100.0, 0.0)]
         model.wires[1].waypoints = [(100.0, 0.0), (200.0, 0.0)]
 
-        commands = [RerouteWireCommand(controller, 0), RerouteWireCommand(controller, 1)]
+        commands = [
+            RerouteWireCommand(controller, 0),
+            RerouteWireCommand(controller, 1),
+        ]
         compound = CompoundCommand(commands, "Reroute 2 wires")
         controller.execute_command(compound)
 

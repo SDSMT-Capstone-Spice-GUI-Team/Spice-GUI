@@ -99,7 +99,10 @@ class CircuitGrader:
         return handler(self, check, student, reference)
 
     def _check_component_exists(
-        self, check: RubricCheck, student: CircuitModel, reference: Optional[CircuitModel]
+        self,
+        check: RubricCheck,
+        student: CircuitModel,
+        reference: Optional[CircuitModel],
     ) -> CheckGradeResult:
         component_id = check.params.get("component_id", "")
         component_type = check.params.get("component_type", "")
@@ -124,7 +127,10 @@ class CircuitGrader:
         )
 
     def _check_component_value(
-        self, check: RubricCheck, student: CircuitModel, reference: Optional[CircuitModel]
+        self,
+        check: RubricCheck,
+        student: CircuitModel,
+        reference: Optional[CircuitModel],
     ) -> CheckGradeResult:
         component_id = check.params.get("component_id", "")
         expected_value = check.params.get("expected_value", "")
@@ -141,7 +147,10 @@ class CircuitGrader:
         )
 
     def _check_component_count(
-        self, check: RubricCheck, student: CircuitModel, reference: Optional[CircuitModel]
+        self,
+        check: RubricCheck,
+        student: CircuitModel,
+        reference: Optional[CircuitModel],
     ) -> CheckGradeResult:
         component_type = check.params.get("component_type", "")
         expected_count = check.params.get("expected_count", 0)
@@ -158,7 +167,10 @@ class CircuitGrader:
         )
 
     def _check_topology(
-        self, check: RubricCheck, student: CircuitModel, reference: Optional[CircuitModel]
+        self,
+        check: RubricCheck,
+        student: CircuitModel,
+        reference: Optional[CircuitModel],
     ) -> CheckGradeResult:
         component_a = check.params.get("component_a", "")
         component_b = check.params.get("component_b", "")
@@ -176,7 +188,10 @@ class CircuitGrader:
         )
 
     def _check_ground(
-        self, check: RubricCheck, student: CircuitModel, reference: Optional[CircuitModel]
+        self,
+        check: RubricCheck,
+        student: CircuitModel,
+        reference: Optional[CircuitModel],
     ) -> CheckGradeResult:
         has_ground = any(n.is_ground for n in student.nodes)
         component_id = check.params.get("component_id", "")
@@ -202,7 +217,10 @@ class CircuitGrader:
         )
 
     def _check_analysis_type(
-        self, check: RubricCheck, student: CircuitModel, reference: Optional[CircuitModel]
+        self,
+        check: RubricCheck,
+        student: CircuitModel,
+        reference: Optional[CircuitModel],
     ) -> CheckGradeResult:
         expected_type = check.params.get("expected_type", "")
         cr = self._comparer.check_analysis_type(student, expected_type)

@@ -467,7 +467,12 @@ class ACSweepPlotDialog(QDialog):
         ref_level = markers["ref_level_db"]
         if ref_level is not None:
             artist = self._ax_mag.axhline(
-                y=ref_level, color="#CC0066", linestyle="--", linewidth=1, alpha=0.7, label="-3dB level"
+                y=ref_level,
+                color="#CC0066",
+                linestyle="--",
+                linewidth=1,
+                alpha=0.7,
+                label="-3dB level",
             )
             self._marker_artists.append(artist)
 

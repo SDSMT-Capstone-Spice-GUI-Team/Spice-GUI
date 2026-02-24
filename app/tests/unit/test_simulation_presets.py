@@ -67,7 +67,11 @@ class TestUserPresets:
 
     def test_cannot_overwrite_builtin(self, mgr):
         with pytest.raises(ValueError, match="built-in"):
-            mgr.save_preset("Quick Transient", "Transient", {"duration": 1, "step": 0.001, "startTime": 0})
+            mgr.save_preset(
+                "Quick Transient",
+                "Transient",
+                {"duration": 1, "step": 0.001, "startTime": 0},
+            )
 
     def test_delete_user_preset(self, mgr):
         mgr.save_preset("Temp", "DC Sweep", {"source": "V1", "min": 0, "max": 5, "step": 0.1})
@@ -103,7 +107,11 @@ class TestPresetPersistence:
 
     def test_file_format_is_json(self, preset_file):
         mgr = PresetManager(preset_file)
-        mgr.save_preset("Test", "AC Sweep", {"fStart": 10, "fStop": 1000, "points": 50, "sweepType": "dec"})
+        mgr.save_preset(
+            "Test",
+            "AC Sweep",
+            {"fStart": 10, "fStop": 1000, "points": 50, "sweepType": "dec"},
+        )
         data = json.loads(preset_file.read_text())
         assert "presets" in data
         assert len(data["presets"]) == 1

@@ -160,9 +160,24 @@ def _build_simple_circuit():
         position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="R1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
     ]
     model.analysis_type = "DC Operating Point"
     model.rebuild_nodes()
@@ -176,7 +191,12 @@ class TestMonteCarloController:
         mock_runner = MagicMock()
         mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
         mock_runner.output_dir = "/tmp/sim_output"
-        mock_runner.run_simulation.return_value = (True, "/tmp/output.txt", "stdout", "")
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/output.txt",
+            "stdout",
+            "",
+        )
         mock_runner.read_output.return_value = (
             "Node                      Voltage\n"
             "----                      -------\n"

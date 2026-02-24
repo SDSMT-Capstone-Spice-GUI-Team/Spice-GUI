@@ -31,7 +31,12 @@ class SpiceHighlighter(QSyntaxHighlighter):
         control_fmt = QTextCharFormat()
         control_fmt.setForeground(QColor("#9C27B0"))
         control_fmt.setFontWeight(QFont.Weight.Bold)
-        self._rules.append((re.compile(r"^(run|quit|print|set|let|wrdata|setplot)\b.*$", re.IGNORECASE), control_fmt))
+        self._rules.append(
+            (
+                re.compile(r"^(run|quit|print|set|let|wrdata|setplot)\b.*$", re.IGNORECASE),
+                control_fmt,
+            )
+        )
 
     def highlightBlock(self, text):
         """Apply syntax highlighting rules to a single line of text."""

@@ -34,7 +34,6 @@ from PyQt6.QtWidgets import QApplication as _QApp
 if _QApp.instance() is None:
     _qapp_instance = _QApp([])
 
-
 import pytest
 from models.component import ComponentData
 from models.node import NodeData, reset_node_counter

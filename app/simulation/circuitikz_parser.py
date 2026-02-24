@@ -145,7 +145,13 @@ def import_circuitikz(text):
 
     # Parse bipoles: \draw (x1,y1) to[opts] (x2,y2);
     for m in _RE_DRAW_TO.finditer(body):
-        x1, y1, opts, x2, y2 = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)
+        x1, y1, opts, x2, y2 = (
+            m.group(1),
+            m.group(2),
+            m.group(3),
+            m.group(4),
+            m.group(5),
+        )
         bipoles.append(
             {
                 "x1": float(x1),

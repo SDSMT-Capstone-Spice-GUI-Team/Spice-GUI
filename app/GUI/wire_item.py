@@ -380,7 +380,10 @@ class WireGraphicsItem(QGraphicsPathItem):
         """Called by WaypointHandle on mouse release to persist changes."""
         # Sync to model
         self.model.waypoints = [
-            (wp.x() if isinstance(wp, QPointF) else wp[0], wp.y() if isinstance(wp, QPointF) else wp[1])
+            (
+                wp.x() if isinstance(wp, QPointF) else wp[0],
+                wp.y() if isinstance(wp, QPointF) else wp[1],
+            )
             for wp in self.waypoints
         ]
         self.model.locked = True
