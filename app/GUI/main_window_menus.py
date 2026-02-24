@@ -107,6 +107,11 @@ class MenuBarMixin:
         export_bom_action.triggered.connect(self._on_export_bom)
         file_menu.addAction(export_bom_action)
 
+        export_markdown_action = QAction("Export Results as &Markdown...", self)
+        export_markdown_action.setToolTip("Export simulation results as a Markdown table (.md file)")
+        export_markdown_action.triggered.connect(self.export_results_markdown)
+        file_menu.addAction(export_markdown_action)
+
         generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
         generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
         generate_report_action.triggered.connect(self._on_generate_report)
