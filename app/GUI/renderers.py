@@ -9,7 +9,6 @@ delegates to the appropriate renderer via ``get_renderer``.
 import math
 from abc import ABC, abstractmethod
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPen
 
 # ---------------------------------------------------------------------------
@@ -128,7 +127,10 @@ class IEEECurrentSource(ComponentRenderer):
             painter.drawLine(-30, 0, -15, 0)
             painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
-        painter.drawText(-5, 5, "I")
+        # Arrow showing current direction (left to right)
+        painter.drawLine(-8, 0, 8, 0)
+        painter.drawLine(5, -4, 8, 0)
+        painter.drawLine(5, 4, 8, 0)
 
     def get_obstacle_shape(self, component):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
@@ -180,7 +182,9 @@ class IEEEOpAmp(ComponentRenderer):
         painter.drawLine(20, 0, -20, 15)
         painter.drawLine(-20, 15, -20, -15)
 
-        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        # +/- polarity markers (use current pen color for theme compatibility)
+        cur_color = painter.pen().color()
+        painter.setPen(QPen(cur_color, 2))
         painter.drawLine(-17, -8, -13, -8)
         painter.drawLine(-17, 8, -13, 8)
         painter.drawLine(-15, 6, -15, 10)
@@ -201,8 +205,9 @@ class IEEEVCVS(ComponentRenderer):
         painter.drawLine(0, -15, 15, 0)
         painter.drawLine(15, 0, 0, 15)
         painter.drawLine(0, 15, -15, 0)
-        # +/- polarity markers
-        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        # +/- polarity markers (use current pen color for theme compatibility)
+        cur_color = painter.pen().color()
+        painter.setPen(QPen(cur_color, 2))
         painter.drawLine(5, -6, 9, -6)
         painter.drawLine(7, -8, 7, -4)
         painter.drawLine(5, 6, 9, 6)
@@ -223,8 +228,9 @@ class IEEECCVS(ComponentRenderer):
         painter.drawLine(0, -15, 15, 0)
         painter.drawLine(15, 0, 0, 15)
         painter.drawLine(0, 15, -15, 0)
-        # +/- polarity markers
-        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        # +/- polarity markers (use current pen color for theme compatibility)
+        cur_color = painter.pen().color()
+        painter.setPen(QPen(cur_color, 2))
         painter.drawLine(5, -6, 9, -6)
         painter.drawLine(7, -8, 7, -4)
         painter.drawLine(5, 6, 9, 6)
@@ -249,8 +255,9 @@ class IEEEVCCS(ComponentRenderer):
         painter.drawLine(0, -15, 15, 0)
         painter.drawLine(15, 0, 0, 15)
         painter.drawLine(0, 15, -15, 0)
-        # Arrow inside diamond
-        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        # Arrow inside diamond (use current pen color for theme compatibility)
+        cur_color = painter.pen().color()
+        painter.setPen(QPen(cur_color, 2))
         painter.drawLine(4, 6, 4, -6)
         painter.drawLine(2, -4, 4, -6)
         painter.drawLine(6, -4, 4, -6)
@@ -271,8 +278,9 @@ class IEEECCCS(ComponentRenderer):
         painter.drawLine(0, -15, 15, 0)
         painter.drawLine(15, 0, 0, 15)
         painter.drawLine(0, 15, -15, 0)
-        # Arrow inside diamond
-        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        # Arrow inside diamond (use current pen color for theme compatibility)
+        cur_color = painter.pen().color()
+        painter.setPen(QPen(cur_color, 2))
         painter.drawLine(4, 6, 4, -6)
         painter.drawLine(2, -4, 4, -6)
         painter.drawLine(6, -4, 4, -6)
@@ -323,13 +331,20 @@ class IEEEMOSFETNMOS(ComponentRenderer):
             painter.drawLine(20, -20, 20, -10)
             painter.drawLine(-20, 0, -10, 0)
             painter.drawLine(20, 20, 20, 10)
+        # Gate plate (continuous vertical line)
         painter.drawLine(-10, -12, -10, 12)
-        painter.drawLine(-5, -12, -5, 12)
+        # Channel segments (three separate segments for enhancement mode)
+        painter.drawLine(-5, -12, -5, -4)
+        painter.drawLine(-5, -2, -5, 2)
+        painter.drawLine(-5, 4, -5, 12)
+        # Drain and source connections
         painter.drawLine(-5, -10, 20, -10)
         painter.drawLine(-5, 10, 20, 10)
+        # Body connection from center segment
         painter.drawLine(-5, 0, 5, 0)
-        painter.drawLine(-5, 10, -1, 7)
-        painter.drawLine(-5, 10, -1, 13)
+        # Arrow on body pointing INWARD (toward channel) for NMOS
+        painter.drawLine(5, 0, -1, -3)
+        painter.drawLine(5, 0, -1, 3)
 
     def get_obstacle_shape(self, component):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
@@ -341,13 +356,21 @@ class IEEEMOSFETPMOS(ComponentRenderer):
             painter.drawLine(20, -20, 20, -10)
             painter.drawLine(-20, 0, -10, 0)
             painter.drawLine(20, 20, 20, 10)
+        # Gate plate (continuous vertical line)
         painter.drawLine(-10, -12, -10, 12)
-        painter.drawLine(-5, -12, -5, 12)
+        # Channel segments (three separate segments for enhancement mode)
+        painter.drawLine(-5, -12, -5, -4)
+        painter.drawLine(-5, -2, -5, 2)
+        painter.drawLine(-5, 4, -5, 12)
+        # Drain and source connections
         painter.drawLine(-5, -10, 20, -10)
         painter.drawLine(-5, 10, 20, 10)
+        # Body connection from center segment
         painter.drawLine(-5, 0, 5, 0)
-        painter.drawLine(0, 10, -4, 7)
-        painter.drawLine(0, 10, -4, 13)
+        # Arrow on body pointing OUTWARD (away from channel) for PMOS
+        painter.drawLine(-1, 0, 5, -3)
+        painter.drawLine(-1, 0, 5, 3)
+        # Bubble on gate for PMOS
         painter.drawEllipse(-8, -2, 4, 4)
 
     def get_obstacle_shape(self, component):
@@ -365,7 +388,8 @@ class IEEEVCSwitch(ComponentRenderer):
         painter.drawLine(-8, 8, 8, -4)
         painter.drawEllipse(-10, 6, 4, 4)
         painter.drawEllipse(6, -4, 4, 4)
-        painter.setPen(QPen(Qt.GlobalColor.black, 1))
+        cur_color = painter.pen().color()
+        painter.setPen(QPen(cur_color, 1))
         painter.drawLine(-12, 0, -5, 0)
         painter.drawLine(-7, -2, -5, 0)
         painter.drawLine(-7, 2, -5, 0)

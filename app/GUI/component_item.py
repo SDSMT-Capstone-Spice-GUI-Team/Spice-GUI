@@ -356,7 +356,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
 
         if show_label or show_value:
-            painter.setPen(QPen(Qt.GlobalColor.black))
+            painter.setPen(QPen(color))
             if show_label and show_value:
                 painter.drawText(-20, -25, f"{self.component_id} ({self.value})")
             elif show_label:
@@ -595,7 +595,7 @@ class Ground(ComponentGraphicsItem):
         show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
 
         if show_label or show_value:
-            painter.setPen(QPen(Qt.GlobalColor.black))
+            painter.setPen(QPen(color))
             if show_label and show_value:
                 painter.drawText(-20, -25, "GND (0V)")
             elif show_label:
