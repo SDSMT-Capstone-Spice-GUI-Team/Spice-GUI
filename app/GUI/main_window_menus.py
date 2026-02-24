@@ -603,6 +603,20 @@ class MenuBarMixin:
             keybindings_action.triggered.connect(self._open_keybindings_dialog)
             settings_menu.addAction(keybindings_action)
 
+        # Help menu
+        help_menu = menubar.addMenu("&Help")
+        if help_menu:
+            help_action = QAction("&Help Topics...", self)
+            help_action.setShortcut(QKeySequence("F1"))
+            help_action.setToolTip("Open searchable help")
+            help_action.triggered.connect(self._show_help)
+            help_menu.addAction(help_action)
+
+            tutorial_action = QAction("Guided &Tutorial...", self)
+            tutorial_action.setToolTip("Step-by-step tutorial for building your first circuit")
+            tutorial_action.triggered.connect(self._start_tutorial)
+            help_menu.addAction(tutorial_action)
+
     def _open_preferences_dialog(self):
         """Open the unified preferences dialog (single-instance, non-modal)."""
         from .preferences_dialog import PreferencesDialog

@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import QMainWindow
 
 
 class TestMixinClassesImportable:
-    """Verify all 7 mixin classes can be imported."""
+    """Verify all 8 mixin classes can be imported."""
 
     def test_menu_bar_mixin(self):
         from GUI.main_window_menus import MenuBarMixin
@@ -53,6 +53,11 @@ class TestMixinClassesImportable:
         from GUI.main_window_settings import SettingsMixin
 
         assert SettingsMixin is not None
+
+    def test_help_mixin(self):
+        from GUI.main_window_help import HelpMixin
+
+        assert HelpMixin is not None
 
 
 class TestMainWindowInheritsAllMixins:
@@ -99,6 +104,12 @@ class TestMainWindowInheritsAllMixins:
         from GUI.main_window_settings import SettingsMixin
 
         assert issubclass(MainWindow, SettingsMixin)
+
+    def test_inherits_help_mixin(self):
+        from GUI.main_window import MainWindow
+        from GUI.main_window_help import HelpMixin
+
+        assert issubclass(MainWindow, HelpMixin)
 
     def test_inherits_qmainwindow(self):
         from GUI.main_window import MainWindow
