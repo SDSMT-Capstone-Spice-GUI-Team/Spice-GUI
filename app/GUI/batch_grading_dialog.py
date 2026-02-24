@@ -333,8 +333,8 @@ class BatchGradingDialog(QDialog):
         self.comparison_label.setText("\n".join(lines))
         self.comparison_label.setVisible(True)
         # Show per-check analytics table
-        if result.results:
-            self._display_check_analytics(result)
+        if self._batch_result.results:
+            self._display_check_analytics(self._batch_result)
 
     def _display_check_analytics(self, result: BatchGradingResult):
         """Populate the per-check analytics table."""
