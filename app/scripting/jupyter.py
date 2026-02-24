@@ -163,7 +163,12 @@ def _empty_svg(width: int, height: int) -> str:
         "text",
         x=str(width // 2),
         y=str(height // 2),
-        **{"text-anchor": "middle", "fill": "#999", "font-family": "sans-serif", "font-size": "14"},
+        **{
+            "text-anchor": "middle",
+            "fill": "#999",
+            "font-family": "sans-serif",
+            "font-size": "14",
+        },
     )
     text.text = "(empty circuit)"
     return ET.tostring(svg, encoding="unicode")

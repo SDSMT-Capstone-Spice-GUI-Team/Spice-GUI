@@ -317,7 +317,12 @@ class MeasurementEntryDialog(QDialog):
                 params["targ_edge"] = self.targ_edge_combo.currentText()
 
         directive = build_directive(self._domain, name, meas_type, params)
-        return {"name": name, "meas_type": meas_type, "params": params, "directive": directive}
+        return {
+            "name": name,
+            "meas_type": meas_type,
+            "params": params,
+            "directive": directive,
+        }
 
     def _load_initial(self, data):
         """Pre-populate form from a data dict."""

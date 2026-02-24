@@ -508,7 +508,11 @@ class SimulationController:
                 success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
                 if not success:
                     step_results.append(
-                        SimulationResult(success=False, error=stderr or "Simulation failed", netlist=netlist)
+                        SimulationResult(
+                            success=False,
+                            error=stderr or "Simulation failed",
+                            netlist=netlist,
+                        )
                     )
                     errors.append(f"Run {i + 1}: {stderr or 'failed'}")
                     continue
