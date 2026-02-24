@@ -1,7 +1,7 @@
 """Menu bar construction and keybinding management for MainWindow."""
 
-from PyQt6.QtGui import QAction, QActionGroup
-from PyQt6.QtWidgets import QDialog
+from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
+from PyQt6.QtWidgets import QDialog, QMenu
 
 
 class MenuBarMixin:
@@ -106,6 +106,16 @@ class MenuBarMixin:
         generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
         generate_report_action.triggered.connect(self._on_generate_report)
         file_menu.addAction(generate_report_action)
+
+        re_export_action = QAction("Re-export &Last", self)
+        re_export_action.setShortcut(QKeySequence("Ctrl+Shift+E"))
+        re_export_action.setToolTip("Repeat the most recent export operation")
+        re_export_action.triggered.connect(self._on_re_export_last)
+        file_menu.addAction(re_export_action)
+
+        self._recent_exports_menu = QMenu("Recent E&xports", self)
+        file_menu.addMenu(self._recent_exports_menu)
+        self._recent_exports_menu.aboutToShow.connect(self._populate_recent_exports_menu)
 
         file_menu.addSeparator()
 
