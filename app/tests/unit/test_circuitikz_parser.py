@@ -158,6 +158,80 @@ class TestValueExtraction:
         assert model.components["R1"].value != ""
 
 
+class TestControlledSourceDisambiguation:
+    """Issue #520: CircuiTikZ round-trip conflates CCVS with VCVS and CCCS with VCCS."""
+
+    def test_ccvs_preserved_via_spice_comment(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (1.5, 0.5) to[american controlled voltage source, l=$H1$, a={1k}] (1.5, -0.5); % spice: CCVS
+\end{circuitikz}
+"""
+        model, _ = import_circuitikz(tex)
+        assert model.components["H1"].component_type == "CCVS"
+
+    def test_cccs_preserved_via_spice_comment(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (1.5, 0.5) to[american controlled current source, l=$F1$, a={1}] (1.5, -0.5); % spice: CCCS
+\end{circuitikz}
+"""
+        model, _ = import_circuitikz(tex)
+        assert model.components["F1"].component_type == "CCCS"
+
+    def test_vcvs_default_without_comment(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (1.5, 0.5) to[american controlled voltage source, l=$E1$, a={10}] (1.5, -0.5);
+\end{circuitikz}
+"""
+        model, _ = import_circuitikz(tex)
+        assert model.components["E1"].component_type == "VCVS"
+
+    def test_vccs_default_without_comment(self):
+        tex = r"""
+\begin{circuitikz}
+  \draw (1.5, 0.5) to[american controlled current source, l=$G1$, a={1m}] (1.5, -0.5);
+\end{circuitikz}
+"""
+        model, _ = import_circuitikz(tex)
+        assert model.components["G1"].component_type == "VCCS"
+
+    def test_full_round_trip_ccvs(self):
+        """Export a CCVS and reimport — must come back as CCVS, not VCVS."""
+        from models.circuit import CircuitModel
+        from models.component import ComponentData
+        from simulation.circuitikz_exporter import generate
+
+        ccvs = ComponentData("H1", "CCVS", "1k", position=(100, 100))
+        model = CircuitModel()
+        model.add_component(ccvs)
+        model.rebuild_nodes()
+
+        tex = generate(model.components, model.wires, model.nodes, model.terminal_to_node)
+        reimported, warnings = import_circuitikz(tex)
+
+        assert len(warnings) == 0
+        assert reimported.components["H1"].component_type == "CCVS"
+
+    def test_full_round_trip_cccs(self):
+        """Export a CCCS and reimport — must come back as CCCS, not VCCS."""
+        from models.circuit import CircuitModel
+        from models.component import ComponentData
+        from simulation.circuitikz_exporter import generate
+
+        cccs = ComponentData("F1", "CCCS", "1", position=(100, 100))
+        model = CircuitModel()
+        model.add_component(cccs)
+        model.rebuild_nodes()
+
+        tex = generate(model.components, model.wires, model.nodes, model.terminal_to_node)
+        reimported, warnings = import_circuitikz(tex)
+
+        assert len(warnings) == 0
+        assert reimported.components["F1"].component_type == "CCCS"
+
+
 class TestWarnings:
     def test_unsupported_component_warning(self):
         tex = r"""
