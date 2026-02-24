@@ -43,6 +43,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.is_being_dragged = False
         self._group_moving = False  # Guard against recursive group moves
         self._drag_start_positions = {}  # {comp_id: (x, y)} for undo
+        self._locked = False  # Whether this component is locked (non-editable)
 
         # Grading overlay state (temporary, not persisted)
         self._grading_state = None  # "passed", "failed", or None
@@ -99,8 +100,22 @@ class ComponentGraphicsItem(QGraphicsItem):
 
     # --- Event handlers ---
 
+    def set_locked(self, locked: bool) -> None:
+        """Set the locked state of this component."""
+        self._locked = locked
+        if locked:
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        else:
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+        self.update()
+
     def mousePressEvent(self, event):
         """Track when dragging starts and record start positions for undo."""
+        if self._locked:
+            event.accept()
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_being_dragged = True
             # Record start positions for undo (self + all selected items)
@@ -195,6 +210,13 @@ class ComponentGraphicsItem(QGraphicsItem):
 
     def mouseDoubleClickEvent(self, event):
         """Open a dialog to edit component value on double-click"""
+        if self._locked:
+            QMessageBox.information(
+                None,
+                "Locked Component",
+                f"{self.component_id} is locked and cannot be modified.",
+            )
+            return
         if self.component_type in ("Ground", "Op-Amp"):
             return
 
@@ -335,6 +357,11 @@ class ComponentGraphicsItem(QGraphicsItem):
             painter.setPen(theme_manager.pen("component_selected"))
             painter.drawRect(QRectF(-40, -20, 80, 40))
 
+        # Draw locked indicator (dimmed border with lock icon)
+        if getattr(self, "_locked", False):
+            lock_pen = QPen(QBrush(Qt.GlobalColor.gray), 1.5, Qt.PenStyle.DashLine)
+            painter.setPen(lock_pen)
+            painter.drawRect(QRectF(-42, -22, 84, 44))
         # Grading overlay (temporary visual feedback)
         if self._grading_state == "passed":
             painter.setPen(QPen(QColor(0, 200, 0, 200), 3))

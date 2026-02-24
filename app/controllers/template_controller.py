@@ -57,6 +57,7 @@ class TemplateController:
         reference_circuit: Optional[CircuitModel] = None,
         instructions: str = "",
         required_analysis: Optional[dict] = None,
+        locked_components: Optional[list[str]] = None,
     ) -> None:
         """Save a circuit as an assignment template.
 
@@ -80,6 +81,7 @@ class TemplateController:
             starter_circuit=(starter_circuit.to_dict() if starter_circuit else None),
             reference_circuit=(reference_circuit.to_dict() if reference_circuit else None),
             required_analysis=required_analysis,
+            locked_components=list(locked_components or []),
         )
 
         with open(filepath, "w") as f:
