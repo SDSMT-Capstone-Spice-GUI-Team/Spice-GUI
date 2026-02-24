@@ -347,6 +347,29 @@ class FileOperationsMixin:
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Import Error", f"Failed to import LTspice schematic:\n{e}")
 
+    def _on_import_circuitikz(self):
+        """Import a CircuiTikZ LaTeX file"""
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import CircuiTikZ LaTeX",
+            "",
+            "LaTeX Files (*.tex);;All Files (*)",
+        )
+        if filename:
+            try:
+                warnings = self.file_ctrl.import_circuitikz(filename)
+                self.setWindowTitle(f"Circuit Design GUI - {Path(filename).name} (imported)")
+                self._sync_analysis_menu()
+                self._set_dirty(True)
+                num_components = len(self.model.components)
+                num_wires = len(self.model.wires)
+                msg = f"Imported {num_components} components and {num_wires} wires from {Path(filename).name}."
+                if warnings:
+                    msg += "\n\nWarnings:\n" + "\n".join(f"  - {w}" for w in warnings)
+                QMessageBox.information(self, "Import Successful", msg)
+            except (OSError, ValueError) as e:
+                QMessageBox.critical(self, "Import Error", f"Failed to import CircuiTikZ LaTeX:\n{e}")
+
     def _on_export_bom(self):
         """Export a Bill of Materials (BOM) as CSV or Excel."""
         from simulation.bom_exporter import export_bom_csv, export_bom_excel, write_bom_csv
