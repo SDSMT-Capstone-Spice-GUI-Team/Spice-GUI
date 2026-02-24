@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 
 if TYPE_CHECKING:
     from grading.batch_grader import BatchGradingResult
+    from models.grading_session import GradingSessionData
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class BatchGradingDialog(QDialog):
         self._reference_circuit = reference_circuit
         self._rubric = None
         self._batch_result: Optional[BatchGradingResult] = None
+        self._loaded_session: Optional[GradingSessionData] = None
         self._init_ui()
 
     def _init_ui(self):
@@ -83,6 +85,20 @@ class BatchGradingDialog(QDialog):
         btn_layout.addWidget(self.export_btn)
         layout.addLayout(btn_layout)
 
+        # Session persistence buttons
+        session_layout = QHBoxLayout()
+        self.save_grades_btn = QPushButton("Save Grades...")
+        self.save_grades_btn.setToolTip("Save grading results as a .spice-grades session file")
+        self.save_grades_btn.setEnabled(False)
+        self.save_grades_btn.clicked.connect(self._on_save_grades)
+        session_layout.addWidget(self.save_grades_btn)
+
+        self.load_grades_btn = QPushButton("Load Grades...")
+        self.load_grades_btn.setToolTip("Load a previous grading session (.spice-grades)")
+        self.load_grades_btn.clicked.connect(self._on_load_grades)
+        session_layout.addWidget(self.load_grades_btn)
+        layout.addLayout(session_layout)
+
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
@@ -97,6 +113,10 @@ class BatchGradingDialog(QDialog):
         self.results_label = QLabel("No results yet")
         self.results_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         results_layout.addWidget(self.results_label)
+        self.comparison_label = QLabel("")
+        self.comparison_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.comparison_label.setVisible(False)
+        results_layout.addWidget(self.comparison_label)
         self.results_group.setVisible(False)
         layout.addWidget(self.results_group)
 
@@ -155,7 +175,12 @@ class BatchGradingDialog(QDialog):
         self._display_results(self._batch_result)
         self.grade_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
+        self.save_grades_btn.setEnabled(True)
         self.progress_label.setText("Grading complete")
+
+        # Show comparison if a previous session was loaded
+        if self._loaded_session is not None:
+            self._show_comparison(self._loaded_session)
 
     def _display_results(self, result: BatchGradingResult):
         self.results_group.setVisible(True)
@@ -184,6 +209,100 @@ class BatchGradingDialog(QDialog):
                 lines.append(f"  ... and {len(result.errors) - 5} more")
 
         self.results_label.setText("\n".join(lines))
+
+    def _on_save_grades(self):
+        """Save current grading results as a .spice-grades session file."""
+        if self._batch_result is None:
+            return
+
+        from grading.session_persistence import GRADES_EXTENSION, batch_result_to_session, save_grading_session
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Grading Session",
+            "",
+            f"Grade Files (*{GRADES_EXTENSION});;All Files (*)",
+        )
+        if not filename:
+            return
+
+        try:
+            session = batch_result_to_session(
+                self._batch_result,
+                rubric_path=self.rubric_path.text(),
+                student_folder=self.folder_path.text(),
+            )
+            save_grading_session(filename, session)
+            QMessageBox.information(self, "Saved", f"Grading session saved to {filename}")
+        except OSError as e:
+            QMessageBox.critical(self, "Error", f"Failed to save grading session:\n{e}")
+
+    def _on_load_grades(self):
+        """Load a previous grading session from a .spice-grades file."""
+        from grading.session_persistence import GRADES_EXTENSION, dict_to_grading_result, load_grading_session
+
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Grading Session",
+            "",
+            f"Grade Files (*{GRADES_EXTENSION});;All Files (*)",
+        )
+        if not filename:
+            return
+
+        try:
+            session = load_grading_session(filename)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load grading session:\n{e}")
+            return
+
+        self._loaded_session = session
+
+        # Reconstruct a BatchGradingResult so we can display it
+        from grading.batch_grader import BatchGradingResult
+
+        results = [dict_to_grading_result(r) for r in session.results]
+        loaded_result = BatchGradingResult(
+            rubric_title=session.rubric_title,
+            total_students=len(session.results) + len(session.errors),
+            successful=len(session.results),
+            failed=len(session.errors),
+            results=results,
+            errors=list(session.errors),
+        )
+        self._batch_result = loaded_result
+        self._display_results(loaded_result)
+        self.export_btn.setEnabled(True)
+        self.save_grades_btn.setEnabled(True)
+        self.progress_label.setText(f"Loaded session: {session.rubric_title} ({session.timestamp})")
+
+    def _show_comparison(self, old_session: GradingSessionData):
+        """Display a comparison between the loaded session and current results."""
+        if self._batch_result is None:
+            return
+
+        from grading.session_persistence import batch_result_to_session, compare_sessions
+
+        new_session = batch_result_to_session(self._batch_result)
+        comparisons = compare_sessions(old_session, new_session)
+
+        if not comparisons:
+            return
+
+        lines = ["", "Comparison with previous session:"]
+        for c in comparisons:
+            if c["delta"] is not None:
+                sign = "+" if c["delta"] >= 0 else ""
+                lines.append(
+                    f"  {c['student_file']}: {c['old_pct']:.1f}% -> {c['new_pct']:.1f}% ({sign}{c['delta']:.1f}%)"
+                )
+            elif c["old_pct"] is None:
+                lines.append(f"  {c['student_file']}: (new) {c['new_pct']:.1f}%")
+            else:
+                lines.append(f"  {c['student_file']}: {c['old_pct']:.1f}% (removed)")
+
+        self.comparison_label.setText("\n".join(lines))
+        self.comparison_label.setVisible(True)
 
     def _on_export(self):
         if self._batch_result is None:
