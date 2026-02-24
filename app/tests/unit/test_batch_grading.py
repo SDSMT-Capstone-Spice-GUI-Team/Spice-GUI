@@ -40,10 +40,30 @@ def _build_circuit(r_value="1k", c_value="100n"):
         position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="C1", end_terminal=0),
-        WireData(start_component_id="C1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="R1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="C1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="C1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
     ]
     model.component_counter = {"V": 1, "R": 1, "C": 1, "GND": 1}
     model.analysis_type = "AC Sweep"
@@ -68,7 +88,11 @@ def _build_rubric():
                 check_id="r1_value",
                 check_type="component_value",
                 points=25,
-                params={"component_id": "R1", "expected_value": "1k", "tolerance_pct": 10},
+                params={
+                    "component_id": "R1",
+                    "expected_value": "1k",
+                    "tolerance_pct": 10,
+                },
                 feedback_pass="R1 value OK",
                 feedback_fail="R1 value wrong",
             ),

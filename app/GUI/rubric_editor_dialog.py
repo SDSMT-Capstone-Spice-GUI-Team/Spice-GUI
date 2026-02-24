@@ -482,7 +482,11 @@ class RubricEditorDialog(QDialog):
         """Save the rubric to a .spice-rubric file."""
         errors = self._validate()
         if errors:
-            QMessageBox.warning(self, "Validation Errors", "Please fix errors before saving:\n\n" + "\n".join(errors))
+            QMessageBox.warning(
+                self,
+                "Validation Errors",
+                "Please fix errors before saving:\n\n" + "\n".join(errors),
+            )
             return
 
         filename, _ = QFileDialog.getSaveFileName(
@@ -570,7 +574,9 @@ class RubricEditorDialog(QDialog):
         errors = self._validate()
         if errors:
             QMessageBox.warning(
-                self, "Validation Errors", "Please fix errors before proceeding:\n\n" + "\n".join(errors)
+                self,
+                "Validation Errors",
+                "Please fix errors before proceeding:\n\n" + "\n".join(errors),
             )
             return
 

@@ -38,10 +38,30 @@ def _build_rc_filter():
         position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="C1", end_terminal=0),
-        WireData(start_component_id="C1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="R1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="C1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="C1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
     ]
     model.component_counter = {"V": 1, "R": 1, "C": 1, "GND": 1}
     model.analysis_type = "AC Sweep"
@@ -220,14 +240,30 @@ class TestTopologyChecks:
         """Multiple wires between the same pair should produce only one check."""
         model = CircuitModel()
         model.components["R1"] = ComponentData(
-            component_id="R1", component_type="Resistor", value="1k", position=(0.0, 0.0)
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(0.0, 0.0),
         )
         model.components["R2"] = ComponentData(
-            component_id="R2", component_type="Resistor", value="2k", position=(100.0, 0.0)
+            component_id="R2",
+            component_type="Resistor",
+            value="2k",
+            position=(100.0, 0.0),
         )
         model.wires = [
-            WireData(start_component_id="R1", start_terminal=0, end_component_id="R2", end_terminal=0),
-            WireData(start_component_id="R2", start_terminal=1, end_component_id="R1", end_terminal=1),
+            WireData(
+                start_component_id="R1",
+                start_terminal=0,
+                end_component_id="R2",
+                end_terminal=0,
+            ),
+            WireData(
+                start_component_id="R2",
+                start_terminal=1,
+                end_component_id="R1",
+                end_terminal=1,
+            ),
         ]
         model.rebuild_nodes()
         rubric = generate_rubric_from_circuit(model)
@@ -316,7 +352,10 @@ class TestPointDistribution:
     def test_remainder_distributed_to_first_checks(self):
         model = CircuitModel()
         model.components["R1"] = ComponentData(
-            component_id="R1", component_type="Resistor", value="1k", position=(0.0, 0.0)
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(0.0, 0.0),
         )
         model.rebuild_nodes()
         # 2 checks (exists + value), 7 points -> 3 + 4, remainder 1 to first

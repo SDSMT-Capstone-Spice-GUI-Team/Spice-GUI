@@ -9,6 +9,9 @@ import sys
 from pathlib import Path
 
 # Prevent matplotlib.use("QtAgg") from failing in headless environments.
+# The monte_carlo_results_dialog module calls matplotlib.use("QtAgg") at
+# import time which raises ImportError when Qt's offscreen platform is active.
+# Patching here ensures the entire test suite can collect and run.
 if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
     import matplotlib
 
@@ -16,7 +19,7 @@ if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
 
     def _safe_mpl_use(backend, **kwargs):
         if backend == "QtAgg":
-            return
+            return  # silently skip in headless mode
         return _orig_mpl_use(backend, **kwargs)
 
     matplotlib.use = _safe_mpl_use
@@ -33,7 +36,6 @@ from PyQt6.QtWidgets import QApplication as _QApp
 
 if _QApp.instance() is None:
     _qapp_instance = _QApp([])
-
 
 import pytest
 from models.component import ComponentData

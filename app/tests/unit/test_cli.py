@@ -33,10 +33,34 @@ def voltage_divider(tmp_path):
     """Create a valid voltage divider circuit file."""
     circuit = {
         "components": [
-            {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
-            {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
-            {"type": "Resistor", "id": "R2", "value": "1k", "pos": {"x": 300, "y": 0}, "rotation": 0},
-            {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 350, "y": 150}, "rotation": 0},
+            {
+                "type": "Voltage Source",
+                "id": "V1",
+                "value": "5V",
+                "pos": {"x": 0, "y": 0},
+                "rotation": 0,
+            },
+            {
+                "type": "Resistor",
+                "id": "R1",
+                "value": "1k",
+                "pos": {"x": 200, "y": 0},
+                "rotation": 0,
+            },
+            {
+                "type": "Resistor",
+                "id": "R2",
+                "value": "1k",
+                "pos": {"x": 300, "y": 0},
+                "rotation": 0,
+            },
+            {
+                "type": "Ground",
+                "id": "GND1",
+                "value": "0V",
+                "pos": {"x": 350, "y": 150},
+                "rotation": 0,
+            },
         ],
         "wires": [
             {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
@@ -225,14 +249,42 @@ class TestBatchCommand:
         """Create a directory with multiple circuit files."""
         base = {
             "components": [
-                {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
-                {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 0, "y": 200}, "rotation": 0},
+                {
+                    "type": "Voltage Source",
+                    "id": "V1",
+                    "value": "5V",
+                    "pos": {"x": 0, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 200, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Ground",
+                    "id": "GND1",
+                    "value": "0V",
+                    "pos": {"x": 0, "y": 200},
+                    "rotation": 0,
+                },
             ],
             "wires": [
                 {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
-                {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
-                {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+                {
+                    "start_comp": "R1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
+                {
+                    "start_comp": "V1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
             ],
             "counters": {"R": 1, "V": 1, "GND": 1},
         }
@@ -256,14 +308,42 @@ class TestBatchCommand:
         # Valid circuit
         valid = {
             "components": [
-                {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
-                {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 0, "y": 200}, "rotation": 0},
+                {
+                    "type": "Voltage Source",
+                    "id": "V1",
+                    "value": "5V",
+                    "pos": {"x": 0, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 200, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Ground",
+                    "id": "GND1",
+                    "value": "0V",
+                    "pos": {"x": 0, "y": 200},
+                    "rotation": 0,
+                },
             ],
             "wires": [
                 {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
-                {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
-                {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+                {
+                    "start_comp": "R1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
+                {
+                    "start_comp": "V1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
             ],
             "counters": {"R": 1, "V": 1, "GND": 1},
         }
@@ -490,14 +570,42 @@ class TestDiffCommand:
     def base_circuit_data(self):
         return {
             "components": [
-                {"type": "Voltage Source", "id": "V1", "value": "5V", "pos": {"x": 0, "y": 0}, "rotation": 0},
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 200, "y": 0}, "rotation": 0},
-                {"type": "Ground", "id": "GND1", "value": "0V", "pos": {"x": 0, "y": 200}, "rotation": 0},
+                {
+                    "type": "Voltage Source",
+                    "id": "V1",
+                    "value": "5V",
+                    "pos": {"x": 0, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 200, "y": 0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "Ground",
+                    "id": "GND1",
+                    "value": "0V",
+                    "pos": {"x": 0, "y": 200},
+                    "rotation": 0,
+                },
             ],
             "wires": [
                 {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
-                {"start_comp": "R1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
-                {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+                {
+                    "start_comp": "R1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
+                {
+                    "start_comp": "V1",
+                    "start_term": 1,
+                    "end_comp": "GND1",
+                    "end_term": 0,
+                },
             ],
             "counters": {"R": 1, "V": 1, "GND": 1},
         }
@@ -526,7 +634,13 @@ class TestDiffCommand:
     def circuit_b_component_added(self, tmp_path, base_circuit_data):
         data = json.loads(json.dumps(base_circuit_data))
         data["components"].append(
-            {"type": "Resistor", "id": "R2", "value": "4.7k", "pos": {"x": 300, "y": 0}, "rotation": 0}
+            {
+                "type": "Resistor",
+                "id": "R2",
+                "value": "4.7k",
+                "pos": {"x": 300, "y": 0},
+                "rotation": 0,
+            }
         )
         data["counters"]["R"] = 2
         filepath = tmp_path / "circuit_b_added.json"
@@ -547,7 +661,11 @@ class TestDiffCommand:
     def circuit_b_analysis_changed(self, tmp_path, base_circuit_data):
         data = json.loads(json.dumps(base_circuit_data))
         data["analysis_type"] = "AC Sweep"
-        data["analysis_params"] = {"start_freq": "1", "stop_freq": "1MEG", "points": "100"}
+        data["analysis_params"] = {
+            "start_freq": "1",
+            "stop_freq": "1MEG",
+            "points": "100",
+        }
         filepath = tmp_path / "circuit_b_analysis.json"
         filepath.write_text(json.dumps(data))
         return str(filepath)
@@ -605,7 +723,10 @@ class TestDiffCommand:
         model_a = load_circuit(circuit_a)
         model_b = load_circuit(circuit_b_analysis_changed)
         diff = diff_circuits(model_a, model_b)
-        assert diff["analysis"]["type"] == {"from": "DC Operating Point", "to": "AC Sweep"}
+        assert diff["analysis"]["type"] == {
+            "from": "DC Operating Point",
+            "to": "AC Sweep",
+        }
         assert "params" in diff["analysis"]
 
     def test_text_format(self, circuit_a, circuit_b_value_changed, capsys):

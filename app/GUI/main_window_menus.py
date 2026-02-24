@@ -244,6 +244,13 @@ class MenuBarMixin:
 
         edit_menu.addSeparator()
 
+        recommended_action = QAction("Edit &Recommended Components...", self)
+        recommended_action.setToolTip("Edit file-level recommended components shown at the top of the palette")
+        recommended_action.triggered.connect(self._edit_recommended_components)
+        edit_menu.addAction(recommended_action)
+
+        edit_menu.addSeparator()
+
         clear_action = QAction("&Clear Canvas", self)
         clear_action.setShortcut(kb.get("edit.clear"))
         clear_action.triggered.connect(self.clear_canvas)
@@ -578,6 +585,18 @@ class MenuBarMixin:
             batch_grade_action.triggered.connect(self._on_batch_grade)
             instructor_menu.addAction(batch_grade_action)
 
+            instructor_menu.addSeparator()
+
+            open_assignment_action = QAction("&Open Assignment...", self)
+            open_assignment_action.setToolTip("Open a .spice-assignment bundle (template + rubric)")
+            open_assignment_action.triggered.connect(self._on_open_assignment)
+            instructor_menu.addAction(open_assignment_action)
+
+            save_assignment_action = QAction("&Save as Assignment...", self)
+            save_assignment_action.setToolTip("Bundle the current circuit and a rubric into a .spice-assignment file")
+            save_assignment_action.triggered.connect(self._on_save_assignment)
+            instructor_menu.addAction(save_assignment_action)
+
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")
         if settings_menu:
@@ -590,6 +609,20 @@ class MenuBarMixin:
             keybindings_action = QAction("&Keybindings...", self)
             keybindings_action.triggered.connect(self._open_keybindings_dialog)
             settings_menu.addAction(keybindings_action)
+
+        # Help menu
+        help_menu = menubar.addMenu("&Help")
+        if help_menu:
+            help_action = QAction("&Help Topics...", self)
+            help_action.setShortcut(QKeySequence("F1"))
+            help_action.setToolTip("Open searchable help")
+            help_action.triggered.connect(self._show_help)
+            help_menu.addAction(help_action)
+
+            tutorial_action = QAction("Guided &Tutorial...", self)
+            tutorial_action.setToolTip("Step-by-step tutorial for building your first circuit")
+            tutorial_action.triggered.connect(self._start_tutorial)
+            help_menu.addAction(tutorial_action)
 
     def _open_preferences_dialog(self):
         """Open the unified preferences dialog (single-instance, non-modal)."""

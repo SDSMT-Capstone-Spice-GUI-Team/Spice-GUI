@@ -117,7 +117,11 @@ class DarkTheme(BaseTheme):
             # Probe pens
             "probe_voltage": {"color": "probe_voltage", "width": 1.5},
             "probe_current": {"color": "probe_current", "width": 1.5},
-            "probe_highlight": {"color": "probe_highlight", "width": 2.0, "style": "dash"},
+            "probe_highlight": {
+                "color": "probe_highlight",
+                "width": 2.0,
+                "style": "dash",
+            },
         }
 
     def _define_brushes(self):

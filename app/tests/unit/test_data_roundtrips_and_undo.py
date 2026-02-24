@@ -198,7 +198,12 @@ class TestSerializationRoundTrips:
         """Analysis type and params survive circuit round-trip."""
         model = CircuitModel()
         model.analysis_type = "AC Sweep"
-        model.analysis_params = {"variation": "dec", "points": "10", "fstart": "1", "fstop": "1e6"}
+        model.analysis_params = {
+            "variation": "dec",
+            "points": "10",
+            "fstart": "1",
+            "fstop": "1e6",
+        }
 
         data = model.to_dict()
         restored = CircuitModel.from_dict(data)

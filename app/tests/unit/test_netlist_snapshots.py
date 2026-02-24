@@ -354,7 +354,14 @@ class TestAnalysisDirectives:
         w2 = WireData("R1", 1, "GND1", 0)
         w3 = WireData("V1", 1, "GND1", 0)
         return _model_with_circuit(
-            v1, r1, gnd, w1, w2, w3, analysis_type=analysis_type, analysis_params=analysis_params
+            v1,
+            r1,
+            gnd,
+            w1,
+            w2,
+            w3,
+            analysis_type=analysis_type,
+            analysis_params=analysis_params,
         )
 
     def test_dc_operating_point(self):
@@ -368,7 +375,10 @@ class TestAnalysisDirectives:
         assert ".dc V1 0 10 0.1" in netlist
 
     def test_ac_sweep(self):
-        model = self._basic_circuit("AC Sweep", {"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"})
+        model = self._basic_circuit(
+            "AC Sweep",
+            {"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+        )
         netlist = _generate_from_model(model)
         assert ".ac dec 10 1 1MEG" in netlist
 

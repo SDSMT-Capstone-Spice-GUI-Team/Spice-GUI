@@ -3,8 +3,7 @@ import os
 import sys
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
-from PyQt6.QtGui import QBrush  # QPainterPath imported locally where needed
-from PyQt6.QtGui import QPen
+from PyQt6.QtGui import QBrush, QColor, QPen  # QPainterPath imported locally where needed
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -44,6 +43,11 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.is_being_dragged = False
         self._group_moving = False  # Guard against recursive group moves
         self._drag_start_positions = {}  # {comp_id: (x, y)} for undo
+        self._locked = False  # Whether this component is locked (non-editable)
+
+        # Grading overlay state (temporary, not persisted)
+        self._grading_state = None  # "passed", "failed", or None
+        self._grading_feedback = ""
 
         # Phase 5: Debounced position updates to controller
         self._position_update_timer = None
@@ -96,8 +100,22 @@ class ComponentGraphicsItem(QGraphicsItem):
 
     # --- Event handlers ---
 
+    def set_locked(self, locked: bool) -> None:
+        """Set the locked state of this component."""
+        self._locked = locked
+        if locked:
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        else:
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+        self.update()
+
     def mousePressEvent(self, event):
         """Track when dragging starts and record start positions for undo."""
+        if self._locked:
+            event.accept()
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_being_dragged = True
             # Record start positions for undo (self + all selected items)
@@ -192,6 +210,13 @@ class ComponentGraphicsItem(QGraphicsItem):
 
     def mouseDoubleClickEvent(self, event):
         """Open a dialog to edit component value on double-click"""
+        if self._locked:
+            QMessageBox.information(
+                None,
+                "Locked Component",
+                f"{self.component_id} is locked and cannot be modified.",
+            )
+            return
         if self.component_type in ("Ground", "Op-Amp"):
             return
 
@@ -284,6 +309,25 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.update_terminals()
         self.update()
 
+    def set_grading_state(self, state, feedback=""):
+        """Set the grading overlay state for this component.
+
+        Args:
+            state: "passed", "failed", or None to clear.
+            feedback: Tooltip text shown on hover.
+        """
+        self._grading_state = state
+        self._grading_feedback = feedback
+        self.setToolTip(feedback if feedback else "")
+        self.update()
+
+    def clear_grading_state(self):
+        """Remove grading overlay from this component."""
+        self._grading_state = None
+        self._grading_feedback = ""
+        self.setToolTip("")
+        self.update()
+
     def draw_component_body(self, painter):
         """Dispatch to the registered renderer for the current symbol style."""
         from .renderers import get_renderer
@@ -313,6 +357,21 @@ class ComponentGraphicsItem(QGraphicsItem):
             painter.setPen(theme_manager.pen("component_selected"))
             painter.drawRect(QRectF(-40, -20, 80, 40))
 
+        # Draw locked indicator (dimmed border with lock icon)
+        if getattr(self, "_locked", False):
+            lock_pen = QPen(QBrush(Qt.GlobalColor.gray), 1.5, Qt.PenStyle.DashLine)
+            painter.setPen(lock_pen)
+            painter.drawRect(QRectF(-42, -22, 84, 44))
+        # Grading overlay (temporary visual feedback)
+        if self._grading_state == "passed":
+            painter.setPen(QPen(QColor(0, 200, 0, 200), 3))
+            painter.setBrush(QBrush(QColor(0, 200, 0, 40)))
+            painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
+        elif self._grading_state == "failed":
+            painter.setPen(QPen(QColor(220, 0, 0, 200), 3))
+            painter.setBrush(QBrush(QColor(220, 0, 0, 40)))
+            painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
+
         # Draw component body
         painter.setPen(QPen(color, 2))
         painter.setBrush(QBrush(color.lighter(150)))
@@ -324,7 +383,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
 
         if show_label or show_value:
-            painter.setPen(QPen(Qt.GlobalColor.black))
+            painter.setPen(QPen(color))
             if show_label and show_value:
                 painter.drawText(-20, -25, f"{self.component_id} ({self.value})")
             elif show_label:
@@ -370,7 +429,9 @@ class ComponentGraphicsItem(QGraphicsItem):
             # Show straight-line preview for connected wires during drag
             # (full pathfinding runs after drag ends via debounced timer)
             self.update()
-            if self.scene():
+            # Skip wire preview for followers during group drag to avoid
+            # tearing artifacts from rapid forced scene repaints (#442).
+            if self.scene() and not self._group_moving:
                 views = self.scene().views()
                 if views:
                     canvas = views[0]
@@ -561,7 +622,7 @@ class Ground(ComponentGraphicsItem):
         show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
 
         if show_label or show_value:
-            painter.setPen(QPen(Qt.GlobalColor.black))
+            painter.setPen(QPen(color))
             if show_label and show_value:
                 painter.drawText(-20, -25, "GND (0V)")
             elif show_label:
