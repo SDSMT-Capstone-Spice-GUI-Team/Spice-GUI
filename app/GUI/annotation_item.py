@@ -3,6 +3,8 @@
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsTextItem, QInputDialog
 
+from .styles import theme_manager
+
 
 class AnnotationItem(QGraphicsTextItem):
     """A free-form text annotation that can be placed on the canvas.
@@ -11,9 +13,12 @@ class AnnotationItem(QGraphicsTextItem):
     and serialization for save/load.
     """
 
-    def __init__(self, text="Annotation", x=0.0, y=0.0, font_size=10, bold=False, color="#FFFFFF"):
+    def __init__(self, text="Annotation", x=0.0, y=0.0, font_size=10, bold=False, color=""):
         super().__init__(text)
         self.setPos(x, y)
+        # Resolve empty color to theme-appropriate default
+        if not color:
+            color = theme_manager.color_hex("text_primary")
         self.setDefaultTextColor(QColor(color))
         self._color_hex = color
 
@@ -64,5 +69,5 @@ class AnnotationItem(QGraphicsTextItem):
             y=data.get("y", 0.0),
             font_size=data.get("font_size", 10),
             bold=data.get("bold", False),
-            color=data.get("color", "#FFFFFF"),
+            color=data.get("color", ""),
         )
