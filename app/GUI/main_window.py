@@ -11,6 +11,7 @@ MainWindow is composed from focused mixin modules:
 """
 
 import logging
+from pathlib import Path
 
 from controllers.circuit_controller import CircuitController
 from controllers.file_controller import FileController
@@ -100,6 +101,9 @@ class MainWindow(
         self._restore_settings()
         self._check_auto_save_recovery()
         self._load_last_session()
+
+        # Enable drag-and-drop of circuit files onto the window
+        self.setAcceptDrops(True)
 
         # Auto-save timer
         self._autosave_timer = QTimer(self)
@@ -363,3 +367,87 @@ class MainWindow(
             self.netlist_preview.set_netlist(netlist)
         except (ValueError, KeyError, TypeError) as e:
             self.netlist_preview.set_error(str(e))
+
+    # Drag-and-drop file import
+
+    def dragEnterEvent(self, event):
+        """Accept file drops onto the main window."""
+        if event is None:
+            return
+        mime = event.mimeData()
+        if mime and mime.hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """Handle file drops — route by extension to the correct importer."""
+        if event is None:
+            return
+        mime = event.mimeData()
+        if not mime or not mime.hasUrls():
+            return
+
+        urls = mime.urls()
+        if not urls:
+            return
+
+        filepath = urls[0].toLocalFile()
+        if not filepath:
+            return
+
+        self._import_dropped_file(filepath)
+        event.acceptProposedAction()
+
+    def _import_dropped_file(self, filepath):
+        """Route a dropped file to the correct import handler by extension."""
+        from .drag_drop_router import route_dropped_file
+
+        ext = Path(filepath).suffix.lower()
+        handler_name = route_dropped_file(ext)
+
+        if handler_name is None:
+            QMessageBox.warning(
+                self,
+                "Unsupported File",
+                f"Cannot import '{Path(filepath).name}'.\n\nSupported formats: .json, .asc, .cir, .spice, .sp, .net",
+            )
+            return
+
+        # Prompt if current circuit has unsaved changes
+        if self._dirty or len(self.canvas.components) > 0:
+            reply = QMessageBox.question(
+                self,
+                "Import File",
+                f"Import '{Path(filepath).name}'?\nCurrent circuit will be replaced.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        try:
+            if handler_name == "load_circuit":
+                self.file_ctrl.load_circuit(filepath)
+                self.setWindowTitle(f"Circuit Design GUI - {filepath}")
+                self._sync_analysis_menu()
+                self._apply_default_zoom()
+            elif handler_name == "import_netlist":
+                self.file_ctrl.import_netlist(filepath)
+                self.setWindowTitle(f"Circuit Design GUI - {Path(filepath).name} (imported)")
+                self._sync_analysis_menu()
+                self._set_dirty(True)
+            elif handler_name == "import_asc":
+                warnings = self.file_ctrl.import_asc(filepath)
+                self.setWindowTitle(f"Circuit Design GUI - {Path(filepath).name} (imported)")
+                self._sync_analysis_menu()
+                self._set_dirty(True)
+                if warnings:
+                    QMessageBox.information(
+                        self,
+                        "Import Warnings",
+                        "Warnings:\n" + "\n".join(f"  - {w}" for w in warnings),
+                    )
+
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Imported {Path(filepath).name}", 3000)
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to import file:\n{e}")
