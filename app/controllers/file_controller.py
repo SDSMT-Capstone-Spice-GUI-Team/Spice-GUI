@@ -137,6 +137,7 @@ class FileController:
         self.model.analysis_type = new_model.analysis_type
         self.model.analysis_params = new_model.analysis_params
         self.model.annotations = new_model.annotations
+        self.model.recommended_components = new_model.recommended_components
 
         self.current_file = filepath
         self._save_session()
@@ -162,6 +163,7 @@ class FileController:
         self.model.analysis_type = new_model.analysis_type
         self.model.analysis_params = new_model.analysis_params
         self.model.annotations = new_model.annotations
+        self.model.recommended_components = new_model.recommended_components
 
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("model_loaded", None)
@@ -300,6 +302,8 @@ class FileController:
             self.model.component_counter = new_model.component_counter
             self.model.analysis_type = new_model.analysis_type
             self.model.analysis_params = new_model.analysis_params
+            self.model.annotations = new_model.annotations
+            self.model.recommended_components = new_model.recommended_components
 
             if source_path:
                 self.current_file = Path(source_path)
