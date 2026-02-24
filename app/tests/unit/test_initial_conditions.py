@@ -49,7 +49,13 @@ class TestICSerializer:
         assert comp.initial_condition is None
 
     def test_from_dict_with_ic(self):
-        d = {"type": "Capacitor", "id": "C1", "value": "1u", "pos": {"x": 0, "y": 0}, "initial_condition": "5"}
+        d = {
+            "type": "Capacitor",
+            "id": "C1",
+            "value": "1u",
+            "pos": {"x": 0, "y": 0},
+            "initial_condition": "5",
+        }
         comp = ComponentData.from_dict(d)
         assert comp.initial_condition == "5"
 

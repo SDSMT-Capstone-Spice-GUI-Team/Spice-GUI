@@ -370,7 +370,9 @@ class ComponentGraphicsItem(QGraphicsItem):
             # Show straight-line preview for connected wires during drag
             # (full pathfinding runs after drag ends via debounced timer)
             self.update()
-            if self.scene():
+            # Skip wire preview for followers during group drag to avoid
+            # tearing artifacts from rapid forced scene repaints (#442).
+            if self.scene() and not self._group_moving:
                 views = self.scene().views()
                 if views:
                     canvas = views[0]
