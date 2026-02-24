@@ -50,7 +50,7 @@ _TIKZ_TO_TRIPOLE = {
 # Regex patterns
 _RE_COORD = r"\(\s*([\d.eE+-]+)\s*,\s*([\d.eE+-]+)\s*\)"
 _RE_DRAW_TO = re.compile(
-    r"\\draw\s+" + _RE_COORD + r"\s+to\s*\[([^\]]*)\]\s*" + _RE_COORD + r"\s*;",
+    r"\\draw\s+" + _RE_COORD + r"\s+to\s*\[([^\]]*)\]\s*" + _RE_COORD + r"\s*;([^\n]*)",
     re.DOTALL,
 )
 _RE_NODE_COMPONENT = re.compile(
@@ -143,15 +143,21 @@ def import_circuitikz(text):
     grounds = []
     wires = []
 
-    # Parse bipoles: \draw (x1,y1) to[opts] (x2,y2);
+    # Parse bipoles: \draw (x1,y1) to[opts] (x2,y2); [% spice: <type>]
     for m in _RE_DRAW_TO.finditer(body):
-        x1, y1, opts, x2, y2 = (
+        x1, y1, opts, x2, y2, trailing = (
             m.group(1),
             m.group(2),
             m.group(3),
             m.group(4),
             m.group(5),
+            m.group(6),
         )
+        # Check for a % spice: <type> override (disambiguates CCVS/CCCS)
+        spice_type = None
+        type_m = re.search(r"%\s*spice:\s*(\S+)", trailing)
+        if type_m:
+            spice_type = type_m.group(1)
         bipoles.append(
             {
                 "x1": float(x1),
@@ -159,6 +165,7 @@ def import_circuitikz(text):
                 "opts": opts,
                 "x2": float(x2),
                 "y2": float(y2),
+                "spice_type": spice_type,
             }
         )
 
@@ -231,6 +238,11 @@ def import_circuitikz(text):
         if comp_type is None:
             warnings.append(f"Unsupported CircuiTikZ component: {comp_name}")
             continue
+
+        # Override type when a % spice: <type> comment is present
+        # (distinguishes CCVS from VCVS, CCCS from VCCS)
+        if bp.get("spice_type") and bp["spice_type"] in ("CCVS", "CCCS"):
+            comp_type = bp["spice_type"]
 
         comp_id = _parse_label(bp["opts"])
         value = _parse_value(bp["opts"])
