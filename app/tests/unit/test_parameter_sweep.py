@@ -303,6 +303,60 @@ class TestParameterSweepExecution:
         assert values == [100, 200, 300, 400, 500]
 
 
+class TestParameterSweepSingleStep:
+    """Issue #495: num_steps=1 must not cause ZeroDivisionError."""
+
+    def _make_ctrl_with_mock_runner(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "/tmp/sim_output"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/output.txt",
+            "stdout",
+            "",
+        )
+        mock_runner.read_output.return_value = (
+            "Node                      Voltage\n"
+            "----                      -------\n"
+            "nodea                     5.000000e+00\n"
+        )
+        ctrl._runner = mock_runner
+        return ctrl, mock_runner
+
+    def test_single_step_does_not_crash(self):
+        """num_steps=1 should run a single step at the start value without ZeroDivisionError."""
+        ctrl, mock_runner = self._make_ctrl_with_mock_runner()
+        config = {
+            "component_id": "R1",
+            "start": 1000,
+            "stop": 10000,
+            "num_steps": 1,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {"analysis_type": "DC Operating Point"},
+        }
+        result = ctrl.run_parameter_sweep(config)
+        assert result.success
+        assert result.data["sweep_values"] == [1000]
+        assert mock_runner.run_simulation.call_count == 1
+
+    def test_single_step_uses_start_value(self):
+        """With num_steps=1, the sweep should use only the start value."""
+        ctrl, mock_runner = self._make_ctrl_with_mock_runner()
+        config = {
+            "component_id": "R1",
+            "start": 4700,
+            "stop": 47000,
+            "num_steps": 1,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {"analysis_type": "DC Operating Point"},
+        }
+        result = ctrl.run_parameter_sweep(config)
+        assert result.data["sweep_values"] == [4700]
+
+
 class TestSweepableComponentTypes:
     """Test that the dialog correctly identifies sweepable components."""
 
