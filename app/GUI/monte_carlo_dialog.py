@@ -22,6 +22,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from .validation_helpers import clear_field_error, set_field_error
+
 # Base analysis types available for Monte Carlo
 MC_BASE_ANALYSIS_TYPES = [
     "DC Operating Point",
@@ -128,9 +130,16 @@ class MonteCarloDialog(QDialog):
 
         layout.addWidget(tol_group)
 
+        # Error label for validation feedback
+        self._error_label = QLabel("")
+        self._error_label.setStyleSheet("color: red; font-size: 9pt;")
+        self._error_label.setWordWrap(True)
+        self._error_label.hide()
+        layout.addWidget(self._error_label)
+
         # --- Buttons ---
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(self.accept)
+        buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
@@ -167,6 +176,54 @@ class MonteCarloDialog(QDialog):
 
             self._base_field_widgets[key] = (widget, field_config[2])
             self._base_form.addRow(f"{label}:", widget)
+
+    def _on_accept(self):
+        """Validate fields before accepting the dialog."""
+        errors = self._validate()
+        if errors:
+            self._error_label.setText("\n".join(errors))
+            self._error_label.show()
+            return
+        self._error_label.hide()
+        self.accept()
+
+    def _validate(self):
+        """Validate all fields and return a list of error messages (empty if valid)."""
+        from .format_utils import parse_value
+
+        errors = []
+        # Validate base analysis params
+        for key, (widget, field_type) in self._base_field_widgets.items():
+            if field_type == "combo":
+                continue
+            if isinstance(widget, QLineEdit):
+                if field_type in ("float", "int"):
+                    try:
+                        val = parse_value(widget.text())
+                        if field_type == "int":
+                            int(val)
+                        clear_field_error(widget)
+                    except (ValueError, TypeError):
+                        errors.append(f"Base analysis parameter '{key}' must be a valid number.")
+                        set_field_error(widget, "Invalid number")
+                elif not widget.text().strip():
+                    errors.append(f"Base analysis parameter '{key}' cannot be empty.")
+                    set_field_error(widget, "Required")
+                else:
+                    clear_field_error(widget)
+
+        # Validate tolerances
+        has_tolerance = False
+        if self.tol_table is not None:
+            for row in range(self.tol_table.rowCount()):
+                tol_spin = self.tol_table.cellWidget(row, 2)
+                if tol_spin and tol_spin.value() > 0:
+                    has_tolerance = True
+                    break
+        if not has_tolerance:
+            errors.append("At least one component must have a tolerance greater than 0%.")
+
+        return errors
 
     def get_parameters(self):
         """Get all Monte Carlo parameters.
