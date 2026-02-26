@@ -61,69 +61,76 @@ class ResultParser:
         node_voltages = {}
         branch_currents = {}
 
-        try:
-            lines = output.split("\n")
+        lines = output.split("\n")
 
-            for i, line in enumerate(lines):
-                # Pattern 1: v(nodename) = voltage
-                match = re.search(r"v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE)
-                if match:
+        for i, line in enumerate(lines):
+            # Pattern 1: v(nodename) = voltage
+            match = re.search(r"v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE)
+            if match:
+                try:
                     node_name = match.group(1)
                     voltage = float(match.group(2))
                     node_voltages[node_name] = voltage
-                    continue
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable OP voltage line: %s", line)
+                continue
 
-                # Branch current patterns: i(device) = current or @device[current]
-                i_match = re.search(
-                    r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)",
-                    line,
-                    re.IGNORECASE,
-                )
-                if i_match:
+            # Branch current patterns: i(device) = current or @device[current]
+            i_match = re.search(
+                r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)",
+                line,
+                re.IGNORECASE,
+            )
+            if i_match:
+                try:
                     device = i_match.group(1) or i_match.group(2)
                     current = float(i_match.group(3))
                     branch_currents[device.lower()] = current
-                    continue
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable OP current line: %s", line)
+                continue
 
-                # Pattern 2: Node/Voltage table
-                if "node" in line.lower() and "voltage" in line.lower():
-                    for j in range(i + 1, min(i + 50, len(lines))):
-                        result_line = lines[j].strip()
-                        if not result_line or result_line.startswith("-"):
+            # Pattern 2: Node/Voltage table
+            if "node" in line.lower() and "voltage" in line.lower():
+                for j in range(i + 1, min(i + 50, len(lines))):
+                    result_line = lines[j].strip()
+                    if not result_line or result_line.startswith("-"):
+                        continue
+                    if result_line.startswith("*") or result_line.lower().startswith("source"):
+                        break
+
+                    parts = result_line.split()
+                    if len(parts) >= 2:
+                        try:
+                            node_name = parts[0].replace("v(", "").replace(")", "")
+                            voltage = float(parts[1])
+                            node_voltages[node_name] = voltage
+                        except (ValueError, IndexError):
                             continue
-                        if result_line.startswith("*") or result_line.lower().startswith("source"):
-                            break
 
-                        parts = result_line.split()
-                        if len(parts) >= 2:
-                            try:
-                                node_name = parts[0].replace("v(", "").replace(")", "")
-                                voltage = float(parts[1])
-                                node_voltages[node_name] = voltage
-                            except (ValueError, IndexError):
-                                continue
-
-            # Pattern 3: ngspice print output format
-            for line in lines:
-                # Voltages: " V(5)   1.000000e-06 "
-                match = re.match(r"^\s*V\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
-                if match:
+        # Pattern 3: ngspice print output format
+        for line in lines:
+            # Voltages: " V(5)   1.000000e-06 "
+            match = re.match(r"^\s*V\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
+            if match:
+                try:
                     node_name = match.group(1)
                     voltage = float(match.group(2))
                     node_voltages[node_name] = voltage
-                    continue
-                # Currents: " I(v1)   -2.100000e-03 "
-                i_match = re.match(r"^\s*I\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
-                if i_match:
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable OP print line: %s", line)
+                continue
+            # Currents: " I(v1)   -2.100000e-03 "
+            i_match = re.match(r"^\s*I\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
+            if i_match:
+                try:
                     device = i_match.group(1)
                     current = float(i_match.group(2))
                     branch_currents[device.lower()] = current
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable OP print line: %s", line)
 
-            return {"node_voltages": node_voltages, "branch_currents": branch_currents}
-
-        except (ValueError, IndexError, AttributeError) as e:
-            logger.error("Error parsing OP results: %s", e, exc_info=True)
-            return {"node_voltages": {}, "branch_currents": {}}
+        return {"node_voltages": node_voltages, "branch_currents": branch_currents}
 
     @staticmethod
     def parse_dc_results(output):
