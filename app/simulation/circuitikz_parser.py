@@ -62,6 +62,10 @@ _RE_NODE_GROUND = re.compile(
 _RE_DRAW_WIRE = re.compile(
     r"\\draw(?:\[dashed\])?\s+" + _RE_COORD + r"(?:\s*--\s*" + _RE_COORD + r")+\s*;",
 )
+# Matches dashed control-pair draws:  \draw[dashed] (x1,y1) to[short] (x2,y2); % ctrl: <id>
+_RE_DASHED_CTRL = re.compile(
+    r"\\draw\[dashed\]\s+" + _RE_COORD + r"\s+to\s*\[short\]\s*" + _RE_COORD + r"\s*;\s*%\s*ctrl:\s*(\S+)",
+)
 _RE_ALL_COORDS = re.compile(_RE_COORD)
 
 
@@ -189,6 +193,18 @@ def import_circuitikz(text):
         x, y = m.group(1), m.group(2)
         grounds.append({"x": float(x), "y": float(y)})
 
+    # Parse dashed control pairs: \draw[dashed] (x1,y1) to[short] (x2,y2); % ctrl: <id>
+    ctrl_pairs = {}  # comp_id -> (x1, y1, x2, y2) in TikZ coords
+    for m in _RE_DASHED_CTRL.finditer(body):
+        x1, y1, x2, y2, ctrl_id = (
+            float(m.group(1)),
+            float(m.group(2)),
+            float(m.group(3)),
+            float(m.group(4)),
+            m.group(5),
+        )
+        ctrl_pairs[ctrl_id] = (x1, y1, x2, y2)
+
     # Parse wires: \draw (x1,y1) -- (x2,y2) [-- ...];
     for m in _RE_DRAW_WIRE.finditer(body):
         segment_text = m.group(0)
@@ -213,6 +229,8 @@ def import_circuitikz(text):
         all_tikz_coords.append((g["x"], g["y"]))
     for w in wires:
         all_tikz_coords.extend(w)
+    for x1, y1, x2, y2 in ctrl_pairs.values():
+        all_tikz_coords.extend([(x1, y1), (x2, y2)])
 
     if not all_tikz_coords:
         return CircuitModel(), warnings
@@ -259,10 +277,26 @@ def import_circuitikz(text):
         if not value:
             value = DEFAULT_VALUES.get(comp_type, "")
 
-        # Position = midpoint between the two terminals
+        # Convert bipole endpoints to pixel coords
         p1 = to_pixel(bp["x1"], bp["y1"])
         p2 = to_pixel(bp["x2"], bp["y2"])
-        pos = (round((p1[0] + p2[0]) / 2, 1), round((p1[1] + p2[1]) / 2, 1))
+
+        # For 4-terminal devices the bipole draw represents the output pair
+        # (terminals 2,3) and a separate dashed draw holds the control pair
+        # (terminals 0,1).
+        from models.component import TERMINAL_COUNTS
+
+        is_four_terminal = TERMINAL_COUNTS.get(comp_type, 2) == 4
+        ctrl_pair = ctrl_pairs.get(comp_id) if is_four_terminal else None
+
+        if ctrl_pair is not None:
+            cp1 = to_pixel(ctrl_pair[0], ctrl_pair[1])
+            cp2 = to_pixel(ctrl_pair[2], ctrl_pair[3])
+            all_x = [p1[0], p2[0], cp1[0], cp2[0]]
+            all_y = [p1[1], p2[1], cp1[1], cp2[1]]
+            pos = (round(sum(all_x) / 4, 1), round(sum(all_y) / 4, 1))
+        else:
+            pos = (round((p1[0] + p2[0]) / 2, 1), round((p1[1] + p2[1]) / 2, 1))
 
         comp = ComponentData(
             component_id=comp_id,
@@ -284,8 +318,15 @@ def import_circuitikz(text):
                 counters[prefix] = num
 
         # Record terminal positions
-        terminal_positions[(comp_id, 0)] = p1
-        terminal_positions[(comp_id, 1)] = p2
+        if ctrl_pair is not None:
+            # 4-terminal: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+            terminal_positions[(comp_id, 0)] = cp1
+            terminal_positions[(comp_id, 1)] = cp2
+            terminal_positions[(comp_id, 2)] = p1
+            terminal_positions[(comp_id, 3)] = p2
+        else:
+            terminal_positions[(comp_id, 0)] = p1
+            terminal_positions[(comp_id, 1)] = p2
 
     for tp in tripoles:
         opts = tp["opts"]
