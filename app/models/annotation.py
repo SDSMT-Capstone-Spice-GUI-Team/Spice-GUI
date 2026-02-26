@@ -16,7 +16,7 @@ class AnnotationData:
     y: float = 0.0
     font_size: int = 10
     bold: bool = False
-    color: str = "#FFFFFF"
+    color: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -36,5 +36,5 @@ class AnnotationData:
             y=data.get("y", 0.0),
             font_size=data.get("font_size", 10),
             bold=data.get("bold", False),
-            color=data.get("color", "#FFFFFF"),
+            color=data.get("color", ""),
         )
