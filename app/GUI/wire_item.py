@@ -113,9 +113,12 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         self._waypoint_handles: list[WaypointHandle] = []
 
+        self._hovered = False
+
         self.setPen(QPen(self.layer_color, theme_manager.wire_thickness_px))
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable)
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+        self.setAcceptHoverEvents(True)
         self.setZValue(1)  # Render wires above components (z=0)
 
         if self.model.waypoints:
@@ -287,6 +290,18 @@ class WireGraphicsItem(QGraphicsPathItem):
             if status:
                 status.showMessage("Wire routing failed — move components to create space", 5000)
 
+    def hoverEnterEvent(self, event):
+        """Highlight wire on hover."""
+        self._hovered = True
+        self.update()
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        """Remove highlight when hover ends."""
+        self._hovered = False
+        self.update()
+        super().hoverLeaveEvent(event)
+
     def paint(self, painter, option=None, widget=None):
         """Override paint to show selection highlight, layer color, and junction dots."""
         if painter is None:
@@ -297,6 +312,9 @@ class WireGraphicsItem(QGraphicsPathItem):
         # Draw wire with appropriate style
         if self.isSelected():
             painter.setPen(theme_manager.pen("wire_selected"))
+        elif self._hovered:
+            hover_color = self.layer_color.lighter(150)
+            painter.setPen(QPen(hover_color, width + 1))
         elif self.model.routing_failed:
             pen = QPen(Qt.GlobalColor.red, width, Qt.PenStyle.DashLine)
             painter.setPen(pen)

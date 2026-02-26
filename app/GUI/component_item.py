@@ -53,9 +53,12 @@ class ComponentGraphicsItem(QGraphicsItem):
         self._position_update_timer = None
         self._pending_position = None
 
+        self._hovered = False
+
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+        self.setAcceptHoverEvents(True)
 
         # Create terminals
         self.update_terminals()
@@ -182,6 +185,18 @@ class ComponentGraphicsItem(QGraphicsItem):
             compound = CompoundCommand(move_commands, f"Move {len(move_commands)} components")
             controller.undo_manager._undo_stack.append(compound)
             controller.undo_manager._redo_stack.clear()
+
+    def hoverEnterEvent(self, event):
+        """Show visual feedback when the mouse enters the component."""
+        self._hovered = True
+        self.update()
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        """Remove visual feedback when the mouse leaves the component."""
+        self._hovered = False
+        self.update()
+        super().hoverLeaveEvent(event)
 
     def hoverMoveEvent(self, event):
         """Update cursor based on whether hovering over terminal"""
@@ -355,6 +370,10 @@ class ComponentGraphicsItem(QGraphicsItem):
         # Highlight if selected
         if self.isSelected():
             painter.setPen(theme_manager.pen("component_selected"))
+            painter.drawRect(QRectF(-40, -20, 80, 40))
+        elif self._hovered:
+            hover_pen = QPen(color.lighter(130), 1.5, Qt.PenStyle.DashLine)
+            painter.setPen(hover_pen)
             painter.drawRect(QRectF(-40, -20, 80, 40))
 
         # Draw locked indicator (dimmed border with lock icon)
