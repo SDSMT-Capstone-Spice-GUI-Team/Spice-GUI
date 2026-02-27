@@ -48,6 +48,29 @@ class TestParseOpResults:
         assert result["node_voltages"] == {}
         assert result["branch_currents"] == {}
 
+    def test_bad_line_does_not_discard_valid_data(self):
+        """A single unparseable line must not lose previously parsed results (#529)."""
+        output = "v(nodeA) = 5.00000\nv(bad) = NOT_A_NUMBER\nv(nodeB) = 2.50000\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(5.0)
+        assert result["node_voltages"]["nodeB"] == pytest.approx(2.5)
+        assert "bad" not in result["node_voltages"]
+
+    def test_bad_current_line_preserves_other_data(self):
+        """An unparseable branch current should not discard voltages (#529)."""
+        output = "v(nodeA) = 3.30000\ni(v1) = GARBAGE\n  V(nodeB)   1.000000e+00\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(3.3)
+        assert result["node_voltages"]["nodeB"] == pytest.approx(1.0)
+
+    def test_mixed_good_and_bad_print_format(self):
+        """Pattern 3 bad lines should be skipped, not abort (#529)."""
+        output = "  V(nodeA)   5.000000e+00\n  V(nodeB)   CORRUPT_VALUE\n  V(nodeC)   2.500000e+00\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(5.0)
+        assert result["node_voltages"]["nodeC"] == pytest.approx(2.5)
+        assert "nodeB" not in result["node_voltages"]
+
 
 # ── parse_dc_results ─────────────────────────────────────────────────
 

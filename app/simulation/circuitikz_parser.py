@@ -117,6 +117,33 @@ def _tikz_to_pixel(tx, ty, scale, offset_x=0.0, offset_y=0.0, max_ty=0.0):
     return (round(px, 1), round(py, 1))
 
 
+_WAVEFORM_PARAM_KEYS = {
+    "SIN": ("offset", "amplitude", "frequency", "delay", "theta", "phase"),
+    "PULSE": ("v1", "v2", "td", "tr", "tf", "pw", "per"),
+    "EXP": ("v1", "v2", "td1", "tau1", "td2", "tau2"),
+}
+
+
+def _parse_waveform_value(value_str):
+    """Parse a SPICE waveform value string into (waveform_type, params_for_type).
+
+    Accepts strings like ``SIN(0 5 1k 0 0 0)`` or ``PULSE(0 5 0 1n 1n 500u 1m)``.
+    Returns ``(None, None)`` when *value_str* is not a recognized waveform.
+    """
+    m = re.match(r"(SIN|PULSE|EXP)\s*\(([^)]*)\)", value_str.strip(), re.IGNORECASE)
+    if not m:
+        return None, None
+    wtype = m.group(1).upper()
+    tokens = m.group(2).split()
+    keys = _WAVEFORM_PARAM_KEYS.get(wtype)
+    if keys is None:
+        return None, None
+    params = {}
+    for i, key in enumerate(keys):
+        params[key] = tokens[i] if i < len(tokens) else "0"
+    return wtype, params
+
+
 def _extract_circuitikz_body(text):
     """Extract the content inside \\begin{circuitikz}...\\end{circuitikz}."""
     m = re.search(r"\\begin\{circuitikz\}(.*?)\\end\{circuitikz\}", text, re.DOTALL)
@@ -304,6 +331,14 @@ def import_circuitikz(text):
             value=value,
             position=pos,
         )
+
+        # Reconstruct structured waveform parameters from the value string
+        if comp_type == "Waveform Source" and value:
+            wtype, wparams = _parse_waveform_value(value)
+            if wtype and wparams:
+                comp.waveform_type = wtype
+                comp.waveform_params[wtype] = wparams
+
         model.add_component(comp)
 
         # Update counter
