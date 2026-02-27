@@ -525,6 +525,55 @@ class TestCircuitGraderExistsByType:
         assert result.check_results[0].passed is True
 
 
+class TestComponentExistsEmptyParams:
+    """Regression test for #536: component_exists should not silently fail with empty params."""
+
+    def test_empty_params_returns_misconfigured_feedback(self):
+        student = _build_rc_filter()
+        rubric = Rubric(
+            title="Empty Params Test",
+            total_points=10,
+            checks=[
+                RubricCheck(
+                    check_id="bad_check",
+                    check_type="component_exists",
+                    points=10,
+                    params={},
+                    feedback_pass="OK",
+                    feedback_fail="Missing",
+                )
+            ],
+        )
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        cr = result.check_results[0]
+        assert cr.passed is False
+        assert "Misconfigured" in cr.feedback
+        assert "component_id" in cr.feedback
+
+    def test_empty_string_params_returns_misconfigured_feedback(self):
+        student = _build_rc_filter()
+        rubric = Rubric(
+            title="Empty String Params Test",
+            total_points=10,
+            checks=[
+                RubricCheck(
+                    check_id="bad_check",
+                    check_type="component_exists",
+                    points=10,
+                    params={"component_id": "", "component_type": ""},
+                    feedback_pass="OK",
+                    feedback_fail="Missing",
+                )
+            ],
+        )
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        cr = result.check_results[0]
+        assert cr.passed is False
+        assert "Misconfigured" in cr.feedback
+
+
 class TestGradingResult:
     def test_percentage_zero_total(self):
         result = GradingResult(

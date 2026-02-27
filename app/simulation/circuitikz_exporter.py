@@ -224,8 +224,15 @@ def _emit_bipole(lines, comp, tikz_name, transform, include_ids, include_values)
             opts.append(f"a={{{_escape_latex(comp.value)}}}")
         opt_str = ", ".join([tikz_name] + opts)
 
-        lines.append(f"  \\draw {_coord(*out_start)} to[{opt_str}] {_coord(*out_end)};")
-        lines.append(f"  \\draw[dashed] {_coord(*ctrl_start)} to[short] {_coord(*ctrl_end)};")
+        # Append a type comment so the parser can distinguish CCVS from VCVS
+        # (both share the same CircuiTikZ component name).
+        type_comment = ""
+        if comp.component_type in ("CCVS", "CCCS"):
+            type_comment = f" % spice: {comp.component_type}"
+        lines.append(f"  \\draw {_coord(*out_start)} to[{opt_str}] {_coord(*out_end)};{type_comment}")
+        lines.append(
+            f"  \\draw[dashed] {_coord(*ctrl_start)} to[short] {_coord(*ctrl_end)}; % ctrl: {comp.component_id}"
+        )
         return
 
     # Standard 2-terminal bipole

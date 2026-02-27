@@ -24,6 +24,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from .validation_helpers import clear_field_error, set_field_error
+
 # Maps the GUI analysis type name to the .meas domain keyword
 ANALYSIS_DOMAIN_MAP = {
     "Transient": "tran",
@@ -150,9 +152,16 @@ class MeasurementEntryDialog(QDialog):
         layout.addWidget(QLabel("Directive preview:"))
         layout.addWidget(self.preview_label)
 
+        # Error label for validation feedback
+        self._error_label = QLabel("")
+        self._error_label.setStyleSheet("color: red; font-size: 9pt;")
+        self._error_label.setWordWrap(True)
+        self._error_label.hide()
+        layout.addWidget(self._error_label)
+
         # Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(self.accept)
+        buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
@@ -258,6 +267,34 @@ class MeasurementEntryDialog(QDialog):
             self._dynamic_widgets.append(self.targ_edge_combo)
 
         self._update_preview()
+
+    def _on_accept(self):
+        """Validate fields before accepting the dialog."""
+        errors = self._validate()
+        if errors:
+            self._error_label.setText("\n".join(errors))
+            self._error_label.show()
+            return
+        self._error_label.hide()
+        self.accept()
+
+    def _validate(self):
+        """Validate required fields and return a list of error messages."""
+        errors = []
+        name = self.name_edit.text().strip()
+        if not name:
+            errors.append("Measurement name is required.")
+            set_field_error(self.name_edit, "Name is required")
+        else:
+            clear_field_error(self.name_edit)
+
+        if not self.var_edit.text().strip():
+            errors.append("Variable is required (e.g. v(out)).")
+            set_field_error(self.var_edit, "Variable is required")
+        else:
+            clear_field_error(self.var_edit)
+
+        return errors
 
     def _update_preview(self):
         """Update the directive preview text."""

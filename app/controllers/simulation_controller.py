@@ -340,7 +340,10 @@ class SimulationController:
             )
 
         # Calculate sweep values (linear spacing)
-        sweep_values = [start + (stop - start) * i / (num_steps - 1) for i in range(num_steps)]
+        if num_steps <= 1:
+            sweep_values = [start]
+        else:
+            sweep_values = [start + (stop - start) * i / (num_steps - 1) for i in range(num_steps)]
 
         # Run sweep
         step_results = []
