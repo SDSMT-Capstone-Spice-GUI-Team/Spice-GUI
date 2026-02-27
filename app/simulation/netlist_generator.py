@@ -329,9 +329,12 @@ class NetlistGenerator:
 
         elif self.analysis_type == "DC Sweep":
             params = self.analysis_params
-            voltage_sources = [c for c in self.components.values() if c.component_type == "Voltage Source"]
-            if voltage_sources:
-                source_name = voltage_sources[0].component_id
+            # Use user-selected source if provided, otherwise fall back to first voltage source
+            source_name = params.get("source")
+            if not source_name:
+                voltage_sources = [c for c in self.components.values() if c.component_type == "Voltage Source"]
+                source_name = voltage_sources[0].component_id if voltage_sources else None
+            if source_name:
                 lines.append(f".dc {source_name} {params['min']} {params['max']} {params['step']}")
             else:
                 lines.append("* Warning: DC Sweep requires a voltage source")
