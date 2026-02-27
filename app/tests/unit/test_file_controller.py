@@ -518,6 +518,8 @@ class TestImportPreservesCircuitOnFailure:
 
         # Original circuit untouched
         assert set(ctrl.model.components.keys()) == original_ids
+
+
 class TestAnnotationsAndRecommendedComponents:
     """Issue #498: FileController load methods silently drop annotations and recommended_components."""
 

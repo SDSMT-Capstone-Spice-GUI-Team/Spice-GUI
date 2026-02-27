@@ -149,7 +149,7 @@ class FileController:
         validate_circuit_data(data)
 
         new_model = CircuitModel.from_dict(data)
-#         self._replace_model(new_model)
+        #         self._replace_model(new_model)
 
         # Update current model in place (preserving reference)
         self.model.clear()
@@ -178,7 +178,7 @@ class FileController:
         Does not update current_file or session tracking.
         """
         new_model = CircuitModel.from_dict(data)
-#         self._replace_model(new_model)
+        #         self._replace_model(new_model)
         self.model.clear()
         self.model.components = new_model.components
         self.model.wires = new_model.wires
@@ -319,7 +319,7 @@ class FileController:
             validate_circuit_data(data)
 
             new_model = CircuitModel.from_dict(data)
-#             self._replace_model(new_model)
+            #             self._replace_model(new_model)
             self.model.clear()
             self.model.components = new_model.components
             self.model.wires = new_model.wires
