@@ -76,6 +76,29 @@ class FileController:
         self._session_file = session_file
         self._autosave_file = Path(__file__).resolve().parent.parent / autosave_file
 
+    def _replace_model(self, new_model: CircuitModel) -> None:
+        """Atomically replace the current model's data with *new_model*.
+
+        Validates the parsed data **before** clearing the existing circuit
+        so that a corrupt import can never cause data loss.  If anything
+        goes wrong the original circuit is left untouched.
+        """
+        # Validate the new model by round-tripping through the dict
+        # representation — this catches missing fields, bad types, etc.
+        parsed_data = new_model.to_dict()
+        validate_circuit_data(parsed_data)
+
+        # Validation passed — safe to replace
+        self.model.clear()
+        self.model.components = new_model.components
+        self.model.wires = new_model.wires
+        self.model.nodes = new_model.nodes
+        self.model.terminal_to_node = new_model.terminal_to_node
+        self.model.component_counter = new_model.component_counter
+        self.model.analysis_type = new_model.analysis_type
+        self.model.analysis_params = new_model.analysis_params
+        self.model.annotations = new_model.annotations
+
     def new_circuit(self) -> None:
         """Clear the circuit and reset file state."""
         self.model.clear()
@@ -126,6 +149,7 @@ class FileController:
         validate_circuit_data(data)
 
         new_model = CircuitModel.from_dict(data)
+        #         self._replace_model(new_model)
 
         # Update current model in place (preserving reference)
         self.model.clear()
@@ -154,6 +178,7 @@ class FileController:
         Does not update current_file or session tracking.
         """
         new_model = CircuitModel.from_dict(data)
+        #         self._replace_model(new_model)
         self.model.clear()
         self.model.components = new_model.components
         self.model.wires = new_model.wires
@@ -294,6 +319,7 @@ class FileController:
             validate_circuit_data(data)
 
             new_model = CircuitModel.from_dict(data)
+            #             self._replace_model(new_model)
             self.model.clear()
             self.model.components = new_model.components
             self.model.wires = new_model.wires
@@ -337,16 +363,11 @@ class FileController:
 
         new_model, analysis = import_netlist(text)
 
-        self.model.clear()
-        self.model.components = new_model.components
-        self.model.wires = new_model.wires
-        self.model.nodes = new_model.nodes
-        self.model.terminal_to_node = new_model.terminal_to_node
-        self.model.component_counter = new_model.component_counter
-
         if analysis:
-            self.model.analysis_type = analysis["type"]
-            self.model.analysis_params = analysis["params"]
+            new_model.analysis_type = analysis["type"]
+            new_model.analysis_params = analysis["params"]
+
+        self._replace_model(new_model)
 
         self.current_file = None
         self.add_recent_file(filepath)
@@ -379,16 +400,11 @@ class FileController:
 
         new_model, analysis, warnings = import_asc(text)
 
-        self.model.clear()
-        self.model.components = new_model.components
-        self.model.wires = new_model.wires
-        self.model.nodes = new_model.nodes
-        self.model.terminal_to_node = new_model.terminal_to_node
-        self.model.component_counter = new_model.component_counter
-
         if analysis:
-            self.model.analysis_type = analysis["type"]
-            self.model.analysis_params = analysis["params"]
+            new_model.analysis_type = analysis["type"]
+            new_model.analysis_params = analysis["params"]
+
+        self._replace_model(new_model)
 
         self.current_file = None
         self.add_recent_file(filepath)
@@ -422,13 +438,7 @@ class FileController:
             text = f.read()
 
         new_model, warnings = import_circuitikz(text)
-
-        self.model.clear()
-        self.model.components = new_model.components
-        self.model.wires = new_model.wires
-        self.model.nodes = new_model.nodes
-        self.model.terminal_to_node = new_model.terminal_to_node
-        self.model.component_counter = new_model.component_counter
+        self._replace_model(new_model)
 
         self.current_file = None
         self.add_recent_file(filepath)

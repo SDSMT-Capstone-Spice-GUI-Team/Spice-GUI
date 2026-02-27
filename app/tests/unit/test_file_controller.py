@@ -444,6 +444,82 @@ class TestRecentFiles:
         assert "file/recent_files" in calls
 
 
+class TestImportPreservesCircuitOnFailure:
+    """Issue #489: import must not clear the circuit before validating parsed data."""
+
+    def test_load_circuit_with_valid_data_succeeds(self, tmp_path):
+        """A structurally valid JSON file should load without error."""
+        bad_data = {
+            "components": [
+                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}},
+            ],
+            "wires": [
+                {"start_comp": "R1", "start_term": 0, "end_comp": "R1", "end_term": 1},
+            ],
+        }
+        filepath = tmp_path / "valid.json"
+        filepath.write_text(json.dumps(bad_data))
+
+        ctrl = FileController(_build_simple_circuit())
+        ctrl.load_circuit(filepath)
+        assert "R1" in ctrl.model.components
+
+    def test_import_netlist_preserves_model_on_parse_error(self, tmp_path):
+        """If the parser raises, the original circuit must survive."""
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        original_ids = set(model.components.keys())
+
+        filepath = tmp_path / "bad.cir"
+        filepath.write_text("this is not a valid netlist")
+
+        with pytest.raises(Exception):
+            ctrl.import_netlist(filepath)
+
+        # Original circuit must still be intact
+        assert set(ctrl.model.components.keys()) == original_ids
+
+    def test_load_from_dict_preserves_model_on_invalid_data(self):
+        """load_from_dict must not clear the circuit if the data is invalid."""
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        original_ids = set(model.components.keys())
+
+        # A corrupt component dict will cause from_dict to raise a KeyError.
+        # The original circuit must survive regardless.
+        bad_data = {
+            "components": [{"id": "X1", "type": "Resistor", "value": "1k"}],
+            "wires": [],
+        }
+        with pytest.raises(Exception):
+            ctrl.load_from_dict(bad_data)
+
+        assert set(ctrl.model.components.keys()) == original_ids
+
+    def test_replace_model_validates_before_clearing(self):
+        """_replace_model must validate the new model before touching the old one."""
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        original_ids = set(model.components.keys())
+
+        # Build a model with a wire pointing at a non-existent component
+        bad_model = CircuitModel()
+        bad_model.wires = [
+            WireData(
+                start_component_id="GHOST",
+                start_terminal=0,
+                end_component_id="PHANTOM",
+                end_terminal=1,
+            )
+        ]
+
+        with pytest.raises(ValueError):
+            ctrl._replace_model(bad_model)
+
+        # Original circuit untouched
+        assert set(ctrl.model.components.keys()) == original_ids
+
+
 class TestAnnotationsAndRecommendedComponents:
     """Issue #498: FileController load methods silently drop annotations and recommended_components."""
 
