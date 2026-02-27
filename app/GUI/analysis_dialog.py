@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 
 from .format_utils import parse_value
 from .meas_dialog import ANALYSIS_DOMAIN_MAP, MeasurementDialog
+from .validation_helpers import clear_field_error, set_field_error
 
 # Analysis types that support .meas directives
 _MEAS_SUPPORTED_TYPES = set(ANALYSIS_DOMAIN_MAP.keys())
@@ -228,9 +229,16 @@ class AnalysisDialog(QDialog):
         meas_layout.addWidget(self.meas_label, 1)
         layout.addLayout(meas_layout)
 
+        # Error label for validation feedback
+        self._error_label = QLabel("")
+        self._error_label.setStyleSheet("color: red; font-size: 9pt;")
+        self._error_label.setWordWrap(True)
+        self._error_label.hide()
+        layout.addWidget(self._error_label)
+
         # Buttons
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        button_box.accepted.connect(self.accept)
+        button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
 
@@ -287,6 +295,49 @@ class AnalysisDialog(QDialog):
 
         # Refresh preset dropdown for this analysis type
         self._refresh_preset_combo()
+
+    def _on_accept(self):
+        """Validate fields before accepting the dialog."""
+        errors = self._validate()
+        if errors:
+            self._error_label.setText("\n".join(errors))
+            self._error_label.show()
+            return
+        self._error_label.hide()
+        self.accept()
+
+    def _validate(self):
+        """Validate all fields and return a list of error messages (empty if valid)."""
+        errors = []
+        for key, (widget, field_type) in self.field_widgets.items():
+            if field_type == "combo":
+                continue
+            if field_type == "text":
+                if not widget.text().strip():
+                    label = self._label_for_key(key)
+                    errors.append(f"{label} cannot be empty.")
+                    set_field_error(widget, f"{label} is required")
+                else:
+                    clear_field_error(widget)
+            elif field_type in ("float", "int"):
+                try:
+                    val = parse_value(widget.text())
+                    if field_type == "int":
+                        int(val)
+                    clear_field_error(widget)
+                except (ValueError, TypeError):
+                    label = self._label_for_key(key)
+                    errors.append(f"{label} must be a valid number.")
+                    set_field_error(widget, "Invalid number")
+        return errors
+
+    def _label_for_key(self, key):
+        """Return a human-readable label for a field key."""
+        config = self.ANALYSIS_CONFIGS.get(self.analysis_type, {})
+        for field_config in config.get("fields", []):
+            if field_config[1] == key:
+                return field_config[0].rstrip(":")
+        return key
 
     def get_parameters(self):
         """Get parameters from dialog with validation"""

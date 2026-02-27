@@ -107,16 +107,26 @@ class CircuitGrader:
         component_id = check.params.get("component_id", "")
         component_type = check.params.get("component_type", "")
 
+        if not component_id and not component_type:
+            return CheckGradeResult(
+                check_id=check.check_id,
+                passed=False,
+                points_earned=0,
+                points_possible=check.points,
+                feedback=(
+                    f"Misconfigured check '{check.check_id}': "
+                    "component_exists requires 'component_id' or 'component_type' in params"
+                ),
+            )
+
         if component_id:
             cr = self._comparer.check_component_exists(student, component_id, component_type)
             passed = cr.passed
-        elif component_type:
+        else:
             # Check by type count
             min_count = check.params.get("min_count", 1)
             count = sum(1 for c in student.components.values() if c.component_type == component_type)
             passed = count >= min_count
-        else:
-            passed = False
 
         return CheckGradeResult(
             check_id=check.check_id,

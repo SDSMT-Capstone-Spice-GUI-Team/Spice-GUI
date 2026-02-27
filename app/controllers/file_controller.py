@@ -149,7 +149,19 @@ class FileController:
         validate_circuit_data(data)
 
         new_model = CircuitModel.from_dict(data)
-        self._replace_model(new_model)
+#         self._replace_model(new_model)
+
+        # Update current model in place (preserving reference)
+        self.model.clear()
+        self.model.components = new_model.components
+        self.model.wires = new_model.wires
+        self.model.nodes = new_model.nodes
+        self.model.terminal_to_node = new_model.terminal_to_node
+        self.model.component_counter = new_model.component_counter
+        self.model.analysis_type = new_model.analysis_type
+        self.model.analysis_params = new_model.analysis_params
+        self.model.annotations = new_model.annotations
+        self.model.recommended_components = new_model.recommended_components
 
         self.current_file = filepath
         self._save_session()
@@ -166,7 +178,17 @@ class FileController:
         Does not update current_file or session tracking.
         """
         new_model = CircuitModel.from_dict(data)
-        self._replace_model(new_model)
+#         self._replace_model(new_model)
+        self.model.clear()
+        self.model.components = new_model.components
+        self.model.wires = new_model.wires
+        self.model.nodes = new_model.nodes
+        self.model.terminal_to_node = new_model.terminal_to_node
+        self.model.component_counter = new_model.component_counter
+        self.model.analysis_type = new_model.analysis_type
+        self.model.analysis_params = new_model.analysis_params
+        self.model.annotations = new_model.annotations
+        self.model.recommended_components = new_model.recommended_components
 
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("model_loaded", None)
@@ -297,7 +319,17 @@ class FileController:
             validate_circuit_data(data)
 
             new_model = CircuitModel.from_dict(data)
-            self._replace_model(new_model)
+#             self._replace_model(new_model)
+            self.model.clear()
+            self.model.components = new_model.components
+            self.model.wires = new_model.wires
+            self.model.nodes = new_model.nodes
+            self.model.terminal_to_node = new_model.terminal_to_node
+            self.model.component_counter = new_model.component_counter
+            self.model.analysis_type = new_model.analysis_type
+            self.model.analysis_params = new_model.analysis_params
+            self.model.annotations = new_model.annotations
+            self.model.recommended_components = new_model.recommended_components
 
             if source_path:
                 self.current_file = Path(source_path)

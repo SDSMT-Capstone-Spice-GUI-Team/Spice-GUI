@@ -693,6 +693,9 @@ class CircuitCanvasView(QGraphicsView):
                         self.temp_wire_line.setZValue(100)  # Draw on top
                         self.scene.addItem(self.temp_wire_line)
 
+                        # Show crosshair cursor while drawing a wire
+                        self.setCursor(Qt.CursorShape.CrossCursor)
+
                         # Accept event only when we successfully started wire drawing
                         event.accept()
                         return
@@ -834,6 +837,7 @@ class CircuitCanvasView(QGraphicsView):
 
     def cancel_wire_drawing(self):
         """Cancel any in-progress wire drawing and clean up the preview line."""
+        was_drawing = self.wire_start_comp is not None
         if self.temp_wire_line:
             self.scene.removeItem(self.temp_wire_line)
             self.temp_wire_line = None
@@ -841,6 +845,9 @@ class CircuitCanvasView(QGraphicsView):
         self.wire_start_term = None
         self._wire_waypoints.clear()
         self._remove_waypoint_markers()
+        # Restore default cursor when wire drawing ends
+        if was_drawing:
+            self.unsetCursor()
 
     def _add_waypoint_marker(self, pos: QPointF):
         """Draw a small dot at a placed waypoint during wire drawing."""
@@ -1629,6 +1636,9 @@ class CircuitCanvasView(QGraphicsView):
 
     def set_probe_mode(self, active):
         """Enable or disable probe mode."""
+        if active and self.wire_start_comp is not None:
+            # Cancel any in-progress wire drawing before entering probe mode
+            self.cancel_wire_drawing()
         self.probe_mode = active
         if active:
             self.setCursor(Qt.CursorShape.CrossCursor)

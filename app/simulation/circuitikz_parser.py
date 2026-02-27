@@ -50,7 +50,7 @@ _TIKZ_TO_TRIPOLE = {
 # Regex patterns
 _RE_COORD = r"\(\s*([\d.eE+-]+)\s*,\s*([\d.eE+-]+)\s*\)"
 _RE_DRAW_TO = re.compile(
-    r"\\draw\s+" + _RE_COORD + r"\s+to\s*\[([^\]]*)\]\s*" + _RE_COORD + r"\s*;",
+    r"\\draw\s+" + _RE_COORD + r"\s+to\s*\[([^\]]*)\]\s*" + _RE_COORD + r"\s*;([^\n]*)",
     re.DOTALL,
 )
 _RE_NODE_COMPONENT = re.compile(
@@ -61,6 +61,10 @@ _RE_NODE_GROUND = re.compile(
 )
 _RE_DRAW_WIRE = re.compile(
     r"\\draw(?:\[dashed\])?\s+" + _RE_COORD + r"(?:\s*--\s*" + _RE_COORD + r")+\s*;",
+)
+# Matches dashed control-pair draws:  \draw[dashed] (x1,y1) to[short] (x2,y2); % ctrl: <id>
+_RE_DASHED_CTRL = re.compile(
+    r"\\draw\[dashed\]\s+" + _RE_COORD + r"\s+to\s*\[short\]\s*" + _RE_COORD + r"\s*;\s*%\s*ctrl:\s*(\S+)",
 )
 _RE_ALL_COORDS = re.compile(_RE_COORD)
 
@@ -113,6 +117,33 @@ def _tikz_to_pixel(tx, ty, scale, offset_x=0.0, offset_y=0.0, max_ty=0.0):
     return (round(px, 1), round(py, 1))
 
 
+_WAVEFORM_PARAM_KEYS = {
+    "SIN": ("offset", "amplitude", "frequency", "delay", "theta", "phase"),
+    "PULSE": ("v1", "v2", "td", "tr", "tf", "pw", "per"),
+    "EXP": ("v1", "v2", "td1", "tau1", "td2", "tau2"),
+}
+
+
+def _parse_waveform_value(value_str):
+    """Parse a SPICE waveform value string into (waveform_type, params_for_type).
+
+    Accepts strings like ``SIN(0 5 1k 0 0 0)`` or ``PULSE(0 5 0 1n 1n 500u 1m)``.
+    Returns ``(None, None)`` when *value_str* is not a recognized waveform.
+    """
+    m = re.match(r"(SIN|PULSE|EXP)\s*\(([^)]*)\)", value_str.strip(), re.IGNORECASE)
+    if not m:
+        return None, None
+    wtype = m.group(1).upper()
+    tokens = m.group(2).split()
+    keys = _WAVEFORM_PARAM_KEYS.get(wtype)
+    if keys is None:
+        return None, None
+    params = {}
+    for i, key in enumerate(keys):
+        params[key] = tokens[i] if i < len(tokens) else "0"
+    return wtype, params
+
+
 def _extract_circuitikz_body(text):
     """Extract the content inside \\begin{circuitikz}...\\end{circuitikz}."""
     m = re.search(r"\\begin\{circuitikz\}(.*?)\\end\{circuitikz\}", text, re.DOTALL)
@@ -143,15 +174,21 @@ def import_circuitikz(text):
     grounds = []
     wires = []
 
-    # Parse bipoles: \draw (x1,y1) to[opts] (x2,y2);
+    # Parse bipoles: \draw (x1,y1) to[opts] (x2,y2); [% spice: <type>]
     for m in _RE_DRAW_TO.finditer(body):
-        x1, y1, opts, x2, y2 = (
+        x1, y1, opts, x2, y2, trailing = (
             m.group(1),
             m.group(2),
             m.group(3),
             m.group(4),
             m.group(5),
+            m.group(6),
         )
+        # Check for a % spice: <type> override (disambiguates CCVS/CCCS)
+        spice_type = None
+        type_m = re.search(r"%\s*spice:\s*(\S+)", trailing)
+        if type_m:
+            spice_type = type_m.group(1)
         bipoles.append(
             {
                 "x1": float(x1),
@@ -159,6 +196,7 @@ def import_circuitikz(text):
                 "opts": opts,
                 "x2": float(x2),
                 "y2": float(y2),
+                "spice_type": spice_type,
             }
         )
 
@@ -181,6 +219,18 @@ def import_circuitikz(text):
     for m in _RE_NODE_GROUND.finditer(body):
         x, y = m.group(1), m.group(2)
         grounds.append({"x": float(x), "y": float(y)})
+
+    # Parse dashed control pairs: \draw[dashed] (x1,y1) to[short] (x2,y2); % ctrl: <id>
+    ctrl_pairs = {}  # comp_id -> (x1, y1, x2, y2) in TikZ coords
+    for m in _RE_DASHED_CTRL.finditer(body):
+        x1, y1, x2, y2, ctrl_id = (
+            float(m.group(1)),
+            float(m.group(2)),
+            float(m.group(3)),
+            float(m.group(4)),
+            m.group(5),
+        )
+        ctrl_pairs[ctrl_id] = (x1, y1, x2, y2)
 
     # Parse wires: \draw (x1,y1) -- (x2,y2) [-- ...];
     for m in _RE_DRAW_WIRE.finditer(body):
@@ -206,6 +256,8 @@ def import_circuitikz(text):
         all_tikz_coords.append((g["x"], g["y"]))
     for w in wires:
         all_tikz_coords.extend(w)
+    for x1, y1, x2, y2 in ctrl_pairs.values():
+        all_tikz_coords.extend([(x1, y1), (x2, y2)])
 
     if not all_tikz_coords:
         return CircuitModel(), warnings
@@ -232,6 +284,11 @@ def import_circuitikz(text):
             warnings.append(f"Unsupported CircuiTikZ component: {comp_name}")
             continue
 
+        # Override type when a % spice: <type> comment is present
+        # (distinguishes CCVS from VCVS, CCCS from VCCS)
+        if bp.get("spice_type") and bp["spice_type"] in ("CCVS", "CCCS"):
+            comp_type = bp["spice_type"]
+
         comp_id = _parse_label(bp["opts"])
         value = _parse_value(bp["opts"])
 
@@ -247,10 +304,26 @@ def import_circuitikz(text):
         if not value:
             value = DEFAULT_VALUES.get(comp_type, "")
 
-        # Position = midpoint between the two terminals
+        # Convert bipole endpoints to pixel coords
         p1 = to_pixel(bp["x1"], bp["y1"])
         p2 = to_pixel(bp["x2"], bp["y2"])
-        pos = (round((p1[0] + p2[0]) / 2, 1), round((p1[1] + p2[1]) / 2, 1))
+
+        # For 4-terminal devices the bipole draw represents the output pair
+        # (terminals 2,3) and a separate dashed draw holds the control pair
+        # (terminals 0,1).
+        from models.component import TERMINAL_COUNTS
+
+        is_four_terminal = TERMINAL_COUNTS.get(comp_type, 2) == 4
+        ctrl_pair = ctrl_pairs.get(comp_id) if is_four_terminal else None
+
+        if ctrl_pair is not None:
+            cp1 = to_pixel(ctrl_pair[0], ctrl_pair[1])
+            cp2 = to_pixel(ctrl_pair[2], ctrl_pair[3])
+            all_x = [p1[0], p2[0], cp1[0], cp2[0]]
+            all_y = [p1[1], p2[1], cp1[1], cp2[1]]
+            pos = (round(sum(all_x) / 4, 1), round(sum(all_y) / 4, 1))
+        else:
+            pos = (round((p1[0] + p2[0]) / 2, 1), round((p1[1] + p2[1]) / 2, 1))
 
         comp = ComponentData(
             component_id=comp_id,
@@ -258,6 +331,14 @@ def import_circuitikz(text):
             value=value,
             position=pos,
         )
+
+        # Reconstruct structured waveform parameters from the value string
+        if comp_type == "Waveform Source" and value:
+            wtype, wparams = _parse_waveform_value(value)
+            if wtype and wparams:
+                comp.waveform_type = wtype
+                comp.waveform_params[wtype] = wparams
+
         model.add_component(comp)
 
         # Update counter
@@ -272,8 +353,15 @@ def import_circuitikz(text):
                 counters[prefix] = num
 
         # Record terminal positions
-        terminal_positions[(comp_id, 0)] = p1
-        terminal_positions[(comp_id, 1)] = p2
+        if ctrl_pair is not None:
+            # 4-terminal: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+            terminal_positions[(comp_id, 0)] = cp1
+            terminal_positions[(comp_id, 1)] = cp2
+            terminal_positions[(comp_id, 2)] = p1
+            terminal_positions[(comp_id, 3)] = p2
+        else:
+            terminal_positions[(comp_id, 0)] = p1
+            terminal_positions[(comp_id, 1)] = p2
 
     for tp in tripoles:
         opts = tp["opts"]
