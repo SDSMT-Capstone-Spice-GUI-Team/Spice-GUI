@@ -142,7 +142,11 @@ class NetlistGenerator:
             nodes = []
             for i in range(comp.get_terminal_count()):
                 key = (comp_id, i)
-                node_num = node_map.get(key, 999)
+                if key not in node_map:
+                    raise ValueError(
+                        f"Unconnected terminal: {comp_id} terminal {i} ({comp.component_type}) is not wired to any node"
+                    )
+                node_num = node_map[key]
                 node_str = node_labels.get(node_num, str(node_num))
                 nodes.append(node_str)
 

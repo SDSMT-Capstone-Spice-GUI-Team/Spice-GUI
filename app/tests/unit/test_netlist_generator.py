@@ -230,6 +230,38 @@ class TestDependentSources:
         assert "F1" in netlist
 
 
+class TestUnconnectedTerminal:
+    """Unconnected terminals must raise ValueError instead of defaulting to node 999 (#506)."""
+
+    def test_unconnected_terminal_raises(self):
+        """A resistor with one terminal unwired should raise ValueError."""
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "R1": make_component("Resistor", "R1", "1k", (0, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        # Only connect terminal 0 of R1 — terminal 1 is dangling
+        wires = [make_wire("R1", 0, "GND1", 0)]
+        node_gnd = NodeData(
+            terminals={("R1", 0), ("GND1", 0)},
+            wire_indices={0},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_gnd]
+        t2n = {("R1", 0): node_gnd, ("GND1", 0): node_gnd}
+
+        with pytest.raises(ValueError, match="Unconnected terminal.*R1 terminal 1"):
+            _generate(components, wires, nodes, t2n)
+
+    def test_fully_connected_circuit_succeeds(self, simple_resistor_circuit):
+        """A fully connected circuit should generate without error."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "999" not in netlist
+
+
 class TestResistorDivider:
     def test_two_nodes_labeled(self, resistor_divider_circuit):
         components, wires, nodes, t2n = resistor_divider_circuit

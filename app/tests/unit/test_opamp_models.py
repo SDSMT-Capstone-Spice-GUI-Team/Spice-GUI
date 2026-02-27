@@ -100,9 +100,10 @@ class TestOpampNetlistGeneration:
         # Set op-amp model
         oa.value = opamp_value
         ctrl.add_wire(v1.component_id, 0, r1.component_id, 0)
-        ctrl.add_wire(r1.component_id, 1, oa.component_id, 0)
+        ctrl.add_wire(r1.component_id, 1, oa.component_id, 0)  # inverting input
+        ctrl.add_wire(oa.component_id, 1, gnd.component_id, 0)  # non-inverting to GND
         ctrl.add_wire(v1.component_id, 1, gnd.component_id, 0)
-        ctrl.add_wire(oa.component_id, 2, gnd.component_id, 0)
+        ctrl.add_wire(oa.component_id, 2, gnd.component_id, 0)  # output
         return model, ctrl
 
     def test_ideal_opamp_generates_opamp_ideal(self):

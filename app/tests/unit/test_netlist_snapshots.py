@@ -87,13 +87,13 @@ class TestSources:
     """Verify netlist output for voltage and current sources."""
 
     def test_voltage_source_dc(self):
-        model = _simple_two_terminal_circuit("Voltage Source", "V1", "12V")
-        # Remove extra V1 — the helper already adds V1
-        # Build manually instead
         v1 = ComponentData("V1", "Voltage Source", "12V", (0, 0))
+        r1 = ComponentData("R1", "Resistor", "1k", (100, 0))
         gnd = ComponentData("GND1", "Ground", "0V", (0, 100))
-        w1 = WireData("V1", 1, "GND1", 0)
-        model = _model_with_circuit(v1, gnd, w1)
+        w1 = WireData("V1", 0, "R1", 0)
+        w2 = WireData("R1", 1, "GND1", 0)
+        w3 = WireData("V1", 1, "GND1", 0)
+        model = _model_with_circuit(v1, r1, gnd, w1, w2, w3)
         netlist = _generate_from_model(model)
         assert "V1" in netlist
         assert "DC" in netlist
@@ -116,9 +116,12 @@ class TestSources:
         vw1 = ComponentData("VW1", "Waveform Source", "SIN(0 5 1k)", (0, 0))
         vw1.waveform_type = "SIN"
         vw1.waveform_params["SIN"]["amplitude"] = "10"
+        r1 = ComponentData("R1", "Resistor", "1k", (100, 0))
         gnd = ComponentData("GND1", "Ground", "0V", (0, 100))
-        w1 = WireData("VW1", 1, "GND1", 0)
-        model = _model_with_circuit(vw1, gnd, w1)
+        w1 = WireData("VW1", 0, "R1", 0)
+        w2 = WireData("R1", 1, "GND1", 0)
+        w3 = WireData("VW1", 1, "GND1", 0)
+        model = _model_with_circuit(vw1, r1, gnd, w1, w2, w3)
         netlist = _generate_from_model(model)
         assert "VW1" in netlist
         assert "SIN(" in netlist
@@ -127,9 +130,12 @@ class TestSources:
     def test_waveform_source_pulse(self):
         vw1 = ComponentData("VW1", "Waveform Source", "PULSE(0 5 0 1n 1n 500u 1m)", (0, 0))
         vw1.waveform_type = "PULSE"
+        r1 = ComponentData("R1", "Resistor", "1k", (100, 0))
         gnd = ComponentData("GND1", "Ground", "0V", (0, 100))
-        w1 = WireData("VW1", 1, "GND1", 0)
-        model = _model_with_circuit(vw1, gnd, w1)
+        w1 = WireData("VW1", 0, "R1", 0)
+        w2 = WireData("R1", 1, "GND1", 0)
+        w3 = WireData("VW1", 1, "GND1", 0)
+        model = _model_with_circuit(vw1, r1, gnd, w1, w2, w3)
         netlist = _generate_from_model(model)
         assert "PULSE(" in netlist
 
@@ -167,12 +173,14 @@ class TestTransistors:
         v1 = ComponentData("V1", "Voltage Source", "5V", (0, 0))
         comp = ComponentData(comp_id, comp_type, value, (100, 0))
         gnd = ComponentData("GND1", "Ground", "0V", (100, 100))
-        # Connect: V1:0 → comp:0 (collector/drain), comp:2 (emitter/source) → GND, V1:1 → GND
-        # Leave base/gate floating for simplicity — just need netlist line
+        r1 = ComponentData("R1", "Resistor", "10k", (50, 50))
+        # Connect all 3 terminals: V1:0 → comp:0, comp:1 → R1 → GND, comp:2 → GND, V1:1 → GND
         w1 = WireData("V1", 0, comp_id, 0)
-        w2 = WireData(comp_id, 2, "GND1", 0)
-        w3 = WireData("V1", 1, "GND1", 0)
-        return _model_with_circuit(v1, comp, gnd, w1, w2, w3)
+        w2 = WireData(comp_id, 1, "R1", 0)
+        w3 = WireData("R1", 1, "GND1", 0)
+        w4 = WireData(comp_id, 2, "GND1", 0)
+        w5 = WireData("V1", 1, "GND1", 0)
+        return _model_with_circuit(v1, comp, gnd, r1, w1, w2, w3, w4, w5)
 
     def test_bjt_npn(self):
         model = self._three_terminal_circuit("BJT NPN", "Q1", "2N3904")
@@ -210,12 +218,15 @@ class TestOpAmp:
         """Build a simple op-amp follower circuit."""
         v1 = ComponentData("V1", "Voltage Source", "5V", (0, 0))
         oa1 = ComponentData("OA1", "Op-Amp", model_name, (100, 0))
+        r1 = ComponentData("R1", "Resistor", "1k", (200, 0))
         gnd = ComponentData("GND1", "Ground", "0V", (100, 100))
         # term 0=inverting, 1=non-inverting, 2=output
         w1 = WireData("V1", 0, "OA1", 1)  # V+ to non-inverting
         w2 = WireData("OA1", 0, "GND1", 0)  # inverting to GND
-        w3 = WireData("V1", 1, "GND1", 0)
-        return _model_with_circuit(v1, oa1, gnd, w1, w2, w3)
+        w3 = WireData("OA1", 2, "R1", 0)  # output to load
+        w4 = WireData("R1", 1, "GND1", 0)
+        w5 = WireData("V1", 1, "GND1", 0)
+        return _model_with_circuit(v1, oa1, r1, gnd, w1, w2, w3, w4, w5)
 
     def test_ideal_opamp_subcircuit(self):
         model = self._opamp_circuit("Ideal")
@@ -240,13 +251,16 @@ class TestDependentSources:
         """Build a minimal 4-terminal circuit."""
         v1 = ComponentData("V1", "Voltage Source", "5V", (0, 0))
         comp = ComponentData(comp_id, comp_type, value, (100, 0))
+        r1 = ComponentData("R1", "Resistor", "1k", (200, 0))
         gnd = ComponentData("GND1", "Ground", "0V", (200, 100))
         # term 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
         w1 = WireData("V1", 0, comp_id, 0)  # V+ to ctrl+
         w2 = WireData(comp_id, 1, "GND1", 0)  # ctrl- to GND
-        w3 = WireData(comp_id, 3, "GND1", 0)  # out- to GND
-        w4 = WireData("V1", 1, "GND1", 0)
-        return _model_with_circuit(v1, comp, gnd, w1, w2, w3, w4)
+        w3 = WireData(comp_id, 2, "R1", 0)  # out+ to load
+        w4 = WireData("R1", 1, "GND1", 0)  # load to GND
+        w5 = WireData(comp_id, 3, "GND1", 0)  # out- to GND
+        w6 = WireData("V1", 1, "GND1", 0)
+        return _model_with_circuit(v1, comp, r1, gnd, w1, w2, w3, w4, w5, w6)
 
     def test_vcvs(self):
         model = self._four_terminal_circuit("VCVS", "E1", "10")
@@ -279,12 +293,15 @@ class TestVCSwitch:
     def test_vc_switch_with_model(self):
         v1 = ComponentData("V1", "Voltage Source", "5V", (0, 0))
         s1 = ComponentData("S1", "VC Switch", "VT=2.5 RON=1 ROFF=1e6", (100, 0))
+        r1 = ComponentData("R1", "Resistor", "1k", (200, 0))
         gnd = ComponentData("GND1", "Ground", "0V", (200, 100))
         w1 = WireData("V1", 0, "S1", 0)
         w2 = WireData("S1", 1, "GND1", 0)
-        w3 = WireData("S1", 3, "GND1", 0)
-        w4 = WireData("V1", 1, "GND1", 0)
-        model = _model_with_circuit(v1, s1, gnd, w1, w2, w3, w4)
+        w3 = WireData("S1", 2, "R1", 0)
+        w4 = WireData("R1", 1, "GND1", 0)
+        w5 = WireData("S1", 3, "GND1", 0)
+        w6 = WireData("V1", 1, "GND1", 0)
+        model = _model_with_circuit(v1, s1, r1, gnd, w1, w2, w3, w4, w5, w6)
         netlist = _generate_from_model(model)
         assert "S1" in netlist
         assert "SW_S1" in netlist

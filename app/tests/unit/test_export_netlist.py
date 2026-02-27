@@ -61,7 +61,10 @@ class TestNetlistGeneration:
         sim = SimulationController(model, circuit_ctrl=ctrl)
 
         v1 = ctrl.add_component("Voltage Source", (0, 0))
+        r1 = ctrl.add_component("Resistor", (100, 0))
         gnd = ctrl.add_component("Ground", (0, 100))
+        ctrl.add_wire(v1.component_id, 0, r1.component_id, 0)
+        ctrl.add_wire(r1.component_id, 1, gnd.component_id, 0)
         ctrl.add_wire(v1.component_id, 1, gnd.component_id, 0)
 
         netlist = sim.generate_netlist()
@@ -101,9 +104,12 @@ class TestNetlistFileExport:
         ctrl = CircuitController(model)
         sim = SimulationController(model, circuit_ctrl=ctrl)
 
-        ctrl.add_component("Voltage Source", (0, 0))
+        v1 = ctrl.add_component("Voltage Source", (0, 0))
+        r1 = ctrl.add_component("Resistor", (100, 0))
         gnd = ctrl.add_component("Ground", (0, 100))
-        ctrl.add_wire("V1", 1, gnd.component_id, 0)
+        ctrl.add_wire(v1.component_id, 0, r1.component_id, 0)
+        ctrl.add_wire(r1.component_id, 1, gnd.component_id, 0)
+        ctrl.add_wire(v1.component_id, 1, gnd.component_id, 0)
 
         netlist = sim.generate_netlist()
 
@@ -122,9 +128,14 @@ class TestNetlistFileExport:
         model.analysis_params = {}
         model.components = {
             "V1": ComponentData("V1", "Voltage Source", "5V", (0, 0)),
+            "R1": ComponentData("R1", "Resistor", "1k", (100, 0)),
             "GND1": ComponentData("GND1", "Ground", "0", (0, 100)),
         }
-        model.wires = [WireData("V1", 1, "GND1", 0)]
+        model.wires = [
+            WireData("V1", 0, "R1", 0),
+            WireData("R1", 1, "GND1", 0),
+            WireData("V1", 1, "GND1", 0),
+        ]
         model.rebuild_nodes()
 
         ctrl = SimulationController(model)
@@ -143,9 +154,14 @@ class TestNetlistFileExport:
         model.analysis_params = {"step": "1m", "duration": "10m", "start": 0}
         model.components = {
             "V1": ComponentData("V1", "Voltage Source", "5V", (0, 0)),
+            "R1": ComponentData("R1", "Resistor", "1k", (100, 0)),
             "GND1": ComponentData("GND1", "Ground", "0", (0, 100)),
         }
-        model.wires = [WireData("V1", 1, "GND1", 0)]
+        model.wires = [
+            WireData("V1", 0, "R1", 0),
+            WireData("R1", 1, "GND1", 0),
+            WireData("V1", 1, "GND1", 0),
+        ]
         model.rebuild_nodes()
 
         ctrl = SimulationController(model)
