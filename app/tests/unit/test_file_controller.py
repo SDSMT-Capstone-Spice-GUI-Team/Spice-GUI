@@ -479,22 +479,21 @@ class TestImportPreservesCircuitOnFailure:
         # Original circuit must still be intact
         assert set(ctrl.model.components.keys()) == original_ids
 
-    def test_load_from_dict_preserves_model_on_invalid_data(self):
-        """load_from_dict must not clear the circuit if the data is invalid."""
+    def test_load_from_dict_skips_corrupt_components(self):
+        """load_from_dict must skip corrupt components gracefully (issue #488)."""
         model = _build_simple_circuit()
         ctrl = FileController(model)
-        original_ids = set(model.components.keys())
 
-        # A corrupt component dict will cause from_dict to raise a KeyError.
-        # The original circuit must survive regardless.
+        # A corrupt component dict (missing 'pos') is silently skipped
+        # by the resilient from_dict.
         bad_data = {
             "components": [{"id": "X1", "type": "Resistor", "value": "1k"}],
             "wires": [],
         }
-        with pytest.raises(Exception):
-            ctrl.load_from_dict(bad_data)
+        ctrl.load_from_dict(bad_data)
 
-        assert set(ctrl.model.components.keys()) == original_ids
+        # The corrupt component was skipped, so the model has no components
+        assert "X1" not in ctrl.model.components
 
     def test_replace_model_validates_before_clearing(self):
         """_replace_model must validate the new model before touching the old one."""
