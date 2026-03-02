@@ -1,5 +1,6 @@
 """Theme editor dialog for creating and editing custom color themes."""
 
+from controllers.theme_controller import theme_ctrl
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
@@ -18,7 +19,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .styles import CustomTheme, DarkTheme, LightTheme, theme_manager
+from .styles import CustomTheme, DarkTheme, LightTheme
 
 # Color groups exposed in the editor (subset of all theme keys)
 COLOR_GROUPS = [
@@ -68,17 +69,18 @@ COLOR_GROUPS = [
 class ThemeEditorDialog(QDialog):
     """Dialog for creating/editing a custom color theme."""
 
-    def __init__(self, parent=None, edit_theme=None):
+    def __init__(self, parent=None, edit_theme=None, controller=None):
         super().__init__(parent)
         self.setWindowTitle("Theme Editor")
         self.setMinimumSize(480, 600)
 
+        self._ctrl = controller or theme_ctrl
         self._result_theme = None
         self._color_buttons = {}  # key -> QPushButton
         self._hex_labels = {}  # key -> QLabel
 
         # Snapshot current theme for revert on cancel
-        self._snap_theme = theme_manager.current_theme
+        self._snap_theme = self._ctrl.current_theme
 
         # Load base colors
         if edit_theme is not None and isinstance(edit_theme, CustomTheme):
@@ -203,7 +205,7 @@ class ThemeEditorDialog(QDialog):
         overrides = {k: v for k, v in self._colors.items() if v != base_theme._colors.get(k)}
 
         preview = CustomTheme(name=name, base=base, colors=overrides, theme_is_dark=is_dark)
-        theme_manager.set_theme(preview)
+        self._ctrl.set_theme(preview)
 
     def _on_ok(self):
         name = self.name_edit.text().strip()
@@ -219,17 +221,17 @@ class ThemeEditorDialog(QDialog):
         overrides = {k: v for k, v in self._colors.items() if v != base_theme._colors.get(k)}
 
         self._result_theme = CustomTheme(name=name, base=base, colors=overrides, theme_is_dark=is_dark)
-        theme_manager.set_theme(self._result_theme)
+        self._ctrl.set_theme(self._result_theme)
         self.accept()
 
     def _on_cancel(self):
         # Revert to snapshot
-        theme_manager.set_theme(self._snap_theme)
+        self._ctrl.set_theme(self._snap_theme)
         self.reject()
 
     def closeEvent(self, event):
         if self.result() != QDialog.DialogCode.Accepted:
-            theme_manager.set_theme(self._snap_theme)
+            self._ctrl.set_theme(self._snap_theme)
         super().closeEvent(event)
 
     def get_theme(self):

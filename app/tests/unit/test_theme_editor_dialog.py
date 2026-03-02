@@ -72,6 +72,39 @@ class TestNameRequired:
         mock_warning.assert_called_once()
 
 
+class TestControllerRouting:
+    """Verify theme mutations are routed through the controller."""
+
+    def test_preview_calls_controller_set_theme(self, qtbot):
+        ctrl = MagicMock()
+        ctrl.current_theme = LightTheme()
+        dlg = ThemeEditorDialog(controller=ctrl)
+        qtbot.addWidget(dlg)
+
+        dlg._apply_preview()
+        ctrl.set_theme.assert_called_once()
+
+    def test_ok_calls_controller_set_theme(self, qtbot):
+        ctrl = MagicMock()
+        ctrl.current_theme = LightTheme()
+        dlg = ThemeEditorDialog(controller=ctrl)
+        qtbot.addWidget(dlg)
+
+        dlg.name_edit.setText("Test Theme")
+        dlg._on_ok()
+        ctrl.set_theme.assert_called()
+
+    def test_cancel_reverts_via_controller(self, qtbot):
+        snap = LightTheme()
+        ctrl = MagicMock()
+        ctrl.current_theme = snap
+        dlg = ThemeEditorDialog(controller=ctrl)
+        qtbot.addWidget(dlg)
+
+        dlg._on_cancel()
+        ctrl.set_theme.assert_called_once_with(snap)
+
+
 class TestResetButton:
     """Verify reset restores base colors."""
 
