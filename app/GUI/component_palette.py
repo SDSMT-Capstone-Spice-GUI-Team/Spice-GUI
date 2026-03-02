@@ -1,4 +1,5 @@
 from controllers.settings_service import settings as app_settings
+from models.builtin_subcircuits import register_builtin_subcircuits
 from models.component import COMPONENT_CATEGORIES
 from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QDrag, QFont, QIcon, QPainter, QPen, QPixmap
@@ -6,6 +7,10 @@ from PyQt6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout
 
 from .component_item import COMPONENT_CLASSES
 from .styles import COMPONENTS, theme_manager
+
+# Register built-in subcircuit components (voltage regulators etc.) so they
+# appear in COMPONENT_CATEGORIES["Subcircuits"] before the palette is built.
+register_builtin_subcircuits()
 
 # Brief descriptions for each component type
 COMPONENT_TOOLTIPS = {

@@ -183,9 +183,11 @@ class TestSubcircuitLibrary:
         assert len(imported) == 1
         assert imported[0].name == "FROMTEXT"
 
-    def test_empty_library(self, tmp_path):
+    def test_library_from_nonexistent_dir_has_only_builtins(self, tmp_path):
         lib = SubcircuitLibrary(tmp_path / "nonexistent")
-        assert lib.names() == []
+        # Should contain only built-in subcircuits, no user-imported ones
+        for name in lib.names():
+            assert lib.get(name).builtin is True
 
 
 # ---------------------------------------------------------------------------
