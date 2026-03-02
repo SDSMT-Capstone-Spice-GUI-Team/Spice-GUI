@@ -298,7 +298,7 @@ class BatchGradingDialog(QDialog):
 
     def _on_load_grades(self):
         """Load a previous grading session from a .spice-grades file."""
-        from grading.session_persistence import GRADES_EXTENSION, dict_to_grading_result, load_grading_session
+        from grading.session_persistence import GRADES_EXTENSION, load_grading_session, session_to_batch_result
 
         filename, _ = QFileDialog.getOpenFileName(
             self,
@@ -316,19 +316,7 @@ class BatchGradingDialog(QDialog):
             return
 
         self._loaded_session = session
-
-        # Reconstruct a BatchGradingResult so we can display it
-        from grading.batch_grader import BatchGradingResult
-
-        results = [dict_to_grading_result(r) for r in session.results]
-        loaded_result = BatchGradingResult(
-            rubric_title=session.rubric_title,
-            total_students=len(session.results) + len(session.errors),
-            successful=len(session.results),
-            failed=len(session.errors),
-            results=results,
-            errors=list(session.errors),
-        )
+        loaded_result = session_to_batch_result(session)
         self._batch_result = loaded_result
         self._display_results(loaded_result)
         self.export_btn.setEnabled(True)

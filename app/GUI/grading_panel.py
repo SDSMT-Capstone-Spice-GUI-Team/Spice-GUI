@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
+from grading.component_mapper import extract_component_ids
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
@@ -29,22 +29,6 @@ if TYPE_CHECKING:
     from grading.rubric import Rubric
 
 logger = logging.getLogger(__name__)
-
-
-def _extract_component_ids(check_result) -> list[str]:
-    """Extract component IDs relevant to a check result.
-
-    Parses the check_id to find component ID patterns like R1, C1, V1, GND1.
-    """
-    import re
-
-    check_id = check_result.check_id
-    # Match component ID patterns: letter(s) followed by digits
-    # e.g., R1, C1, V1, GND1, r1, c1
-    matches = re.findall(r"([A-Za-z]+\d+)", check_id)
-    # Filter out common non-component tokens
-    skip = {"check"}
-    return [m.upper() for m in matches if m.lower() not in skip]
 
 
 class GradingPanel(QWidget):
@@ -273,7 +257,7 @@ class GradingPanel(QWidget):
         self.feedback_label.setText(cr.feedback)
 
         # Highlight components associated with this check
-        comp_ids = _extract_component_ids(cr)
+        comp_ids = extract_component_ids(cr.check_id)
         canvas = self._get_canvas()
         if canvas is None:
             return
@@ -329,29 +313,9 @@ class GradingPanel(QWidget):
     @staticmethod
     def _export_result_csv(result: GradingResult, filepath: str):
         """Write a single student's grading result to CSV."""
-        with open(filepath, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Student File", "Rubric", "Score", "Percentage"])
-            writer.writerow(
-                [
-                    result.student_file,
-                    result.rubric_title,
-                    f"{result.earned_points}/{result.total_points}",
-                    f"{result.percentage:.1f}%",
-                ]
-            )
-            writer.writerow([])
-            writer.writerow(["Check ID", "Passed", "Points Earned", "Points Possible", "Feedback"])
-            for cr in result.check_results:
-                writer.writerow(
-                    [
-                        cr.check_id,
-                        "Yes" if cr.passed else "No",
-                        cr.points_earned,
-                        cr.points_possible,
-                        cr.feedback,
-                    ]
-                )
+        from grading.grade_exporter import export_single_result_csv
+
+        export_single_result_csv(result, filepath)
 
     # --- Public API ---
 

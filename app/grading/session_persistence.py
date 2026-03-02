@@ -104,6 +104,22 @@ def dict_to_grading_result(data: dict) -> GradingResult:
 # ---------------------------------------------------------------------------
 
 
+def session_to_batch_result(session: GradingSessionData) -> BatchGradingResult:
+    """Reconstruct a :class:`BatchGradingResult` from a loaded session.
+
+    This is the inverse of :func:`batch_result_to_session`.
+    """
+    results = [dict_to_grading_result(r) for r in session.results]
+    return BatchGradingResult(
+        rubric_title=session.rubric_title,
+        total_students=len(session.results) + len(session.errors),
+        successful=len(session.results),
+        failed=len(session.errors),
+        results=results,
+        errors=list(session.errors),
+    )
+
+
 def batch_result_to_session(
     batch_result: BatchGradingResult,
     rubric_path: str = "",

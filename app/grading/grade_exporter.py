@@ -1,4 +1,4 @@
-"""CSV gradebook export for batch grading results.
+"""CSV gradebook export for batch and single-student grading results.
 
 Produces a spreadsheet-ready CSV with one row per student and columns
 for each rubric check.
@@ -10,6 +10,7 @@ import csv
 from pathlib import Path
 
 from grading.batch_grader import BatchGradingResult
+from grading.grader import GradingResult
 
 
 def export_gradebook_csv(result: BatchGradingResult, filepath: str) -> None:
@@ -101,3 +102,36 @@ def export_gradebook_csv(result: BatchGradingResult, filepath: str) -> None:
             writer.writerow(["Filename", "Error"])
             for filename, error in result.errors:
                 writer.writerow([filename, error])
+
+
+def export_single_result_csv(result: GradingResult, filepath: str) -> None:
+    """Export a single student's grading result to a CSV file.
+
+    Args:
+        result: The grading result to export.
+        filepath: Output CSV file path.
+    """
+    filepath = Path(filepath)
+    with open(filepath, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Student File", "Rubric", "Score", "Percentage"])
+        writer.writerow(
+            [
+                result.student_file,
+                result.rubric_title,
+                f"{result.earned_points}/{result.total_points}",
+                f"{result.percentage:.1f}%",
+            ]
+        )
+        writer.writerow([])
+        writer.writerow(["Check ID", "Passed", "Points Earned", "Points Possible", "Feedback"])
+        for cr in result.check_results:
+            writer.writerow(
+                [
+                    cr.check_id,
+                    "Yes" if cr.passed else "No",
+                    cr.points_earned,
+                    cr.points_possible,
+                    cr.feedback,
+                ]
+            )
