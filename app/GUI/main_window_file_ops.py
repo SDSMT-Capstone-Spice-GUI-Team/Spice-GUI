@@ -715,7 +715,12 @@ class FileOperationsMixin:
         if not hasattr(self, "_template_manager"):
             self._template_manager = TemplateManager()
 
-        dialog = NewFromTemplateDialog(self._template_manager, self)
+        templates = self._template_manager.list_templates()
+        dialog = NewFromTemplateDialog(
+            templates,
+            delete_callback=self._template_manager.delete_template,
+            parent=self,
+        )
         if dialog.exec() == NewFromTemplateDialog.DialogCode.Accepted:
             template_info = dialog.get_selected_template()
             if template_info is None:
