@@ -114,6 +114,7 @@ class SubcircuitLibrary:
         self._library_dir = Path(library_dir) if library_dir else _DEFAULT_LIBRARY_DIR
         self._definitions: dict[str, SubcircuitDefinition] = {}
         self._load()
+        self._load_builtins()
 
     # -- Public API ----------------------------------------------------------
 
@@ -195,6 +196,17 @@ class SubcircuitLibrary:
                 self._definitions[defn.name] = defn
             except Exception:
                 logger.warning("Failed to load subcircuit from %s", path, exc_info=True)
+
+    def _load_builtins(self) -> None:
+        """Load built-in subcircuit definitions (e.g. voltage regulators)."""
+        try:
+            from models.builtin_subcircuits import BUILTIN_SUBCIRCUITS
+
+            for defn in BUILTIN_SUBCIRCUITS:
+                if defn.name not in self._definitions:
+                    self._definitions[defn.name] = defn
+        except ImportError:
+            pass
 
 
 # ---------------------------------------------------------------------------
