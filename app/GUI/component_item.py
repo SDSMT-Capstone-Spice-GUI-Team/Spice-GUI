@@ -38,6 +38,8 @@ class ComponentGraphicsItem(QGraphicsItem):
                 position=(0.0, 0.0),
             )
 
+        self.canvas = None  # Injected by CircuitCanvasView after creation
+
         self.terminals = []  # List[QPointF] - Qt rendering positions
         self.connections = []  # Store wire connections
         self.is_being_dragged = False
@@ -148,18 +150,13 @@ class ComponentGraphicsItem(QGraphicsItem):
         if not hasattr(self, "_drag_start_positions") or not self._drag_start_positions:
             return
 
-        if not self.scene() or not self.scene().views():
-            self._drag_start_positions = {}
-            return
-
-        canvas = self.scene().views()[0]
-        if not hasattr(canvas, "controller") or not canvas.controller:
+        if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
             self._drag_start_positions = {}
             return
 
         from controllers.commands import CompoundCommand, MoveComponentCommand
 
-        controller = canvas.controller
+        controller = self.canvas.controller
         move_commands = []
 
         for comp_id, old_pos in self._drag_start_positions.items():
@@ -260,14 +257,11 @@ class ComponentGraphicsItem(QGraphicsItem):
 
             self.value = new_value
             self.update()
-            _scene = self.scene()
-            if _scene is not None:
-                _scene.update()
+            if self.scene() is not None:
+                self.scene().update()
             # Sync to controller model so netlist generation sees the updated value
-            if _scene is not None and _scene.views():
-                canvas = _scene.views()[0]
-                if hasattr(canvas, "controller") and canvas.controller:
-                    canvas.controller.update_component_value(self.component_id, new_value)
+            if self.canvas and hasattr(self.canvas, "controller") and self.canvas.controller:
+                self.canvas.controller.update_component_value(self.component_id, new_value)
 
     # --- Geometry ---
 
@@ -396,10 +390,13 @@ class ComponentGraphicsItem(QGraphicsItem):
         painter.setBrush(QBrush(color.lighter(150)))
         self.draw_component_body(painter)
 
-        # Draw label (check canvas visibility settings)
-        canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
-        show_label = canvas.show_component_labels if canvas and hasattr(canvas, "show_component_labels") else True
-        show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
+        # Draw label (check canvas visibility settings via injected reference)
+        show_label = (
+            self.canvas.show_component_labels if self.canvas and hasattr(self.canvas, "show_component_labels") else True
+        )
+        show_value = (
+            self.canvas.show_component_values if self.canvas and hasattr(self.canvas, "show_component_values") else True
+        )
 
         if show_label or show_value:
             painter.setPen(QPen(color))
@@ -450,14 +447,10 @@ class ComponentGraphicsItem(QGraphicsItem):
             self.update()
             # Skip wire preview for followers during group drag to avoid
             # tearing artifacts from rapid forced scene repaints (#442).
-            if self.scene() and not self._group_moving:
-                views = self.scene().views()
-                if views:
-                    canvas = views[0]
-                    if hasattr(canvas, "wires"):
-                        for wire in canvas.wires:
-                            if wire.start_comp is self or wire.end_comp is self:
-                                wire.show_drag_preview()
+            if not self._group_moving and self.canvas and hasattr(self.canvas, "wires"):
+                for wire in self.canvas.wires:
+                    if wire.start_comp is self or wire.end_comp is self:
+                        wire.show_drag_preview()
 
         return super().itemChange(change, value)
 
@@ -465,17 +458,12 @@ class ComponentGraphicsItem(QGraphicsItem):
         """Sync model position immediately, debounce wire rerouting (Phase 5)"""
         if self._position_update_timer:
             self._position_update_timer.stop()
-        # Get canvas controller
-        if not self.scene() or not self.scene().views():
-            return
-
-        canvas = self.scene().views()[0]
-        if not hasattr(canvas, "controller") or not canvas.controller:
+        if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
             return
 
         # Sync model position immediately (lightweight attribute assignment)
         if self._pending_position:
-            comp = canvas.controller.model.components.get(self.component_id)
+            comp = self.canvas.controller.model.components.get(self.component_id)
             if comp:
                 comp.position = self._pending_position
 
@@ -492,15 +480,11 @@ class ComponentGraphicsItem(QGraphicsItem):
         if not self._pending_position:
             return
 
-        if not self.scene() or not self.scene().views():
-            return
-
-        canvas = self.scene().views()[0]
-        if not hasattr(canvas, "controller") or not canvas.controller:
+        if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
             return
 
         # Notify controller - observer will update wires
-        canvas.controller.move_component(self.component_id, self._pending_position)
+        self.canvas.controller.move_component(self.component_id, self._pending_position)
         self._pending_position = None
 
     def get_terminal_pos(self, index):
@@ -636,9 +620,12 @@ class Ground(ComponentGraphicsItem):
         painter.setBrush(QBrush(color.lighter(150)))
         self.draw_component_body(painter)
 
-        canvas = self.scene().views()[0] if self.scene() and self.scene().views() else None
-        show_label = canvas.show_component_labels if canvas and hasattr(canvas, "show_component_labels") else True
-        show_value = canvas.show_component_values if canvas and hasattr(canvas, "show_component_values") else True
+        show_label = (
+            self.canvas.show_component_labels if self.canvas and hasattr(self.canvas, "show_component_labels") else True
+        )
+        show_value = (
+            self.canvas.show_component_values if self.canvas and hasattr(self.canvas, "show_component_values") else True
+        )
 
         if show_label or show_value:
             painter.setPen(QPen(color))

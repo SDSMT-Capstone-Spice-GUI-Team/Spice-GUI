@@ -15,6 +15,7 @@ class AnnotationItem(QGraphicsTextItem):
 
     def __init__(self, text="Annotation", x=0.0, y=0.0, font_size=10, bold=False, color=""):
         super().__init__(text)
+        self.canvas = None  # Injected by CircuitCanvasView after creation
         self.setPos(x, y)
         # Resolve empty color to theme-appropriate default
         if not color:
@@ -38,11 +39,9 @@ class AnnotationItem(QGraphicsTextItem):
 
     def mouseDoubleClickEvent(self, event):
         """Open a dialog to edit the annotation text (via canvas for undo support)."""
-        if self.scene() and self.scene().views():
-            canvas = self.scene().views()[0]
-            if hasattr(canvas, "_edit_annotation"):
-                canvas._edit_annotation(self)
-                return
+        if self.canvas and hasattr(self.canvas, "_edit_annotation"):
+            self.canvas._edit_annotation(self)
+            return
         # Fallback: direct edit without undo
         text, ok = QInputDialog.getText(None, "Edit Annotation", "Text:", text=self.toPlainText())
         if ok and text:
