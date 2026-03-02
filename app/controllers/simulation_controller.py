@@ -626,3 +626,100 @@ class SimulationController:
         from simulation.monte_carlo import format_spice_value
 
         return format_spice_value(value)
+
+    # --- Export helpers ---
+
+    def export_netlist(self, filepath: str) -> None:
+        """Generate a SPICE netlist and write it to a file.
+
+        Raises:
+            ValueError, KeyError, TypeError: If netlist generation fails.
+            OSError: If the file cannot be written.
+        """
+        netlist = self.generate_netlist()
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(netlist)
+
+    def generate_results_csv(self, results, results_type: str, circuit_name: str = "") -> Optional[str]:
+        """Generate CSV content from simulation results.
+
+        Returns None if the results type is not supported for CSV export.
+        """
+        from simulation.csv_exporter import (
+            export_ac_results,
+            export_dc_sweep_results,
+            export_noise_results,
+            export_op_results,
+            export_transient_results,
+        )
+
+        dispatch = {
+            "DC Operating Point": export_op_results,
+            "DC Sweep": export_dc_sweep_results,
+            "AC Sweep": export_ac_results,
+            "Transient": export_transient_results,
+            "Noise": export_noise_results,
+        }
+        func = dispatch.get(results_type)
+        if func is None:
+            return None
+        return func(results, circuit_name)
+
+    def export_results_csv(self, results, results_type: str, filepath: str, circuit_name: str = "") -> None:
+        """Export simulation results to a CSV file.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.csv_exporter import write_csv
+
+        content = self.generate_results_csv(results, results_type, circuit_name)
+        if content is not None:
+            write_csv(content, filepath)
+
+    def export_results_excel(self, results, results_type: str, filepath: str, circuit_name: str = "") -> None:
+        """Export simulation results to an Excel (.xlsx) file.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.excel_exporter import export_to_excel
+
+        export_to_excel(results, results_type, filepath, circuit_name)
+
+    def generate_results_markdown(self, results, results_type: str, circuit_name: str = "") -> Optional[str]:
+        """Generate Markdown content from simulation results.
+
+        Returns None if the results type is not supported.
+        """
+        from simulation.markdown_exporter import (
+            export_ac_results,
+            export_dc_sweep_results,
+            export_noise_results,
+            export_op_results,
+            export_transient_results,
+        )
+
+        dispatch = {
+            "DC Operating Point": export_op_results,
+            "DC Sweep": export_dc_sweep_results,
+            "AC Sweep": export_ac_results,
+            "Transient": export_transient_results,
+            "Noise": export_noise_results,
+        }
+        func = dispatch.get(results_type)
+        if func is None:
+            return None
+        return func(results, circuit_name)
+
+    def export_results_markdown(self, results, results_type: str, filepath: str, circuit_name: str = "") -> None:
+        """Export simulation results to a Markdown file.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.markdown_exporter import write_markdown
+
+        content = self.generate_results_markdown(results, results_type, circuit_name)
+        if content is not None:
+            write_markdown(content, filepath)

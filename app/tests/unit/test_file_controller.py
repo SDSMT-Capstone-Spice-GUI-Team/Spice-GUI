@@ -584,6 +584,42 @@ class TestAnnotationsAndRecommendedComponents:
         assert ctrl2.model.analysis_type == "AC Sweep"
 
 
+class TestExportBom:
+    """Tests for FileController.export_bom (Issue #570)."""
+
+    @patch("controllers.file_controller.settings")
+    def test_export_bom_csv(self, mock_settings, tmp_path):
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        filepath = tmp_path / "bom.csv"
+        ctrl.export_bom(str(filepath), circuit_name="test")
+        assert filepath.exists()
+        content = filepath.read_text()
+        assert "R1" in content or "Resistor" in content
+
+    @patch("controllers.file_controller.settings")
+    def test_export_bom_excel(self, mock_settings, tmp_path):
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        filepath = tmp_path / "bom.xlsx"
+        ctrl.export_bom(str(filepath), circuit_name="test")
+        assert filepath.exists()
+
+
+class TestExportAsc:
+    """Tests for FileController.export_asc (Issue #570)."""
+
+    @patch("controllers.file_controller.settings")
+    def test_export_asc_writes_file(self, mock_settings, tmp_path):
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        filepath = tmp_path / "circuit.asc"
+        ctrl.export_asc(str(filepath))
+        assert filepath.exists()
+        content = filepath.read_text()
+        assert len(content) > 0
+
+
 class TestQtDependencies:
     def test_settings_service_used_for_recent_files(self):
         """FileController uses centralized SettingsService for persistence (#598)."""

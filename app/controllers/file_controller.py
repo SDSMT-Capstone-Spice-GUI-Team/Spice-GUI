@@ -385,6 +385,33 @@ class FileController:
 
         return warnings
 
+    # --- Export helpers ---
+
+    def export_bom(self, filepath: str, circuit_name: str = "") -> None:
+        """Export a Bill of Materials. Format is determined by file extension.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.bom_exporter import export_bom_csv, export_bom_excel, write_bom_csv
+
+        if filepath.lower().endswith(".xlsx"):
+            export_bom_excel(self.model.components, filepath, circuit_name=circuit_name)
+        else:
+            content = export_bom_csv(self.model.components, circuit_name=circuit_name)
+            write_bom_csv(content, filepath)
+
+    def export_asc(self, filepath: str) -> None:
+        """Export the circuit as an LTspice .asc schematic.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.asc_exporter import export_asc, write_asc
+
+        content = export_asc(self.model)
+        write_asc(content, filepath)
+
     def clear_auto_save(self) -> None:
         """Delete the auto-save recovery file if it exists."""
         try:

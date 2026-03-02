@@ -359,8 +359,6 @@ class FileOperationsMixin:
 
     def _on_export_bom(self):
         """Export a Bill of Materials (BOM) as CSV or Excel."""
-        from simulation.bom_exporter import export_bom_csv, export_bom_excel, write_bom_csv
-
         if not self.model.components:
             QMessageBox.information(self, "Export BOM", "Nothing to export — the canvas is empty.")
             return
@@ -375,19 +373,19 @@ class FileOperationsMixin:
             return
 
         try:
+            # Ensure correct extension based on selected filter
+            if filename.lower().endswith(".xlsx") or "Excel" in selected_filter:
+                if not filename.lower().endswith(".xlsx"):
+                    filename += ".xlsx"
+            else:
+                if not filename.lower().endswith(".csv"):
+                    filename += ".csv"
+
             circuit_name = ""
             if hasattr(self, "file_ctrl") and self.file_ctrl.current_file:
                 circuit_name = self.file_ctrl.current_file.name
 
-            if filename.lower().endswith(".xlsx") or "Excel" in selected_filter:
-                if not filename.lower().endswith(".xlsx"):
-                    filename += ".xlsx"
-                export_bom_excel(self.model.components, filename, circuit_name=circuit_name)
-            else:
-                if not filename.lower().endswith(".csv"):
-                    filename += ".csv"
-                content = export_bom_csv(self.model.components, circuit_name=circuit_name)
-                write_bom_csv(content, filename)
+            self.file_ctrl.export_bom(filename, circuit_name=circuit_name)
 
             statusBar = self.statusBar()
             if statusBar:
@@ -397,8 +395,6 @@ class FileOperationsMixin:
 
     def _on_export_asc(self):
         """Export the circuit as an LTspice .asc schematic file."""
-        from simulation.asc_exporter import export_asc, write_asc
-
         if not self.model.components:
             QMessageBox.information(self, "Export LTspice", "Nothing to export — the canvas is empty.")
             return
@@ -413,8 +409,7 @@ class FileOperationsMixin:
             return
 
         try:
-            content = export_asc(self.model)
-            write_asc(content, filename)
+            self.file_ctrl.export_asc(filename)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"LTspice schematic exported to {filename}", 3000)
@@ -528,25 +523,10 @@ class FileOperationsMixin:
             results_csv = None
             if self._last_results is not None:
                 try:
-                    from simulation.csv_exporter import (
-                        export_ac_results,
-                        export_dc_sweep_results,
-                        export_noise_results,
-                        export_op_results,
-                        export_transient_results,
-                    )
-
                     cn = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
-                    dispatch = {
-                        "DC Operating Point": export_op_results,
-                        "DC Sweep": export_dc_sweep_results,
-                        "AC Sweep": export_ac_results,
-                        "Transient": export_transient_results,
-                        "Noise": export_noise_results,
-                    }
-                    func = dispatch.get(self._last_results_type)
-                    if func:
-                        results_csv = func(self._last_results, cn)
+                    results_csv = self.simulation_ctrl.generate_results_csv(
+                        self._last_results, self._last_results_type, cn
+                    )
                 except Exception:
                     pass
 
@@ -554,12 +534,12 @@ class FileOperationsMixin:
             results_xlsx_path = None
             if self._last_results is not None:
                 try:
-                    from simulation.excel_exporter import export_to_excel
-
                     cn = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
                     tmp_xlsx = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
                     tmp_xlsx.close()
-                    export_to_excel(self._last_results, self._last_results_type, tmp_xlsx.name, cn)
+                    self.simulation_ctrl.export_results_excel(
+                        self._last_results, self._last_results_type, tmp_xlsx.name, cn
+                    )
                     results_xlsx_path = tmp_xlsx.name
                 except Exception:
                     pass
@@ -859,23 +839,14 @@ class FileOperationsMixin:
         import os
 
         try:
+            circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
+
             if export_function == "export_netlist":
-                netlist = self.simulation_ctrl.generate_netlist()
-                with open(path, "w") as f:
-                    f.write(netlist)
+                self.simulation_ctrl.export_netlist(path)
             elif export_function == "export_image":
                 self.canvas.export_image(path, include_grid=False)
-            elif export_function == "export_bom_csv":
-                from simulation.bom_exporter import export_bom_csv, write_bom_csv
-
-                circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
-                content = export_bom_csv(self.model.components, circuit_name=circuit_name)
-                write_bom_csv(content, path)
-            elif export_function == "export_bom_excel":
-                from simulation.bom_exporter import export_bom_excel
-
-                circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
-                export_bom_excel(self.model.components, path, circuit_name=circuit_name)
+            elif export_function in ("export_bom_csv", "export_bom_excel"):
+                self.file_ctrl.export_bom(path, circuit_name=circuit_name)
             elif export_function == "export_results_csv":
                 self._re_export_results_csv(path)
             elif export_function == "export_results_excel":
@@ -892,16 +863,12 @@ class FileOperationsMixin:
                 with open(path, "w") as f:
                     f.write(content)
             elif export_function == "export_asc":
-                from simulation.asc_exporter import export_asc, write_asc
-
-                content = export_asc(self.model)
-                write_asc(content, path)
+                self.file_ctrl.export_asc(path)
             elif export_function == "export_results_markdown":
-                md = self._get_markdown_content()
-                if md:
-                    from simulation.markdown_exporter import write_markdown
-
-                    write_markdown(md, path)
+                if self._last_results is not None:
+                    self.simulation_ctrl.export_results_markdown(
+                        self._last_results, self._last_results_type, path, circuit_name
+                    )
             else:
                 QMessageBox.warning(self, "Re-export", f"Unknown export type: {export_function}")
                 return
@@ -918,26 +885,8 @@ class FileOperationsMixin:
             return
         import os
 
-        from simulation.csv_exporter import (
-            export_ac_results,
-            export_dc_sweep_results,
-            export_noise_results,
-            export_op_results,
-            export_transient_results,
-            write_csv,
-        )
-
         circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
-        dispatch = {
-            "DC Operating Point": export_op_results,
-            "DC Sweep": export_dc_sweep_results,
-            "AC Sweep": export_ac_results,
-            "Transient": export_transient_results,
-            "Noise": export_noise_results,
-        }
-        func = dispatch.get(self._last_results_type)
-        if func:
-            write_csv(func(self._last_results, circuit_name), path)
+        self.simulation_ctrl.export_results_csv(self._last_results, self._last_results_type, path, circuit_name)
 
     def _re_export_results_excel(self, path):
         """Re-export simulation results to Excel at the given path."""
@@ -945,10 +894,8 @@ class FileOperationsMixin:
             return
         import os
 
-        from simulation.excel_exporter import export_to_excel
-
         circuit_name = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
-        export_to_excel(self._last_results, self._last_results_type, path, circuit_name)
+        self.simulation_ctrl.export_results_excel(self._last_results, self._last_results_type, path, circuit_name)
 
     # --- Recommended / Used-in-File Components ---
 
