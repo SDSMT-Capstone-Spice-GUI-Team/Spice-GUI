@@ -346,10 +346,10 @@ class TestNoiseCSVExport:
         assert "Input Noise" in csv
 
     def test_csv_export_handles_noise_type(self):
-        """main_window_simulation CSV export should route noise results."""
-        from GUI.main_window_simulation import SimulationMixin
+        """SimulationController CSV dispatch should route noise results."""
+        from controllers.simulation_controller import SimulationController
 
-        source = inspect.getsource(SimulationMixin.export_results_csv)
+        source = inspect.getsource(SimulationController.generate_results_csv)
         assert "export_noise_results" in source
         assert '"Noise"' in source
 
