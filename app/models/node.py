@@ -9,14 +9,28 @@ same voltage).
 from dataclasses import dataclass, field
 from typing import Optional
 
-# Module-level counter for generating unique node labels
-_node_counter = 0
 
+class NodeLabelGenerator:
+    """Encapsulates the counter used to generate unique node labels.
 
-def reset_node_counter():
-    """Reset the node label counter. Call when starting a new circuit."""
-    global _node_counter
-    _node_counter = 0
+    Each call to :meth:`next_label` returns labels in sequence:
+    ``nodeA``, ``nodeB``, ... ``nodeZ``, ``nodeAA``, ``nodeAB``, ...
+
+    Call :meth:`reset` when starting a new circuit.
+    """
+
+    def __init__(self) -> None:
+        self._counter: int = 0
+
+    def reset(self) -> None:
+        """Reset the counter to zero."""
+        self._counter = 0
+
+    def next_label(self) -> str:
+        """Return the next label and advance the counter."""
+        label = _generate_label(self._counter)
+        self._counter += 1
+        return label
 
 
 def _generate_label(index: int) -> str:
@@ -36,6 +50,15 @@ def _generate_label(index: int) -> str:
         first = (index // 26) - 1
         second = index % 26
         return "node" + chr(ord("A") + first) + chr(ord("A") + second)
+
+
+# Default module-level generator used by NodeData.__post_init__
+_default_generator = NodeLabelGenerator()
+
+
+def reset_node_counter():
+    """Reset the node label counter. Call when starting a new circuit."""
+    _default_generator.reset()
 
 
 @dataclass
@@ -68,9 +91,7 @@ class NodeData:
             if self.is_ground:
                 self.auto_label = "0"
             else:
-                global _node_counter
-                self.auto_label = _generate_label(_node_counter)
-                _node_counter += 1
+                self.auto_label = _default_generator.next_label()
 
     def get_label(self) -> str:
         """
