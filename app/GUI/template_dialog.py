@@ -1,8 +1,9 @@
 """Dialogs for circuit template save and load."""
 
-from typing import Optional
+from pathlib import Path
+from typing import Callable, Optional
 
-from controllers.template_manager import TemplateInfo, TemplateManager
+from controllers.template_manager import TemplateInfo
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog,
@@ -21,11 +22,22 @@ from PyQt6.QtWidgets import (
 
 
 class NewFromTemplateDialog(QDialog):
-    """Dialog for creating a new circuit from a template."""
+    """Dialog for creating a new circuit from a template.
 
-    def __init__(self, template_manager: TemplateManager, parent=None):
+    This dialog is a pure view: it receives pre-fetched template data and
+    an optional *delete_callback* so that all CRUD operations stay in the
+    controller layer.
+    """
+
+    def __init__(
+        self,
+        templates: list[TemplateInfo],
+        delete_callback: Optional[Callable[[Path], bool]] = None,
+        parent=None,
+    ):
         super().__init__(parent)
-        self.template_manager = template_manager
+        self._templates = list(templates)
+        self._delete_callback = delete_callback
         self.selected_template: Optional[TemplateInfo] = None
         self._setup_ui()
         self._populate_templates()
@@ -82,12 +94,11 @@ class NewFromTemplateDialog(QDialog):
         layout.addLayout(right, stretch=1)
 
     def _populate_templates(self):
-        """Load and display all templates grouped by category."""
+        """Display templates grouped by category."""
         self.template_list.clear()
-        templates = self.template_manager.list_templates()
 
         current_category = None
-        for template in templates:
+        for template in self._templates:
             if template.category != current_category:
                 current_category = template.category
                 header = QListWidgetItem(f"--- {current_category} ---")
@@ -136,6 +147,8 @@ class NewFromTemplateDialog(QDialog):
     def _on_delete(self):
         if self.selected_template is None or self.selected_template.is_builtin:
             return
+        if self._delete_callback is None:
+            return
 
         reply = QMessageBox.question(
             self,
@@ -144,9 +157,11 @@ class NewFromTemplateDialog(QDialog):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
-            self.template_manager.delete_template(self.selected_template.filepath)
-            self._populate_templates()
-            self._clear_details()
+            deleted = self._delete_callback(self.selected_template.filepath)
+            if deleted:
+                self._templates = [t for t in self._templates if t.filepath != self.selected_template.filepath]
+                self._populate_templates()
+                self._clear_details()
 
     def get_selected_template(self) -> Optional[TemplateInfo]:
         return self.selected_template
