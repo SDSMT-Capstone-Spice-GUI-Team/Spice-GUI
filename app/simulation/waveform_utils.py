@@ -1,10 +1,48 @@
 """Waveform SPICE command generation utilities.
 
-Extracted from ComponentData.get_spice_value() (#574) to keep domain-specific
+Extracted from ComponentData (#574, #599) to keep domain-specific
 SPICE formatting logic in the simulation layer rather than the data model.
 """
 
 from typing import Optional
+
+DEFAULT_WAVEFORM_TYPE = "SIN"
+
+
+def default_waveform_params() -> dict:
+    """Return default waveform parameters for all waveform types.
+
+    Each key is a waveform type (``"SIN"``, ``"PULSE"``, ``"EXP"``),
+    and the value is a dict of parameter names to their default string
+    values.
+    """
+    return {
+        "SIN": {
+            "offset": "0",
+            "amplitude": "5",
+            "frequency": "1k",
+            "delay": "0",
+            "theta": "0",
+            "phase": "0",
+        },
+        "PULSE": {
+            "v1": "0",
+            "v2": "5",
+            "td": "0",
+            "tr": "1n",
+            "tf": "1n",
+            "pw": "500u",
+            "per": "1m",
+        },
+        "EXP": {
+            "v1": "0",
+            "v2": "5",
+            "td1": "0",
+            "tau1": "1u",
+            "td2": "2u",
+            "tau2": "2u",
+        },
+    }
 
 
 def format_waveform_spice_value(

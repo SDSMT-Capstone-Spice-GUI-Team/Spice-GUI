@@ -284,39 +284,10 @@ class ComponentData:
     def __post_init__(self):
         """Initialize waveform parameters for waveform sources."""
         if self.component_type == "Waveform Source" and self.waveform_params is None:
-            self.waveform_type = "SIN"
-            self.waveform_params = self._default_waveform_params()
+            from simulation.waveform_utils import DEFAULT_WAVEFORM_TYPE, default_waveform_params
 
-    @staticmethod
-    def _default_waveform_params() -> dict:
-        """Return default waveform parameters for all waveform types."""
-        return {
-            "SIN": {
-                "offset": "0",
-                "amplitude": "5",
-                "frequency": "1k",
-                "delay": "0",
-                "theta": "0",
-                "phase": "0",
-            },
-            "PULSE": {
-                "v1": "0",
-                "v2": "5",
-                "td": "0",
-                "tr": "1n",
-                "tf": "1n",
-                "pw": "500u",
-                "per": "1m",
-            },
-            "EXP": {
-                "v1": "0",
-                "v2": "5",
-                "td1": "0",
-                "tau1": "1u",
-                "td2": "2u",
-                "tau2": "2u",
-            },
-        }
+            self.waveform_type = DEFAULT_WAVEFORM_TYPE
+            self.waveform_params = default_waveform_params()
 
     def get_terminal_count(self) -> int:
         """Return number of terminals for this component type."""
