@@ -6,7 +6,66 @@ import pytest
 from models.component import ComponentData
 from models.node import NodeData
 from models.wire import WireData
-from simulation.netlist_generator import NetlistGenerator
+from simulation.netlist_generator import NetlistGenerator, generate_analysis_command
+
+
+class TestGenerateAnalysisCommand:
+    """Tests for the standalone generate_analysis_command function (#576)."""
+
+    def test_dc_op(self):
+        assert generate_analysis_command("DC Operating Point", {}) == ".op"
+
+    def test_dc_sweep(self):
+        cmd = generate_analysis_command("DC Sweep", {"source": "V1", "min": 0, "max": 5, "step": 0.1})
+        assert cmd == ".dc V1 0 5 0.1"
+
+    def test_ac_sweep_with_camelcase_key(self):
+        cmd = generate_analysis_command("AC Sweep", {"fStart": 1, "fStop": 1e6, "points": 100, "sweepType": "dec"})
+        assert cmd == ".ac dec 100 1 1000000.0"
+
+    def test_ac_sweep_with_underscore_key(self):
+        cmd = generate_analysis_command("AC Sweep", {"fStart": 1, "fStop": 1e6, "points": 100, "sweep_type": "lin"})
+        assert cmd == ".ac lin 100 1 1000000.0"
+
+    def test_transient(self):
+        cmd = generate_analysis_command("Transient", {"step": 1e-6, "duration": 0.01, "startTime": 0})
+        assert cmd.startswith(".tran")
+
+    def test_temperature_sweep(self):
+        cmd = generate_analysis_command("Temperature Sweep", {"tempStart": -40, "tempStop": 85, "tempStep": 25})
+        assert cmd == ".step temp -40 85 25"
+
+    def test_noise(self):
+        cmd = generate_analysis_command(
+            "Noise",
+            {"output_node": "out", "source": "V1", "fStart": 1, "fStop": 1e6, "points": 100, "sweepType": "dec"},
+        )
+        assert cmd.startswith(".noise v(out) V1")
+
+    def test_sensitivity(self):
+        cmd = generate_analysis_command("Sensitivity", {"output_node": "out"})
+        assert cmd == ".sens v(out)"
+
+    def test_transfer_function(self):
+        cmd = generate_analysis_command("Transfer Function", {"output_var": "v(out)", "input_source": "V1"})
+        assert cmd == ".tf v(out) V1"
+
+    def test_pole_zero(self):
+        cmd = generate_analysis_command(
+            "Pole-Zero",
+            {
+                "input_pos": "1",
+                "input_neg": "0",
+                "output_pos": "2",
+                "output_neg": "0",
+                "transfer_type": "vol",
+                "pz_type": "pz",
+            },
+        )
+        assert cmd == ".pz 1 0 2 0 vol pz"
+
+    def test_unknown_type_returns_empty(self):
+        assert generate_analysis_command("Unknown", {}) == ""
 
 
 def _generate(

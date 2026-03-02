@@ -41,10 +41,11 @@ class SimulationController:
     Coordinates: validate -> generate netlist -> run ngspice -> parse results
     """
 
-    def __init__(self, model: Optional[CircuitModel] = None, circuit_ctrl=None):
+    def __init__(self, model: Optional[CircuitModel] = None, circuit_ctrl=None, preset_manager=None):
         self.model = model or CircuitModel()
         self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
         self._runner = None
+        self._preset_manager = preset_manager
 
     @property
     def runner(self):
@@ -626,3 +627,37 @@ class SimulationController:
         from simulation.monte_carlo import format_spice_value
 
         return format_spice_value(value)
+
+    # --- Preset management ---
+
+    @property
+    def preset_manager(self):
+        """Lazy initialization of PresetManager."""
+        if self._preset_manager is None:
+            from simulation.preset_manager import PresetManager
+
+            self._preset_manager = PresetManager()
+        return self._preset_manager
+
+    def get_presets(self, analysis_type=None):
+        """Return presets, optionally filtered by analysis type."""
+        return self.preset_manager.get_presets(analysis_type)
+
+    def get_preset_by_name(self, name, analysis_type=None):
+        """Look up a preset by name (and optionally analysis type)."""
+        return self.preset_manager.get_preset_by_name(name, analysis_type)
+
+    def save_preset(self, name, analysis_type, params):
+        """Save a user preset. Raises ValueError for built-in presets."""
+        return self.preset_manager.save_preset(name, analysis_type, params)
+
+    def delete_preset(self, name, analysis_type=None):
+        """Delete a user preset. Returns True if deleted."""
+        return self.preset_manager.delete_preset(name, analysis_type)
+
+    @staticmethod
+    def generate_analysis_command(analysis_type: str, params: dict) -> str:
+        """Generate a SPICE analysis directive from type and parameters."""
+        from simulation.netlist_generator import generate_analysis_command
+
+        return generate_analysis_command(analysis_type, params)

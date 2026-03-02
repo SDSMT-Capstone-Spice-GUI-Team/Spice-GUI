@@ -19,7 +19,7 @@ class AnalysisSettingsMixin:
 
     def set_analysis_dc(self):
         """Set analysis type to DC Sweep with parameters"""
-        dialog = AnalysisDialog("DC Sweep", self)
+        dialog = AnalysisDialog("DC Sweep", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
@@ -38,7 +38,7 @@ class AnalysisSettingsMixin:
 
     def set_analysis_ac(self):
         """Set analysis type to AC Sweep with parameters"""
-        dialog = AnalysisDialog("AC Sweep", self)
+        dialog = AnalysisDialog("AC Sweep", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
@@ -57,7 +57,7 @@ class AnalysisSettingsMixin:
 
     def set_analysis_transient(self):
         """Set analysis type to Transient with parameters"""
-        dialog = AnalysisDialog("Transient", self)
+        dialog = AnalysisDialog("Transient", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
@@ -76,7 +76,7 @@ class AnalysisSettingsMixin:
 
     def set_analysis_temp_sweep(self):
         """Set analysis type to Temperature Sweep with parameters"""
-        dialog = AnalysisDialog("Temperature Sweep", self)
+        dialog = AnalysisDialog("Temperature Sweep", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
@@ -98,7 +98,7 @@ class AnalysisSettingsMixin:
 
     def set_analysis_noise(self):
         """Set analysis type to Noise with parameters"""
-        dialog = AnalysisDialog("Noise", self)
+        dialog = AnalysisDialog("Noise", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
