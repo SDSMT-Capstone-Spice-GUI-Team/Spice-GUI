@@ -350,6 +350,44 @@ class ComponentPalette(QWidget):
                 self.tree_widget.takeTopLevelItem(index)
             self._used_in_file_item = None
 
+    def refresh_subcircuits(self) -> None:
+        """Rebuild the 'Subcircuits' category from COMPONENT_CATEGORIES.
+
+        Call this after importing new subcircuit definitions to update the
+        palette without recreating the entire widget.
+        """
+        category_name = "Subcircuits"
+        component_names = COMPONENT_CATEGORIES.get(category_name, [])
+
+        # Remove existing Subcircuits category if present
+        if category_name in self._category_items:
+            old_item = self._category_items.pop(category_name)
+            idx = self.tree_widget.indexOfTopLevelItem(old_item)
+            if idx >= 0:
+                self.tree_widget.takeTopLevelItem(idx)
+
+        if not component_names:
+            return
+
+        # Create category item
+        category_item = QTreeWidgetItem(self.tree_widget, [category_name])
+        category_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        bold_font = QFont()
+        bold_font.setBold(True)
+        category_item.setFont(0, bold_font)
+        self._category_items[category_name] = category_item
+
+        for component_name in component_names:
+            child = QTreeWidgetItem(category_item, [component_name])
+            try:
+                child.setIcon(0, create_component_icon(component_name))
+            except Exception:
+                pass
+            child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, f"Subcircuit: {component_name}"))
+            child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+
+        category_item.setExpanded(True)
+
     def get_all_component_items(self) -> list[QTreeWidgetItem]:
         """Return all component (leaf) items across all categories."""
         items = []

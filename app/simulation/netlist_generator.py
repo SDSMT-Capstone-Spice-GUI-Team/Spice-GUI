@@ -140,6 +140,9 @@ class NetlistGenerator:
             lines.append(OPAMP_SUBCIRCUITS[model_name])
             lines.append("")
 
+        # Add subcircuit definitions from the subcircuit library
+        self._inject_subcircuit_definitions(lines)
+
         # Build node connectivity map
         node_map = {}  # (comp_id, term_index) -> node_number
         next_node = 1
@@ -307,6 +310,10 @@ class NetlistGenerator:
                 lines.append(f"{prim_name} {nodes[0]} {nodes[1]} {l_prim}")
                 lines.append(f"{sec_name} {nodes[2]} {nodes[3]} {l_sec}")
                 lines.append(f"K_{comp_id} {prim_name} {sec_name} {coupling}")
+            elif comp.get_spice_symbol() == "X":
+                # Generic subcircuit instance (from subcircuit library)
+                # X<name> node1 node2 ... subckt_name
+                lines.append(f"X{comp_id} {' '.join(nodes)} {comp.value}")
 
         # Add BJT model directives
         bjt_models = set()
@@ -393,6 +400,27 @@ class NetlistGenerator:
         lines.append(".end")
 
         return "\n".join(lines)
+
+    def _inject_subcircuit_definitions(self, lines):
+        """Inject .subckt definitions for any subcircuit-library components used."""
+        try:
+            from models.subcircuit_library import SubcircuitLibrary
+
+            library = SubcircuitLibrary()
+        except Exception:
+            return
+
+        subckt_names_used = set()
+        for comp in self.components.values():
+            if comp.get_spice_symbol() == "X" and comp.component_type != "Op-Amp":
+                subckt_names_used.add(comp.value)
+
+        for subckt_name in sorted(subckt_names_used):
+            defn = library.get(subckt_name)
+            if defn is not None:
+                lines.append(f"* {subckt_name} Subcircuit")
+                lines.append(defn.spice_definition)
+                lines.append("")
 
     def _generate_analysis_commands(self, node_labels, node_map):
         """Generate analysis-specific SPICE commands"""
