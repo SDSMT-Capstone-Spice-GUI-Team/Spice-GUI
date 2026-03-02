@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from datetime import datetime
 
-from GUI.styles import SIMULATION_TIMEOUT
+from utils.constants import SIMULATION_TIMEOUT
 
 
 class NgspiceRunner:
