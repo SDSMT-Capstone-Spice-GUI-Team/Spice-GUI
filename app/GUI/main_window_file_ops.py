@@ -232,24 +232,12 @@ class FileOperationsMixin:
             template = template_ctrl.load_template(filename)
             model = template_ctrl.create_circuit_from_template(template)
 
-            # Update current model in place
-            self.model.clear()
-            self.model.components = model.components
-            self.model.wires = model.wires
-            self.model.nodes = model.nodes
-            self.model.terminal_to_node = model.terminal_to_node
-            self.model.component_counter = model.component_counter
-            self.model.analysis_type = model.analysis_type
-            self.model.analysis_params = model.analysis_params
-            self.model.annotations = model.annotations
+            self.file_ctrl.load_from_model(model)
+            self.file_ctrl.current_file = None
 
             title = template.metadata.title or Path(filename).stem
             self.setWindowTitle(f"Circuit Design GUI - {title} (Template)")
-            self.file_ctrl.current_file = None
             self._sync_analysis_menu()
-
-            if self.circuit_ctrl:
-                self.circuit_ctrl._notify("model_loaded", None)
 
             info = f"Template: {title}"
             if template.instructions:
@@ -767,24 +755,12 @@ class FileOperationsMixin:
         try:
             new_model = self._template_manager.load_template(filepath)
 
-            self.model.clear()
-            self.model.components = new_model.components
-            self.model.wires = new_model.wires
-            self.model.nodes = new_model.nodes
-            self.model.terminal_to_node = new_model.terminal_to_node
-            self.model.component_counter = new_model.component_counter
-            self.model.analysis_type = new_model.analysis_type
-            self.model.analysis_params = new_model.analysis_params
-            self.model.annotations = new_model.annotations
-
-            # Notify observers to rebuild canvas
-            if self.circuit_ctrl:
-                self.circuit_ctrl._notify("model_loaded", None)
+            self.file_ctrl.load_from_model(new_model)
+            self.file_ctrl.current_file = None
 
             self.setWindowTitle(f"Circuit Design GUI - {filepath.stem} (Template)")
             self._sync_analysis_menu()
             self._apply_default_zoom()
-            self.file_ctrl.current_file = None
             self._set_dirty(True)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load template: {e}")
@@ -984,7 +960,7 @@ class FileOperationsMixin:
         dialog = RecommendedComponentsDialog(self.model.recommended_components, self)
         if dialog.exec() == RecommendedComponentsDialog.DialogCode.Accepted:
             new_recs = dialog.get_recommended()
-            self.model.recommended_components = new_recs
+            self.circuit_ctrl.set_recommended_components(new_recs)
             self.palette.set_recommended_components(new_recs)
             self._set_dirty(True)
             statusBar = self.statusBar()

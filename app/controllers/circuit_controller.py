@@ -290,6 +290,11 @@ class CircuitController:
         node.set_custom_label(label)
         self._notify("net_name_changed", node)
 
+    def set_recommended_components(self, components: list[str]) -> None:
+        """Update the file-level recommended components list."""
+        self.model.recommended_components = list(components)
+        self._notify("recommended_components_changed", self.model.recommended_components)
+
     # --- Annotation operations ---
 
     def add_annotation(self, annotation: AnnotationData) -> int:

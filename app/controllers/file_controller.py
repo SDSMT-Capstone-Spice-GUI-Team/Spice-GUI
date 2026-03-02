@@ -77,18 +77,16 @@ class FileController:
         self._autosave_file = Path(__file__).resolve().parent.parent / autosave_file
 
     def _replace_model(self, new_model: CircuitModel) -> None:
-        """Atomically replace the current model's data with *new_model*.
+        """Replace the current model's data with *new_model* in place.
 
         Validates the parsed data **before** clearing the existing circuit
-        so that a corrupt import can never cause data loss.  If anything
-        goes wrong the original circuit is left untouched.
+        so that a corrupt import can never cause data loss.  Copies all
+        fields from *new_model* into ``self.model`` so that existing
+        references to the model object remain valid.
         """
-        # Validate the new model by round-tripping through the dict
-        # representation — this catches missing fields, bad types, etc.
         parsed_data = new_model.to_dict()
         validate_circuit_data(parsed_data)
 
-        # Validation passed — safe to replace
         self.model.clear()
         self.model.components = new_model.components
         self.model.wires = new_model.wires
@@ -98,6 +96,19 @@ class FileController:
         self.model.analysis_type = new_model.analysis_type
         self.model.analysis_params = new_model.analysis_params
         self.model.annotations = new_model.annotations
+        self.model.recommended_components = new_model.recommended_components
+
+    def load_from_model(self, new_model: CircuitModel) -> None:
+        """Replace the current circuit with *new_model* and notify observers.
+
+        This is the public entry-point that GUI code should call when it
+        already has a ``CircuitModel`` instance (e.g. from template or
+        assignment loading).  It preserves the existing model reference,
+        copies data across, and fires a ``model_loaded`` notification.
+        """
+        self._replace_model(new_model)
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify("model_loaded", None)
 
     def new_circuit(self) -> None:
         """Clear the circuit and reset file state."""
@@ -149,25 +160,12 @@ class FileController:
         validate_circuit_data(data)
 
         new_model = CircuitModel.from_dict(data)
-        #         self._replace_model(new_model)
-
-        # Update current model in place (preserving reference)
-        self.model.clear()
-        self.model.components = new_model.components
-        self.model.wires = new_model.wires
-        self.model.nodes = new_model.nodes
-        self.model.terminal_to_node = new_model.terminal_to_node
-        self.model.component_counter = new_model.component_counter
-        self.model.analysis_type = new_model.analysis_type
-        self.model.analysis_params = new_model.analysis_params
-        self.model.annotations = new_model.annotations
-        self.model.recommended_components = new_model.recommended_components
+        self._replace_model(new_model)
 
         self.current_file = filepath
         self._save_session()
-        self.add_recent_file(filepath)  # Track in recent files
+        self.add_recent_file(filepath)
 
-        # Phase 5: Notify observers of load
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("model_loaded", None)
 
@@ -178,17 +176,7 @@ class FileController:
         Does not update current_file or session tracking.
         """
         new_model = CircuitModel.from_dict(data)
-        #         self._replace_model(new_model)
-        self.model.clear()
-        self.model.components = new_model.components
-        self.model.wires = new_model.wires
-        self.model.nodes = new_model.nodes
-        self.model.terminal_to_node = new_model.terminal_to_node
-        self.model.component_counter = new_model.component_counter
-        self.model.analysis_type = new_model.analysis_type
-        self.model.analysis_params = new_model.analysis_params
-        self.model.annotations = new_model.annotations
-        self.model.recommended_components = new_model.recommended_components
+        self._replace_model(new_model)
 
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("model_loaded", None)
@@ -319,17 +307,7 @@ class FileController:
             validate_circuit_data(data)
 
             new_model = CircuitModel.from_dict(data)
-            #             self._replace_model(new_model)
-            self.model.clear()
-            self.model.components = new_model.components
-            self.model.wires = new_model.wires
-            self.model.nodes = new_model.nodes
-            self.model.terminal_to_node = new_model.terminal_to_node
-            self.model.component_counter = new_model.component_counter
-            self.model.analysis_type = new_model.analysis_type
-            self.model.analysis_params = new_model.analysis_params
-            self.model.annotations = new_model.annotations
-            self.model.recommended_components = new_model.recommended_components
+            self._replace_model(new_model)
 
             if source_path:
                 self.current_file = Path(source_path)
