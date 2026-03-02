@@ -8,9 +8,17 @@ This module contains no Qt dependencies. It holds all circuit data
 import logging
 from dataclasses import dataclass, field
 
+from algorithms.graph_ops import (
+    handle_ground_added,
+    rebuild_all_nodes,
+    rebuild_nodes_after_wire_removal,
+    shift_wire_indices,
+    update_nodes_for_wire,
+)
+
 from .annotation import AnnotationData
 from .component import ComponentData
-from .node import NodeData, reset_node_counter
+from .node import NodeData
 from .wire import WireData
 
 logger = logging.getLogger(__name__)
@@ -85,168 +93,28 @@ class CircuitModel:
 
         del self.wires[wire_index]
 
-        # Shift wire indices in all nodes: decrement indices > wire_index,
-        # remove wire_index itself
-        for node in self.nodes:
-            new_indices = set()
-            for idx in node.wire_indices:
-                if idx == wire_index:
-                    continue
-                elif idx > wire_index:
-                    new_indices.add(idx - 1)
-                else:
-                    new_indices.add(idx)
-            node.wire_indices = new_indices
+        shift_wire_indices(self.nodes, wire_index)
 
-        if affected_node is None:
-            return
+        if affected_node is not None:
+            rebuild_nodes_after_wire_removal(
+                self.nodes, self.terminal_to_node, self.components, self.wires, affected_node
+            )
 
-        # Save state from affected node before removing it
-        affected_terminals = set(affected_node.terminals)
-        saved_label = affected_node.custom_label
-
-        # Remove affected node and its terminal mappings
-        if affected_node in self.nodes:
-            self.nodes.remove(affected_node)
-        for term in affected_terminals:
-            self.terminal_to_node.pop(term, None)
-
-        # Collect remaining wires that connect terminals within the affected set
-        relevant_wires = []
-        for i, w in enumerate(self.wires):
-            st = (w.start_component_id, w.start_terminal)
-            et = (w.end_component_id, w.end_terminal)
-            if st in affected_terminals or et in affected_terminals:
-                relevant_wires.append(i)
-
-        # Re-add ground terminals for the affected set
-        for term in affected_terminals:
-            comp = self.components.get(term[0])
-            if comp and comp.component_type == "Ground":
-                self._handle_ground_added(comp)
-
-        # Re-process relevant wires to rebuild only affected nodes
-        for wire_idx in relevant_wires:
-            self._update_nodes_for_wire(self.wires[wire_idx], wire_idx)
-
-        # Restore custom label on rebuilt nodes
-        if saved_label:
-            for term in affected_terminals:
-                node = self.terminal_to_node.get(term)
-                if node and not node.custom_label:
-                    node.set_custom_label(saved_label)
-                    break
-
-    # --- Node graph operations ---
+    # --- Node graph operations (delegated to algorithms.graph_ops) ---
 
     def _handle_ground_added(self, ground_comp: ComponentData) -> None:
         """Handle adding a ground component to the node graph."""
-        terminal_key = (ground_comp.component_id, 0)
-
-        ground_node = None
-        for node in self.nodes:
-            if node.is_ground:
-                ground_node = node
-                break
-
-        if ground_node is None:
-            ground_node = NodeData(is_ground=True)
-            self.nodes.append(ground_node)
-
-        ground_node.add_terminal(ground_comp.component_id, 0)
-        self.terminal_to_node[terminal_key] = ground_node
+        handle_ground_added(self.nodes, self.terminal_to_node, ground_comp)
 
     def _update_nodes_for_wire(self, wire: WireData, wire_index: int | None = None) -> None:
-        """Update node connectivity when a wire is added.
-
-        Args:
-            wire: The wire data to process.
-            wire_index: Explicit index of this wire in self.wires.
-                        Defaults to len(self.wires) - 1 (last appended).
-        """
+        """Update node connectivity when a wire is added."""
         if wire_index is None:
             wire_index = len(self.wires) - 1
-
-        start_terminal = (wire.start_component_id, wire.start_terminal)
-        end_terminal = (wire.end_component_id, wire.end_terminal)
-
-        start_node = self.terminal_to_node.get(start_terminal)
-        end_node = self.terminal_to_node.get(end_terminal)
-
-        start_comp = self.components.get(wire.start_component_id)
-        end_comp = self.components.get(wire.end_component_id)
-
-        if start_node is None and end_node is None:
-            new_node = NodeData()
-            new_node.add_terminal(*start_terminal)
-            new_node.add_terminal(*end_terminal)
-            new_node.add_wire(wire_index)
-
-            self.nodes.append(new_node)
-            self.terminal_to_node[start_terminal] = new_node
-            self.terminal_to_node[end_terminal] = new_node
-
-            if (start_comp and start_comp.component_type == "Ground") or (
-                end_comp and end_comp.component_type == "Ground"
-            ):
-                new_node.set_as_ground()
-
-        elif start_node is None and end_node is not None:
-            end_node.add_terminal(*start_terminal)
-            end_node.add_wire(wire_index)
-            self.terminal_to_node[start_terminal] = end_node
-
-            if start_comp and start_comp.component_type == "Ground":
-                end_node.set_as_ground()
-
-        elif end_node is None and start_node is not None:
-            start_node.add_terminal(*end_terminal)
-            start_node.add_wire(wire_index)
-            self.terminal_to_node[end_terminal] = start_node
-
-            if end_comp and end_comp.component_type == "Ground":
-                start_node.set_as_ground()
-
-        elif start_node is not None and end_node is not None and start_node != end_node:
-            start_node.merge_with(end_node)
-            start_node.add_wire(wire_index)
-
-            for terminal in end_node.terminals:
-                self.terminal_to_node[terminal] = start_node
-
-            self.nodes.remove(end_node)
+        update_nodes_for_wire(self.nodes, self.terminal_to_node, self.components, wire, wire_index)
 
     def rebuild_nodes(self) -> None:
-        """Rebuild all nodes from scratch based on current wires.
-
-        Custom labels are preserved by snapshotting them (keyed by terminal)
-        before clearing, then restoring them on the rebuilt nodes.
-        """
-        # Snapshot custom labels keyed by terminal tuple
-        saved_labels: dict[tuple[str, int], str] = {}
-        for node in self.nodes:
-            if node.custom_label:
-                for terminal in node.terminals:
-                    saved_labels[terminal] = node.custom_label
-
-        self.nodes.clear()
-        self.terminal_to_node.clear()
-        reset_node_counter()
-
-        for comp in self.components.values():
-            if comp.component_type == "Ground":
-                self._handle_ground_added(comp)
-
-        for wire in self.wires:
-            self._update_nodes_for_wire(wire)
-
-        # Restore custom labels on rebuilt nodes
-        for node in self.nodes:
-            if not node.custom_label:
-                for terminal in node.terminals:
-                    if terminal in saved_labels:
-                        node.set_custom_label(saved_labels[terminal])
-                        break
+        """Rebuild all nodes from scratch based on current wires."""
+        rebuild_all_nodes(self.nodes, self.terminal_to_node, self.components, self.wires)
 
     # --- Circuit operations ---
 
