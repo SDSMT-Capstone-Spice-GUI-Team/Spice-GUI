@@ -79,9 +79,14 @@ class FileController:
     def _replace_model(self, new_model: CircuitModel) -> None:
         """Replace the current model's data with *new_model* in place.
 
-        Copies all fields from *new_model* into ``self.model`` so that
-        existing references to the model object remain valid.
+        Validates the parsed data **before** clearing the existing circuit
+        so that a corrupt import can never cause data loss.  Copies all
+        fields from *new_model* into ``self.model`` so that existing
+        references to the model object remain valid.
         """
+        parsed_data = new_model.to_dict()
+        validate_circuit_data(parsed_data)
+
         self.model.clear()
         self.model.components = new_model.components
         self.model.wires = new_model.wires
