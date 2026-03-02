@@ -419,7 +419,8 @@ class FileOperationsMixin:
     def _on_generate_report(self):
         """Generate a comprehensive PDF circuit report."""
         from GUI.report_dialog import ReportDialog
-        from services.report_generator import ReportGenerator
+        from GUI.report_renderer import PDFReportRenderer
+        from services.report_generator import ReportDataBuilder
 
         # Determine circuit name from current file or default
         circuit_name = ""
@@ -453,14 +454,9 @@ class FileOperationsMixin:
             results_text = self.results_text.toPlainText()
 
         try:
-            generator = ReportGenerator(config)
-            generator.generate(
-                filepath=filename,
-                scene=self.canvas.scene,
-                model=self.model,
-                netlist=netlist,
-                results_text=results_text,
-            )
+            data = ReportDataBuilder.build(config, model=self.model, netlist=netlist, results_text=results_text)
+            renderer = PDFReportRenderer()
+            renderer.render(filepath=filename, data=data, scene=self.canvas.scene)
             QMessageBox.information(
                 self,
                 "Report Generated",
