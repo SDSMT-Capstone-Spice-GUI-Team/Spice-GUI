@@ -262,6 +262,76 @@ class TestCircuitOperations:
         assert ("nodes_rebuilt", None) in recorded
 
 
+class TestNodeManagementThroughController:
+    """Verify that the model's node graph is updated when operations go through the controller."""
+
+    def test_add_wire_creates_node(self, controller):
+        """Adding a wire through the controller should create a node in the model."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        assert len(controller.model.nodes) == 1
+        node = controller.model.nodes[0]
+        assert ("R1", 1) in node.terminals
+        assert ("R2", 0) in node.terminals
+
+    def test_add_wire_merges_nodes(self, controller):
+        """Wires connecting existing nodes should merge them."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_component("Resistor", (200.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_wire("R2", 1, "R3", 0)
+        # R1[1]-R2[0] is one node, R2[1]-R3[0] is another
+        assert len(controller.model.nodes) == 2
+
+    def test_remove_wire_updates_nodes(self, controller):
+        """Removing a wire should update the node graph."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        assert len(controller.model.nodes) == 1
+        controller.remove_wire(0)
+        assert len(controller.model.nodes) == 0
+
+    def test_ground_component_creates_ground_node(self, controller):
+        """Adding a Ground component should create a ground node in the model."""
+        controller.add_component("Ground", (0.0, 0.0))
+        ground_nodes = [n for n in controller.model.nodes if n.is_ground]
+        assert len(ground_nodes) == 1
+        assert ground_nodes[0].auto_label == "0"
+
+    def test_clear_circuit_clears_nodes(self, controller):
+        """Clearing the circuit should clear all nodes."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.clear_circuit()
+        assert len(controller.model.nodes) == 0
+        assert len(controller.model.terminal_to_node) == 0
+
+    def test_rebuild_nodes_preserves_connectivity(self, controller):
+        """Rebuilding nodes should reproduce the same connectivity."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        original_count = len(controller.model.nodes)
+        controller.rebuild_nodes()
+        assert len(controller.model.nodes) == original_count
+
+    def test_paste_creates_nodes(self, controller):
+        """Pasting components with wires should create nodes in the model."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.copy_components(["R1", "R2"])
+        new_comps, new_wires = controller.paste_components()
+        assert len(new_comps) == 2
+        assert len(new_wires) == 1
+        # Original + pasted: 2 nodes (one for each wire)
+        assert len(controller.model.nodes) == 2
+
+
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.circuit_controller as mod
