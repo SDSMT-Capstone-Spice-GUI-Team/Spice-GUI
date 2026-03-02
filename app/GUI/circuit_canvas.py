@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
 
 logger = logging.getLogger(__name__)
 from models.clipboard import ClipboardData
-from models.node import NodeData, reset_node_counter
 
 from .annotation_item import AnnotationItem
 from .component_item import ComponentGraphicsItem
@@ -189,6 +188,17 @@ class CircuitCanvasView(QGraphicsView):
             self.show_node_voltages = False
             self.probe_results = []
 
+    def _sync_nodes_from_model(self) -> None:
+        """Sync local node references from the controller's model.
+
+        The controller's model is the single source of truth for node
+        connectivity.  The canvas only keeps shallow copies for rendering
+        (node labels, OP annotations, probe lookups).
+        """
+        if self.controller:
+            self.nodes = list(self.controller.model.nodes)
+            self.terminal_to_node = dict(self.controller.model.terminal_to_node)
+
     def _handle_component_added(self, component_data) -> None:
         """Create graphics item when component added to model"""
         comp = ComponentGraphicsItem.from_dict(component_data.to_dict())
@@ -196,9 +206,10 @@ class CircuitCanvasView(QGraphicsView):
         self.scene.addItem(comp)
         self.components[component_data.component_id] = comp
 
-        # Handle ground special case
+        # Model already handled ground node registration in add_component();
+        # sync our local node references so rendering stays current.
         if component_data.component_type == "Ground":
-            self.handle_ground_added(comp)
+            self._sync_nodes_from_model()
 
         self.scene.update()
 
@@ -303,7 +314,8 @@ class CircuitCanvasView(QGraphicsView):
             )
             self.scene.addItem(wire)
             self.wires.append(wire)
-            # Note: Node updates handled by nodes_rebuilt event
+            # Model already updated its node graph in add_wire(); sync here.
+            self._sync_nodes_from_model()
 
     def _handle_wire_removed(self, wire_index: int) -> None:
         """Remove wire graphics item and reroute neighboring wires."""
@@ -313,6 +325,8 @@ class CircuitCanvasView(QGraphicsView):
             affected_components = {wire.start_comp, wire.end_comp}
             self.scene.removeItem(wire)
             del self.wires[wire_index]
+            # Model already rebuilt affected nodes in remove_wire(); sync here.
+            self._sync_nodes_from_model()
             # Reroute remaining wires connected to the same components —
             # they may have been routed around the now-deleted wire.
             self._reroute_wires_near_components(affected_components)
@@ -399,20 +413,13 @@ class CircuitCanvasView(QGraphicsView):
         self.draw_grid()
         self.components = {}
         self.wires = []
-        self.nodes = []
-        self.terminal_to_node = {}
         self.annotations = []
-        reset_node_counter()
+        # Model already cleared its node graph; sync here.
+        self._sync_nodes_from_model()
 
     def _handle_nodes_rebuilt(self, data: None) -> None:
         """Rebuild node visualization from model"""
-        if not self.controller:
-            return
-
-        # Use the model's NodeData objects directly — no GUI wrapper needed
-        self.nodes = list(self.controller.model.nodes)
-        self.terminal_to_node = dict(self.controller.model.terminal_to_node)
-
+        self._sync_nodes_from_model()
         self.scene.update()
 
     def _handle_model_loaded(self, data: None) -> None:
@@ -742,6 +749,7 @@ class CircuitCanvasView(QGraphicsView):
                                 )
                             else:
                                 # Fallback to old method if no controller (shouldn't happen)
+                                logger.warning("Wire created without controller — node graph may be stale")
                                 wire = WireItem(
                                     self.wire_start_comp,
                                     self.wire_start_term,
@@ -752,7 +760,6 @@ class CircuitCanvasView(QGraphicsView):
                                 )
                                 self.scene.addItem(wire)
                                 self.wires.append(wire)
-                                self.update_nodes_for_wire(wire)
                                 self.wireAdded.emit(
                                     self.wire_start_comp.component_id,
                                     clicked_component.component_id,
@@ -1131,7 +1138,8 @@ class CircuitCanvasView(QGraphicsView):
                     cut_action.triggered.connect(lambda checked=False, ids=sel_ids: self.cut_selected_components(ids))
                     menu.addAction(cut_action)
 
-        if not self._clipboard.is_empty():
+        has_clipboard = (self.controller and self.controller.has_clipboard_content()) or not self._clipboard.is_empty()
+        if has_clipboard:
             paste_action = QAction("Paste", self)
             paste_action.triggered.connect(self.paste_components)
             menu.addAction(paste_action)
@@ -1358,46 +1366,30 @@ class CircuitCanvasView(QGraphicsView):
         return [item.component_id for item in self.scene.selectedItems() if isinstance(item, ComponentGraphicsItem)]
 
     def copy_selected_components(self, component_ids: list[str]) -> bool:
-        """Copy selected components and internal wires to internal clipboard."""
+        """Copy selected components and internal wires to clipboard.
+
+        Delegates to the controller so model and view clipboards stay in sync.
+        """
         if not component_ids:
             return False
 
-        selected_set = set(component_ids)
+        if self.controller:
+            copied = self.controller.copy_components(component_ids)
+        else:
+            copied = False
 
-        comp_dicts = []
-        for comp_id in component_ids:
-            comp_item = self.components.get(comp_id)
-            if comp_item is not None:
-                comp_dicts.append(comp_item.to_dict())
+        if copied:
+            main_window = self.window()
+            if main_window and hasattr(main_window, "statusBar"):
+                status = main_window.statusBar()
+                if status:
+                    n = len(component_ids)
+                    status.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", 2000)
 
-        if not comp_dicts:
-            return False
-
-        wire_dicts = []
-        for wire in self.wires:
-            if wire.start_comp.component_id in selected_set and wire.end_comp.component_id in selected_set:
-                wire_dicts.append(wire.to_dict())
-
-        self._clipboard = ClipboardData(
-            components=comp_dicts,
-            wires=wire_dicts,
-            paste_count=0,
-        )
-
-        main_window = self.window()
-        if main_window and hasattr(main_window, "statusBar"):
-            status = main_window.statusBar()
-            if status:
-                n = len(comp_dicts)
-                w = len(wire_dicts)
-                status.showMessage(
-                    f"Copied {n} component{'s' if n != 1 else ''} and {w} wire{'s' if w != 1 else ''}",
-                    2000,
-                )
-        return True
+        return copied
 
     def cut_selected_components(self, component_ids: list[str]) -> bool:
-        """Cut: copy to clipboard, then delete originals."""
+        """Cut: copy to clipboard, then delete originals via controller."""
         copied = self.copy_selected_components(component_ids)
         if copied:
             for comp_id in list(component_ids):
@@ -1407,89 +1399,52 @@ class CircuitCanvasView(QGraphicsView):
         return copied
 
     def paste_components(self) -> None:
-        """Paste clipboard contents with offset and new IDs."""
-        if self._clipboard.is_empty():
+        """Paste clipboard contents with offset and new IDs.
+
+        Delegates to the controller so that the model (including node
+        graph) stays in sync.  The controller fires component_added /
+        wire_added events which the observer handlers turn into graphics
+        items automatically.
+        """
+        if not self.controller:
+            logger.warning("Cannot paste: no controller available")
             return
 
-        self._clipboard.paste_count += 1
-        multiplier = self._clipboard.paste_count
-        dx = 40.0 * multiplier
-        dy = 40.0 * multiplier
-
-        id_map: dict[str, str] = {}
-        new_comp_items: list[ComponentGraphicsItem] = []
-
-        for comp_dict in self._clipboard.components:
-            # Create visual item from serialized data
-            comp_item = ComponentGraphicsItem.from_dict(comp_dict)
-            component_type = comp_item.component_type
-
-            # Generate new unique ID (same pattern as dropEvent)
-            symbol = COMPONENTS[component_type]["symbol"]
-            if symbol not in self.component_counter:
-                self.component_counter[symbol] = 0
-            self.component_counter[symbol] += 1
-            new_id = f"{symbol}{self.component_counter[symbol]}"
-
-            old_id = comp_dict["id"]
-            id_map[old_id] = new_id
-
-            # Update the component with its new ID
-            comp_item.component_id = new_id
-            comp_item.model.component_id = new_id
-
-            # Offset position
-            old_x = comp_item.pos().x()
-            old_y = comp_item.pos().y()
-            comp_item.setPos(old_x + dx, old_y + dy)
-            comp_item.model.position = (old_x + dx, old_y + dy)
-
-            comp_item.canvas = self
-            self.scene.addItem(comp_item)
-            self.components[new_id] = comp_item
-
-            if component_type == "Ground":
-                self.handle_ground_added(comp_item)
-
-            new_comp_items.append(comp_item)
-
-        # Re-create internal wires with remapped component IDs
-        for wire_dict in self._clipboard.wires:
-            new_start = id_map.get(wire_dict["start_comp"])
-            new_end = id_map.get(wire_dict["end_comp"])
-
-            if new_start is None or new_end is None:
-                continue
-
-            start_comp = self.components.get(new_start)
-            end_comp = self.components.get(new_end)
-            if start_comp is None or end_comp is None:
-                continue
-
-            wire = WireItem(
-                start_comp,
-                wire_dict["start_term"],
-                end_comp,
-                wire_dict["end_term"],
-                canvas=self,
+        # Use controller clipboard if it has content; otherwise fall back
+        # to the canvas's own clipboard for backward compatibility.
+        if self.controller.has_clipboard_content():
+            new_components, new_wires = self.controller.paste_components()
+        elif not self._clipboard.is_empty():
+            # Sync canvas clipboard to controller, then paste via controller
+            self.controller._clipboard = ClipboardData(
+                components=list(self._clipboard.components),
+                wires=list(self._clipboard.wires),
+                paste_count=self._clipboard.paste_count,
             )
-            self.scene.addItem(wire)
-            self.wires.append(wire)
-            self.update_nodes_for_wire(wire)
+            new_components, new_wires = self.controller.paste_components()
+            # Keep canvas clipboard paste_count in sync
+            self._clipboard.paste_count = self.controller._clipboard.paste_count
+        else:
+            return
 
         # Select newly pasted items
         self.scene.clearSelection()
-        for comp_item in new_comp_items:
-            comp_item.setSelected(True)
+        new_ids = {c.component_id for c in new_components}
+        for comp_id, comp_item in self.components.items():
+            if comp_id in new_ids:
+                comp_item.setSelected(True)
 
-        if new_comp_items:
-            self.componentAdded.emit(new_comp_items[0].component_id)
+        if new_components:
+            self.componentAdded.emit(new_components[0].component_id)
+
+        # Sync component counter from model
+        self.component_counter = self.controller.model.component_counter.copy()
 
         main_window = self.window()
         if main_window and hasattr(main_window, "statusBar"):
             status = main_window.statusBar()
             if status:
-                n = len(new_comp_items)
+                n = len(new_components)
                 status.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
 
     def drawForeground(self, painter, rect):
@@ -1868,110 +1823,6 @@ class CircuitCanvasView(QGraphicsView):
 
         return True
 
-    def handle_ground_added(self, ground_comp):
-        """Handle adding a ground component"""
-        terminal_key = (ground_comp.component_id, 0)
-
-        ground_node = None
-        for node in self.nodes:
-            if node.is_ground:
-                ground_node = node
-                break
-
-        if ground_node is None:
-            ground_node = NodeData(is_ground=True)
-            self.nodes.append(ground_node)
-
-        ground_node.add_terminal(ground_comp.component_id, 0)
-        self.terminal_to_node[terminal_key] = ground_node
-
-    def update_nodes_for_wire(self, wire):
-        """Update node connectivity when a wire is added"""
-        start_terminal = (wire.start_comp.component_id, wire.start_term)
-        end_terminal = (wire.end_comp.component_id, wire.end_term)
-
-        start_node = self.terminal_to_node.get(start_terminal)
-        end_node = self.terminal_to_node.get(end_terminal)
-
-        if start_node is None and end_node is None:
-            new_node = NodeData()
-            new_node.add_terminal(*start_terminal)
-            new_node.add_terminal(*end_terminal)
-            wire.node = new_node
-
-            self.nodes.append(new_node)
-            self.terminal_to_node[start_terminal] = new_node
-            self.terminal_to_node[end_terminal] = new_node
-
-            if wire.start_comp.component_type == "Ground" or wire.end_comp.component_type == "Ground":
-                new_node.set_as_ground()
-
-        elif start_node is None and end_node is not None:
-            end_node.add_terminal(*start_terminal)
-            wire.node = end_node
-            self.terminal_to_node[start_terminal] = end_node
-
-            if wire.start_comp.component_type == "Ground":
-                end_node.set_as_ground()
-
-        elif end_node is None and start_node is not None:
-            start_node.add_terminal(*end_terminal)
-            wire.node = start_node
-            self.terminal_to_node[end_terminal] = start_node
-
-            if wire.end_comp.component_type == "Ground":
-                start_node.set_as_ground()
-
-        elif start_node is not None and end_node is not None and start_node != end_node:
-            start_node.merge_with(end_node)
-            wire.node = start_node
-
-            for terminal in end_node.terminals:
-                self.terminal_to_node[terminal] = start_node
-
-            self.nodes.remove(end_node)
-
-        self.scene.update()
-
-    def update_nodes_after_wire_deletion(self, wire):
-        """Recalculate nodes after a wire is deleted"""
-        if wire.node is None:
-            return
-
-        old_node = wire.node
-
-        start_terminal = (wire.start_comp.component_id, wire.start_term)
-        end_terminal = (wire.end_comp.component_id, wire.end_term)
-
-        old_node.remove_terminal(*start_terminal)
-        old_node.remove_terminal(*end_terminal)
-
-        if old_node in self.nodes:
-            self.nodes.remove(old_node)
-
-        terminals_to_clear = list(self.terminal_to_node.keys())
-        for terminal in terminals_to_clear:
-            if self.terminal_to_node.get(terminal) == old_node:
-                del self.terminal_to_node[terminal]
-
-        self.rebuild_all_nodes()
-
-        self.scene.update()
-
-    def rebuild_all_nodes(self):
-        """Rebuild all nodes from scratch based on current wires"""
-        self.nodes.clear()
-        self.terminal_to_node.clear()
-        reset_node_counter()
-
-        for comp in self.components.values():
-            if comp.component_type == "Ground":
-                self.handle_ground_added(comp)
-
-        for wire in self.wires:
-            wire.node = None
-            self.update_nodes_for_wire(wire)
-
     def clear_circuit(self):
         """Clear all components, wires, and annotations"""
         self.scene.clear()
@@ -1982,7 +1833,6 @@ class CircuitCanvasView(QGraphicsView):
         self.terminal_to_node = {}
         self.annotations = []
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
-        reset_node_counter()
 
     def toggle_obstacle_boundaries(self, show=None):
         """
@@ -2350,8 +2200,10 @@ class CircuitCanvasView(QGraphicsView):
             self.scene.addItem(ann)
             self.annotations.append(ann)
 
-        # Rebuild node connectivity
-        self.rebuild_all_nodes()
+        # Rebuild node connectivity via controller/model (single source of truth)
+        if self.controller:
+            self.controller.rebuild_nodes()
+        self._sync_nodes_from_model()
 
     # Phase 5: sync_to_model() and sync_from_model() methods DELETED
     # Observer pattern handles all synchronization automatically
