@@ -4,9 +4,9 @@ import os
 import tempfile
 
 import pytest
-from GUI.report_generator import ReportConfig, ReportGenerator
 from models.circuit import CircuitModel
 from models.component import ComponentData
+from services.report_generator import ReportConfig, ReportGenerator
 
 # --- Fixtures ---
 

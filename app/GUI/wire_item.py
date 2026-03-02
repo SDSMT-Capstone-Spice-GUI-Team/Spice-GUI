@@ -262,7 +262,10 @@ class WireGraphicsItem(QGraphicsPathItem):
             self.model.runtime = 0.0
             self.model.iterations = 0
             self.model.routing_failed = False
-            self.model.waypoints = [(start_qpt.x(), start_qpt.y()), (end_qpt.x(), end_qpt.y())]
+            self.model.waypoints = [
+                (start_qpt.x(), start_qpt.y()),
+                (end_qpt.x(), end_qpt.y()),
+            ]
 
         # Create path from waypoints
         path = QPainterPath()

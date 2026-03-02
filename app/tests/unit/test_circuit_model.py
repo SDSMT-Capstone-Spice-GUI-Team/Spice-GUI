@@ -398,9 +398,19 @@ class TestFromDictResilience:
         """A single corrupt component should not crash the entire load."""
         data = {
             "components": [
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 0, "y": 0}},
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
                 {"type": "Capacitor"},  # Missing id, value, pos
-                {"type": "Resistor", "id": "R2", "value": "2k", "pos": {"x": 100, "y": 0}},
+                {
+                    "type": "Resistor",
+                    "id": "R2",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
             ],
             "wires": [],
             "counters": {"R": 2},
@@ -414,8 +424,18 @@ class TestFromDictResilience:
         """A single corrupt wire should not crash the entire load."""
         data = {
             "components": [
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 0, "y": 0}},
-                {"type": "Resistor", "id": "R2", "value": "2k", "pos": {"x": 100, "y": 0}},
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R2",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
             ],
             "wires": [
                 {"start_comp": "R1", "start_term": 1, "end_comp": "R2", "end_term": 0},
@@ -432,10 +452,20 @@ class TestFromDictResilience:
         """A wire referencing a non-existent component should be skipped."""
         data = {
             "components": [
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 0, "y": 0}},
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
             ],
             "wires": [
-                {"start_comp": "R1", "start_term": 0, "end_comp": "GHOST", "end_term": 0},
+                {
+                    "start_comp": "R1",
+                    "start_term": 0,
+                    "end_comp": "GHOST",
+                    "end_term": 0,
+                },
             ],
             "counters": {"R": 1},
         }
@@ -461,7 +491,12 @@ class TestFromDictResilience:
         """A corrupt annotation should not crash the load."""
         data = {
             "components": [
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 0, "y": 0}},
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
             ],
             "wires": [],
             "counters": {},
@@ -478,8 +513,18 @@ class TestFromDictResilience:
         """A corrupt net name entry should not crash the load."""
         data = {
             "components": [
-                {"type": "Resistor", "id": "R1", "value": "1k", "pos": {"x": 0, "y": 0}},
-                {"type": "Resistor", "id": "R2", "value": "2k", "pos": {"x": 100, "y": 0}},
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R2",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
             ],
             "wires": [
                 {"start_comp": "R1", "start_term": 1, "end_comp": "R2", "end_term": 0},

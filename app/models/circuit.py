@@ -97,7 +97,11 @@ class CircuitModel:
 
         if affected_node is not None:
             rebuild_nodes_after_wire_removal(
-                self.nodes, self.terminal_to_node, self.components, self.wires, affected_node
+                self.nodes,
+                self.terminal_to_node,
+                self.components,
+                self.wires,
+                affected_node,
             )
 
     # --- Node graph operations (delegated to algorithms.graph_ops) ---

@@ -202,8 +202,8 @@ def compare_sessions(old: GradingSessionData, new: GradingSessionData) -> list[d
         comparisons.append(
             {
                 "student_file": student,
-                "old_score": f"{old_r['earned_points']}/{old_r['total_points']}" if old_r else None,
-                "new_score": f"{new_r['earned_points']}/{new_r['total_points']}" if new_r else None,
+                "old_score": (f"{old_r['earned_points']}/{old_r['total_points']}" if old_r else None),
+                "new_score": (f"{new_r['earned_points']}/{new_r['total_points']}" if new_r else None),
                 "old_pct": old_pct,
                 "new_pct": new_pct,
                 "delta": delta,

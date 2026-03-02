@@ -37,7 +37,12 @@ class _GradingWorker(QThread):
     progress = pyqtSignal(int, int, str)
     finished_grading = pyqtSignal(object)
 
-    def __init__(self, folder: str, rubric: Rubric, reference_circuit: Optional[CircuitModel] = None):
+    def __init__(
+        self,
+        folder: str,
+        rubric: Rubric,
+        reference_circuit: Optional[CircuitModel] = None,
+    ):
         super().__init__()
         self._folder = folder
         self._rubric = rubric

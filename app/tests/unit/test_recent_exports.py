@@ -5,14 +5,14 @@ import os
 import tempfile
 
 import pytest
-from controllers.settings_service import settings as app_settings
-from GUI.recent_exports import (
+from controllers.recent_exports import (
     MAX_RECENT_EXPORTS,
     SETTINGS_KEY,
     add_recent_export,
     clear_recent_exports,
     get_recent_exports,
 )
+from controllers.settings_service import settings as app_settings
 
 
 @pytest.fixture(autouse=True)

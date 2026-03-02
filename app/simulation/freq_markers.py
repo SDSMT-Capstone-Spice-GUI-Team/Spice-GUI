@@ -119,3 +119,8 @@ def _empty_markers():
 
 
 from utils.format_utils import format_frequency  # noqa: F401 — re-exported for compatibility
+
+__all__ = [
+    "compute_markers",
+    "format_frequency",
+]
