@@ -332,6 +332,55 @@ class TestNodeManagementThroughController:
         assert len(controller.model.nodes) == 2
 
 
+class TestNodeAccessAPI:
+    """Verify node access methods on the controller."""
+
+    def test_get_nodes_and_terminal_map_empty(self, controller):
+        """Returns empty collections when no wires exist."""
+        nodes, term_map = controller.get_nodes_and_terminal_map()
+        assert nodes == []
+        assert term_map == {}
+
+    def test_get_nodes_and_terminal_map_with_wire(self, controller):
+        """Returns node and terminal mapping after a wire is added."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        nodes, term_map = controller.get_nodes_and_terminal_map()
+        assert len(nodes) == 1
+        assert ("R1", 1) in term_map
+        assert ("R2", 0) in term_map
+        # Returns copies, not references to internal state
+        nodes.clear()
+        assert len(controller.model.nodes) == 1
+
+    def test_find_node_for_terminal_found(self, controller):
+        """Finds the correct node for a connected terminal."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        node = controller.find_node_for_terminal("R1", 1)
+        assert node is not None
+        assert ("R1", 1) in node.terminals
+
+    def test_find_node_for_terminal_not_found(self, controller):
+        """Returns None for an unconnected terminal."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        assert controller.find_node_for_terminal("R1", 0) is None
+
+    def test_set_net_name_updates_node(self, controller, events):
+        """set_net_name updates the node label and notifies observers."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_observer(callback)
+        node = controller.model.nodes[0]
+        controller.set_net_name(node, "Vout")
+        assert node.custom_label == "Vout"
+        assert recorded[-1][0] == "net_name_changed"
+
+
 class TestClipboardPublicAPI:
     """Verify clipboard operations use public controller API."""
 
