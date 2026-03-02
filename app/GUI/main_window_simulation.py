@@ -223,7 +223,7 @@ class SimulationMixin:
 
     def _display_measurement_results(self, measurements):
         """Display .meas measurement results."""
-        from simulation.result_parser import format_si
+        from utils.format_utils import format_si
 
         self.results_text.append("\nMEASUREMENTS:")
         self.results_text.append("-" * 40)
@@ -319,17 +319,13 @@ class SimulationMixin:
             self._last_results = tran_data
             self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
 
-            from simulation import ResultParser
-
-            table_string = ResultParser.format_results_as_table(tran_data)
+            table_string = self.sim_ctrl.format_results_table(tran_data)
             self.results_text.append(table_string)
 
             # Power summary for resistors
-            from simulation.power_metrics import compute_transient_power_metrics, format_power_summary
-
-            power_metrics = compute_transient_power_metrics(tran_data, self.model.components)
+            power_metrics, power_summary = self.sim_ctrl.compute_power_metrics(tran_data, self.model.components)
             if power_metrics:
-                self.results_text.append(format_power_summary(power_metrics))
+                self.results_text.append(power_summary)
 
             self.results_text.append("\n" + "-" * 40)
             self.results_text.append("Waveform plot has also been generated in a new window.")
@@ -351,14 +347,14 @@ class SimulationMixin:
                 else:
                     self._waveform_dialog.close()
                     self._waveform_dialog.deleteLater()
-                    self._waveform_dialog = WaveformDialog(tran_data, self)
+                    self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.sim_ctrl)
                     self._waveform_dialog.show()
             else:
                 # Clean up previous waveform dialog
                 if self._waveform_dialog is not None:
                     self._waveform_dialog.close()
                     self._waveform_dialog.deleteLater()
-                self._waveform_dialog = WaveformDialog(tran_data, self)
+                self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.sim_ctrl)
                 self._waveform_dialog.show()
         else:
             self.results_text.append("\nNo transient data found in output.")
@@ -428,7 +424,7 @@ class SimulationMixin:
 
     def _display_tf_results(self, result):
         """Display Transfer Function (.tf) results."""
-        from simulation.result_parser import format_si
+        from utils.format_utils import format_si
 
         tf_data = result.data if result.data else None
         if tf_data:
@@ -455,7 +451,7 @@ class SimulationMixin:
 
     def _display_pz_results(self, result):
         """Display Pole-Zero analysis results."""
-        from simulation.result_parser import format_si
+        from utils.format_utils import format_si
 
         pz_data = result.data if result.data else None
         if pz_data:
@@ -590,18 +586,16 @@ class SimulationMixin:
 
             if ok_count > 0:
                 self.results_text.append("\nResults opened in a new window.")
-                self._show_plot_dialog(MonteCarloResultsDialog(mc_data, self))
+                self._show_plot_dialog(MonteCarloResultsDialog(mc_data, self, sim_ctrl=self.sim_ctrl))
         else:
             self.results_text.append("\nNo Monte Carlo data.")
         self.canvas.clear_op_results()
 
     def _calculate_power(self, node_voltages):
         """Calculate and display power dissipation for all components."""
-        from simulation.power_calculator import calculate_power, total_power
-
         components = list(self.circuit_ctrl.model.components.values())
         nodes = self.circuit_ctrl.model.nodes
-        power_data = calculate_power(components, nodes, node_voltages)
+        power_data, tp = self.sim_ctrl.compute_power(components, nodes, node_voltages)
 
         if power_data:
             # Build voltage-across data for properties panel
@@ -620,7 +614,6 @@ class SimulationMixin:
                 if l0 and l1 and l0 in node_voltages and l1 in node_voltages:
                     voltage_data[cid] = node_voltages[l0] - node_voltages[l1]
 
-            tp = total_power(power_data)
             self.properties_panel.set_simulation_results(power_data, voltage_data, tp)
 
             # Show summary in results text
@@ -669,7 +662,10 @@ class SimulationMixin:
                 self._plot_dialog.activateWindow()
                 return
 
-        self._show_plot_dialog(dialog_class(data, self))
+        if dialog_class is ACSweepPlotDialog:
+            self._show_plot_dialog(dialog_class(data, self, sim_ctrl=self.sim_ctrl))
+        else:
+            self._show_plot_dialog(dialog_class(data, self))
 
     def export_results_csv(self):
         """Export the last simulation results to a CSV file"""

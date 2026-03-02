@@ -556,6 +556,67 @@ class SimulationController:
             warnings=validation.warnings,
         )
 
+    # --- Result analysis helpers ---
+
+    @staticmethod
+    def format_results_table(tran_data: dict) -> str:
+        """Format transient data as a text table."""
+        from simulation import ResultParser
+
+        return ResultParser.format_results_as_table(tran_data)
+
+    @staticmethod
+    def compute_power_metrics(tran_data: dict, components: dict) -> tuple:
+        """Compute transient power metrics for resistors.
+
+        Returns:
+            (power_metrics, summary_text) where *power_metrics* is a list of
+            per-component metrics and *summary_text* is a pre-formatted string.
+            If no metrics are available, returns ``([], "")``.
+        """
+        from simulation.power_metrics import compute_transient_power_metrics, format_power_summary
+
+        metrics = compute_transient_power_metrics(tran_data, components)
+        if metrics:
+            return metrics, format_power_summary(metrics)
+        return [], ""
+
+    @staticmethod
+    def compute_power(components, nodes, node_voltages) -> tuple:
+        """Calculate power dissipation for all components.
+
+        Returns:
+            (power_data, total) — *power_data* is a dict mapping component ID
+            to power value; *total* is the summed total power.
+        """
+        from simulation.power_calculator import calculate_power, total_power
+
+        power_data = calculate_power(components, nodes, node_voltages)
+        if power_data:
+            return power_data, total_power(power_data)
+        return {}, 0.0
+
+    @staticmethod
+    def compute_frequency_markers(frequencies, magnitude, phase=None) -> dict:
+        """Compute frequency response markers from AC sweep data."""
+        from simulation.freq_markers import compute_markers
+
+        return compute_markers(frequencies, magnitude, phase)
+
+    @staticmethod
+    def compute_signal_fft(time, signal, signal_name, window_type="hamming"):
+        """Compute FFT spectrum for a transient signal."""
+        from simulation.fft_analysis import analyze_signal_spectrum
+
+        return analyze_signal_spectrum(time, signal, signal_name, window_type)
+
+    @staticmethod
+    def compute_mc_statistics(values) -> dict:
+        """Compute Monte Carlo statistics for a set of values."""
+        from simulation.monte_carlo import compute_mc_statistics
+
+        return compute_mc_statistics(values)
+
     @staticmethod
     def _format_sweep_value(value: float) -> str:
         """Format a float as a SPICE-compatible value string.

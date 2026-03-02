@@ -310,7 +310,7 @@ class ViewOperationsMixin:
             return
         # Open or raise the waveform dialog
         if self._waveform_dialog is None or not self._waveform_dialog.isVisible():
-            self._waveform_dialog = WaveformDialog(tran_data, self)
+            self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.sim_ctrl)
             self._waveform_dialog.show()
         self._waveform_dialog.raise_()
         self._waveform_dialog.activateWindow()
@@ -333,7 +333,7 @@ class ViewOperationsMixin:
         if not ac_data:
             return
         if self._plot_dialog is None or not self._plot_dialog.isVisible():
-            self._show_plot_dialog(ACSweepPlotDialog(ac_data, self))
+            self._show_plot_dialog(ACSweepPlotDialog(ac_data, self, sim_ctrl=self.sim_ctrl))
         self._plot_dialog.raise_()
         self._plot_dialog.activateWindow()
         self.statusBar().showMessage(f"Opened AC sweep plot for {signal_name}.", 2000)

@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QTextEdit, QVBoxLayout
-from simulation.monte_carlo import compute_mc_statistics
 
 from .styles import theme_manager
 
@@ -45,11 +44,12 @@ class MonteCarloResultsDialog(QDialog):
 
     analysis_type = "Monte Carlo"
 
-    def __init__(self, mc_data, parent=None):
+    def __init__(self, mc_data, parent=None, sim_ctrl=None):
         super().__init__(parent)
         self.setWindowTitle("Monte Carlo Results")
         self.setMinimumSize(1000, 700)
 
+        self._sim_ctrl = sim_ctrl
         self._mc_data = mc_data
         self._base_type = mc_data.get("base_analysis_type", "")
 
@@ -267,7 +267,12 @@ class MonteCarloResultsDialog(QDialog):
             ax.set_title(f"Distribution — {metric}")
             ax.grid(True, alpha=0.3)
 
-            stats = compute_mc_statistics(values)
+            if self._sim_ctrl is not None:
+                stats = self._sim_ctrl.compute_mc_statistics(values)
+            else:
+                from controllers.simulation_controller import SimulationController
+
+                stats = SimulationController.compute_mc_statistics(values)
             lines = [
                 f"Metric: {metric}",
                 f"Runs:   {stats['count']}",

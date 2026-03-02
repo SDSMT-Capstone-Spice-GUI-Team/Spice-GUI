@@ -118,15 +118,4 @@ def _empty_markers():
     }
 
 
-def format_frequency(freq_hz):
-    """Format a frequency value with appropriate SI prefix."""
-    if freq_hz is None:
-        return "N/A"
-    if freq_hz >= 1e9:
-        return f"{freq_hz / 1e9:.2f} GHz"
-    elif freq_hz >= 1e6:
-        return f"{freq_hz / 1e6:.2f} MHz"
-    elif freq_hz >= 1e3:
-        return f"{freq_hz / 1e3:.2f} kHz"
-    else:
-        return f"{freq_hz:.2f} Hz"
+from utils.format_utils import format_frequency  # noqa: F401 — re-exported for compatibility
