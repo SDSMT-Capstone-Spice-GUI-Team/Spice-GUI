@@ -226,6 +226,80 @@ class TestRunSimulation:
         assert mock_runner.run_simulation.call_count == 2
 
 
+class TestExportNetlist:
+    def test_export_netlist_writes_file(self, tmp_path):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        filepath = tmp_path / "test.cir"
+        ctrl.export_netlist(str(filepath))
+        assert filepath.exists()
+        content = filepath.read_text()
+        assert ".op" in content.lower() or ".end" in content.lower()
+
+    def test_export_netlist_raises_on_bad_path(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        with pytest.raises(OSError):
+            ctrl.export_netlist("/nonexistent/dir/test.cir")
+
+
+class TestExportResultsCSV:
+    def test_generate_results_csv_returns_content_for_op(self):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0, "v(2)": 3.3}
+        content = ctrl.generate_results_csv(op_results, "DC Operating Point", "test")
+        assert content is not None
+        assert "v(1)" in content or "5.0" in content
+
+    def test_generate_results_csv_returns_none_for_unsupported(self):
+        ctrl = SimulationController()
+        content = ctrl.generate_results_csv({}, "Pole-Zero", "test")
+        assert content is None
+
+    def test_export_results_csv_writes_file(self, tmp_path):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0, "v(2)": 3.3}
+        filepath = tmp_path / "results.csv"
+        ctrl.export_results_csv(op_results, "DC Operating Point", str(filepath), "test")
+        assert filepath.exists()
+
+    def test_export_results_csv_skips_unsupported_type(self, tmp_path):
+        ctrl = SimulationController()
+        filepath = tmp_path / "results.csv"
+        ctrl.export_results_csv({}, "Pole-Zero", str(filepath), "test")
+        assert not filepath.exists()
+
+
+class TestExportResultsExcel:
+    def test_export_results_excel_writes_file(self, tmp_path):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0}
+        filepath = tmp_path / "results.xlsx"
+        ctrl.export_results_excel(op_results, "DC Operating Point", str(filepath), "test")
+        assert filepath.exists()
+
+
+class TestExportResultsMarkdown:
+    def test_generate_results_markdown_returns_content(self):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0}
+        content = ctrl.generate_results_markdown(op_results, "DC Operating Point", "test")
+        assert content is not None
+        assert "v(1)" in content or "5.0" in content
+
+    def test_generate_results_markdown_returns_none_for_unsupported(self):
+        ctrl = SimulationController()
+        content = ctrl.generate_results_markdown({}, "Sensitivity", "test")
+        assert content is None
+
+    def test_export_results_markdown_writes_file(self, tmp_path):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0}
+        filepath = tmp_path / "results.md"
+        ctrl.export_results_markdown(op_results, "DC Operating Point", str(filepath), "test")
+        assert filepath.exists()
+
+
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.simulation_controller as mod

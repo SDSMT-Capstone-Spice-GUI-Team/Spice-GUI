@@ -41,7 +41,12 @@ class SimulationController:
     Coordinates: validate -> generate netlist -> run ngspice -> parse results
     """
 
-    def __init__(self, model: Optional[CircuitModel] = None, circuit_ctrl=None, preset_manager=None):
+    def __init__(
+        self,
+        model: Optional[CircuitModel] = None,
+        circuit_ctrl=None,
+        preset_manager=None,
+    ):
         self.model = model or CircuitModel()
         self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
         self._runner = None
@@ -124,7 +129,9 @@ class SimulationController:
 
         # 2. Generate wrdata path for transient
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_{timestamp}.txt")
+        wrdata_filepath = os.path.join(
+            self.runner.output_dir, f"wrdata_{timestamp}.txt"
+        )
 
         # 3. Generate netlist (include .meas directives if configured)
         meas_directives = self.model.analysis_params.get("measurements", [])
@@ -160,7 +167,12 @@ class SimulationController:
         success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
         if not success:
             # Classify the error and attempt retry with relaxed tolerances
-            from simulation.convergence import RELAXED_OPTIONS, diagnose_error, format_user_message, is_retriable
+            from simulation.convergence import (
+                RELAXED_OPTIONS,
+                diagnose_error,
+                format_user_message,
+                is_retriable,
+            )
 
             diagnosis = diagnose_error(stderr, stdout)
             friendly_msg = format_user_message(diagnosis)
@@ -176,7 +188,9 @@ class SimulationController:
                     relaxed_netlist = None
 
                 if relaxed_netlist:
-                    retry_ok, retry_out, retry_stdout, retry_stderr = self.runner.run_simulation(relaxed_netlist)
+                    retry_ok, retry_out, retry_stdout, retry_stderr = (
+                        self.runner.run_simulation(relaxed_netlist)
+                    )
                     if retry_ok:
                         # Parse retried results, add warning about relaxed tolerances
                         result = self._parse_results(
@@ -185,7 +199,9 @@ class SimulationController:
                             netlist=relaxed_netlist,
                             raw_output=retry_stdout,
                             warnings=validation.warnings
-                            + ["Simulation converged with relaxed tolerances (results may be less accurate)."],
+                            + [
+                                "Simulation converged with relaxed tolerances (results may be less accurate)."
+                            ],
                         )
                         if self.circuit_ctrl:
                             self.circuit_ctrl._notify("simulation_completed", result)
@@ -288,7 +304,9 @@ class SimulationController:
                 raw_output=raw_output,
             )
 
-    def run_parameter_sweep(self, sweep_config: dict, progress_callback=None) -> SimulationResult:
+    def run_parameter_sweep(
+        self, sweep_config: dict, progress_callback=None
+    ) -> SimulationResult:
         """
         Run a parameter sweep: modify a component's value across a range
         and run the base analysis at each step.
@@ -344,7 +362,9 @@ class SimulationController:
         if num_steps <= 1:
             sweep_values = [start]
         else:
-            sweep_values = [start + (stop - start) * i / (num_steps - 1) for i in range(num_steps)]
+            sweep_values = [
+                start + (stop - start) * i / (num_steps - 1) for i in range(num_steps)
+            ]
 
         # Run sweep
         step_results = []
@@ -362,17 +382,25 @@ class SimulationController:
 
                 # Generate netlist
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_sweep_{i}_{timestamp}.txt")
+                wrdata_filepath = os.path.join(
+                    self.runner.output_dir, f"wrdata_sweep_{i}_{timestamp}.txt"
+                )
 
                 try:
                     netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
                 except (ValueError, KeyError, TypeError) as e:
-                    step_results.append(SimulationResult(success=False, error=f"Netlist generation failed: {e}"))
+                    step_results.append(
+                        SimulationResult(
+                            success=False, error=f"Netlist generation failed: {e}"
+                        )
+                    )
                     errors.append(f"Step {i + 1} ({comp.value}): netlist failed: {e}")
                     continue
 
                 # Run simulation
-                success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
+                success, output_file, stdout, stderr = self.runner.run_simulation(
+                    netlist
+                )
                 if not success:
                     step_results.append(
                         SimulationResult(
@@ -425,7 +453,9 @@ class SimulationController:
             warnings=validation.warnings,
         )
 
-    def run_monte_carlo(self, mc_config: dict, progress_callback=None) -> SimulationResult:
+    def run_monte_carlo(
+        self, mc_config: dict, progress_callback=None
+    ) -> SimulationResult:
         """
         Run Monte Carlo analysis: vary component values randomly and run
         the base analysis N times.
@@ -500,16 +530,24 @@ class SimulationController:
                 run_values.append(values_this_run)
 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_mc_{i}_{timestamp}.txt")
+                wrdata_filepath = os.path.join(
+                    self.runner.output_dir, f"wrdata_mc_{i}_{timestamp}.txt"
+                )
 
                 try:
                     netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
                 except (ValueError, KeyError, TypeError) as e:
-                    step_results.append(SimulationResult(success=False, error=f"Netlist generation failed: {e}"))
+                    step_results.append(
+                        SimulationResult(
+                            success=False, error=f"Netlist generation failed: {e}"
+                        )
+                    )
                     errors.append(f"Run {i + 1}: netlist failed: {e}")
                     continue
 
-                success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
+                success, output_file, stdout, stderr = self.runner.run_simulation(
+                    netlist
+                )
                 if not success:
                     step_results.append(
                         SimulationResult(
@@ -575,7 +613,10 @@ class SimulationController:
             per-component metrics and *summary_text* is a pre-formatted string.
             If no metrics are available, returns ``([], "")``.
         """
-        from simulation.power_metrics import compute_transient_power_metrics, format_power_summary
+        from simulation.power_metrics import (
+            compute_transient_power_metrics,
+            format_power_summary,
+        )
 
         metrics = compute_transient_power_metrics(tran_data, components)
         if metrics:
@@ -661,3 +702,110 @@ class SimulationController:
         from simulation.netlist_generator import generate_analysis_command
 
         return generate_analysis_command(analysis_type, params)
+
+    # --- Export helpers ---
+
+    def export_netlist(self, filepath: str) -> None:
+        """Generate a SPICE netlist and write it to a file.
+
+        Raises:
+            ValueError, KeyError, TypeError: If netlist generation fails.
+            OSError: If the file cannot be written.
+        """
+        netlist = self.generate_netlist()
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(netlist)
+
+    def generate_results_csv(
+        self, results, results_type: str, circuit_name: str = ""
+    ) -> Optional[str]:
+        """Generate CSV content from simulation results.
+
+        Returns None if the results type is not supported for CSV export.
+        """
+        from simulation.csv_exporter import (
+            export_ac_results,
+            export_dc_sweep_results,
+            export_noise_results,
+            export_op_results,
+            export_transient_results,
+        )
+
+        dispatch = {
+            "DC Operating Point": export_op_results,
+            "DC Sweep": export_dc_sweep_results,
+            "AC Sweep": export_ac_results,
+            "Transient": export_transient_results,
+            "Noise": export_noise_results,
+        }
+        func = dispatch.get(results_type)
+        if func is None:
+            return None
+        return func(results, circuit_name)
+
+    def export_results_csv(
+        self, results, results_type: str, filepath: str, circuit_name: str = ""
+    ) -> None:
+        """Export simulation results to a CSV file.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.csv_exporter import write_csv
+
+        content = self.generate_results_csv(results, results_type, circuit_name)
+        if content is not None:
+            write_csv(content, filepath)
+
+    def export_results_excel(
+        self, results, results_type: str, filepath: str, circuit_name: str = ""
+    ) -> None:
+        """Export simulation results to an Excel (.xlsx) file.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.excel_exporter import export_to_excel
+
+        export_to_excel(results, results_type, filepath, circuit_name)
+
+    def generate_results_markdown(
+        self, results, results_type: str, circuit_name: str = ""
+    ) -> Optional[str]:
+        """Generate Markdown content from simulation results.
+
+        Returns None if the results type is not supported.
+        """
+        from simulation.markdown_exporter import (
+            export_ac_results,
+            export_dc_sweep_results,
+            export_noise_results,
+            export_op_results,
+            export_transient_results,
+        )
+
+        dispatch = {
+            "DC Operating Point": export_op_results,
+            "DC Sweep": export_dc_sweep_results,
+            "AC Sweep": export_ac_results,
+            "Transient": export_transient_results,
+            "Noise": export_noise_results,
+        }
+        func = dispatch.get(results_type)
+        if func is None:
+            return None
+        return func(results, circuit_name)
+
+    def export_results_markdown(
+        self, results, results_type: str, filepath: str, circuit_name: str = ""
+    ) -> None:
+        """Export simulation results to a Markdown file.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.markdown_exporter import write_markdown
+
+        content = self.generate_results_markdown(results, results_type, circuit_name)
+        if content is not None:
+            write_markdown(content, filepath)
