@@ -340,11 +340,13 @@ class IEEEMOSFETNMOS(ComponentRenderer):
         # Drain and source connections
         painter.drawLine(-5, -10, 20, -10)
         painter.drawLine(-5, 10, 20, 10)
-        # Body connection from center segment
-        painter.drawLine(-5, 0, 5, 0)
+        # Vertical bar connecting drain and source (body tied to source)
+        painter.drawLine(10, -10, 10, 10)
+        # Body connection from vertical bar toward channel
+        painter.drawLine(10, 0, -1, 0)
         # Arrow on body pointing INWARD (toward channel) for NMOS
-        painter.drawLine(5, 0, -1, -3)
-        painter.drawLine(5, 0, -1, 3)
+        painter.drawLine(-1, 0, 5, -3)
+        painter.drawLine(-1, 0, 5, 3)
 
     def get_obstacle_shape(self, component):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
@@ -365,13 +367,15 @@ class IEEEMOSFETPMOS(ComponentRenderer):
         # Drain and source connections
         painter.drawLine(-5, -10, 20, -10)
         painter.drawLine(-5, 10, 20, 10)
-        # Body connection from center segment
-        painter.drawLine(-5, 0, 5, 0)
+        # Vertical bar connecting drain and source (body tied to source)
+        painter.drawLine(10, -10, 10, 10)
+        # Body connection from channel toward vertical bar
+        painter.drawLine(-1, 0, 10, 0)
         # Arrow on body pointing OUTWARD (away from channel) for PMOS
-        painter.drawLine(-1, 0, 5, -3)
-        painter.drawLine(-1, 0, 5, 3)
-        # Bubble on gate for PMOS
-        painter.drawEllipse(-8, -2, 4, 4)
+        painter.drawLine(5, 0, -1, -3)
+        painter.drawLine(5, 0, -1, 3)
+        # Bubble on gate for PMOS (between gate plate and channel)
+        painter.drawEllipse(-9, -2, 4, 4)
 
     def get_obstacle_shape(self, component):
         return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
