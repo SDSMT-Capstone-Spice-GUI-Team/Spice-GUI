@@ -146,27 +146,52 @@ class TestMOSFETEnhancementMode:
         painter.drawEllipse.assert_not_called()
 
     def test_nmos_arrow_points_inward(self):
-        """NMOS arrow should point toward the channel (inward)."""
+        """NMOS arrow should point toward the channel (inward).
+
+        The arrowhead vertex (tip) should be at a smaller x than the barbs,
+        indicating the arrow points left toward the channel.
+        """
         renderer = IEEEMOSFETNMOS()
         painter = _make_mock_painter()
         comp = _make_mock_component(in_scene=False)
         renderer.draw(painter, comp)
         line_calls = painter.drawLine.call_args_list
-        # Arrow lines from body to channel: tip at negative x (toward channel)
-        # The arrowhead lines should converge leftward
-        arrowhead = [c for c in line_calls if c[0][0] == 5 and c[0][2] == -1]
+        # Arrowhead: two lines from tip (x=-1) with barbs toward x=5
+        arrowhead = [c for c in line_calls if c[0][0] == -1 and c[0][2] == 5]
         assert len(arrowhead) == 2
 
     def test_pmos_arrow_points_outward(self):
-        """PMOS arrow should point away from the channel (outward)."""
+        """PMOS arrow should point away from the channel (outward).
+
+        The arrowhead vertex (tip) should be at a larger x than the barbs,
+        indicating the arrow points right away from the channel.
+        """
         renderer = IEEEMOSFETPMOS()
         painter = _make_mock_painter()
         comp = _make_mock_component(in_scene=False)
         renderer.draw(painter, comp)
         line_calls = painter.drawLine.call_args_list
-        # Arrow lines from channel to body: tip at positive x (away from channel)
-        arrowhead = [c for c in line_calls if c[0][0] == -1 and c[0][2] == 5]
+        # Arrowhead: two lines from tip (x=5) with barbs toward x=-1
+        arrowhead = [c for c in line_calls if c[0][0] == 5 and c[0][2] == -1]
         assert len(arrowhead) == 2
+
+    def test_nmos_has_body_source_tie(self):
+        """NMOS should have a vertical bar connecting drain and source."""
+        renderer = IEEEMOSFETNMOS()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        line_calls = painter.drawLine.call_args_list
+        assert call(10, -10, 10, 10) in line_calls
+
+    def test_pmos_has_body_source_tie(self):
+        """PMOS should have a vertical bar connecting drain and source."""
+        renderer = IEEEMOSFETPMOS()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        line_calls = painter.drawLine.call_args_list
+        assert call(10, -10, 10, 10) in line_calls
 
 
 class TestRendererRegistration:
