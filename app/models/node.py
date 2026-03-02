@@ -133,32 +133,31 @@ class NodeData:
         if not self.custom_label:
             self.auto_label = "0"
 
-    def get_position(self, components: dict) -> Optional[tuple[float, float]]:
+    def get_position(
+        self,
+        terminal_positions: dict[tuple[str, int], tuple[float, float]],
+    ) -> Optional[tuple[float, float]]:
         """
         Get a representative position for label placement (average of all terminals).
 
         Args:
-            components: Dict mapping component_id to ComponentData objects.
+            terminal_positions: Mapping of ``(component_id, terminal_index)``
+                to ``(x, y)`` world-coordinate positions.  Callers are
+                responsible for computing these from their own layer
+                (e.g. from ComponentData or from the GUI scene).
 
         Returns:
-            Average (x, y) position of all terminals, or None if no terminals.
+            Average (x, y) position of all terminals, or None if no terminals
+            have a known position.
         """
         if not self.terminals:
             return None
 
-        positions = []
-        for comp_id, term_idx in self.terminals:
-            if comp_id in components:
-                comp = components[comp_id]
-                # Get terminal positions from ComponentData
-                term_positions = comp.get_terminal_positions()
-                if term_idx < len(term_positions):
-                    positions.append(term_positions[term_idx])
+        positions = [terminal_positions[t] for t in self.terminals if t in terminal_positions]
 
         if not positions:
             return None
 
-        # Return average position
         avg_x = sum(p[0] for p in positions) / len(positions)
         avg_y = sum(p[1] for p in positions) / len(positions)
         return (avg_x, avg_y)

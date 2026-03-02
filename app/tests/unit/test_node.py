@@ -214,6 +214,53 @@ class TestRebuildNodesPreservesLabels:
         assert labels_found == {"Va", "Vb"}
 
 
+class TestGetPosition:
+    """Tests for NodeData.get_position with terminal_positions dict."""
+
+    def test_empty_terminals_returns_none(self):
+        node = NodeData(auto_label="nodeA")
+        assert node.get_position({}) is None
+
+    def test_single_terminal_returns_its_position(self):
+        node = NodeData(auto_label="nodeA")
+        node.add_terminal("R1", 0)
+        positions = {("R1", 0): (100.0, 200.0)}
+        assert node.get_position(positions) == (100.0, 200.0)
+
+    def test_averages_multiple_terminal_positions(self):
+        node = NodeData(auto_label="nodeA")
+        node.add_terminal("R1", 0)
+        node.add_terminal("R2", 1)
+        positions = {("R1", 0): (100.0, 200.0), ("R2", 1): (300.0, 400.0)}
+        result = node.get_position(positions)
+        assert result == (200.0, 300.0)
+
+    def test_missing_positions_are_skipped(self):
+        node = NodeData(auto_label="nodeA")
+        node.add_terminal("R1", 0)
+        node.add_terminal("R2", 1)
+        # Only R1 has a known position
+        positions = {("R1", 0): (100.0, 200.0)}
+        assert node.get_position(positions) == (100.0, 200.0)
+
+    def test_all_positions_missing_returns_none(self):
+        node = NodeData(auto_label="nodeA")
+        node.add_terminal("R1", 0)
+        assert node.get_position({}) is None
+
+    def test_accepts_plain_dict_no_component_data_needed(self):
+        """Verify the method works with a plain dict — no ComponentData import."""
+        node = NodeData(auto_label="nodeA")
+        node.add_terminal("C1", 0)
+        node.add_terminal("C1", 1)
+        positions: dict[tuple[str, int], tuple[float, float]] = {
+            ("C1", 0): (10.0, 20.0),
+            ("C1", 1): (30.0, 40.0),
+        }
+        result = node.get_position(positions)
+        assert result == (20.0, 30.0)
+
+
 class TestSetNetNamePublicAPI:
     """Tests that CircuitController.set_net_name() works correctly."""
 
