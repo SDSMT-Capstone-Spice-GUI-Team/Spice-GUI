@@ -116,3 +116,11 @@ def _empty_markers():
         "phase_margin_deg": None,
         "ref_level_db": None,
     }
+
+
+from utils.format_utils import format_frequency  # noqa: F401 — re-exported for compatibility
+
+__all__ = [
+    "compute_markers",
+    "format_frequency",
+]
