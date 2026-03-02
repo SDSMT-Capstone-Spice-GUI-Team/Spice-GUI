@@ -332,6 +332,30 @@ class TestNodeManagementThroughController:
         assert len(controller.model.nodes) == 2
 
 
+class TestClipboardPublicAPI:
+    """Verify clipboard operations use public controller API."""
+
+    def test_set_clipboard(self, controller):
+        """set_clipboard replaces internal clipboard."""
+        from models.clipboard import ClipboardData
+
+        controller.add_component("Resistor", (0.0, 0.0))
+        comp_dict = controller.model.components["R1"].to_dict()
+        cb = ClipboardData(components=[comp_dict], wires=[], paste_count=0)
+        controller.set_clipboard(cb)
+        assert controller.has_clipboard_content()
+
+    def test_get_clipboard_paste_count(self, controller):
+        """get_clipboard_paste_count reflects paste operations."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.copy_components(["R1"])
+        assert controller.get_clipboard_paste_count() == 0
+        controller.paste_components()
+        assert controller.get_clipboard_paste_count() == 1
+        controller.paste_components()
+        assert controller.get_clipboard_paste_count() == 2
+
+
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.circuit_controller as mod

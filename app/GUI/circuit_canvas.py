@@ -266,36 +266,28 @@ class CircuitCanvasView(QGraphicsView):
                 self.viewport().update()
 
     def _handle_component_rotated(self, component_data) -> None:
-        """Update graphics item rotation"""
+        """Update graphics item rotation from authoritative model data."""
         comp = self.components.get(component_data.component_id)
         if comp:
-            comp.rotation_angle = component_data.rotation
+            comp.sync_from_data(component_data)
             comp.update_terminals()
             comp.update()
             self.reroute_connected_wires(comp)
 
     def _handle_component_flipped(self, component_data) -> None:
-        """Update graphics item flip"""
+        """Update graphics item flip from authoritative model data."""
         comp = self.components.get(component_data.component_id)
         if comp:
-            # Sync flip state: the graphics item holds a separate ComponentData
-            # copy (created via from_dict in _handle_component_added), so we
-            # must propagate the controller model's flip values explicitly before
-            # calling update_terminals() or paint().
-            comp.model.flip_h = component_data.flip_h
-            comp.model.flip_v = component_data.flip_v
+            comp.sync_from_data(component_data)
             comp.update_terminals()
             comp.update()
             self.reroute_connected_wires(comp)
 
     def _handle_component_value_changed(self, component_data) -> None:
-        """Update graphics item value display and related fields."""
+        """Update graphics item value display from authoritative model data."""
         comp = self.components.get(component_data.component_id)
         if comp:
-            comp.value = component_data.value
-            comp.model.waveform_type = component_data.waveform_type
-            comp.model.waveform_params = component_data.waveform_params
-            comp.model.initial_condition = component_data.initial_condition
+            comp.sync_from_data(component_data)
             comp.update()
 
     def _handle_wire_added(self, wire_data) -> None:
@@ -1415,15 +1407,17 @@ class CircuitCanvasView(QGraphicsView):
         if self.controller.has_clipboard_content():
             new_components, new_wires = self.controller.paste_components()
         elif not self._clipboard.is_empty():
-            # Sync canvas clipboard to controller, then paste via controller
-            self.controller._clipboard = ClipboardData(
-                components=list(self._clipboard.components),
-                wires=list(self._clipboard.wires),
-                paste_count=self._clipboard.paste_count,
+            # Sync canvas clipboard to controller via public API, then paste
+            self.controller.set_clipboard(
+                ClipboardData(
+                    components=list(self._clipboard.components),
+                    wires=list(self._clipboard.wires),
+                    paste_count=self._clipboard.paste_count,
+                )
             )
             new_components, new_wires = self.controller.paste_components()
             # Keep canvas clipboard paste_count in sync
-            self._clipboard.paste_count = self.controller._clipboard.paste_count
+            self._clipboard.paste_count = self.controller.get_clipboard_paste_count()
         else:
             return
 
@@ -2024,9 +2018,13 @@ class CircuitCanvasView(QGraphicsView):
         self.obstacle_boundary_items.append(terminal_legend_text)
 
     def get_model_components(self):
-        """Return dict of component_id -> ComponentData for simulation use."""
-        for comp_item in self.components.values():
-            comp_item.model.position = (comp_item.pos().x(), comp_item.pos().y())
+        """Return dict of component_id -> ComponentData for simulation use.
+
+        Uses the controller's model as the single source of truth.
+        Falls back to the graphics items' local models if no controller.
+        """
+        if self.controller:
+            return dict(self.controller.model.components)
         return {comp_id: comp_item.model for comp_id, comp_item in self.components.items()}
 
     def get_model_wires(self):
@@ -2125,7 +2123,14 @@ class CircuitCanvasView(QGraphicsView):
         painter.end()
 
     def to_dict(self):
-        """Serialize circuit to dictionary"""
+        """Serialize circuit to dictionary.
+
+        Uses the controller's model as the single source of truth when
+        available; falls back to local graphics items for legacy callers.
+        """
+        if self.controller:
+            return self.controller.model.to_dict()
+
         data = {
             "components": [comp.to_dict() for comp in self.components.values()],
             "wires": [wire.to_dict() for wire in self.wires],
