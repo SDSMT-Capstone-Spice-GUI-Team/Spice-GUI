@@ -436,6 +436,14 @@ class CircuitController:
         """Return whether the clipboard has content to paste."""
         return not self._clipboard.is_empty()
 
+    def set_clipboard(self, clipboard: ClipboardData) -> None:
+        """Replace the controller's clipboard with the given data."""
+        self._clipboard = clipboard
+
+    def get_clipboard_paste_count(self) -> int:
+        """Return the current clipboard paste count."""
+        return self._clipboard.paste_count
+
     # --- Undo/Redo operations ---
 
     def execute_command(self, command) -> None:

@@ -104,6 +104,22 @@ class ComponentGraphicsItem(QGraphicsItem):
     def initial_condition(self, v):
         self.model.initial_condition = v
 
+    def sync_from_data(self, component_data) -> None:
+        """Sync the graphics item's local model from authoritative controller data.
+
+        Called by observer callbacks to propagate model changes without
+        the graphics item performing direct model mutations.  Updates
+        visual-relevant fields and refreshes the graphics.
+        """
+        self.model.rotation = component_data.rotation
+        self.model.flip_h = component_data.flip_h
+        self.model.flip_v = component_data.flip_v
+        self.model.value = component_data.value
+        self.model.waveform_type = component_data.waveform_type
+        self.model.waveform_params = component_data.waveform_params
+        self.model.initial_condition = component_data.initial_condition
+        self.model.position = component_data.position
+
     # --- Event handlers ---
 
     def set_locked(self, locked: bool) -> None:
@@ -456,17 +472,17 @@ class ComponentGraphicsItem(QGraphicsItem):
         return super().itemChange(change, value)
 
     def _schedule_controller_update(self):
-        """Sync model position immediately, debounce wire rerouting (Phase 5)"""
+        """Sync local model position immediately, debounce wire rerouting (Phase 5)"""
         if self._position_update_timer:
             self._position_update_timer.stop()
         if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
             return
 
-        # Sync model position immediately (lightweight attribute assignment)
+        # Sync local model position immediately (lightweight attribute assignment).
+        # The canonical controller model is updated via the debounced
+        # _notify_controller_position -> controller.move_component() call below.
         if self._pending_position:
-            comp = self.canvas.controller.model.components.get(self.component_id)
-            if comp:
-                comp.position = self._pending_position
+            self.model.position = self._pending_position
 
         # Debounce observer notification (triggers expensive wire rerouting).
         # Reuse a single timer to avoid QTimer object churn (#194).
