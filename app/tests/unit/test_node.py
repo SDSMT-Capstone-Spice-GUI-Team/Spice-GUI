@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 from models.circuit import CircuitModel
-from models.node import NodeData, _generate_label, reset_node_counter
+from models.node import NodeData, NodeLabelGenerator, _generate_label, reset_node_counter
 
 
 class TestNodeCustomLabel:
@@ -54,6 +54,38 @@ class TestNodeLabelGeneration:
     def test_ground_node_auto_label_is_zero(self):
         node = NodeData(is_ground=True)
         assert node.auto_label == "0"
+
+
+class TestNodeLabelGenerator:
+    """Tests for the NodeLabelGenerator class."""
+
+    def test_generates_sequential_labels(self):
+        gen = NodeLabelGenerator()
+        assert gen.next_label() == "nodeA"
+        assert gen.next_label() == "nodeB"
+        assert gen.next_label() == "nodeC"
+
+    def test_reset_restarts_sequence(self):
+        gen = NodeLabelGenerator()
+        gen.next_label()
+        gen.next_label()
+        gen.reset()
+        assert gen.next_label() == "nodeA"
+
+    def test_independent_instances(self):
+        gen1 = NodeLabelGenerator()
+        gen2 = NodeLabelGenerator()
+        assert gen1.next_label() == "nodeA"
+        assert gen2.next_label() == "nodeA"
+        assert gen1.next_label() == "nodeB"
+        assert gen2.next_label() == "nodeB"
+
+    def test_wraps_to_double_letters(self):
+        gen = NodeLabelGenerator()
+        for _ in range(26):
+            gen.next_label()
+        assert gen.next_label() == "nodeAA"
+        assert gen.next_label() == "nodeAB"
 
 
 class TestNodeMerge:
