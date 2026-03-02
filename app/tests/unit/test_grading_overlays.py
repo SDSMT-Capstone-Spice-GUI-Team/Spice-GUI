@@ -54,57 +54,37 @@ class TestExtractComponentIds:
 
     def test_simple_component_id(self):
         """Extracts component ID from check_id like 'exists_R1'."""
-        from unittest.mock import MagicMock
+        from grading.component_mapper import extract_component_ids
 
-        from GUI.grading_panel import _extract_component_ids
-
-        cr = MagicMock()
-        cr.check_id = "exists_R1"
-        assert "R1" in _extract_component_ids(cr)
+        assert "R1" in extract_component_ids("exists_R1")
 
     def test_value_check(self):
         """Extracts component ID from check_id like 'value_R1'."""
-        from unittest.mock import MagicMock
+        from grading.component_mapper import extract_component_ids
 
-        from GUI.grading_panel import _extract_component_ids
-
-        cr = MagicMock()
-        cr.check_id = "value_R1"
-        assert "R1" in _extract_component_ids(cr)
+        assert "R1" in extract_component_ids("value_R1")
 
     def test_topology_pair(self):
         """Extracts both component IDs from topology check_id."""
-        from unittest.mock import MagicMock
+        from grading.component_mapper import extract_component_ids
 
-        from GUI.grading_panel import _extract_component_ids
-
-        cr = MagicMock()
-        cr.check_id = "connected_R1_C1"
-        ids = _extract_component_ids(cr)
+        ids = extract_component_ids("connected_R1_C1")
         assert "R1" in ids
         assert "C1" in ids
 
     def test_no_component_id(self):
         """Returns empty list for check_ids without component IDs."""
-        from unittest.mock import MagicMock
+        from grading.component_mapper import extract_component_ids
 
-        from GUI.grading_panel import _extract_component_ids
-
-        cr = MagicMock()
-        cr.check_id = "has_ground"
-        ids = _extract_component_ids(cr)
+        ids = extract_component_ids("has_ground")
         # "has_ground" has no uppercase letter+digit pattern
         assert ids == [] or all(isinstance(x, str) for x in ids)
 
     def test_lowercase_check_id(self):
         """Handles lowercase check_id containing component references."""
-        from unittest.mock import MagicMock
+        from grading.component_mapper import extract_component_ids
 
-        from GUI.grading_panel import _extract_component_ids
-
-        cr = MagicMock()
-        cr.check_id = "r1_value"
-        ids = _extract_component_ids(cr)
+        ids = extract_component_ids("r1_value")
         # Should extract "r1" or "R1" variant
         assert len(ids) >= 1
 

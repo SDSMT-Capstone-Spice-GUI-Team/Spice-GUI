@@ -5,6 +5,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Optional
 
+from grading.rubric_validator import (
+    CHECK_TYPE_PARAMS,
+    build_rubric,
+    calculate_total_points,
+    generate_check_id,
+    validate_rubric,
+)
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -32,36 +39,6 @@ if TYPE_CHECKING:
     from grading.rubric import Rubric
 
 logger = logging.getLogger(__name__)
-
-# Parameter definitions per check type: list of (param_key, label, widget_type, default)
-# widget_type: "str", "int", "float", "bool"
-_CHECK_TYPE_PARAMS: dict[str, list[tuple[str, str, str, object]]] = {
-    "component_exists": [
-        ("component_id", "Component ID", "str", ""),
-        ("component_type", "Component Type", "str", ""),
-        ("min_count", "Min Count", "int", 1),
-    ],
-    "component_value": [
-        ("component_id", "Component ID", "str", ""),
-        ("expected_value", "Expected Value", "str", ""),
-        ("tolerance_pct", "Tolerance (%)", "float", 0.0),
-    ],
-    "component_count": [
-        ("component_type", "Component Type", "str", ""),
-        ("expected_count", "Expected Count", "int", 0),
-    ],
-    "topology": [
-        ("component_a", "Component A", "str", ""),
-        ("component_b", "Component B", "str", ""),
-        ("shared_node", "Shared Node (connected)", "bool", True),
-    ],
-    "ground": [
-        ("component_id", "Component ID (optional)", "str", ""),
-    ],
-    "analysis_type": [
-        ("expected_type", "Expected Analysis Type", "str", ""),
-    ],
-}
 
 
 class RubricEditorDialog(QDialog):
@@ -145,7 +122,7 @@ class RubricEditorDialog(QDialog):
         basic_form.addRow("Check ID:", self.check_id_edit)
 
         self.check_type_combo = QComboBox()
-        self.check_type_combo.addItems(sorted(_CHECK_TYPE_PARAMS.keys()))
+        self.check_type_combo.addItems(sorted(CHECK_TYPE_PARAMS.keys()))
         self.check_type_combo.currentTextChanged.connect(self._on_check_type_changed)
         basic_form.addRow("Check Type:", self.check_type_combo)
 
@@ -219,10 +196,7 @@ class RubricEditorDialog(QDialog):
     def _on_add_check(self):
         """Add a new check with default values."""
         existing_ids = self._get_all_check_ids()
-        n = 1
-        while f"check_{n}" in existing_ids:
-            n += 1
-        check_id = f"check_{n}"
+        check_id = generate_check_id(existing_ids)
 
         check_data = {
             "check_id": check_id,
@@ -340,7 +314,7 @@ class RubricEditorDialog(QDialog):
             self.params_layout.removeRow(0)
         self._param_widgets.clear()
 
-        params = _CHECK_TYPE_PARAMS.get(check_type, [])
+        params = CHECK_TYPE_PARAMS.get(check_type, [])
         for key, label, widget_type, default in params:
             widget = self._create_param_widget(widget_type, default)
             self._param_widgets[key] = widget
@@ -407,74 +381,31 @@ class RubricEditorDialog(QDialog):
 
     def _validate(self) -> list[str]:
         """Validate the rubric and return a list of error messages."""
-        errors: list[str] = []
-
-        if not self.title_edit.text().strip():
-            errors.append("Rubric title is required.")
-
-        count = self.checks_list.count()
-        if count == 0:
-            errors.append("At least one check is required.")
-
-        check_ids: set[str] = set()
-        for i in range(count):
-            item = self.checks_list.item(i)
-            if item is None:
-                continue
-            data = item.data(Qt.ItemDataRole.UserRole) or {}
-            cid = data.get("check_id", "")
-            if not cid:
-                errors.append(f"Check #{i + 1} has no ID.")
-            elif cid in check_ids:
-                errors.append(f"Duplicate check ID: '{cid}'.")
-            check_ids.add(cid)
-
-            ctype = data.get("check_type", "")
-            required = self._required_params_for_type(ctype)
-            params = data.get("params", {})
-            for rp in required:
-                if not params.get(rp):
-                    errors.append(f"Check '{cid}': missing required parameter '{rp}'.")
-
+        checks_data = self._collect_all_checks_data()
+        errors = validate_rubric(self.title_edit.text(), checks_data)
         self.validation_label.setText("\n".join(errors))
         return errors
 
-    @staticmethod
-    def _required_params_for_type(check_type: str) -> list[str]:
-        """Return required param keys for a check type."""
-        reqs = {
-            "component_exists": [],  # at least one of id/type, but both optional
-            "component_value": ["component_id", "expected_value"],
-            "component_count": ["component_type", "expected_count"],
-            "topology": ["component_a", "component_b"],
-            "ground": [],
-            "analysis_type": ["expected_type"],
-        }
-        return reqs.get(check_type, [])
-
     def _update_points_total(self):
         """Update the total points label from all checks."""
-        total = 0
+        checks_data = self._collect_all_checks_data()
+        total = calculate_total_points(checks_data)
+        self.points_label.setText(f"Total Points: {total}")
+
+    def _collect_all_checks_data(self) -> list[dict]:
+        """Extract all check data dicts from the list widget."""
+        checks: list[dict] = []
         for i in range(self.checks_list.count()):
             item = self.checks_list.item(i)
             if item is None:
                 continue
             data = item.data(Qt.ItemDataRole.UserRole) or {}
-            total += data.get("points", 0)
-        self.points_label.setText(f"Total Points: {total}")
+            checks.append(data)
+        return checks
 
     def _get_all_check_ids(self) -> set[str]:
         """Get all check IDs currently in the list."""
-        ids: set[str] = set()
-        for i in range(self.checks_list.count()):
-            item = self.checks_list.item(i)
-            if item is None:
-                continue
-            data = item.data(Qt.ItemDataRole.UserRole) or {}
-            cid = data.get("check_id", "")
-            if cid:
-                ids.add(cid)
-        return ids
+        return {d["check_id"] for d in self._collect_all_checks_data() if d.get("check_id")}
 
     # --- Save / Load ---
 
@@ -551,23 +482,8 @@ class RubricEditorDialog(QDialog):
 
     def _build_rubric(self) -> Rubric:
         """Build a Rubric object from the current UI state."""
-        from grading.rubric import Rubric, RubricCheck
-
-        checks = []
-        total = 0
-        for i in range(self.checks_list.count()):
-            item = self.checks_list.item(i)
-            if item is None:
-                continue
-            data = item.data(Qt.ItemDataRole.UserRole) or {}
-            checks.append(RubricCheck.from_dict(data))
-            total += data.get("points", 0)
-
-        return Rubric(
-            title=self.title_edit.text().strip(),
-            total_points=total,
-            checks=checks,
-        )
+        checks_data = self._collect_all_checks_data()
+        return build_rubric(self.title_edit.text(), checks_data)
 
     def _on_accept(self):
         """Validate and accept the dialog."""
