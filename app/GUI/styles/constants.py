@@ -8,6 +8,7 @@ This file is the SINGLE SOURCE OF TRUTH for:
 """
 
 from models.component import COMPONENT_TYPES, SPICE_SYMBOLS, TERMINAL_COUNTS
+from utils.constants import SIMULATION_TIMEOUT  # noqa: F401  # re-exported
 
 # Grid settings
 GRID_SIZE = 10
@@ -26,8 +27,7 @@ DEFAULT_TERMINAL_PADDING = 15  # Gap between body edge and terminal (grid-aligne
 DEFAULT_WINDOW_SIZE = (1200, 800)
 DEFAULT_SPLITTER_SIZES = [500, 300]  # Canvas height : results height
 
-# Simulation settings
-SIMULATION_TIMEOUT = 60  # Seconds before ngspice is killed
+# Simulation settings — canonical value lives in utils.constants
 
 # Component drag settings
 WIRE_UPDATE_DELAY_MS = 50  # Delay before rerouting wires after drag

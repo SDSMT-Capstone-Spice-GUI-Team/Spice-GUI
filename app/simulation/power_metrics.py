@@ -6,7 +6,7 @@ Computes RMS voltage/current and average/peak power from transient simulation da
 
 import math
 
-from GUI.format_utils import parse_value
+from utils.format_utils import parse_value
 
 
 def compute_rms(values):
