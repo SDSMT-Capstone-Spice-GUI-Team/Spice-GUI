@@ -276,10 +276,13 @@ class CircuitCanvasView(QGraphicsView):
             self.reroute_connected_wires(comp)
 
     def _handle_component_value_changed(self, component_data) -> None:
-        """Update graphics item value display"""
+        """Update graphics item value display and related fields."""
         comp = self.components.get(component_data.component_id)
         if comp:
             comp.value = component_data.value
+            comp.model.waveform_type = component_data.waveform_type
+            comp.model.waveform_params = component_data.waveform_params
+            comp.model.initial_condition = component_data.initial_condition
             comp.update()
 
     def _handle_wire_added(self, wire_data) -> None:

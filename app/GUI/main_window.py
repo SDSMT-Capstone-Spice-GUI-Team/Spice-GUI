@@ -332,21 +332,17 @@ class MainWindow(
         self.properties_panel.show_no_selection()
 
     def on_property_changed(self, component_id, property_name, new_value):
-        """Handle property changes from properties panel"""
-        component = self.canvas.components.get(component_id)
-        if not component:
-            return
-
+        """Handle property changes from properties panel via controller."""
         if property_name == "value":
-            component.value = new_value
-            component.update()
-            # Sync to controller model so netlist generation sees the updated value
             self.circuit_ctrl.update_component_value(component_id, new_value)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
 
         elif property_name == "rotation":
+            component = self.canvas.components.get(component_id)
+            if not component:
+                return
             component.rotation_angle = new_value
             component.update_terminals()
             component.update()
@@ -357,17 +353,18 @@ class MainWindow(
             self.properties_panel.show_component(component)
 
         elif property_name == "waveform":
-            component.update()
+            waveform_type, params = new_value
+            self.circuit_ctrl.update_component_waveform(component_id, waveform_type, params)
+            # Refresh properties panel to show updated SPICE value
+            component = self.canvas.components.get(component_id)
+            if component:
+                self.properties_panel.show_component(component)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
 
         elif property_name == "initial_condition":
-            component.initial_condition = new_value
-            # Sync to controller model so netlist generation sees the updated value
-            ctrl_comp = self.circuit_ctrl.model.components.get(component_id)
-            if ctrl_comp:
-                ctrl_comp.initial_condition = new_value
+            self.circuit_ctrl.update_component_initial_condition(component_id, new_value)
             ic_display = new_value if new_value else "none"
             statusBar = self.statusBar()
             if statusBar:
