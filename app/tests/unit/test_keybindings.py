@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from GUI.keybindings import ACTION_LABELS, DEFAULTS, KeybindingsRegistry
+from controllers.keybindings import ACTION_LABELS, DEFAULTS, KeybindingsRegistry
 
 
 class TestKeybindingsRegistry:

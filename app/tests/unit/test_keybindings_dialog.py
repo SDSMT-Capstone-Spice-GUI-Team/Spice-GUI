@@ -3,7 +3,7 @@ Unit tests for keybindings_dialog.py — KeybindingsDialog.
 """
 
 import pytest
-from GUI.keybindings import KeybindingsRegistry
+from controllers.keybindings import KeybindingsRegistry
 from GUI.keybindings_dialog import KeybindingsDialog
 
 
