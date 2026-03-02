@@ -172,7 +172,7 @@ class WireGraphicsItem(QGraphicsPathItem):
     def update_position(self):
         """Update wire path using selected algorithm"""
         # Lazy import for faster startup - only loaded when wires are created
-        from .path_finding import IDAStarPathfinder, get_component_obstacles
+        from algorithms.path_finding import IDAStarPathfinder, get_component_obstacles
 
         # Get old bounding rect for invalidation
         old_rect = self.boundingRect()
@@ -180,8 +180,8 @@ class WireGraphicsItem(QGraphicsPathItem):
         # Prepare for update by invalidating current bounds
         self.prepareGeometryChange()
 
-        start = self.start_comp.get_terminal_pos(self.start_term)
-        end = self.end_comp.get_terminal_pos(self.end_term)
+        start_qpt = self.start_comp.get_terminal_pos(self.start_term)
+        end_qpt = self.end_comp.get_terminal_pos(self.end_term)
 
         # Get obstacles from canvas
         if self.canvas:
@@ -213,28 +213,38 @@ class WireGraphicsItem(QGraphicsPathItem):
             all_wires = self.canvas.wires if hasattr(self.canvas, "wires") else []
             existing_wires = [w for w in all_wires if w.algorithm == self.algorithm]
 
+            # Adapt Qt objects for the Qt-free pathfinding module
+            adapted_components = {cid: _ComponentAdapter(c) for cid, c in self.canvas.components.items()}
+            adapted_wires = [_WireAdapter(w) for w in existing_wires]
+
             obstacles = get_component_obstacles(
-                self.canvas.components,
+                adapted_components,
                 GRID_SIZE,
                 terminal_clearance_only=terminal_clearance,
                 active_terminals=active_terminals,
-                existing_wires=existing_wires,
+                existing_wires=adapted_wires,
                 current_node=self.node,
             )
 
+            # Convert QPointF positions to tuples for the pathfinder
+            start_tuple = (start_qpt.x(), start_qpt.y())
+            end_tuple = (end_qpt.x(), end_qpt.y())
+
             allow_diagonal = theme_manager.routing_mode == "diagonal"
             pathfinder = IDAStarPathfinder(GRID_SIZE, allow_diagonal=allow_diagonal)
-            result = pathfinder.find_path(start, end, obstacles, algorithm=self.algorithm)
+            result = pathfinder.find_path(start_tuple, end_tuple, obstacles, algorithm=self.algorithm)
 
             # Unpack result (waypoints, runtime, iterations, routing_failed)
-            self.waypoints, runtime, iterations, routing_failed = result
+            tuple_waypoints, runtime, iterations, routing_failed = result
+
+            # Convert tuple waypoints back to QPointF for Qt drawing
+            self.waypoints = [QPointF(wp[0], wp[1]) for wp in tuple_waypoints]
 
             # Store in model
             self.model.runtime = runtime
             self.model.iterations = iterations
             self.model.routing_failed = routing_failed
-            # Convert QPointF waypoints to tuples for model storage
-            self.model.waypoints = [(wp.x(), wp.y()) for wp in self.waypoints]
+            self.model.waypoints = list(tuple_waypoints)
 
             if routing_failed:
                 logger.warning(
@@ -248,11 +258,11 @@ class WireGraphicsItem(QGraphicsPathItem):
                 self._notify_routing_failed()
         else:
             # Fallback to direct line
-            self.waypoints = [start, end]
+            self.waypoints = [start_qpt, end_qpt]
             self.model.runtime = 0.0
             self.model.iterations = 0
             self.model.routing_failed = False
-            self.model.waypoints = [(start.x(), start.y()), (end.x(), end.y())]
+            self.model.waypoints = [(start_qpt.x(), start_qpt.y()), (end_qpt.x(), end_qpt.y())]
 
         # Create path from waypoints
         path = QPainterPath()
@@ -467,6 +477,50 @@ class WireGraphicsItem(QGraphicsPathItem):
         )
 
         return wire
+
+
+# ---------------------------------------------------------------------------
+# Adapters: convert Qt objects to tuple-based interface for pathfinding
+# ---------------------------------------------------------------------------
+
+
+class _ComponentAdapter:
+    """Wraps a ComponentGraphicsItem so position methods return (x, y) tuples."""
+
+    __slots__ = ("_comp",)
+
+    def __init__(self, comp):
+        self._comp = comp
+
+    def __getattr__(self, name):
+        return getattr(self._comp, name)
+
+    def pos(self):
+        p = self._comp.pos()
+        return (p.x(), p.y())
+
+    def get_terminal_pos(self, index):
+        p = self._comp.get_terminal_pos(index)
+        return (p.x(), p.y())
+
+
+class _WireAdapter:
+    """Wraps a WireGraphicsItem so waypoints are plain (x, y) tuples."""
+
+    __slots__ = ("_wire",)
+
+    def __init__(self, wire):
+        self._wire = wire
+
+    def __getattr__(self, name):
+        return getattr(self._wire, name)
+
+    @property
+    def waypoints(self):
+        wps = self._wire.waypoints
+        if wps:
+            return [(p.x(), p.y()) if isinstance(p, QPointF) else (p[0], p[1]) for p in wps]
+        return wps
 
 
 # Backward compatibility alias

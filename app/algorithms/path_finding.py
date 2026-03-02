@@ -2,14 +2,15 @@
 pathfinding.py
 
 IDA* pathfinding for grid-aligned wire routing in circuit schematics.
+
+All positions are represented as plain (x, y) tuples — no Qt dependency.
+Callers using QPointF should convert before calling and after receiving results.
 """
 
 import math
 import time
 from abc import ABC, abstractmethod
 from typing import Set, Tuple
-
-from PyQt6.QtCore import QPointF
 
 
 class WeightedPathfinder(ABC):
@@ -73,8 +74,8 @@ class WeightedPathfinder(ABC):
         Find path from start_pos to end_pos avoiding obstacles.
 
         Args:
-            start_pos: QPointF - starting position
-            end_pos: QPointF - ending position
+            start_pos: (x, y) tuple - starting position in scene coordinates
+            end_pos: (x, y) tuple - ending position in scene coordinates
             obstacles: set of (grid_x, grid_y) tuples representing blocked cells
             bounds: tuple (min_x, min_y, width, height) for valid routing area
             algorithm: str - algorithm identifier (e.g., 'astar', 'dijkstra')
@@ -83,7 +84,7 @@ class WeightedPathfinder(ABC):
 
         Returns:
             tuple: (waypoints, runtime, iterations)
-                - waypoints: list of QPointF representing the path
+                - waypoints: list of (x, y) tuples representing the path
                 - runtime: float, time taken in seconds
                 - iterations: int, number of algorithm iterations
         """
@@ -123,21 +124,21 @@ class WeightedPathfinder(ABC):
             grid_coord: (x, y) tuple in grid space
 
         Returns:
-            QPointF in scene coordinates
+            (x, y) tuple in scene coordinates
         """
-        return QPointF(grid_coord[0] * self.grid_size, grid_coord[1] * self.grid_size)
+        return (grid_coord[0] * self.grid_size, grid_coord[1] * self.grid_size)
 
     def _pos_to_grid(self, pos) -> Tuple[int, int]:
         """
         Convert scene position to grid coordinates.
 
         Args:
-            pos: QPointF in scene coordinates
+            pos: (x, y) tuple in scene coordinates
 
         Returns:
             (x, y) tuple in grid space
         """
-        return (round(pos.x() / self.grid_size), round(pos.y() / self.grid_size))
+        return (round(pos[0] / self.grid_size), round(pos[1] / self.grid_size))
 
     def _heuristic(self, a, b):
         """
@@ -183,10 +184,10 @@ class WeightedPathfinder(ABC):
         Remove unnecessary waypoints (collinear points).
 
         Args:
-            waypoints: list of QPointF
+            waypoints: list of (x, y) tuples
 
         Returns:
-            list of QPointF with collinear points removed
+            list of (x, y) tuples with collinear points removed
         """
         if len(waypoints) <= 2:
             return waypoints
@@ -199,10 +200,10 @@ class WeightedPathfinder(ABC):
             next_point = waypoints[i + 1]
 
             # Check if current point is on the same line as prev and next
-            dx1 = current.x() - prev.x()
-            dy1 = current.y() - prev.y()
-            dx2 = next_point.x() - current.x()
-            dy2 = next_point.y() - current.y()
+            dx1 = current[0] - prev[0]
+            dy1 = current[1] - prev[1]
+            dx2 = next_point[0] - current[0]
+            dy2 = next_point[1] - current[1]
 
             # If not collinear (direction changes), keep the waypoint
             if not self._same_direction(dx1, dy1, dx2, dy2):
@@ -286,7 +287,7 @@ class IDAStarPathfinder(WeightedPathfinder):
 
         Returns:
             tuple: (waypoints, routing_failed)
-                - waypoints: list of QPointF representing the path
+                - waypoints: list of (x, y) tuples representing the path
                 - routing_failed: True if no valid path was found
         """
         start_grid = self._pos_to_grid(start_pos)
@@ -379,7 +380,7 @@ class IDAStarPathfinder(WeightedPathfinder):
             new_direction = (dx, dy)
 
             neighbor_pos = self._grid_to_pos(neighbor)
-            if not (min_x <= neighbor_pos.x() <= max_x and min_y <= neighbor_pos.y() <= max_y):
+            if not (min_x <= neighbor_pos[0] <= max_x and min_y <= neighbor_pos[1] <= max_y):
                 continue
 
             if neighbor in obstacles:
@@ -444,7 +445,7 @@ def polygon_to_grid_filled(
 
     Args:
         polygon_points: List of (x, y) tuples in local coordinates
-        position: Component position (QPointF)
+        position: Component position as (x, y) tuple
         rotation_angle: Rotation in degrees
         grid_size: Grid cell size
         inset: Inset distance in grid cells (for non-connected components)
@@ -484,8 +485,8 @@ def polygon_to_grid_filled(
         rotated_y = x * sin_a + y * cos_a
 
         # Translate to world position
-        world_x = position.x() + rotated_x
-        world_y = position.y() + rotated_y
+        world_x = position[0] + rotated_x
+        world_y = position[1] + rotated_y
 
         world_points.append((world_x, world_y))
 
@@ -580,7 +581,7 @@ def polygon_to_grid_frame(
 
     Args:
         polygon_points: List of (x, y) tuples in local coordinates
-        position: Component position (QPointF)
+        position: Component position as (x, y) tuple
         rotation_angle: Rotation in degrees
         grid_size: Grid cell size
         inset: Inset distance in grid cells (for non-connected components)
@@ -622,8 +623,8 @@ def polygon_to_grid_frame(
         rotated_y = x * sin_a + y * cos_a
 
         # Translate to world position
-        world_x = position.x() + rotated_x
-        world_y = position.y() + rotated_y
+        world_x = position[0] + rotated_x
+        world_y = position[1] + rotated_y
 
         world_points.append((world_x, world_y))
 
@@ -669,7 +670,8 @@ def get_wire_obstacles(wires, current_node, grid_size=20):
     Wires from the same node are not obstacles (allows bundling).
 
     Args:
-        wires: list of WireItem objects (all wires in the circuit)
+        wires: list of wire-like objects with .node and .waypoints attributes.
+            Each waypoint must be an (x, y) tuple.
         current_node: Node object that the current wire belongs to (or None)
         grid_size: size of grid cells
 
@@ -695,10 +697,10 @@ def get_wire_obstacles(wires, current_node, grid_size=20):
                 p2 = wire.waypoints[i + 1]
 
                 # Convert waypoints to grid coordinates
-                x1 = round(p1.x() / grid_size)
-                y1 = round(p1.y() / grid_size)
-                x2 = round(p2.x() / grid_size)
-                y2 = round(p2.y() / grid_size)
+                x1 = round(p1[0] / grid_size)
+                y1 = round(p1[1] / grid_size)
+                x2 = round(p2[0] / grid_size)
+                y2 = round(p2[1] / grid_size)
 
                 # Use Bresenham's algorithm to rasterize the line segment
                 dx = abs(x2 - x1)
@@ -737,26 +739,28 @@ def get_component_obstacles(
     """
     Get set of grid cells blocked by components and wires from other nodes.
 
+    Components must expose the following interface (duck-typed):
+        - component_id: str
+        - terminals: sequence (len used)
+        - rotation_angle: float
+        - pos() -> (x, y) tuple
+        - get_terminal_pos(index) -> (x, y) tuple
+        - get_obstacle_shape() -> list[(x, y)] (optional)
+
     Args:
-        components: dict of ComponentGraphicsItem objects
+        components: dict mapping component_id to component objects
         grid_size: size of grid cells
         padding: extra grid cells around each component (negative values shrink boundary inward)
         exclude_ids: set of component IDs to exclude from obstacles (optional) - DEPRECATED
         terminal_clearance_only: set of component IDs where only terminal areas should be cleared (not entire body)
         active_terminals: list of (component_id, terminal_index) tuples that must be cleared for pathfinding
-        existing_wires: list of WireItem objects (for wire-to-wire obstacle detection)
+        existing_wires: list of wire-like objects (for wire-to-wire obstacle detection)
         current_node: Node object that current wire belongs to (for same-net detection)
 
     Returns:
         set of (grid_x, grid_y) tuples
     """
     obstacles = set()
-
-    # if exclude_ids is None:
-    #     exclude_ids = set()
-
-    # if terminal_clearance_only is None:
-    #     terminal_clearance_only = set()
 
     if active_terminals is None:
         active_terminals = []
@@ -772,8 +776,8 @@ def get_component_obstacles(
         for i in range(len(comp.terminals)):
             term_pos = comp.get_terminal_pos(i)
             term_grid = (
-                round(term_pos.x() / grid_size),
-                round(term_pos.y() / grid_size),
+                round(term_pos[0] / grid_size),
+                round(term_pos[1] / grid_size),
             )
             terminal_key = (comp.component_id, i)
             is_active = terminal_key in active_terminals_set
@@ -822,8 +826,8 @@ def get_component_obstacles(
         for i in range(len(comp.terminals)):
             term_pos = comp.get_terminal_pos(i)
             # Use same conversion as pathfinding uses
-            term_grid_x = round(term_pos.x() / grid_size)
-            term_grid_y = round(term_pos.y() / grid_size)
+            term_grid_x = round(term_pos[0] / grid_size)
+            term_grid_y = round(term_pos[1] / grid_size)
 
             terminal_key = (comp.component_id, i)
             is_active_terminal = terminal_key in active_terminals_set
