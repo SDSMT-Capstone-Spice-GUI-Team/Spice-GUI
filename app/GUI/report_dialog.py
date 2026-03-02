@@ -78,7 +78,7 @@ class ReportDialog(QDialog):
         Returns:
             ReportConfig with the user's selections.
         """
-        from GUI.report_generator import ReportConfig
+        from services.report_generator import ReportConfig
 
         return ReportConfig(
             include_title=self._cb_title.isChecked(),

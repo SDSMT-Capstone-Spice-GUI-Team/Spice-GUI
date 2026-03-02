@@ -231,7 +231,12 @@ class ViewOperationsMixin:
             self._set_dirty(False)
 
         # Sync palette "Used in File" when components change
-        if event in ("component_added", "component_removed", "circuit_cleared", "model_loaded"):
+        if event in (
+            "component_added",
+            "component_removed",
+            "circuit_cleared",
+            "model_loaded",
+        ):
             self._sync_palette_used_in_file()
         if event == "model_loaded":
             self._sync_palette_recommendations()

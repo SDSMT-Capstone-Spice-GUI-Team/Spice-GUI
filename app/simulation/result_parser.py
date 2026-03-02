@@ -8,8 +8,6 @@ import logging
 import math
 import re
 
-from utils.format_utils import format_si  # noqa: F401 — canonical location; re-exported for compatibility
-
 logger = logging.getLogger(__name__)
 
 

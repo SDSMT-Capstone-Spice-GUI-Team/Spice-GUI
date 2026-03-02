@@ -175,7 +175,10 @@ class TestRendererRegistration:
     def test_all_types_have_ieee_renderer(self):
         from models.component import COMPONENT_TYPES
 
-        skip = {"Ground", "Transformer"}  # Ground handled separately, Transformer is new
+        skip = {
+            "Ground",
+            "Transformer",
+        }  # Ground handled separately, Transformer is new
         for ctype in COMPONENT_TYPES:
             if ctype in skip:
                 continue

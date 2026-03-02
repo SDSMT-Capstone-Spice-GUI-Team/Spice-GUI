@@ -434,7 +434,12 @@ class TestImportPreservesCircuitOnFailure:
         """A structurally valid JSON file should load without error."""
         bad_data = {
             "components": [
-                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}},
+                {
+                    "id": "R1",
+                    "type": "Resistor",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
             ],
             "wires": [
                 {"start_comp": "R1", "start_term": 0, "end_comp": "R1", "end_term": 1},
@@ -511,7 +516,14 @@ class TestAnnotationsAndRecommendedComponents:
 
         model = _build_simple_circuit()
         model.annotations = [
-            AnnotationData(text="Test note", x=50.0, y=50.0, font_size=12, bold=True, color="#FF0000"),
+            AnnotationData(
+                text="Test note",
+                x=50.0,
+                y=50.0,
+                font_size=12,
+                bold=True,
+                color="#FF0000",
+            ),
         ]
         model.recommended_components = ["Resistor", "Capacitor", "Op-Amp"]
         return model

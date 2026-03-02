@@ -39,7 +39,15 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "title": "Adding Components",
-        "keywords": ["component", "add", "drag", "palette", "resistor", "capacitor", "place"],
+        "keywords": [
+            "component",
+            "add",
+            "drag",
+            "palette",
+            "resistor",
+            "capacitor",
+            "place",
+        ],
         "body": (
             "<h2>Adding Components</h2>"
             "<p>The <b>Component Palette</b> on the left side lists all available components grouped by category.</p>"
@@ -69,7 +77,16 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "title": "Simulation",
-        "keywords": ["simulate", "run", "analysis", "dc", "ac", "transient", "netlist", "results"],
+        "keywords": [
+            "simulate",
+            "run",
+            "analysis",
+            "dc",
+            "ac",
+            "transient",
+            "netlist",
+            "results",
+        ],
         "body": (
             "<h2>Running Simulations</h2>"
             "<p>The application generates a SPICE netlist from your circuit and runs it through ngspice.</p>"
@@ -98,7 +115,14 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "title": "Keyboard Shortcuts",
-        "keywords": ["shortcut", "key", "keyboard", "hotkey", "keybinding", "accelerator"],
+        "keywords": [
+            "shortcut",
+            "key",
+            "keyboard",
+            "hotkey",
+            "keybinding",
+            "accelerator",
+        ],
         "body": (
             "<h2>Keyboard Shortcuts</h2>"
             "<table border='1' cellpadding='4' cellspacing='0'>"

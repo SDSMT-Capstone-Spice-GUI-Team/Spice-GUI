@@ -18,10 +18,24 @@ class TestSettingsServiceTypedHelpers:
     @pytest.fixture(autouse=True)
     def _clean(self):
         """Clear test keys before and after each test."""
-        for key in ("_test/bool", "_test/int", "_test/float", "_test/str", "_test/json", "_test/list"):
+        for key in (
+            "_test/bool",
+            "_test/int",
+            "_test/float",
+            "_test/str",
+            "_test/json",
+            "_test/list",
+        ):
             settings.set(key, None)
         yield
-        for key in ("_test/bool", "_test/int", "_test/float", "_test/str", "_test/json", "_test/list"):
+        for key in (
+            "_test/bool",
+            "_test/int",
+            "_test/float",
+            "_test/str",
+            "_test/json",
+            "_test/list",
+        ):
             settings.set(key, None)
 
     def test_get_bool_true(self):
@@ -89,7 +103,7 @@ class TestNoDirectQSettingsInProduction:
         "GUI/main_window_file_ops.py",
         "GUI/preferences_dialog.py",
         "GUI/component_palette.py",
-        "GUI/recent_exports.py",
+        "controllers/recent_exports.py",
         "GUI/circuitikz_options_dialog.py",
     ]
 

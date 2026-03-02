@@ -332,9 +332,19 @@ class TestGradeExporter:
             earned_points=50,
             check_results=[
                 CheckGradeResult(
-                    check_id="r1_exists", passed=True, points_earned=25, points_possible=25, feedback="OK"
+                    check_id="r1_exists",
+                    passed=True,
+                    points_earned=25,
+                    points_possible=25,
+                    feedback="OK",
                 ),
-                CheckGradeResult(check_id="r1_value", passed=True, points_earned=25, points_possible=25, feedback="OK"),
+                CheckGradeResult(
+                    check_id="r1_value",
+                    passed=True,
+                    points_earned=25,
+                    points_possible=25,
+                    feedback="OK",
+                ),
             ],
         )
         gr_b = GradingResult(
@@ -344,7 +354,11 @@ class TestGradeExporter:
             earned_points=25,
             check_results=[
                 CheckGradeResult(
-                    check_id="r1_exists", passed=True, points_earned=25, points_possible=25, feedback="OK"
+                    check_id="r1_exists",
+                    passed=True,
+                    points_earned=25,
+                    points_possible=25,
+                    feedback="OK",
                 ),
             ],
         )

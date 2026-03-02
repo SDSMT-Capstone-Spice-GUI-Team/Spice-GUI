@@ -42,7 +42,14 @@ def sample_template():
         metadata=TemplateMetadata(title="Test Template", author="Tester"),
         instructions="Build the circuit.",
         starter_circuit={
-            "components": [{"component_id": "R1", "component_type": "Resistor", "value": "1k", "position": [0, 0]}],
+            "components": [
+                {
+                    "component_id": "R1",
+                    "component_type": "Resistor",
+                    "value": "1k",
+                    "position": [0, 0],
+                }
+            ],
             "wires": [],
         },
     )

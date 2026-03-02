@@ -85,7 +85,12 @@ class TestUpdateNodesForWire:
 
     def test_merges_two_existing_nodes(self):
         nodes, ttn = [], {}
-        comps = {"R1": _comp("R1"), "R2": _comp("R2"), "R3": _comp("R3"), "R4": _comp("R4")}
+        comps = {
+            "R1": _comp("R1"),
+            "R2": _comp("R2"),
+            "R3": _comp("R3"),
+            "R4": _comp("R4"),
+        }
         update_nodes_for_wire(nodes, ttn, comps, _wire("R1", 0, "R2", 0), wire_index=0)
         update_nodes_for_wire(nodes, ttn, comps, _wire("R3", 0, "R4", 0), wire_index=1)
         assert len(nodes) == 2

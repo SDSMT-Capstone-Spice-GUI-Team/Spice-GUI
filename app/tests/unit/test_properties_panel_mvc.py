@@ -26,7 +26,15 @@ class TestControllerWaveformUpdate:
 
     def test_update_waveform_changes_model(self, controller_with_waveform):
         ctrl, comp = controller_with_waveform
-        new_params = {"v1": "0", "v2": "3.3", "td": "0", "tr": "1n", "tf": "1n", "pw": "250u", "per": "500u"}
+        new_params = {
+            "v1": "0",
+            "v2": "3.3",
+            "td": "0",
+            "tr": "1n",
+            "tf": "1n",
+            "pw": "250u",
+            "per": "500u",
+        }
         ctrl.update_component_waveform(comp.component_id, "PULSE", new_params)
 
         updated = ctrl.model.components[comp.component_id]

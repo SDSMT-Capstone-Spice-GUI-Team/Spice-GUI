@@ -628,7 +628,14 @@ class FFTAnalysisDialog(QDialog):
     - Fundamental frequency and THD display
     """
 
-    def __init__(self, time: np.ndarray, data: list, signal_names: list, parent=None, sim_ctrl=None):
+    def __init__(
+        self,
+        time: np.ndarray,
+        data: list,
+        signal_names: list,
+        parent=None,
+        sim_ctrl=None,
+    ):
         super().__init__(parent)
         self.setWindowTitle("Spectrum Analysis")
         self.setMinimumSize(1000, 700)

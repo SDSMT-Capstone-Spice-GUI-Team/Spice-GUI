@@ -424,7 +424,7 @@ class FileOperationsMixin:
     def _on_generate_report(self):
         """Generate a comprehensive PDF circuit report."""
         from GUI.report_dialog import ReportDialog
-        from GUI.report_generator import ReportGenerator
+        from services.report_generator import ReportGenerator
 
         # Determine circuit name from current file or default
         circuit_name = ""
@@ -818,13 +818,13 @@ class FileOperationsMixin:
 
     def _track_export(self, path, fmt, export_function):
         """Record a completed export for the Recent Exports menu."""
-        from .recent_exports import add_recent_export
+        from controllers.recent_exports import add_recent_export
 
         add_recent_export(path, fmt, export_function)
 
     def _populate_recent_exports_menu(self):
         """Rebuild the Recent Exports submenu from QSettings."""
-        from .recent_exports import get_recent_exports
+        from controllers.recent_exports import get_recent_exports
 
         menu = self._recent_exports_menu
         menu.clear()
@@ -844,7 +844,7 @@ class FileOperationsMixin:
 
     def _on_re_export_last(self):
         """Re-export using the most recent export settings."""
-        from .recent_exports import get_recent_exports
+        from controllers.recent_exports import get_recent_exports
 
         entries = get_recent_exports()
         if not entries:
@@ -966,7 +966,11 @@ class FileOperationsMixin:
             if statusBar:
                 count = len(new_recs)
                 statusBar.showMessage(
-                    f"Updated recommended components ({count} selected)" if count else "Cleared recommended components",
+                    (
+                        f"Updated recommended components ({count} selected)"
+                        if count
+                        else "Cleared recommended components"
+                    ),
                     3000,
                 )
 
