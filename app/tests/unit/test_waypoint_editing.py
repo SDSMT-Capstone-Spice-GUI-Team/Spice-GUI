@@ -142,16 +142,14 @@ class TestWaypointDragging:
         model_wps = wire_with_waypoints.model.waypoints
         assert (60.0, 10.0) in model_wps
 
-    def test_finish_drag_locks_wire(self, wire_with_waypoints, qtbot):
-        assert not wire_with_waypoints.model.locked
+    def test_finish_drag_notifies_canvas_with_waypoints(self, wire_with_waypoints, qtbot):
         wire_with_waypoints._move_waypoint(1, QPointF(60, 10))
         wire_with_waypoints._finish_waypoint_drag()
-        assert wire_with_waypoints.model.locked
-
-    def test_finish_drag_notifies_canvas(self, wire_with_waypoints, qtbot):
-        wire_with_waypoints._move_waypoint(1, QPointF(60, 10))
-        wire_with_waypoints._finish_waypoint_drag()
-        wire_with_waypoints.canvas.on_wire_waypoints_changed.assert_called_once_with(wire_with_waypoints)
+        wire_with_waypoints.canvas.on_wire_waypoints_changed.assert_called_once()
+        call_args = wire_with_waypoints.canvas.on_wire_waypoints_changed.call_args
+        assert call_args[0][0] is wire_with_waypoints
+        # Second arg is tuple waypoints list
+        assert isinstance(call_args[0][1], list)
 
     def test_path_rebuilt_after_move(self, wire_with_waypoints, qtbot):
         old_path = wire_with_waypoints.path()

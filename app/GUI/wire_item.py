@@ -132,19 +132,22 @@ class WireGraphicsItem(QGraphicsPathItem):
     def runtime(self):
         return self.model.runtime
 
-    @runtime.setter
-    def runtime(self, value):
-        self.model.runtime = value
-
     @property
     def iterations(self):
         return self.model.iterations
 
-    @iterations.setter
-    def iterations(self, value):
-        self.model.iterations = value
-
     # --- Methods ---
+
+    def _persist_routing_result(self, waypoints, runtime=0.0, iterations=0, routing_failed=False):
+        """Persist pathfinding results through the controller when available."""
+        if self.canvas and hasattr(self.canvas, "on_wire_routing_complete"):
+            self.canvas.on_wire_routing_complete(self, waypoints, runtime, iterations, routing_failed)
+        else:
+            # Fallback during initialisation (wire not yet in canvas.wires)
+            self.model.waypoints = waypoints
+            self.model.runtime = runtime
+            self.model.iterations = iterations
+            self.model.routing_failed = routing_failed
 
     def show_drag_preview(self):
         """Show a straight-line preview during component drag.
@@ -240,11 +243,8 @@ class WireGraphicsItem(QGraphicsPathItem):
             # Convert tuple waypoints back to QPointF for Qt drawing
             self.waypoints = [QPointF(wp[0], wp[1]) for wp in tuple_waypoints]
 
-            # Store in model
-            self.model.runtime = runtime
-            self.model.iterations = iterations
-            self.model.routing_failed = routing_failed
-            self.model.waypoints = list(tuple_waypoints)
+            # Persist through controller (falls back to direct model write during init)
+            self._persist_routing_result(list(tuple_waypoints), runtime, iterations, routing_failed)
 
             if routing_failed:
                 logger.warning(
@@ -259,13 +259,11 @@ class WireGraphicsItem(QGraphicsPathItem):
         else:
             # Fallback to direct line
             self.waypoints = [start_qpt, end_qpt]
-            self.model.runtime = 0.0
-            self.model.iterations = 0
-            self.model.routing_failed = False
-            self.model.waypoints = [
+            fallback_wps = [
                 (start_qpt.x(), start_qpt.y()),
                 (end_qpt.x(), end_qpt.y()),
             ]
+            self._persist_routing_result(fallback_wps)
 
         # Create path from waypoints
         path = QPainterPath()
@@ -404,18 +402,19 @@ class WireGraphicsItem(QGraphicsPathItem):
 
     def _finish_waypoint_drag(self):
         """Called by WaypointHandle on mouse release to persist changes."""
-        # Sync to model
-        self.model.waypoints = [
+        tuple_waypoints = [
             (
                 wp.x() if isinstance(wp, QPointF) else wp[0],
                 wp.y() if isinstance(wp, QPointF) else wp[1],
             )
             for wp in self.waypoints
         ]
-        self.model.locked = True
-        # Notify via canvas (avoids calling controller private methods)
+        # Persist waypoints and lock through canvas -> controller
         if self.canvas and hasattr(self.canvas, "on_wire_waypoints_changed"):
-            self.canvas.on_wire_waypoints_changed(self)
+            self.canvas.on_wire_waypoints_changed(self, tuple_waypoints)
+        else:
+            self.model.waypoints = tuple_waypoints
+            self.model.locked = True
 
     def _rebuild_path_from_waypoints(self):
         """Rebuild the QPainterPath from the current waypoints list."""
