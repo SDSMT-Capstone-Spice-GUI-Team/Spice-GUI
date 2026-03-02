@@ -1,10 +1,11 @@
-"""Tests for waveform SPICE command generation (#574).
+"""Tests for waveform SPICE utilities (#574, #599).
 
 Verifies that format_waveform_spice_value produces correct SPICE strings
-for each supported waveform type.
+for each supported waveform type, and that default_waveform_params provides
+correct defaults.
 """
 
-from simulation.waveform_utils import format_waveform_spice_value
+from simulation.waveform_utils import DEFAULT_WAVEFORM_TYPE, default_waveform_params, format_waveform_spice_value
 
 
 class TestFormatWaveformSpiceValue:
@@ -79,6 +80,65 @@ class TestFormatWaveformSpiceValue:
         assert result.startswith("SIN(")
         assert "0" in result  # default offset
         assert "5" in result  # default amplitude
+
+
+class TestDefaultWaveformParams:
+    """Tests for default_waveform_params and DEFAULT_WAVEFORM_TYPE."""
+
+    def test_default_type_is_sin(self):
+        assert DEFAULT_WAVEFORM_TYPE == "SIN"
+
+    def test_contains_all_waveform_types(self):
+        params = default_waveform_params()
+        assert set(params.keys()) == {"SIN", "PULSE", "EXP"}
+
+    def test_sin_has_required_keys(self):
+        params = default_waveform_params()
+        assert set(params["SIN"].keys()) == {
+            "offset",
+            "amplitude",
+            "frequency",
+            "delay",
+            "theta",
+            "phase",
+        }
+
+    def test_pulse_has_required_keys(self):
+        params = default_waveform_params()
+        assert set(params["PULSE"].keys()) == {
+            "v1",
+            "v2",
+            "td",
+            "tr",
+            "tf",
+            "pw",
+            "per",
+        }
+
+    def test_exp_has_required_keys(self):
+        params = default_waveform_params()
+        assert set(params["EXP"].keys()) == {"v1", "v2", "td1", "tau1", "td2", "tau2"}
+
+    def test_returns_fresh_copy(self):
+        p1 = default_waveform_params()
+        p2 = default_waveform_params()
+        assert p1 is not p2
+        p1["SIN"]["offset"] = "999"
+        assert p2["SIN"]["offset"] == "0"
+
+    def test_component_data_uses_extracted_defaults(self):
+        """ComponentData.__post_init__ should use defaults from waveform_utils."""
+        from models.component import ComponentData
+
+        comp = ComponentData(
+            component_id="V1",
+            component_type="Waveform Source",
+            value="5V",
+            position=(0.0, 0.0),
+        )
+        assert comp.waveform_type == DEFAULT_WAVEFORM_TYPE
+        expected = default_waveform_params()
+        assert comp.waveform_params == expected
 
 
 class TestComponentDataDelegation:
