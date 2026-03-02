@@ -1,5 +1,6 @@
+from controllers.settings_service import settings as app_settings
 from models.component import COMPONENT_CATEGORIES
-from PyQt6.QtCore import QMimeData, QSettings, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QDrag, QFont, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
@@ -273,19 +274,18 @@ class ComponentPalette(QWidget):
                 self._used_in_file_item.setExpanded(True)
 
     def _load_expanded_state(self) -> dict[str, bool]:
-        """Load category expanded/collapsed state from QSettings."""
-        settings = QSettings("SDSMT", "SDM Spice")
+        """Load category expanded/collapsed state from settings."""
         state = {}
         for category_name in COMPONENT_CATEGORIES:
-            val = settings.value(f"palette/expanded/{category_name}")
+            val = app_settings.get(f"palette/expanded/{category_name}")
             if val is not None:
-                state[category_name] = val == "true" or val is True
+                state[category_name] = app_settings.get_bool(f"palette/expanded/{category_name}")
             else:
                 state[category_name] = True  # default expanded
         return state
 
     def _save_expanded_state(self, _item=None):
-        """Save category expanded/collapsed state to QSettings."""
+        """Save category expanded/collapsed state to settings."""
         # Don't save while searching (search auto-expands categories)
         if self.search_input.text():
             return
@@ -293,9 +293,8 @@ class ComponentPalette(QWidget):
         # prefs when recommendations auto-collapse categories
         if self._recommended_item is not None:
             return
-        settings = QSettings("SDSMT", "SDM Spice")
         for category_name, category_item in self._category_items.items():
-            settings.setValue(f"palette/expanded/{category_name}", category_item.isExpanded())
+            app_settings.set(f"palette/expanded/{category_name}", category_item.isExpanded())
 
     def update_used_in_file(self, component_types: list[str]) -> None:
         """Show a 'Used in File' section at the top of the palette.

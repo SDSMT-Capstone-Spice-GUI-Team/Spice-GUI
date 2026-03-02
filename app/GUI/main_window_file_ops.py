@@ -4,7 +4,7 @@ import json
 import logging
 from pathlib import Path
 
-from PyQt6.QtCore import QSettings
+from controllers.settings_service import settings as app_settings
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
@@ -16,8 +16,7 @@ class FileOperationsMixin:
 
     def _apply_default_zoom(self):
         """Apply the user's preferred default zoom level to the canvas."""
-        settings = QSettings("SDSMT", "SDM Spice")
-        zoom_percent = int(settings.value("view/default_zoom", 100))
+        zoom_percent = app_settings.get_int("view/default_zoom", 100)
         self.canvas.set_default_zoom(zoom_percent)
 
     def _on_new(self):

@@ -1,6 +1,6 @@
 """Unified Preferences dialog for application settings."""
 
-from PyQt6.QtCore import QSettings
+from controllers.settings_service import settings
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -63,10 +63,9 @@ class PreferencesDialog(QDialog):
         self._snap_color_mode = theme_manager.color_mode
         self._snap_wire_thickness = theme_manager.wire_thickness
         self._snap_show_junction_dots = theme_manager.show_junction_dots
-        settings = QSettings("SDSMT", "SDM Spice")
-        self._snap_autosave_enabled = settings.value("autosave/enabled", True)
-        self._snap_autosave_interval = int(settings.value("autosave/interval", 60))
-        self._snap_default_zoom = int(settings.value("view/default_zoom", 100))
+        self._snap_autosave_enabled = settings.get("autosave/enabled", True)
+        self._snap_autosave_interval = settings.get_int("autosave/interval", 60)
+        self._snap_default_zoom = settings.get_int("view/default_zoom", 100)
 
     def _revert_settings(self):
         """Restore appearance and autosave to snapshot values."""
@@ -76,10 +75,9 @@ class PreferencesDialog(QDialog):
         self.main_window._set_color_mode(self._snap_color_mode)
         self.main_window._set_wire_thickness(self._snap_wire_thickness)
         self.main_window._set_show_junction_dots(self._snap_show_junction_dots)
-        settings = QSettings("SDSMT", "SDM Spice")
-        settings.setValue("autosave/enabled", self._snap_autosave_enabled)
-        settings.setValue("autosave/interval", self._snap_autosave_interval)
-        settings.setValue("view/default_zoom", self._snap_default_zoom)
+        settings.set("autosave/enabled", self._snap_autosave_enabled)
+        settings.set("autosave/interval", self._snap_autosave_interval)
+        settings.set("view/default_zoom", self._snap_default_zoom)
         self.main_window._start_autosave_timer()
 
     # ---- UI construction --------------------------------------------------
@@ -383,19 +381,18 @@ class PreferencesDialog(QDialog):
 
     def _on_ok(self):
         """Persist all settings and close."""
-        settings = QSettings("SDSMT", "SDM Spice")
-        settings.setValue("autosave/enabled", self.autosave_checkbox.isChecked())
-        settings.setValue("autosave/interval", self.autosave_spin.value())
+        settings.set("autosave/enabled", self.autosave_checkbox.isChecked())
+        settings.set("autosave/interval", self.autosave_spin.value())
         zoom_index = self.default_zoom_combo.currentIndex()
-        settings.setValue("view/default_zoom", _ZOOM_ITEMS[zoom_index][1])
+        settings.set("view/default_zoom", _ZOOM_ITEMS[zoom_index][1])
         self.main_window._start_autosave_timer()
         # Persist theme key
-        settings.setValue("view/theme_key", theme_manager.get_theme_key())
-        settings.setValue("view/theme", theme_manager.current_theme.name)
-        settings.setValue("view/symbol_style", theme_manager.symbol_style)
-        settings.setValue("view/color_mode", theme_manager.color_mode)
-        settings.setValue("view/wire_thickness", theme_manager.wire_thickness)
-        settings.setValue("view/show_junction_dots", theme_manager.show_junction_dots)
+        settings.set("view/theme_key", theme_manager.get_theme_key())
+        settings.set("view/theme", theme_manager.current_theme.name)
+        settings.set("view/symbol_style", theme_manager.symbol_style)
+        settings.set("view/color_mode", theme_manager.color_mode)
+        settings.set("view/wire_thickness", theme_manager.wire_thickness)
+        settings.set("view/show_junction_dots", theme_manager.show_junction_dots)
         self._accepted = True
         self.close()
 

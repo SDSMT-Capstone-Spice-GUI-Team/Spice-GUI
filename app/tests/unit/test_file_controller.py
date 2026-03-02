@@ -294,38 +294,34 @@ class TestValidateCircuitData:
 class TestRecentFiles:
     """Test recent files functionality (Issue #101)."""
 
-    @patch("controllers.file_controller.QSettings")
-    def test_get_recent_files_returns_empty_list_initially(self, mock_qsettings):
+    @patch("controllers.file_controller.settings")
+    def test_get_recent_files_returns_empty_list_initially(self, mock_settings):
         """get_recent_files should return empty list when no recent files."""
-        mock_settings_instance = MagicMock()
-        mock_settings_instance.value.return_value = []
-        mock_qsettings.return_value = mock_settings_instance
+        mock_settings.get_list.return_value = []
 
         ctrl = FileController()
         recent = ctrl.get_recent_files()
         assert recent == []
 
-    @patch("controllers.file_controller.QSettings")
-    def test_add_recent_file_adds_to_list(self, mock_qsettings, tmp_path):
+    @patch("controllers.file_controller.settings")
+    def test_add_recent_file_adds_to_list(self, mock_settings, tmp_path):
         """add_recent_file should add file to recent list."""
-        mock_settings_instance = MagicMock()
-        mock_settings_instance.value.return_value = []
-        mock_qsettings.return_value = mock_settings_instance
+        mock_settings.get_list.return_value = []
 
         ctrl = FileController()
         filepath = tmp_path / "test.json"
         filepath.touch()  # Create file
         ctrl.add_recent_file(filepath)
 
-        # Check that setValue was called with the file path
-        mock_settings_instance.setValue.assert_called()
-        call_args = mock_settings_instance.setValue.call_args
+        # Check that set was called with the file path
+        mock_settings.set.assert_called()
+        call_args = mock_settings.set.call_args
         assert call_args[0][0] == "file/recent_files"
         assert str(filepath.absolute()) in call_args[0][1]
 
     @patch("controllers.file_controller.os.path.exists")
-    @patch("controllers.file_controller.QSettings")
-    def test_add_recent_file_moves_to_front_if_exists(self, mock_qsettings, mock_exists, tmp_path):
+    @patch("controllers.file_controller.settings")
+    def test_add_recent_file_moves_to_front_if_exists(self, mock_settings, mock_exists, tmp_path):
         """add_recent_file should move existing file to front."""
         file1 = str((tmp_path / "file1.json").absolute())
         file2 = str((tmp_path / "file2.json").absolute())
@@ -333,22 +329,20 @@ class TestRecentFiles:
         # Mock: all files exist
         mock_exists.return_value = True
 
-        mock_settings_instance = MagicMock()
-        mock_settings_instance.value.return_value = [file2, file1]
-        mock_qsettings.return_value = mock_settings_instance
+        mock_settings.get_list.return_value = [file2, file1]
 
         ctrl = FileController()
         ctrl.add_recent_file(Path(file1))
 
         # file1 should now be at the front
-        call_args = mock_settings_instance.setValue.call_args
+        call_args = mock_settings.set.call_args
         saved_list = call_args[0][1]
         assert saved_list[0] == file1
         assert saved_list[1] == file2
 
     @patch("controllers.file_controller.os.path.exists")
-    @patch("controllers.file_controller.QSettings")
-    def test_add_recent_file_maintains_max_limit(self, mock_qsettings, mock_exists, tmp_path):
+    @patch("controllers.file_controller.settings")
+    def test_add_recent_file_maintains_max_limit(self, mock_settings, mock_exists, tmp_path):
         """add_recent_file should keep only MAX_RECENT_FILES (10) files."""
         # Create 11 file paths
         existing_files = [str((tmp_path / f"file{i}.json").absolute()) for i in range(10)]
@@ -357,22 +351,20 @@ class TestRecentFiles:
         # Mock: all files exist
         mock_exists.return_value = True
 
-        mock_settings_instance = MagicMock()
-        mock_settings_instance.value.return_value = existing_files
-        mock_qsettings.return_value = mock_settings_instance
+        mock_settings.get_list.return_value = existing_files
 
         ctrl = FileController()
         ctrl.add_recent_file(new_file)
 
         # Should have exactly 10 files
-        call_args = mock_settings_instance.setValue.call_args
+        call_args = mock_settings.set.call_args
         saved_list = call_args[0][1]
         assert len(saved_list) == 10
         assert saved_list[0] == str(new_file.absolute())
 
-    @patch("controllers.file_controller.QSettings")
+    @patch("controllers.file_controller.settings")
     @patch("controllers.file_controller.os.path.exists")
-    def test_get_recent_files_filters_missing_files(self, mock_exists, mock_qsettings, tmp_path):
+    def test_get_recent_files_filters_missing_files(self, mock_exists, mock_settings, tmp_path):
         """get_recent_files should filter out files that no longer exist."""
         file1 = str((tmp_path / "exists.json").absolute())
         file2 = str((tmp_path / "missing.json").absolute())
@@ -380,9 +372,7 @@ class TestRecentFiles:
         # Mock: file1 exists, file2 doesn't
         mock_exists.side_effect = lambda f: f == file1
 
-        mock_settings_instance = MagicMock()
-        mock_settings_instance.value.return_value = [file1, file2]
-        mock_qsettings.return_value = mock_settings_instance
+        mock_settings.get_list.return_value = [file1, file2]
 
         ctrl = FileController()
         recent = ctrl.get_recent_files()
@@ -391,46 +381,39 @@ class TestRecentFiles:
         assert recent == [file1]
 
         # Should update settings to remove missing file
-        assert mock_settings_instance.setValue.called
+        assert mock_settings.set.called
 
-    @patch("controllers.file_controller.QSettings")
-    def test_clear_recent_files(self, mock_qsettings):
+    @patch("controllers.file_controller.settings")
+    def test_clear_recent_files(self, mock_settings):
         """clear_recent_files should empty the list."""
-        mock_settings_instance = MagicMock()
-        mock_qsettings.return_value = mock_settings_instance
-
         ctrl = FileController()
         ctrl.clear_recent_files()
 
         # Should save empty list
-        mock_settings_instance.setValue.assert_called_with("file/recent_files", [])
+        mock_settings.set.assert_called_with("file/recent_files", [])
 
-    @patch("controllers.file_controller.QSettings")
-    def test_save_circuit_updates_recent_files(self, mock_qsettings, tmp_path):
+    @patch("controllers.file_controller.settings")
+    def test_save_circuit_updates_recent_files(self, mock_settings, tmp_path):
         """save_circuit should add file to recent files list."""
-        mock_settings_instance = MagicMock()
-        mock_settings_instance.value.return_value = []
-        mock_qsettings.return_value = mock_settings_instance
+        mock_settings.get_list.return_value = []
 
         model = _build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
 
-        # Should have called setValue to add to recent files
-        calls = [call[0][0] for call in mock_settings_instance.setValue.call_args_list]
+        # Should have called set to add to recent files
+        calls = [call[0][0] for call in mock_settings.set.call_args_list]
         assert "file/recent_files" in calls
 
-    @patch("controllers.file_controller.QSettings")
-    def test_load_circuit_updates_recent_files(self, mock_qsettings, tmp_path):
+    @patch("controllers.file_controller.settings")
+    def test_load_circuit_updates_recent_files(self, mock_settings, tmp_path):
         """load_circuit should add file to recent files list."""
         # First save a circuit
         model = _build_simple_circuit()
         filepath = tmp_path / "test.json"
 
-        mock_settings_instance = MagicMock()
-        mock_settings_instance.value.return_value = []
-        mock_qsettings.return_value = mock_settings_instance
+        mock_settings.get_list.return_value = []
 
         ctrl = FileController(model)
         ctrl.save_circuit(filepath)
@@ -439,8 +422,8 @@ class TestRecentFiles:
         ctrl2 = FileController()
         ctrl2.load_circuit(filepath)
 
-        # Should have called setValue to add to recent files
-        calls = [call[0][0] for call in mock_settings_instance.setValue.call_args_list]
+        # Should have called set to add to recent files
+        calls = [call[0][0] for call in mock_settings.set.call_args_list]
         assert "file/recent_files" in calls
 
 
@@ -602,12 +585,13 @@ class TestAnnotationsAndRecommendedComponents:
 
 
 class TestQtDependencies:
-    def test_qsettings_imported_for_recent_files(self):
-        """FileController now uses QSettings for recent files (Issue #101)."""
+    def test_settings_service_used_for_recent_files(self):
+        """FileController uses centralized SettingsService for persistence (#598)."""
         import controllers.file_controller as mod
 
         source = open(mod.__file__).read()
-        # QSettings should be imported
-        assert "QSettings" in source
+        # Should use centralized settings service, not QSettings directly
+        assert "settings_service" in source
+        assert "QSettings" not in source
         # But no QtWidgets (stays out of view layer)
         assert "QtWidgets" not in source

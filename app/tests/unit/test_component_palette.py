@@ -7,22 +7,22 @@ recommended components, and used-in-file auto-detection.
 """
 
 import pytest
+from controllers.settings_service import settings as app_settings
 from GUI.component_palette import _RECOMMENDED_CATEGORY, _USED_IN_FILE_CATEGORY, ComponentPalette
 from GUI.styles import COMPONENTS
 from models.component import COMPONENT_CATEGORIES
-from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtCore import Qt
 
 
 @pytest.fixture(autouse=True)
 def _clear_palette_settings():
-    """Clear palette QSettings before each test to avoid cross-test contamination."""
-    settings = QSettings("SDSMT", "SDM Spice")
+    """Clear palette settings before each test to avoid cross-test contamination."""
     for category_name in COMPONENT_CATEGORIES:
-        settings.remove(f"palette/expanded/{category_name}")
+        app_settings.set(f"palette/expanded/{category_name}", None)
     yield
     # Cleanup after test too
     for category_name in COMPONENT_CATEGORIES:
-        settings.remove(f"palette/expanded/{category_name}")
+        app_settings.set(f"palette/expanded/{category_name}", None)
 
 
 @pytest.fixture
@@ -200,9 +200,8 @@ class TestComponentPaletteSettingsPersistence:
 
     def test_new_palette_loads_saved_state(self, qtbot):
         # Save collapsed state
-        settings = QSettings("SDSMT", "SDM Spice")
-        settings.setValue("palette/expanded/Passive", False)
-        settings.setValue("palette/expanded/Sources", True)
+        app_settings.set("palette/expanded/Passive", False)
+        app_settings.set("palette/expanded/Sources", True)
         # Create new palette instance
         p2 = ComponentPalette()
         qtbot.addWidget(p2)
