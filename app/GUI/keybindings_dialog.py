@@ -2,6 +2,7 @@
 keybindings_dialog.py — Preferences dialog for configuring keyboard shortcuts.
 """
 
+from controllers.keybindings import ACTION_LABELS
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import (
@@ -16,8 +17,6 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
-
-from .keybindings import ACTION_LABELS
 
 
 class KeybindingsDialog(QDialog):

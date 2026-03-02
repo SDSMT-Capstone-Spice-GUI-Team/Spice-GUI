@@ -12,10 +12,10 @@ Issue: #282
 
 import pytest
 from controllers.circuit_controller import CircuitController
+from controllers.keybindings import KeybindingsRegistry
 from controllers.simulation_controller import SimulationController
 from GUI.analysis_dialog import AnalysisDialog
 from GUI.component_palette import ComponentPalette
-from GUI.keybindings import KeybindingsRegistry
 from GUI.keybindings_dialog import KeybindingsDialog
 from GUI.properties_panel import PropertiesPanel
 from models.circuit import CircuitModel

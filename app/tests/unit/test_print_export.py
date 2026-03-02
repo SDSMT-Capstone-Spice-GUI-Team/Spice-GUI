@@ -4,7 +4,7 @@ import os
 import tempfile
 
 import pytest
-from GUI.keybindings import ACTION_LABELS, DEFAULTS
+from controllers.keybindings import ACTION_LABELS, DEFAULTS
 from PyQt6.QtCore import QRectF
 
 
@@ -28,7 +28,7 @@ class TestPrintKeybindings:
 
     def test_no_shortcut_conflicts(self):
         """Print shortcuts should not conflict with existing ones."""
-        from GUI.keybindings import KeybindingsRegistry
+        from controllers.keybindings import KeybindingsRegistry
 
         registry = KeybindingsRegistry(config_path="/dev/null")
         conflicts = registry.get_conflicts()

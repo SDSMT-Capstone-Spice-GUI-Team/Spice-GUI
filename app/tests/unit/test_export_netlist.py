@@ -179,13 +179,13 @@ class TestExportNetlistKeybindings:
 
     def test_keybinding_registered(self):
         """file.export_netlist should be in the keybindings DEFAULTS."""
-        from GUI.keybindings import DEFAULTS
+        from controllers.keybindings import DEFAULTS
 
         assert "file.export_netlist" in DEFAULTS
 
     def test_action_label_registered(self):
         """file.export_netlist should have a human-readable label."""
-        from GUI.keybindings import ACTION_LABELS
+        from controllers.keybindings import ACTION_LABELS
 
         assert "file.export_netlist" in ACTION_LABELS
         assert "Netlist" in ACTION_LABELS["file.export_netlist"]

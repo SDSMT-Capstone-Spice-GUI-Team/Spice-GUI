@@ -16,6 +16,7 @@ from pathlib import Path
 
 from controllers.circuit_controller import CircuitController
 from controllers.file_controller import FileController
+from controllers.keybindings import KeybindingsRegistry
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt, QTimer
@@ -37,7 +38,6 @@ from .circuit_canvas import CircuitCanvasView
 from .circuit_statistics_panel import CircuitStatisticsPanel
 from .component_palette import ComponentPalette
 from .grading_panel import GradingPanel
-from .keybindings import KeybindingsRegistry
 from .main_window_analysis import AnalysisSettingsMixin
 from .main_window_file_ops import FileOperationsMixin
 from .main_window_help import HelpMixin
