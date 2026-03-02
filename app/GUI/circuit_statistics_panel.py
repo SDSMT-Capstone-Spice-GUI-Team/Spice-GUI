@@ -5,6 +5,7 @@ from collections import Counter
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFormLayout, QGroupBox, QLabel, QScrollArea, QTextEdit, QVBoxLayout, QWidget
+from utils.connectivity import find_floating_terminals
 
 from .styles import theme_manager
 
@@ -157,7 +158,7 @@ class CircuitStatisticsPanel(QWidget):
             self._components_form.addRow(f"{comp_type}:", label)
 
     def _update_connectivity(self):
-        floating = self._find_floating_terminals()
+        floating = find_floating_terminals(self.model.components, self.model.terminal_to_node)
         if not self.model.components:
             self._floating_label.setText("-")
             self._floating_label.setStyleSheet("")
@@ -171,18 +172,6 @@ class CircuitStatisticsPanel(QWidget):
             self._floating_label.setText("All connected")
             self._floating_label.setStyleSheet("QLabel { color: green; }")
             self._floating_label.setToolTip("")
-
-    def _find_floating_terminals(self):
-        """Return set of (component_id, terminal_index) that are not in any node."""
-        floating = set()
-        for comp in self.model.components.values():
-            if comp.component_type == "Ground":
-                continue
-            for tidx in range(comp.get_terminal_count()):
-                key = (comp.component_id, tidx)
-                if key not in self.model.terminal_to_node:
-                    floating.add(key)
-        return floating
 
     def _update_netlist_preview(self):
         if not self.model.components:
