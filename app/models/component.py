@@ -380,36 +380,16 @@ class ComponentData:
         """
         Return the SPICE value string for this component.
 
-        For waveform sources, generates the full waveform specification.
+        For waveform sources, delegates to
+        :func:`simulation.waveform_utils.format_waveform_spice_value`.
         For other components, returns the value as-is.
         """
-        if self.component_type != "Waveform Source" or self.waveform_params is None:
+        if self.component_type != "Waveform Source":
             return self.value
 
-        wtype = self.waveform_type or "SIN"
-        params = self.waveform_params.get(wtype, {})
+        from simulation.waveform_utils import format_waveform_spice_value
 
-        if wtype == "SIN":
-            return (
-                f"SIN({params.get('offset', '0')} {params.get('amplitude', '5')} "
-                f"{params.get('frequency', '1k')} {params.get('delay', '0')} "
-                f"{params.get('theta', '0')} {params.get('phase', '0')})"
-            )
-        elif wtype == "PULSE":
-            return (
-                f"PULSE({params.get('v1', '0')} {params.get('v2', '5')} "
-                f"{params.get('td', '0')} {params.get('tr', '1n')} "
-                f"{params.get('tf', '1n')} {params.get('pw', '500u')} "
-                f"{params.get('per', '1m')})"
-            )
-        elif wtype == "EXP":
-            return (
-                f"EXP({params.get('v1', '0')} {params.get('v2', '5')} "
-                f"{params.get('td1', '0')} {params.get('tau1', '1u')} "
-                f"{params.get('td2', '2u')} {params.get('tau2', '2u')})"
-            )
-        else:
-            return self.value
+        return format_waveform_spice_value(self.waveform_type, self.waveform_params, self.value)
 
     def to_dict(self) -> dict:
         """
