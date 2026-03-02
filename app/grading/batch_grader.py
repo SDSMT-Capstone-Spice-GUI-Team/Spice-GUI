@@ -13,10 +13,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
-from controllers.file_controller import validate_circuit_data
 from grading.grader import CircuitGrader, GradingResult
 from grading.rubric import Rubric
 from models.circuit import CircuitModel
+from models.circuit_validator import validate_circuit_data
 
 logger = logging.getLogger(__name__)
 
