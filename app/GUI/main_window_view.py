@@ -136,18 +136,7 @@ class ViewOperationsMixin:
                 from controllers.template_controller import TemplateController
 
                 model = TemplateController.create_circuit_from_template(bundle.template)
-                self.model.clear()
-                self.model.components = model.components
-                self.model.wires = model.wires
-                self.model.nodes = model.nodes
-                self.model.terminal_to_node = model.terminal_to_node
-                self.model.component_counter = model.component_counter
-                self.model.analysis_type = model.analysis_type
-                self.model.analysis_params = model.analysis_params
-                if hasattr(model, "annotations"):
-                    self.model.annotations = model.annotations
-                if self.circuit_ctrl:
-                    self.circuit_ctrl._notify("model_loaded", None)
+                self.file_ctrl.load_from_model(model)
 
             # Load rubric into grading panel if present
             if bundle.rubric is not None:
