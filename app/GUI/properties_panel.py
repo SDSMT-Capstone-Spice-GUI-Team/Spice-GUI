@@ -280,20 +280,8 @@ class PropertiesPanel(QWidget):
 
         dialog = WaveformConfigDialog(self.current_component, self)
         if dialog.exec():
-            # Get configured parameters
+            # Get configured parameters and emit signal — controller handles model mutation
             waveform_type, params = dialog.get_parameters()
-
-            # Update component
-            self.current_component.waveform_type = waveform_type
-            self.current_component.waveform_params[waveform_type] = params
-
-            # Update the value display to show the SPICE representation
-            if hasattr(self.current_component, "get_spice_value"):
-                spice_value = self.current_component.get_spice_value()
-                self.value_input.setText(spice_value)
-                self.current_component.value = spice_value
-
-            # Emit property changed signal
             self.property_changed.emit(self.current_component.component_id, "waveform", (waveform_type, params))
 
     def set_simulation_results(self, power_data, voltage_data=None, total_power=0.0):

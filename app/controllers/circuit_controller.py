@@ -144,6 +144,30 @@ class CircuitController:
         component.value = value
         self._notify("component_value_changed", component)
 
+    def update_component_waveform(self, component_id: str, waveform_type: str, params: dict) -> None:
+        """Update a component's waveform configuration. Locked components cannot be changed."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.waveform_type = waveform_type
+        if component.waveform_params is None:
+            component.waveform_params = {}
+        component.waveform_params[waveform_type] = params
+        component.value = component.get_spice_value()
+        self._notify("component_value_changed", component)
+
+    def update_component_initial_condition(self, component_id: str, initial_condition: Optional[str]) -> None:
+        """Update a component's initial condition. Locked components cannot be changed."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.initial_condition = initial_condition
+        self._notify("component_value_changed", component)
+
     def move_component(self, component_id: str, position: tuple[float, float]) -> None:
         """Move a component to a new position. Locked components cannot be moved."""
         if self.is_component_locked(component_id):
