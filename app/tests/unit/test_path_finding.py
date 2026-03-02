@@ -1,8 +1,7 @@
 """Tests for path_finding.py — IDA* wire routing algorithm."""
 
 import pytest
-from GUI.path_finding import IDAStarPathfinder
-from PyQt6.QtCore import QPointF
+from algorithms.path_finding import IDAStarPathfinder
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -27,13 +26,13 @@ BOUNDS = (-200, -200, 400, 400)
 
 
 def _grid(gx, gy):
-    """Shorthand: grid coords -> QPointF in scene coordinates."""
-    return QPointF(gx * GRID, gy * GRID)
+    """Shorthand: grid coords -> (x, y) tuple in scene coordinates."""
+    return (gx * GRID, gy * GRID)
 
 
 def _to_grid_tuples(waypoints):
-    """Convert list of QPointF waypoints to list of (gx, gy) grid tuples."""
-    return [(round(p.x() / GRID), round(p.y() / GRID)) for p in waypoints]
+    """Convert list of (x, y) waypoints to list of (gx, gy) grid tuples."""
+    return [(round(p[0] / GRID), round(p[1] / GRID)) for p in waypoints]
 
 
 # ===========================================================================
@@ -43,13 +42,13 @@ def _to_grid_tuples(waypoints):
 
 class TestGridConversion:
     def test_pos_to_grid(self, pathfinder):
-        assert pathfinder._pos_to_grid(QPointF(0, 0)) == (0, 0)
-        assert pathfinder._pos_to_grid(QPointF(40, 60)) == (2, 3)
+        assert pathfinder._pos_to_grid((0, 0)) == (0, 0)
+        assert pathfinder._pos_to_grid((40, 60)) == (2, 3)
 
     def test_grid_to_pos(self, pathfinder):
         pos = pathfinder._grid_to_pos((2, 3))
-        assert pos.x() == 40
-        assert pos.y() == 60
+        assert pos[0] == 40
+        assert pos[1] == 60
 
     def test_round_trip(self, pathfinder):
         for gx, gy in [(0, 0), (5, -3), (-10, 7)]:
@@ -60,8 +59,8 @@ class TestGridConversion:
 
     def test_pos_to_grid_rounds(self, pathfinder):
         """Positions that aren't exactly on grid should round to nearest cell."""
-        assert pathfinder._pos_to_grid(QPointF(11, 29)) == (1, 1)
-        assert pathfinder._pos_to_grid(QPointF(9, 31)) == (0, 2)
+        assert pathfinder._pos_to_grid((11, 29)) == (1, 1)
+        assert pathfinder._pos_to_grid((9, 31)) == (0, 2)
 
 
 # ===========================================================================
@@ -208,8 +207,8 @@ class TestOrthogonalPaths:
         start, end = _grid(0, 0), _grid(3, 4)
         waypoints, _, _, _ = pathfinder.find_path(start, end, set(), bounds=BOUNDS)
         for i in range(len(waypoints) - 1):
-            dx = waypoints[i + 1].x() - waypoints[i].x()
-            dy = waypoints[i + 1].y() - waypoints[i].y()
+            dx = waypoints[i + 1][0] - waypoints[i][0]
+            dy = waypoints[i + 1][1] - waypoints[i][1]
             # At least one of dx/dy must be zero (no diagonal movement)
             assert dx == 0 or dy == 0, f"Diagonal segment: ({dx}, {dy})"
 
@@ -388,8 +387,8 @@ class TestDiagonalRouting:
         start, end = _grid(0, 0), _grid(5, 5)
         waypoints, _, _, _ = pathfinder.find_path(start, end, set(), bounds=BOUNDS)
         for i in range(len(waypoints) - 1):
-            dx = waypoints[i + 1].x() - waypoints[i].x()
-            dy = waypoints[i + 1].y() - waypoints[i].y()
+            dx = waypoints[i + 1][0] - waypoints[i][0]
+            dy = waypoints[i + 1][1] - waypoints[i][1]
             assert dx == 0 or dy == 0, f"Unexpected diagonal segment: ({dx}, {dy})"
 
     def test_corner_cutting_prevented(self, diagonal_pathfinder):
@@ -452,13 +451,13 @@ class TestOctileHeuristic:
 class TestRoutingModeConstants:
     def test_orthogonal_dirs_count(self):
         """ORTHOGONAL_DIRS should have exactly 4 directions."""
-        from GUI.path_finding import WeightedPathfinder
+        from algorithms.path_finding import WeightedPathfinder
 
         assert len(WeightedPathfinder.ORTHOGONAL_DIRS) == 4
 
     def test_diagonal_dirs_count(self):
         """DIAGONAL_DIRS should have exactly 8 directions."""
-        from GUI.path_finding import WeightedPathfinder
+        from algorithms.path_finding import WeightedPathfinder
 
         assert len(WeightedPathfinder.DIAGONAL_DIRS) == 8
 
@@ -466,7 +465,7 @@ class TestRoutingModeConstants:
         """SQRT2 constant should equal math.sqrt(2)."""
         import math
 
-        from GUI.path_finding import WeightedPathfinder
+        from algorithms.path_finding import WeightedPathfinder
 
         assert abs(WeightedPathfinder.SQRT2 - math.sqrt(2)) < 1e-15
 
