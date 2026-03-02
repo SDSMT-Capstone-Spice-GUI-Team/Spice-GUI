@@ -9,7 +9,7 @@ import pytest
 pytest.importorskip("PyQt6")
 
 from GUI.circuit_canvas import CircuitCanvasView
-from GUI.circuit_node import Node
+from models.node import NodeData
 from PyQt6.QtCore import QPointF, Qt
 
 # ── Probe mode toggling ──────────────────────────────────────────────
@@ -90,9 +90,9 @@ class TestProbeNode:
         canvas.components["R1"] = comp
 
         # Create a node and add it
-        node = Node()
+        node = NodeData()
         node.auto_label = "nodeA"
-        node.terminals = [("R1", 0)]
+        node.terminals = {("R1", 0)}
         canvas.nodes.append(node)
         canvas.terminal_to_node[("R1", 0)] = node
         # Set OP results
@@ -116,9 +116,9 @@ class TestProbeNode:
         canvas = CircuitCanvasView()
         qtbot.addWidget(canvas)
         canvas.set_op_results({"nodeA": 5.0})
-        node = Node()
+        node = NodeData()
         node.auto_label = "nodeX"
-        node.terminals = [("R2", 0)]
+        node.terminals = {("R2", 0)}
         result = canvas._probe_node(node)
         assert result is None
 
@@ -148,12 +148,12 @@ class TestProbeComponent:
         canvas.components["R1"] = comp
 
         # Create two nodes connected to the component terminals
-        node_a = Node()
+        node_a = NodeData()
         node_a.auto_label = "nodeA"
-        node_a.terminals = [("R1", 0)]
-        node_b = Node()
+        node_a.terminals = {("R1", 0)}
+        node_b = NodeData()
         node_b.auto_label = "nodeB"
-        node_b.terminals = [("R1", 1)]
+        node_b.terminals = {("R1", 1)}
         canvas.nodes = [node_a, node_b]
         canvas.terminal_to_node[("R1", 0)] = node_a
         canvas.terminal_to_node[("R1", 1)] = node_b
@@ -246,9 +246,9 @@ class TestProbeSweepSignal:
 
     def test_probe_node_emits_signal_when_no_op(self, qtbot):
         canvas = self._make_canvas_no_op(qtbot)
-        node = Node()
+        node = NodeData()
         node.auto_label = "nodeA"
-        node.terminals = [("R1", 0)]
+        node.terminals = {("R1", 0)}
         canvas.nodes.append(node)
         canvas.terminal_to_node[("R1", 0)] = node
 

@@ -15,9 +15,9 @@ from PyQt6.QtWidgets import (
 
 logger = logging.getLogger(__name__)
 from models.clipboard import ClipboardData
+from models.node import NodeData, reset_node_counter
 
 from .annotation_item import AnnotationItem
-from .circuit_node import Node
 from .component_item import ComponentGraphicsItem
 from .styles import (
     COMPONENTS,
@@ -402,30 +402,16 @@ class CircuitCanvasView(QGraphicsView):
         self.nodes = []
         self.terminal_to_node = {}
         self.annotations = []
-        Node._node_counter = 0
+        reset_node_counter()
 
     def _handle_nodes_rebuilt(self, data: None) -> None:
         """Rebuild node visualization from model"""
         if not self.controller:
             return
 
-        self.nodes = []
-        self.terminal_to_node = {}
-
-        # Convert NodeData to Node (Qt objects)
-        for node_data in self.controller.model.nodes:
-            node = Node.from_node_data(node_data)
-            self.nodes.append(node)
-
-        # Rebuild terminal mapping
-        for (
-            comp_id,
-            term_idx,
-        ), node_data in self.controller.model.terminal_to_node.items():
-            # Find corresponding Qt Node
-            qt_node = next((n for n in self.nodes if n.matches_node_data(node_data)), None)
-            if qt_node:
-                self.terminal_to_node[(comp_id, term_idx)] = qt_node
+        # Use the model's NodeData objects directly — no GUI wrapper needed
+        self.nodes = list(self.controller.model.nodes)
+        self.terminal_to_node = dict(self.controller.model.terminal_to_node)
 
         self.scene.update()
 
@@ -1524,7 +1510,7 @@ class CircuitCanvasView(QGraphicsView):
             painter.setFont(theme_manager.font("node_label"))
 
             for node in self.nodes:
-                pos = node.get_position(self.components)
+                pos = self._get_node_position(node)
                 if pos:
                     label = node.get_label()
                     self._draw_label_box(painter, pos, label, y_above=True)
@@ -1541,7 +1527,7 @@ class CircuitCanvasView(QGraphicsView):
             painter.setFont(op_font)
 
             for node in self.nodes:
-                pos = node.get_position(self.components)
+                pos = self._get_node_position(node)
                 if pos:
                     label = node.get_label()
                     if label in self.node_voltages:
@@ -1705,7 +1691,7 @@ class CircuitCanvasView(QGraphicsView):
             return None
 
         voltage = self.node_voltages[label]
-        pos = node.get_position(self.components)
+        pos = self._get_node_position(node)
         if not pos:
             return None
 
@@ -1778,6 +1764,21 @@ class CircuitCanvasView(QGraphicsView):
         """Disable display of node voltages."""
         self.show_node_voltages = False
         self.scene.update()
+
+    def _get_node_position(self, node):
+        """Get a representative QPointF position for a node using canvas components."""
+        if not node.terminals:
+            return None
+        positions = []
+        for comp_id, term_idx in node.terminals:
+            if comp_id in self.components:
+                pos = self.components[comp_id].get_terminal_pos(term_idx)
+                positions.append(pos)
+        if not positions:
+            return None
+        avg_x = sum(p.x() for p in positions) / len(positions)
+        avg_y = sum(p.y() for p in positions) / len(positions)
+        return QPointF(avg_x, avg_y)
 
     def find_node_at_position(self, scene_pos):
         """Find a node near the given scene position"""
@@ -1878,7 +1879,7 @@ class CircuitCanvasView(QGraphicsView):
                 break
 
         if ground_node is None:
-            ground_node = Node(is_ground=True)
+            ground_node = NodeData(is_ground=True)
             self.nodes.append(ground_node)
 
         ground_node.add_terminal(ground_comp.component_id, 0)
@@ -1893,10 +1894,9 @@ class CircuitCanvasView(QGraphicsView):
         end_node = self.terminal_to_node.get(end_terminal)
 
         if start_node is None and end_node is None:
-            new_node = Node()
+            new_node = NodeData()
             new_node.add_terminal(*start_terminal)
             new_node.add_terminal(*end_terminal)
-            new_node.add_wire(wire)
             wire.node = new_node
 
             self.nodes.append(new_node)
@@ -1908,7 +1908,6 @@ class CircuitCanvasView(QGraphicsView):
 
         elif start_node is None and end_node is not None:
             end_node.add_terminal(*start_terminal)
-            end_node.add_wire(wire)
             wire.node = end_node
             self.terminal_to_node[start_terminal] = end_node
 
@@ -1917,7 +1916,6 @@ class CircuitCanvasView(QGraphicsView):
 
         elif end_node is None and start_node is not None:
             start_node.add_terminal(*end_terminal)
-            start_node.add_wire(wire)
             wire.node = start_node
             self.terminal_to_node[end_terminal] = start_node
 
@@ -1926,7 +1924,6 @@ class CircuitCanvasView(QGraphicsView):
 
         elif start_node is not None and end_node is not None and start_node != end_node:
             start_node.merge_with(end_node)
-            start_node.add_wire(wire)
             wire.node = start_node
 
             for terminal in end_node.terminals:
@@ -1942,7 +1939,6 @@ class CircuitCanvasView(QGraphicsView):
             return
 
         old_node = wire.node
-        old_node.remove_wire(wire)
 
         start_terminal = (wire.start_comp.component_id, wire.start_term)
         end_terminal = (wire.end_comp.component_id, wire.end_term)
@@ -1966,7 +1962,7 @@ class CircuitCanvasView(QGraphicsView):
         """Rebuild all nodes from scratch based on current wires"""
         self.nodes.clear()
         self.terminal_to_node.clear()
-        Node._node_counter = 0
+        reset_node_counter()
 
         for comp in self.components.values():
             if comp.component_type == "Ground":
@@ -1986,7 +1982,7 @@ class CircuitCanvasView(QGraphicsView):
         self.terminal_to_node = {}
         self.annotations = []
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
-        Node._node_counter = 0
+        reset_node_counter()
 
     def toggle_obstacle_boundaries(self, show=None):
         """
@@ -2203,27 +2199,7 @@ class CircuitCanvasView(QGraphicsView):
         The terminal_to_node dict maps (comp_id, term_idx) -> NodeData,
         sharing the same NodeData objects as the returned list.
         """
-        from models.node import NodeData
-
-        qt_to_model = {}  # id(Qt Node) -> NodeData
-        node_data_list = []
-        for node in self.nodes:
-            nd = NodeData(
-                terminals=set(node.terminals),
-                is_ground=node.is_ground,
-                custom_label=node.custom_label,
-                auto_label=node.auto_label,
-            )
-            qt_to_model[id(node)] = nd
-            node_data_list.append(nd)
-
-        terminal_to_node = {}
-        for key, qt_node in self.terminal_to_node.items():
-            nd = qt_to_model.get(id(qt_node))
-            if nd is not None:
-                terminal_to_node[key] = nd
-
-        return node_data_list, terminal_to_node
+        return list(self.nodes), dict(self.terminal_to_node)
 
     def export_image(self, filepath, include_grid=True):
         """Export the circuit scene to an image file (PNG or SVG).

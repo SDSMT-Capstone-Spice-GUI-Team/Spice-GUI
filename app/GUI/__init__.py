@@ -2,7 +2,6 @@ from algorithms.path_finding import IDAStarPathfinder, get_component_obstacles, 
 
 from .analysis_dialog import AnalysisDialog
 from .circuit_canvas import CircuitCanvas, CircuitCanvasView
-from .circuit_node import Node
 from .component_item import ComponentGraphicsItem
 from .component_palette import ComponentPalette
 from .main_window import MainWindow
@@ -16,7 +15,6 @@ __all__ = [
     "CircuitCanvasView",
     "CircuitCanvas",  # Backward compatibility
     "MainWindow",
-    "Node",
     "ComponentGraphicsItem",
     "ComponentPalette",
     "IDAStarPathfinder",
