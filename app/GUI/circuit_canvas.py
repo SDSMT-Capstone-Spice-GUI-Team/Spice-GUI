@@ -1730,14 +1730,15 @@ class CircuitCanvasView(QGraphicsView):
         return QPointF(avg_x, avg_y)
 
     def find_node_at_position(self, scene_pos):
-        """Find a node near the given scene position"""
+        """Find a node near the given scene position."""
         for comp_id, comp in self.components.items():
             for term_idx in range(len(comp.terminals)):
                 term_pos = comp.get_terminal_pos(term_idx)
                 distance = (term_pos - scene_pos).manhattanLength()
                 if distance < 20:
-                    terminal_key = (comp_id, term_idx)
-                    return self.terminal_to_node.get(terminal_key)
+                    if self.controller:
+                        return self.controller.find_node_for_terminal(comp_id, term_idx)
+                    return self.terminal_to_node.get((comp_id, term_idx))
         return None
 
     def label_node(self, node):
@@ -1757,11 +1758,10 @@ class CircuitCanvasView(QGraphicsView):
 
         if ok:
             new_label = text.strip() if text else None
-            # Use public controller API to set net name and notify observers
-            if self.controller:
-                self.controller.set_net_name(node, new_label)
-            else:
-                node.set_custom_label(new_label)
+            if not self.controller:
+                logger.warning("Cannot set net name: no controller available")
+                return
+            self.controller.set_net_name(node, new_label)
             self.scene.update()
             viewPort = self.viewport()
             if viewPort is None:
@@ -1823,10 +1823,13 @@ class CircuitCanvasView(QGraphicsView):
         self.draw_grid()
         self.components = {}
         self.wires = []
-        self.nodes = []
-        self.terminal_to_node = {}
         self.annotations = []
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
+        if self.controller:
+            self._sync_nodes_from_model()
+        else:
+            self.nodes = []
+            self.terminal_to_node = {}
 
     def toggle_obstacle_boundaries(self, show=None):
         """
@@ -2047,6 +2050,8 @@ class CircuitCanvasView(QGraphicsView):
         The terminal_to_node dict maps (comp_id, term_idx) -> NodeData,
         sharing the same NodeData objects as the returned list.
         """
+        if self.controller:
+            return self.controller.get_nodes_and_terminal_map()
         return list(self.nodes), dict(self.terminal_to_node)
 
     def export_image(self, filepath, include_grid=True):

@@ -285,6 +285,17 @@ class CircuitController:
         self.model.rebuild_nodes()
         self._notify("nodes_rebuilt", None)
 
+    def get_nodes_and_terminal_map(self) -> tuple[list, dict]:
+        """Return (nodes, terminal_to_node) from the model.
+
+        Returns copies so callers cannot mutate the model's internal state.
+        """
+        return list(self.model.nodes), dict(self.model.terminal_to_node)
+
+    def find_node_for_terminal(self, comp_id: str, term_idx: int):
+        """Look up the node for a given terminal, or None."""
+        return self.model.terminal_to_node.get((comp_id, term_idx))
+
     def set_net_name(self, node, label) -> None:
         """Set a custom net name on a node and notify observers."""
         node.set_custom_label(label)
