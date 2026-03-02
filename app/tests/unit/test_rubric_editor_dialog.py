@@ -296,7 +296,7 @@ class TestRubricEditorDialog:
     def test_check_type_params_coverage(self):
         """All valid check types have parameter definitions."""
         from grading.rubric import VALID_CHECK_TYPES
-        from GUI.rubric_editor_dialog import _CHECK_TYPE_PARAMS
+        from grading.rubric_validator import CHECK_TYPE_PARAMS
 
         for ct in VALID_CHECK_TYPES:
-            assert ct in _CHECK_TYPE_PARAMS, f"Missing params for check type: {ct}"
+            assert ct in CHECK_TYPE_PARAMS, f"Missing params for check type: {ct}"
