@@ -148,10 +148,10 @@ class TestWaypointDragging:
         wire_with_waypoints._finish_waypoint_drag()
         assert wire_with_waypoints.model.locked
 
-    def test_finish_drag_notifies_controller(self, wire_with_waypoints, qtbot):
+    def test_finish_drag_notifies_canvas(self, wire_with_waypoints, qtbot):
         wire_with_waypoints._move_waypoint(1, QPointF(60, 10))
         wire_with_waypoints._finish_waypoint_drag()
-        wire_with_waypoints.canvas.controller._notify.assert_called_once_with("wire_routed", wire_with_waypoints.model)
+        wire_with_waypoints.canvas.on_wire_waypoints_changed.assert_called_once_with(wire_with_waypoints)
 
     def test_path_rebuilt_after_move(self, wire_with_waypoints, qtbot):
         old_path = wire_with_waypoints.path()

@@ -120,6 +120,7 @@ class MainWindow(
         self.canvas.canvasClicked.connect(self.on_canvas_clicked)
         self.canvas.selectionChanged.connect(self._on_selection_changed)
         self.canvas.probeRequested.connect(self._on_probe_requested)
+        self.canvas.statusMessage.connect(self._on_canvas_status_message)
         self.palette.componentDoubleClicked.connect(self.canvas.add_component_at_center)
         self.properties_panel.property_changed.connect(self.on_property_changed)
         self.circuit_ctrl.add_observer(self._on_dirty_change)
@@ -330,6 +331,12 @@ class MainWindow(
         """Handle click on an empty canvas area"""
         self.properties_stack.setCurrentIndex(0)
         self.properties_panel.show_no_selection()
+
+    def _on_canvas_status_message(self, message, timeout_ms):
+        """Relay status messages from canvas/scene items to the status bar."""
+        status = self.statusBar()
+        if status:
+            status.showMessage(message, timeout_ms)
 
     def on_property_changed(self, component_id, property_name, new_value):
         """Handle property changes from properties panel via controller."""

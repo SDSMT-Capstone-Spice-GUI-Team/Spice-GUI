@@ -281,14 +281,9 @@ class WireGraphicsItem(QGraphicsPathItem):
         self.setPath(path)
 
     def _notify_routing_failed(self):
-        """Show status bar message when wire routing fails."""
-        if not self.canvas:
-            return
-        main_window = self.canvas.window() if hasattr(self.canvas, "window") else None
-        if main_window and hasattr(main_window, "statusBar"):
-            status = main_window.statusBar()
-            if status:
-                status.showMessage("Wire routing failed — move components to create space", 5000)
+        """Notify canvas that wire routing failed (canvas relays to UI)."""
+        if self.canvas and hasattr(self.canvas, "on_routing_failed"):
+            self.canvas.on_routing_failed("Wire routing failed — move components to create space")
 
     def hoverEnterEvent(self, event):
         """Highlight wire on hover."""
@@ -405,9 +400,9 @@ class WireGraphicsItem(QGraphicsPathItem):
             for wp in self.waypoints
         ]
         self.model.locked = True
-        # Notify controller if available
-        if self.canvas and hasattr(self.canvas, "controller") and self.canvas.controller:
-            self.canvas.controller._notify("wire_routed", self.model)
+        # Notify via canvas (avoids calling controller private methods)
+        if self.canvas and hasattr(self.canvas, "on_wire_waypoints_changed"):
+            self.canvas.on_wire_waypoints_changed(self)
 
     def _rebuild_path_from_waypoints(self):
         """Rebuild the QPainterPath from the current waypoints list."""

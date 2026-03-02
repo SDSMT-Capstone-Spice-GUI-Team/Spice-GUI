@@ -46,6 +46,7 @@ class CircuitCanvasView(QGraphicsView):
     canvasClicked = pyqtSignal()
     zoomChanged = pyqtSignal(float)  # current zoom level (1.0 = 100%)
     probeRequested = pyqtSignal(str, str)  # (signal_name, probe_type: "node"|"component")
+    statusMessage = pyqtSignal(str, int)  # (message, timeout_ms) — relay for scene items
 
     def __init__(self, controller=None):
         super().__init__()
@@ -191,6 +192,7 @@ class CircuitCanvasView(QGraphicsView):
     def _handle_component_added(self, component_data) -> None:
         """Create graphics item when component added to model"""
         comp = ComponentGraphicsItem.from_dict(component_data.to_dict())
+        comp.canvas = self
         self.scene.addItem(comp)
         self.components[component_data.component_id] = comp
 
@@ -343,6 +345,20 @@ class CircuitCanvasView(QGraphicsView):
             model_wire = self.controller.model.wires[wire_index]
             model_wire.waypoints = [(wp.x(), wp.y()) for wp in wire.waypoints]
 
+    # ===================================================================
+    # Scene item callbacks (avoid hierarchy climbing in items)
+    # ===================================================================
+
+    def on_routing_failed(self, message: str) -> None:
+        """Relay a routing-failure message from a wire item to the UI."""
+        self.statusMessage.emit(message, 5000)
+
+    def on_wire_waypoints_changed(self, wire_item) -> None:
+        """Handle manual waypoint adjustment from a wire item."""
+        if self.controller and wire_item in self.wires:
+            idx = self.wires.index(wire_item)
+            self.controller.update_wire_waypoints(idx, wire_item.model.waypoints)
+
     def _handle_annotation_added(self, annotation_data) -> None:
         """Create AnnotationItem when annotation added to model."""
         ann = AnnotationItem(
@@ -353,6 +369,7 @@ class CircuitCanvasView(QGraphicsView):
             bold=annotation_data.bold,
             color=annotation_data.color,
         )
+        ann.canvas = self
         self.scene.addItem(ann)
         self.annotations.append(ann)
         self.scene.update()
@@ -1441,6 +1458,7 @@ class CircuitCanvasView(QGraphicsView):
             comp_item.setPos(old_x + dx, old_y + dy)
             comp_item.model.position = (old_x + dx, old_y + dy)
 
+            comp_item.canvas = self
             self.scene.addItem(comp_item)
             self.components[new_id] = comp_item
 
@@ -2332,6 +2350,7 @@ class CircuitCanvasView(QGraphicsView):
 
         for comp_data in data["components"]:
             comp = ComponentGraphicsItem.from_dict(comp_data)
+            comp.canvas = self
             self.scene.addItem(comp)
             self.components[comp.component_id] = comp
 
@@ -2351,6 +2370,7 @@ class CircuitCanvasView(QGraphicsView):
         # Load annotations
         for ann_data in data.get("annotations", []):
             ann = AnnotationItem.from_dict(ann_data)
+            ann.canvas = self
             self.scene.addItem(ann)
             self.annotations.append(ann)
 
