@@ -8,43 +8,9 @@ import logging
 import math
 import re
 
+from utils.format_utils import format_si  # noqa: F401 — canonical location; re-exported for compatibility
+
 logger = logging.getLogger(__name__)
-
-# SI prefix table for engineering notation
-_SI_PREFIXES = [
-    (1e-15, "f"),
-    (1e-12, "p"),
-    (1e-9, "n"),
-    (1e-6, "\u00b5"),
-    (1e-3, "m"),
-    (1e0, ""),
-    (1e3, "k"),
-    (1e6, "M"),
-    (1e9, "G"),
-]
-
-
-def format_si(value, unit=""):
-    """Format a value with SI prefix.
-
-    Examples:
-        format_si(0.0033, "V") -> "3.30 mV"
-        format_si(1500, "Hz") -> "1.50 kHz"
-        format_si(0, "V") -> "0.00 V"
-    """
-    if value == 0 or not math.isfinite(value):
-        return f"0.00 {unit}" if unit else "0.00"
-
-    abs_val = abs(value)
-    for threshold, prefix in _SI_PREFIXES:
-        if abs_val < threshold * 1000:
-            scaled = value / threshold
-            return f"{scaled:.2f} {prefix}{unit}" if unit else f"{scaled:.2f} {prefix}"
-
-    # Larger than 1G — use the largest prefix
-    threshold, prefix = _SI_PREFIXES[-1]
-    scaled = value / threshold
-    return f"{scaled:.2f} {prefix}{unit}" if unit else f"{scaled:.2f} {prefix}"
 
 
 class ResultParser:

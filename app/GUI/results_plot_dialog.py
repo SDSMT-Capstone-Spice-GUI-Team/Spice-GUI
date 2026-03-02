@@ -261,11 +261,12 @@ class ACSweepPlotDialog(QDialog):
 
     analysis_type = "AC Sweep"
 
-    def __init__(self, data, parent=None, label=None):
+    def __init__(self, data, parent=None, label=None, sim_ctrl=None):
         super().__init__(parent)
         self.setWindowTitle("AC Sweep Results — Bode Plot")
         self.setMinimumSize(900, 600)
 
+        self._sim_ctrl = sim_ctrl
         self._datasets = []
         self._lines = {}
         self._legend_line_map = {}
@@ -436,7 +437,7 @@ class ACSweepPlotDialog(QDialog):
 
     def _draw_markers(self):
         """Compute and draw frequency response markers for the first signal."""
-        from simulation.freq_markers import compute_markers, format_frequency
+        from utils.format_utils import format_frequency
 
         self._clear_marker_artists()
 
@@ -457,7 +458,12 @@ class ACSweepPlotDialog(QDialog):
         mag_vals = magnitude[first_signal]
         phase_vals = phase.get(first_signal)
 
-        markers = compute_markers(frequencies, mag_vals, phase_vals)
+        if self._sim_ctrl is not None:
+            markers = self._sim_ctrl.compute_frequency_markers(frequencies, mag_vals, phase_vals)
+        else:
+            from simulation.freq_markers import compute_markers
+
+            markers = compute_markers(frequencies, mag_vals, phase_vals)
 
         if markers["peak_gain_db"] is None:
             self._marker_summary.setPlainText("No markers computed (insufficient data).")

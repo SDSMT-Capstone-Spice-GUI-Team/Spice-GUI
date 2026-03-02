@@ -1517,7 +1517,7 @@ class CircuitCanvasView(QGraphicsView):
 
         # Draw OP voltage annotations (distinct style)
         if show_op:
-            from simulation.result_parser import format_si
+            from utils.format_utils import format_si
 
             op_pen = theme_manager.pen("op_voltage")
             op_brush = theme_manager.brush("op_annotation_bg")
@@ -1684,7 +1684,7 @@ class CircuitCanvasView(QGraphicsView):
     def _probe_node(self, node):
         """Create a probe result for a node."""
         from PyQt6.QtCore import QPointF
-        from simulation.result_parser import format_si
+        from utils.format_utils import format_si
 
         label = node.get_label()
         if label not in self.node_voltages:
@@ -1708,7 +1708,7 @@ class CircuitCanvasView(QGraphicsView):
     def _probe_component(self, comp_item):
         """Create a probe result for a component."""
         from PyQt6.QtCore import QPointF
-        from simulation.result_parser import format_si
+        from utils.format_utils import format_si
 
         comp_id = comp_item.component_id
         comp_ref = comp_id.lower()

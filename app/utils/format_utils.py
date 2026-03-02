@@ -7,6 +7,7 @@ This module lives in the shared ``utils`` package so that both the simulation
 layer and the GUI layer can use it without creating a backwards dependency.
 """
 
+import math
 import re
 
 # Dictionary of SI prefixes and their multipliers
@@ -153,3 +154,54 @@ def validate_component_value(value: str, component_type: str) -> tuple[bool, str
         return False, f"{component_type} value must be positive (got {value})."
 
     return True, ""
+
+
+# SI prefix table used by format_si (threshold-based, ascending order)
+_SI_PREFIXES = [
+    (1e-15, "f"),
+    (1e-12, "p"),
+    (1e-9, "n"),
+    (1e-6, "\u00b5"),
+    (1e-3, "m"),
+    (1e0, ""),
+    (1e3, "k"),
+    (1e6, "M"),
+    (1e9, "G"),
+]
+
+
+def format_si(value, unit=""):
+    """Format a value with SI prefix.
+
+    Examples:
+        format_si(0.0033, "V") -> "3.30 mV"
+        format_si(1500, "Hz") -> "1.50 kHz"
+        format_si(0, "V") -> "0.00 V"
+    """
+    if value == 0 or not math.isfinite(value):
+        return f"0.00 {unit}" if unit else "0.00"
+
+    abs_val = abs(value)
+    for threshold, prefix in _SI_PREFIXES:
+        if abs_val < threshold * 1000:
+            scaled = value / threshold
+            return f"{scaled:.2f} {prefix}{unit}" if unit else f"{scaled:.2f} {prefix}"
+
+    # Larger than 1G — use the largest prefix
+    threshold, prefix = _SI_PREFIXES[-1]
+    scaled = value / threshold
+    return f"{scaled:.2f} {prefix}{unit}" if unit else f"{scaled:.2f} {prefix}"
+
+
+def format_frequency(freq_hz):
+    """Format a frequency value with appropriate SI prefix."""
+    if freq_hz is None:
+        return "N/A"
+    if freq_hz >= 1e9:
+        return f"{freq_hz / 1e9:.2f} GHz"
+    elif freq_hz >= 1e6:
+        return f"{freq_hz / 1e6:.2f} MHz"
+    elif freq_hz >= 1e3:
+        return f"{freq_hz / 1e3:.2f} kHz"
+    else:
+        return f"{freq_hz:.2f} Hz"
