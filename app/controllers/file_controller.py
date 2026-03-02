@@ -2,7 +2,7 @@
 FileController - Handles circuit file I/O and session persistence.
 
 File dialog interaction is the responsibility of the view layer.
-Recent files tracking uses QSettings for cross-session persistence.
+Recent files tracking uses the centralized settings service for cross-session persistence.
 """
 
 import json
@@ -10,8 +10,8 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
+from controllers.settings_service import settings
 from models.circuit import CircuitModel
-from PyQt6.QtCore import QSettings
 
 SESSION_FILE = "last_session.txt"
 AUTOSAVE_FILE = ".autosave_recovery.json"
@@ -219,24 +219,19 @@ class FileController:
 
     def get_recent_files(self) -> List[str]:
         """
-        Get list of recently opened files from QSettings.
+        Get list of recently opened files.
 
         Returns:
             List of file paths (most recent first), with non-existent files removed.
         """
-        settings = QSettings("SDSMT", "SDM Spice")
-        recent = settings.value("file/recent_files", [])
-
-        # Ensure it's a list
-        if not isinstance(recent, list):
-            recent = []
+        recent = settings.get_list("file/recent_files")
 
         # Filter out files that no longer exist
         existing = [f for f in recent if os.path.exists(f)]
 
         # Update settings if we removed any
         if len(existing) != len(recent):
-            settings.setValue("file/recent_files", existing)
+            settings.set("file/recent_files", existing)
 
         return existing
 
@@ -261,13 +256,11 @@ class FileController:
         recent = recent[:MAX_RECENT_FILES]
 
         # Save to settings
-        settings = QSettings("SDSMT", "SDM Spice")
-        settings.setValue("file/recent_files", recent)
+        settings.set("file/recent_files", recent)
 
     def clear_recent_files(self) -> None:
         """Clear the recent files list."""
-        settings = QSettings("SDSMT", "SDM Spice")
-        settings.setValue("file/recent_files", [])
+        settings.set("file/recent_files", [])
 
     # ------------------------------------------------------------------
     # Auto-save and crash recovery

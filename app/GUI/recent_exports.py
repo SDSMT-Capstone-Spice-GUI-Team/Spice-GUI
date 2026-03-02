@@ -1,14 +1,14 @@
 """Track recent export operations for quick re-export.
 
-Stores up to MAX_RECENT_EXPORTS entries in QSettings.  Each entry is a dict
-with keys: path, format, export_function, timestamp.
+Stores up to MAX_RECENT_EXPORTS entries via the centralized settings
+service.  Each entry is a dict with keys: path, format, export_function,
+timestamp.
 """
 
-import json
 import os
 from datetime import datetime
 
-from PyQt6.QtCore import QSettings
+from controllers.settings_service import settings
 
 MAX_RECENT_EXPORTS = 5
 SETTINGS_KEY = "export/recent_exports"
@@ -20,13 +20,7 @@ def get_recent_exports():
     Each dict has keys: path, format, export_function, timestamp.
     Non-existent paths are filtered out.
     """
-    settings = QSettings("SDSMT", "SDM Spice")
-    raw = settings.value(SETTINGS_KEY, "[]")
-
-    try:
-        entries = json.loads(raw) if isinstance(raw, str) else []
-    except (json.JSONDecodeError, TypeError):
-        entries = []
+    entries = settings.get_json(SETTINGS_KEY, [])
 
     if not isinstance(entries, list):
         entries = []
@@ -34,7 +28,7 @@ def get_recent_exports():
     # Filter out files that no longer exist
     existing = [e for e in entries if isinstance(e, dict) and os.path.exists(e.get("path", ""))]
     if len(existing) != len(entries):
-        settings.setValue(SETTINGS_KEY, json.dumps(existing))
+        settings.set_json(SETTINGS_KEY, existing)
 
     return existing
 
@@ -65,11 +59,9 @@ def add_recent_export(path, fmt, export_function):
     # Cap
     entries = entries[:MAX_RECENT_EXPORTS]
 
-    settings = QSettings("SDSMT", "SDM Spice")
-    settings.setValue(SETTINGS_KEY, json.dumps(entries))
+    settings.set_json(SETTINGS_KEY, entries)
 
 
 def clear_recent_exports():
     """Clear all recent export entries."""
-    settings = QSettings("SDSMT", "SDM Spice")
-    settings.setValue(SETTINGS_KEY, "[]")
+    settings.set_json(SETTINGS_KEY, [])

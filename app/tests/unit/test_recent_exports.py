@@ -5,6 +5,7 @@ import os
 import tempfile
 
 import pytest
+from controllers.settings_service import settings as app_settings
 from GUI.recent_exports import (
     MAX_RECENT_EXPORTS,
     SETTINGS_KEY,
@@ -12,16 +13,14 @@ from GUI.recent_exports import (
     clear_recent_exports,
     get_recent_exports,
 )
-from PyQt6.QtCore import QSettings
 
 
 @pytest.fixture(autouse=True)
 def _clean_settings():
     """Clear recent exports before and after each test."""
-    settings = QSettings("SDSMT", "SDM Spice")
-    settings.setValue(SETTINGS_KEY, "[]")
+    app_settings.set_json(SETTINGS_KEY, [])
     yield
-    settings.setValue(SETTINGS_KEY, "[]")
+    app_settings.set_json(SETTINGS_KEY, [])
 
 
 class TestGetRecentExports:
