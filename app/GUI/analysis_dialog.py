@@ -162,16 +162,18 @@ class AnalysisDialog(QDialog):
         },
     }
 
-    def __init__(self, analysis_type=None, parent=None, preset_manager=None):
+    def __init__(self, analysis_type=None, parent=None, simulation_ctrl=None, preset_manager=None):
         super().__init__(parent)
         self.analysis_type = analysis_type
         self.field_widgets = {}
         self._measurements = []  # list of measurement entry dicts
-        if preset_manager is None:
-            from simulation.preset_manager import PresetManager
+        if simulation_ctrl is not None:
+            self._ctrl = simulation_ctrl
+        else:
+            # Backward compatibility: wrap a preset_manager in a controller
+            from controllers.simulation_controller import SimulationController
 
-            preset_manager = PresetManager()
-        self._preset_manager = preset_manager
+            self._ctrl = SimulationController(preset_manager=preset_manager)
         self.init_ui()
 
     def init_ui(self):
@@ -364,68 +366,14 @@ class AnalysisDialog(QDialog):
             return None
 
     def get_ngspice_command(self):
-        """Generate NGSPICE command from parameters"""
+        """Generate NGSPICE command from parameters."""
         params = self.get_parameters()
         if params is None:
             return None
 
-        if self.analysis_type == "DC Operating Point":
-            return ".op"
+        from simulation.netlist_generator import generate_analysis_command
 
-        elif self.analysis_type == "DC Sweep":
-            source = params.get("source", "V1")
-            start = params.get("min", 0)
-            stop = params.get("max", 10)
-            step = params.get("step", 0.1)
-            return f".dc {source} {start} {stop} {step}"
-
-        elif self.analysis_type == "AC Sweep":
-            fstart = params.get("fStart", 1)
-            fstop = params.get("fStop", 1e6)
-            points = params.get("points", 100)
-            sweep_type = params.get("sweepType", "dec")
-            return f".ac {sweep_type} {points} {fstart} {fstop}"
-
-        elif self.analysis_type == "Transient":
-            tstep = params.get("step", 0.001)
-            tstop = params.get("duration", 1)
-            tstart = params.get("startTime", 0)
-            return f".tran {tstep} {tstop} {tstart}"
-
-        elif self.analysis_type == "Temperature Sweep":
-            tstart = params.get("tempStart", -40)
-            tstop = params.get("tempStop", 85)
-            tstep = params.get("tempStep", 25)
-            return f".step temp {tstart} {tstop} {tstep}"
-
-        elif self.analysis_type == "Noise":
-            output = params.get("output_node", "out")
-            source = params.get("source", "V1")
-            fstart = params.get("fStart", 1)
-            fstop = params.get("fStop", 1e6)
-            points = params.get("points", 100)
-            sweep_type = params.get("sweepType", "dec")
-            return f".noise v({output}) {source} {sweep_type} {points} {fstart} {fstop}"
-
-        elif self.analysis_type == "Sensitivity":
-            output = params.get("output_node", "out")
-            return f".sens v({output})"
-
-        elif self.analysis_type == "Transfer Function":
-            output_var = params.get("output_var", "v(out)")
-            input_source = params.get("input_source", "V1")
-            return f".tf {output_var} {input_source}"
-
-        elif self.analysis_type == "Pole-Zero":
-            inp = params.get("input_pos", "1")
-            inn = params.get("input_neg", "0")
-            outp = params.get("output_pos", "2")
-            outn = params.get("output_neg", "0")
-            tf_type = params.get("transfer_type", "vol")
-            pz_type = params.get("pz_type", "pz")
-            return f".pz {inp} {inn} {outp} {outn} {tf_type} {pz_type}"
-
-        return ""
+        return generate_analysis_command(self.analysis_type, params)
 
     # --- Measurement management ---
 
@@ -462,7 +410,7 @@ class AnalysisDialog(QDialog):
         self.preset_combo.clear()
         self.preset_combo.addItem("(none)")
 
-        presets = self._preset_manager.get_presets(self.analysis_type)
+        presets = self._ctrl.get_presets(self.analysis_type)
         for p in presets:
             suffix = " [built-in]" if p.get("builtin") else ""
             self.preset_combo.addItem(f"{p['name']}{suffix}", p["name"])
@@ -481,7 +429,7 @@ class AnalysisDialog(QDialog):
         if preset_name is None:
             return
 
-        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        preset = self._ctrl.get_preset_by_name(preset_name, self.analysis_type)
         if preset is None:
             return
 
@@ -519,7 +467,7 @@ class AnalysisDialog(QDialog):
 
         name = name.strip()
         try:
-            self._preset_manager.save_preset(name, self.analysis_type, save_params)
+            self._ctrl.save_preset(name, self.analysis_type, save_params)
             self._refresh_preset_combo()
             # Select the newly saved preset
             for i in range(self.preset_combo.count()):
@@ -539,7 +487,7 @@ class AnalysisDialog(QDialog):
         if preset_name is None:
             return
 
-        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        preset = self._ctrl.get_preset_by_name(preset_name, self.analysis_type)
         if preset and preset.get("builtin"):
             QMessageBox.information(self, "Built-in Preset", "Built-in presets cannot be deleted.")
             return
@@ -551,7 +499,7 @@ class AnalysisDialog(QDialog):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
-            self._preset_manager.delete_preset(preset_name, self.analysis_type)
+            self._ctrl.delete_preset(preset_name, self.analysis_type)
             self._refresh_preset_combo()
 
     def _update_delete_button(self):
@@ -562,5 +510,5 @@ class AnalysisDialog(QDialog):
             return
 
         preset_name = self.preset_combo.itemData(index)
-        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        preset = self._ctrl.get_preset_by_name(preset_name, self.analysis_type)
         self.delete_preset_btn.setEnabled(preset is not None and not preset.get("builtin", False))

@@ -9,6 +9,80 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def generate_analysis_command(analysis_type: str, params: dict) -> str:
+    """Generate a SPICE analysis directive from type and parameters.
+
+    This is the single source of truth for mapping analysis type + params
+    to a SPICE command string.  Both the dialog preview and the netlist
+    generator delegate here.
+
+    Args:
+        analysis_type: Analysis type name (e.g. "DC Sweep", "AC Sweep").
+        params: Analysis parameters dict (keys vary by type).
+
+    Returns:
+        SPICE directive string (e.g. ".dc V1 0 10 0.1"), or "" if
+        the analysis type is unknown.
+    """
+    if analysis_type in ("DC Operating Point", "Operational Point"):
+        return ".op"
+
+    if analysis_type == "DC Sweep":
+        source = params.get("source", "V1")
+        start = params.get("min", 0)
+        stop = params.get("max", 10)
+        step = params.get("step", 0.1)
+        return f".dc {source} {start} {stop} {step}"
+
+    if analysis_type == "AC Sweep":
+        fstart = params.get("fStart", 1)
+        fstop = params.get("fStop", 1e6)
+        points = params.get("points", 100)
+        sweep_type = params.get("sweepType", params.get("sweep_type", "dec"))
+        return f".ac {sweep_type} {points} {fstart} {fstop}"
+
+    if analysis_type == "Transient":
+        tstep = params.get("step", 0.001)
+        tstop = params.get("duration", 1)
+        tstart = params.get("startTime", params.get("start", 0))
+        return f".tran {tstep} {tstop} {tstart}"
+
+    if analysis_type == "Temperature Sweep":
+        tstart = params.get("tempStart", -40)
+        tstop = params.get("tempStop", 85)
+        tstep = params.get("tempStep", 25)
+        return f".step temp {tstart} {tstop} {tstep}"
+
+    if analysis_type == "Noise":
+        output = params.get("output_node", "out")
+        source = params.get("source", "V1")
+        fstart = params.get("fStart", 1)
+        fstop = params.get("fStop", 1e6)
+        points = params.get("points", 100)
+        sweep_type = params.get("sweepType", params.get("sweep_type", "dec"))
+        return f".noise v({output}) {source} {sweep_type} {points} {fstart} {fstop}"
+
+    if analysis_type == "Sensitivity":
+        output = params.get("output_node", "out")
+        return f".sens v({output})"
+
+    if analysis_type == "Transfer Function":
+        output_var = params.get("output_var", "v(out)")
+        input_source = params.get("input_source", "V1")
+        return f".tf {output_var} {input_source}"
+
+    if analysis_type == "Pole-Zero":
+        inp = params.get("input_pos", "1")
+        inn = params.get("input_neg", "0")
+        outp = params.get("output_pos", "2")
+        outn = params.get("output_neg", "0")
+        tf_type = params.get("transfer_type", "vol")
+        pz_type = params.get("pz_type", "pz")
+        return f".pz {inp} {inn} {outp} {outn} {tf_type} {pz_type}"
+
+    return ""
+
+
 class NetlistGenerator:
     """Generates SPICE netlists from circuit components and nodes.
 
@@ -324,71 +398,25 @@ class NetlistGenerator:
         """Generate analysis-specific SPICE commands"""
         lines = ["", "* Analysis Command"]
 
-        if self.analysis_type in ["DC Operating Point", "Operational Point"]:
-            lines.append(".op")
-
-        elif self.analysis_type == "DC Sweep":
+        if self.analysis_type == "DC Sweep":
+            # Special handling: fall back to first voltage source if none specified
             params = self.analysis_params
-            # Use user-selected source if provided, otherwise fall back to first voltage source
             source_name = params.get("source")
             if not source_name:
                 voltage_sources = [c for c in self.components.values() if c.component_type == "Voltage Source"]
                 source_name = voltage_sources[0].component_id if voltage_sources else None
-            if source_name:
-                lines.append(f".dc {source_name} {params['min']} {params['max']} {params['step']}")
-            else:
+            if not source_name:
                 lines.append("* Warning: DC Sweep requires a voltage source")
                 lines.append(".op")
-
-        elif self.analysis_type == "AC Sweep":
-            params = self.analysis_params
-            sweep_type = params.get("sweep_type", "dec")
-            lines.append(f".ac {sweep_type} {params['points']} {params['fStart']} {params['fStop']}")
-
-        elif self.analysis_type == "Transient":
-            params = self.analysis_params
-            tstart = params.get("start", 0)
-            lines.append(f".tran {params['step']} {params['duration']} {tstart}")
-
+            else:
+                effective_params = dict(params, source=source_name)
+                lines.append(generate_analysis_command(self.analysis_type, effective_params))
         elif self.analysis_type == "Temperature Sweep":
-            params = self.analysis_params
-            temp_start = params.get("tempStart", -40)
-            temp_stop = params.get("tempStop", 85)
-            temp_step = params.get("tempStep", 25)
-            # DC operating point as the base analysis, swept over temperature
+            # Temperature sweep needs .op before .step
             lines.append(".op")
-            lines.append(f".step temp {temp_start} {temp_stop} {temp_step}")
-
-        elif self.analysis_type == "Noise":
-            params = self.analysis_params
-            output_node = params.get("output_node", "out")
-            source = params.get("source", "V1")
-            sweep_type = params.get("sweepType", "dec")
-            pts = params.get("points", 100)
-            fstart = params.get("fStart", 1)
-            fstop = params.get("fStop", 1e6)
-            lines.append(f".noise v({output_node}) {source} {sweep_type} {pts} {fstart} {fstop}")
-
-        elif self.analysis_type == "Sensitivity":
-            params = self.analysis_params
-            output_node = params.get("output_node", "out")
-            lines.append(f".sens v({output_node})")
-
-        elif self.analysis_type == "Transfer Function":
-            params = self.analysis_params
-            output_var = params.get("output_var", "v(out)")
-            input_source = params.get("input_source", "V1")
-            lines.append(f".tf {output_var} {input_source}")
-
-        elif self.analysis_type == "Pole-Zero":
-            params = self.analysis_params
-            inp = params.get("input_pos", "1")
-            inn = params.get("input_neg", "0")
-            outp = params.get("output_pos", "2")
-            outn = params.get("output_neg", "0")
-            tf_type = params.get("transfer_type", "vol")
-            pz_type = params.get("pz_type", "pz")
-            lines.append(f".pz {inp} {inn} {outp} {outn} {tf_type} {pz_type}")
+            lines.append(generate_analysis_command(self.analysis_type, self.analysis_params))
+        else:
+            lines.append(generate_analysis_command(self.analysis_type, self.analysis_params))
 
         # Add control block for running simulation and getting output
         lines.append("")
