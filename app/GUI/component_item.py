@@ -272,13 +272,12 @@ class ComponentGraphicsItem(QGraphicsItem):
                 QMessageBox.warning(None, "Invalid Value", error_msg)
                 return
 
-            self.value = new_value
-            self.update()
-            if self.scene() is not None:
-                self.scene().update()
-            # Sync to controller model so netlist generation sees the updated value
+            # Route through controller; observer callback syncs the local model
             if self.canvas and hasattr(self.canvas, "controller") and self.canvas.controller:
                 self.canvas.controller.update_component_value(self.component_id, new_value)
+            else:
+                self.model.value = new_value
+                self.update()
 
     # --- Geometry ---
 
@@ -315,25 +314,6 @@ class ComponentGraphicsItem(QGraphicsItem):
             new_x = tx * cos_a - ty * sin_a
             new_y = tx * sin_a + ty * cos_a
             self.terminals.append(QPointF(new_x, new_y))
-
-    def rotate_component(self, clockwise=True):
-        """Rotate component by 90 degrees"""
-        if clockwise:
-            self.rotation_angle = (self.rotation_angle + 90) % 360
-        else:
-            self.rotation_angle = (self.rotation_angle - 90) % 360
-
-        self.update_terminals()
-        self.update()
-
-    def flip_component(self, horizontal=True):
-        """Flip component horizontally or vertically"""
-        if horizontal:
-            self.model.flip_h = not self.model.flip_h
-        else:
-            self.model.flip_v = not self.model.flip_v
-        self.update_terminals()
-        self.update()
 
     def set_grading_state(self, state, feedback=""):
         """Set the grading overlay state for this component.

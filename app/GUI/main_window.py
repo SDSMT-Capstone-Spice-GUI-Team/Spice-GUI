@@ -347,17 +347,13 @@ class MainWindow(
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
 
         elif property_name == "rotation":
-            component = self.canvas.components.get(component_id)
-            if not component:
-                return
-            component.rotation_angle = new_value
-            component.update_terminals()
-            component.update()
-            self.canvas.reroute_connected_wires(component)
+            self.circuit_ctrl.set_component_rotation(component_id, new_value)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
-            self.properties_panel.show_component(component)
+            component = self.canvas.components.get(component_id)
+            if component:
+                self.properties_panel.show_component(component)
 
         elif property_name == "waveform":
             waveform_type, params = new_value

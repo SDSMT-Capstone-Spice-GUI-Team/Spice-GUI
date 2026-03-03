@@ -338,7 +338,7 @@ class CircuitCanvasView(QGraphicsView):
 
     def _handle_wire_lock_changed(self, data) -> None:
         """Update wire visual when lock state changes."""
-        wire_index, locked = data
+        wire_index, wire = data
         if 0 <= wire_index < len(self.wires):
             self.wires[wire_index].update()
 
@@ -347,9 +347,6 @@ class CircuitCanvasView(QGraphicsView):
         if 0 <= wire_index < len(self.wires):
             wire = self.wires[wire_index]
             wire.update_position()
-            # Sync the new waypoints back to the model
-            model_wire = self.controller.model.wires[wire_index]
-            model_wire.waypoints = [(wp.x(), wp.y()) for wp in wire.waypoints]
 
     # ===================================================================
     # Scene item callbacks (avoid hierarchy climbing in items)
@@ -359,11 +356,25 @@ class CircuitCanvasView(QGraphicsView):
         """Relay a routing-failure message from a wire item to the UI."""
         self.statusMessage.emit(message, 5000)
 
-    def on_wire_waypoints_changed(self, wire_item) -> None:
+    def on_wire_waypoints_changed(self, wire_item, waypoints=None) -> None:
         """Handle manual waypoint adjustment from a wire item."""
         if self.controller and wire_item in self.wires:
             idx = self.wires.index(wire_item)
-            self.controller.update_wire_waypoints(idx, wire_item.model.waypoints)
+            wps = waypoints if waypoints is not None else wire_item.model.waypoints
+            self.controller.update_wire_waypoints(idx, wps)
+            self.controller.set_wire_locked(idx, True)
+
+    def on_wire_routing_complete(self, wire_item, waypoints, runtime=0.0, iterations=0, routing_failed=False):
+        """Persist pathfinding results from a wire item through the controller."""
+        if self.controller and wire_item in self.wires:
+            idx = self.wires.index(wire_item)
+            self.controller.update_wire_routing_result(idx, waypoints, runtime, iterations, routing_failed)
+        else:
+            # Wire not yet tracked (during construction) — write directly
+            wire_item.model.waypoints = waypoints
+            wire_item.model.runtime = runtime
+            wire_item.model.iterations = iterations
+            wire_item.model.routing_failed = routing_failed
 
     def _handle_annotation_added(self, annotation_data) -> None:
         """Create AnnotationItem when annotation added to model."""

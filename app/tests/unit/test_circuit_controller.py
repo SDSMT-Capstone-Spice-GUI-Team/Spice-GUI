@@ -405,6 +405,50 @@ class TestClipboardPublicAPI:
         assert controller.get_clipboard_paste_count() == 2
 
 
+class TestWireRoutingAPI:
+    """Verify wire routing result and lock state are persisted through the controller."""
+
+    def test_update_wire_routing_result(self, controller, events):
+        """update_wire_routing_result stores pathfinding metadata."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_observer(callback)
+        wps = [(0.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+        controller.update_wire_routing_result(0, wps, runtime=0.05, iterations=42, routing_failed=False)
+        wire = controller.model.wires[0]
+        assert wire.waypoints == wps
+        assert wire.runtime == 0.05
+        assert wire.iterations == 42
+        assert wire.routing_failed is False
+        assert recorded[-1][0] == "wire_routed"
+
+    def test_set_wire_locked(self, controller, events):
+        """set_wire_locked updates the lock flag and notifies."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_observer(callback)
+        controller.set_wire_locked(0, True)
+        assert controller.model.wires[0].locked is True
+        assert recorded[-1][0] == "wire_lock_changed"
+
+    def test_set_wire_locked_invalid_index(self, controller):
+        """set_wire_locked with invalid index does nothing."""
+        controller.set_wire_locked(99, True)  # Should not raise
+
+    def test_set_component_rotation(self, controller, events):
+        """set_component_rotation sets exact rotation value."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_observer(callback)
+        controller.set_component_rotation("R1", 180)
+        assert controller.model.components["R1"].rotation == 180
+        assert recorded[-1][0] == "component_rotated"
+
+
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.circuit_controller as mod

@@ -121,6 +121,16 @@ class CircuitController:
         component.rotation = (component.rotation + delta) % 360
         self._notify("component_rotated", component)
 
+    def set_component_rotation(self, component_id: str, rotation: int) -> None:
+        """Set a component's rotation to an exact value. Locked components cannot be rotated."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.rotation = rotation % 360
+        self._notify("component_rotated", component)
+
     def flip_component(self, component_id: str, horizontal: bool = True) -> None:
         """Flip (mirror) a component. Locked components cannot be flipped."""
         if self.is_component_locked(component_id):
@@ -272,6 +282,34 @@ class CircuitController:
             wire = self.model.wires[wire_index]
             wire.waypoints = waypoints
             self._notify("wire_routed", (wire_index, wire))
+
+    def update_wire_routing_result(
+        self,
+        wire_index: int,
+        waypoints: list[tuple[float, float]],
+        runtime: float = 0.0,
+        iterations: int = 0,
+        routing_failed: bool = False,
+    ) -> None:
+        """Store pathfinding results for a wire.
+
+        Called after the view runs pathfinding so routing metadata
+        is persisted through the controller rather than via direct model writes.
+        """
+        if 0 <= wire_index < len(self.model.wires):
+            wire = self.model.wires[wire_index]
+            wire.waypoints = waypoints
+            wire.runtime = runtime
+            wire.iterations = iterations
+            wire.routing_failed = routing_failed
+            self._notify("wire_routed", (wire_index, wire))
+
+    def set_wire_locked(self, wire_index: int, locked: bool) -> None:
+        """Set whether a wire's path is locked (skip auto-reroute)."""
+        if 0 <= wire_index < len(self.model.wires):
+            wire = self.model.wires[wire_index]
+            wire.locked = locked
+            self._notify("wire_lock_changed", (wire_index, wire))
 
     # --- Circuit operations ---
 
