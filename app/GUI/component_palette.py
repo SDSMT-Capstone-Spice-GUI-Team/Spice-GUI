@@ -404,6 +404,14 @@ class ComponentPalette(QWidget):
                 items.append(category_item.child(i))
         return items
 
+    def set_component_selected_callback(self, callback) -> None:
+        """Register a callback for component double-click (ComponentPaletteProtocol)."""
+        self.componentDoubleClicked.connect(callback)
+
+    def set_filter_text(self, text: str) -> None:
+        """Set the search filter text (ComponentPaletteProtocol)."""
+        self.search_input.setText(text)
+
 
 class _PaletteTreeWidget(QTreeWidget):
     """Internal tree widget with drag support for the component palette."""
