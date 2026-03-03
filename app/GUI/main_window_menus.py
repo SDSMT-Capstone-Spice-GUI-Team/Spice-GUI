@@ -692,8 +692,8 @@ class MenuBarMixin:
 
     def _set_theme_by_key(self, key):
         """Switch theme by key and apply it."""
-        from .styles import theme_manager
+        from controllers.theme_controller import theme_ctrl
 
-        theme_manager.set_theme_by_key(key)
+        theme_ctrl.set_theme_by_key(key)
         self._apply_theme()
         self._refresh_theme_menu()

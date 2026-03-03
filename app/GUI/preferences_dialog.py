@@ -1,6 +1,7 @@
 """Unified Preferences dialog for application settings."""
 
 from controllers.settings_service import settings
+from controllers.theme_controller import theme_ctrl
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -69,7 +70,7 @@ class PreferencesDialog(QDialog):
 
     def _revert_settings(self):
         """Restore appearance and autosave to snapshot values."""
-        theme_manager.set_theme(self._snap_theme_obj)
+        theme_ctrl.set_theme(self._snap_theme_obj)
         self.main_window._apply_theme()
         self.main_window._set_symbol_style(self._snap_symbol_style)
         self.main_window._set_color_mode(self._snap_color_mode)
@@ -247,7 +248,7 @@ class PreferencesDialog(QDialog):
     def _on_theme_changed(self, index):
         if 0 <= index < len(self._theme_keys):
             key = self._theme_keys[index]
-            theme_manager.set_theme_by_key(key)
+            theme_ctrl.set_theme_by_key(key)
             self.main_window._apply_theme()
             self._update_theme_buttons()
             # Sync the View > Theme menu checkmarks
@@ -337,7 +338,7 @@ class PreferencesDialog(QDialog):
         stem = key[len("custom:") :]
         theme_store.delete_theme(stem)
         # Switch to Light theme
-        theme_manager.set_theme_by_key("light")
+        theme_ctrl.set_theme_by_key("light")
         self.main_window._apply_theme()
         self._populate_theme_combo()
         self.theme_combo.setCurrentIndex(0)

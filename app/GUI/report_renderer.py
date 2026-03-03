@@ -54,20 +54,38 @@ class PDFReportRenderer:
         if data.config.include_netlist and data.netlist:
             if not first_page:
                 printer.newPage()
-            self._render_text_section(painter, printer, content_rect, "SPICE Netlist", data.netlist, monospace=True)
+            self._render_text_section(
+                painter,
+                printer,
+                content_rect,
+                "SPICE Netlist",
+                data.netlist,
+                monospace=True,
+            )
             first_page = False
 
         if data.config.include_analysis and data.analysis_text:
             if not first_page:
                 printer.newPage()
-            self._render_text_section(painter, printer, content_rect, "Analysis Configuration", data.analysis_text)
+            self._render_text_section(
+                painter,
+                printer,
+                content_rect,
+                "Analysis Configuration",
+                data.analysis_text,
+            )
             first_page = False
 
         if data.config.include_results and data.results_text:
             if not first_page:
                 printer.newPage()
             self._render_text_section(
-                painter, printer, content_rect, "Simulation Results", data.results_text, monospace=True
+                painter,
+                printer,
+                content_rect,
+                "Simulation Results",
+                data.results_text,
+                monospace=True,
             )
 
         painter.end()
@@ -97,7 +115,11 @@ class PDFReportRenderer:
         painter.setFont(subtitle_font)
         fm = QFontMetrics(subtitle_font)
         sub_width = fm.horizontalAdvance(data.subtitle)
-        painter.drawText(int(center_x - sub_width / 2), int(center_y + fm.height() * 2), data.subtitle)
+        painter.drawText(
+            int(center_x - sub_width / 2),
+            int(center_y + fm.height() * 2),
+            data.subtitle,
+        )
 
         # Analysis type if available
         if data.analysis_type:

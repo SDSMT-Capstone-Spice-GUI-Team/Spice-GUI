@@ -1,6 +1,7 @@
 """Settings persistence, autosave, crash recovery, and window lifecycle for MainWindow."""
 
 from controllers.settings_service import settings
+from controllers.theme_controller import theme_ctrl
 from PyQt6.QtWidgets import QMessageBox
 
 from .styles import theme_manager
@@ -87,7 +88,7 @@ class SettingsMixin:
 
         saved_theme_key = settings.get("view/theme_key")
         if saved_theme_key and saved_theme_key != "light":
-            theme_manager.set_theme_by_key(saved_theme_key)
+            theme_ctrl.set_theme_by_key(saved_theme_key)
             self._apply_theme()
             if hasattr(self, "_refresh_theme_menu"):
                 self._refresh_theme_menu()

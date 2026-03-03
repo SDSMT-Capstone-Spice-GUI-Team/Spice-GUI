@@ -388,7 +388,10 @@ class ComponentPalette(QWidget):
                 child.setIcon(0, create_component_icon(component_name))
             except Exception:
                 pass
-            child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, f"Subcircuit: {component_name}"))
+            child.setToolTip(
+                0,
+                COMPONENT_TOOLTIPS.get(component_name, f"Subcircuit: {component_name}"),
+            )
             child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
 
         category_item.setExpanded(True)
