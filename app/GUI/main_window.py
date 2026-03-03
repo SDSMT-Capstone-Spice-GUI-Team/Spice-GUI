@@ -82,9 +82,9 @@ class MainWindow(
         self.model = CircuitModel()
 
         # Create controllers (Phase 5: wire them together)
-        self.circuit_ctrl = CircuitController(self.model)
-        self.file_ctrl = FileController(self.model, self.circuit_ctrl)
-        self.simulation_ctrl = SimulationController(self.model, self.circuit_ctrl)
+        self._circuit_ctrl = CircuitController(self.model)
+        self._file_ctrl = FileController(self.model, self._circuit_ctrl)
+        self._simulation_ctrl = SimulationController(self.model, self._circuit_ctrl)
 
         # UI state
         self._last_results = None
@@ -112,6 +112,35 @@ class MainWindow(
         self._autosave_timer = QTimer(self)
         self._autosave_timer.timeout.connect(self._auto_save)
         self._start_autosave_timer()
+
+    # --- ApplicationShellProtocol properties ---
+
+    @property
+    def circuit_ctrl(self) -> CircuitController:
+        """The circuit controller (ApplicationShellProtocol)."""
+        return self._circuit_ctrl
+
+    @property
+    def file_ctrl(self) -> FileController:
+        """The file controller (ApplicationShellProtocol)."""
+        return self._file_ctrl
+
+    @property
+    def simulation_ctrl(self) -> SimulationController:
+        """The simulation controller (ApplicationShellProtocol)."""
+        return self._simulation_ctrl
+
+    # --- ApplicationShellProtocol methods ---
+
+    def show_status_message(self, message: str, timeout_ms: int = 3000) -> None:
+        """Show a transient message in the status bar (ApplicationShellProtocol)."""
+        status = self.statusBar()
+        if status:
+            status.showMessage(message, timeout_ms)
+
+    def set_dirty(self, dirty: bool) -> None:
+        """Mark the document as having unsaved changes (ApplicationShellProtocol)."""
+        self._set_dirty(dirty)
 
     def _connect_signals(self):
         """Connect signals between UI components"""
