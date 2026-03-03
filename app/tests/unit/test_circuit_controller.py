@@ -449,6 +449,57 @@ class TestWireRoutingAPI:
         assert recorded[-1][0] == "component_rotated"
 
 
+class TestControllerAccessors:
+    """Test public accessor methods that encapsulate model access."""
+
+    def test_get_component(self, controller):
+        comp = controller.add_component("Resistor", (0.0, 0.0))
+        assert controller.get_component(comp.component_id) is comp
+        assert controller.get_component("nonexistent") is None
+
+    def test_get_components_returns_copy(self, controller):
+        controller.add_component("Resistor", (0.0, 0.0))
+        result = controller.get_components()
+        assert isinstance(result, dict)
+        assert len(result) == 1
+        # Modifying the returned dict shouldn't affect the model
+        result.clear()
+        assert len(controller.model.components) == 1
+
+    def test_get_wires_returns_copy(self, controller):
+        result = controller.get_wires()
+        assert isinstance(result, list)
+        assert len(result) == 0
+
+    def test_get_annotations_returns_copy(self, controller):
+        result = controller.get_annotations()
+        assert isinstance(result, list)
+        assert len(result) == 0
+
+    def test_get_component_counter(self, controller):
+        controller.add_component("Resistor", (0.0, 0.0))
+        counter = controller.get_component_counter()
+        assert len(counter) >= 1
+        # Modifying returned dict shouldn't affect model
+        counter["__test__"] = 999
+        assert "__test__" not in controller.model.component_counter
+
+    def test_to_dict(self, controller):
+        controller.add_component("Resistor", (0.0, 0.0))
+        result = controller.to_dict()
+        assert "components" in result
+        assert "wires" in result
+
+    def test_push_already_executed(self, controller):
+        """push_already_executed adds command to undo stack and clears redo."""
+        from unittest.mock import MagicMock
+
+        cmd = MagicMock()
+        controller.push_already_executed(cmd)
+        assert controller.undo_manager._undo_stack[-1] is cmd
+        assert len(controller.undo_manager._redo_stack) == 0
+
+
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.circuit_controller as mod
