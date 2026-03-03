@@ -1,13 +1,14 @@
 import sys
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtWidgets
 from PyQt6.QtGui import QAction
 
-from Core.Views.ComponentPalette import ComponentPalette
-from Core.Views.PropertiesPanel import PropertiesPanel
+from app.ComponentPalette import ComponentPalette
+from app.GUI import CircuitCanvasView
+from app.PropertiesPanel import PropertiesPanel
 from app.GUI.circuit_canvas_rebuild import CircuitCanvasViewRebuild
 
 
-class MainWindow(QtWidgets.QMainWindow):
+class MainWindowRebuild(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
 
@@ -101,7 +102,7 @@ class MainWindow(QtWidgets.QMainWindow):
         about_sdm_spice_action = QAction("&About SDM-Spice", self)
         help_menu.addAction(about_sdm_spice_action)
 
-class MyWidget(QtWidgets.QWidget):
+class MyWidgetRebuild(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
@@ -131,19 +132,19 @@ class MyWidget(QtWidgets.QWidget):
         self.move(desktopScreen.topLeft())
 
 
-def main():
-    app = QtWidgets.QApplication([])
-
-    window = MainWindow()
-    window.show()
-
-    widget = MyWidget()
-    widget.show()
-
-    with open("../darkMode.qss", "r") as file:
-        _style = file.read()
-        app.setStyleSheet(_style)
-
-    sys.exit(app.exec())
-
-main()
+#def main():
+#    app = QtWidgets.QApplication([])
+#
+#    window = MainWindow()
+#    window.show()
+#
+#    widget = MyWidget()
+#    widget.show()
+#
+#    with open("../darkMode.qss", "r") as file:
+#        _style = file.read()
+#        app.setStyleSheet(_style)
+#
+#    sys.exit(app.exec())
+#
+#main()
