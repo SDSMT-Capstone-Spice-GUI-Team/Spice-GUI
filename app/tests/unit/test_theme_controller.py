@@ -70,14 +70,14 @@ class TestControllerNoGuiImport:
     def test_no_gui_runtime_import(self):
         import controllers.theme_controller as tc
 
-        source = Path(tc.__file__).read_text()
+        source = Path(tc.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
 
     def test_gui_import_only_in_type_checking(self):
         """Any GUI.styles import must be inside TYPE_CHECKING block."""
         import controllers.theme_controller as tc
 
-        source = Path(tc.__file__).read_text()
+        source = Path(tc.__file__).read_text(encoding="utf-8")
         tree = ast.parse(source)
         for node in ast.walk(tree):
             is_from_import = isinstance(node, ast.ImportFrom)
@@ -112,7 +112,7 @@ class TestNoDirectMutationInGui:
         """No GUI file outside styles/ should call theme_manager.set_*."""
         violations = []
         for path in self._gui_python_files():
-            source = path.read_text()
+            source = path.read_text(encoding="utf-8")
             for line_no, line in enumerate(source.splitlines(), 1):
                 # Skip comments
                 stripped = line.lstrip()
