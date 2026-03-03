@@ -1,9 +1,10 @@
 """View operations: theme, visibility toggles, probe tool, zoom, and image export for MainWindow."""
 
+from controllers.theme_controller import theme_ctrl
 from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
-from .styles import DarkTheme, LightTheme, theme_manager
+from .styles import theme_manager
 from .waveform_dialog import WaveformDialog
 
 
@@ -13,10 +14,10 @@ class ViewOperationsMixin:
     def _set_theme(self, theme_name: str):
         """Switch the application theme (legacy: 'light' or 'dark' only)."""
         if theme_name == "dark":
-            theme_manager.set_theme(DarkTheme())
+            theme_ctrl.set_theme_by_key("dark")
             self.dark_theme_action.setChecked(True)
         else:
-            theme_manager.set_theme(LightTheme())
+            theme_ctrl.set_theme_by_key("light")
             self.light_theme_action.setChecked(True)
         self._apply_theme()
         if hasattr(self, "_refresh_theme_menu"):
@@ -32,7 +33,7 @@ class ViewOperationsMixin:
 
     def _set_symbol_style(self, style: str):
         """Switch the component symbol drawing style."""
-        theme_manager.set_symbol_style(style)
+        theme_ctrl.set_symbol_style(style)
         if style == "iec":
             self.iec_style_action.setChecked(True)
         else:
@@ -41,7 +42,7 @@ class ViewOperationsMixin:
 
     def _set_color_mode(self, mode: str):
         """Switch between per-type color and monochrome rendering."""
-        theme_manager.set_color_mode(mode)
+        theme_ctrl.set_color_mode(mode)
         if mode == "monochrome":
             self.monochrome_mode_action.setChecked(True)
         else:
@@ -50,7 +51,7 @@ class ViewOperationsMixin:
 
     def _set_wire_thickness(self, thickness: str):
         """Switch wire rendering thickness."""
-        theme_manager.set_wire_thickness(thickness)
+        theme_ctrl.set_wire_thickness(thickness)
         if hasattr(self, "wire_thickness_actions"):
             for t, action in self.wire_thickness_actions.items():
                 action.setChecked(t == thickness)
@@ -58,14 +59,14 @@ class ViewOperationsMixin:
 
     def _set_show_junction_dots(self, show: bool):
         """Toggle junction dot visibility at wire intersections."""
-        theme_manager.set_show_junction_dots(show)
+        theme_ctrl.set_show_junction_dots(show)
         if hasattr(self, "show_junction_dots_action"):
             self.show_junction_dots_action.setChecked(show)
         self.canvas.scene.update()
 
     def _set_routing_mode(self, mode: str):
         """Switch wire routing mode between orthogonal and diagonal."""
-        theme_manager.set_routing_mode(mode)
+        theme_ctrl.set_routing_mode(mode)
         if hasattr(self, "routing_mode_actions"):
             for m, action in self.routing_mode_actions.items():
                 action.setChecked(m == mode)

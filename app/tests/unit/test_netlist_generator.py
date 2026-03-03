@@ -38,7 +38,14 @@ class TestGenerateAnalysisCommand:
     def test_noise(self):
         cmd = generate_analysis_command(
             "Noise",
-            {"output_node": "out", "source": "V1", "fStart": 1, "fStop": 1e6, "points": 100, "sweepType": "dec"},
+            {
+                "output_node": "out",
+                "source": "V1",
+                "fStart": 1,
+                "fStop": 1e6,
+                "points": 100,
+                "sweepType": "dec",
+            },
         )
         assert cmd.startswith(".noise v(out) V1")
 
