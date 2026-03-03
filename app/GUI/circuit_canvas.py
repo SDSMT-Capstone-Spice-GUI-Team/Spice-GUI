@@ -2231,6 +2231,36 @@ class CircuitCanvasView(QGraphicsView):
     # Phase 5: sync_to_model() and sync_from_model() methods DELETED
     # Observer pattern handles all synchronization automatically
 
+    # --- Protocol wrapper methods (CircuitCanvasProtocol) ---
+
+    def handle_observer_event(self, event: str, data) -> None:
+        """Public alias for _on_model_changed (CircuitCanvasProtocol)."""
+        return self._on_model_changed(event, data)
+
+    def clear_selection(self) -> None:
+        """Deselect all items (CircuitCanvasProtocol)."""
+        self.scene.clearSelection()
+
+    def select_components(self, component_ids: list[str]) -> None:
+        """Programmatically select the given components (CircuitCanvasProtocol)."""
+        for comp_id, comp_item in self.components.items():
+            comp_item.setSelected(comp_id in component_ids)
+
+    def set_show_component_labels(self, show: bool) -> None:
+        """Toggle component ID label visibility (CircuitCanvasProtocol)."""
+        self.show_component_labels = show
+        self.scene.update()
+
+    def set_show_component_values(self, show: bool) -> None:
+        """Toggle component value label visibility (CircuitCanvasProtocol)."""
+        self.show_component_values = show
+        self.scene.update()
+
+    def set_show_node_labels(self, show: bool) -> None:
+        """Toggle node label visibility (CircuitCanvasProtocol)."""
+        self.show_node_labels = show
+        self.scene.update()
+
 
 # Backward compatibility alias
 CircuitCanvas = CircuitCanvasView
