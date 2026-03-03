@@ -107,7 +107,7 @@ class SimulationMixin:
 
         # Add sweep_labels to the data for the plot dialog
         if result.data:
-            from .format_utils import format_value
+            from utils.format_utils import format_value
 
             result.data["sweep_labels"] = [format_value(v).strip() for v in result.data.get("sweep_values", [])]
 

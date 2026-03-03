@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 from simulation.measurement_builder import ANALYSIS_DOMAIN_MAP
+from utils.format_utils import parse_value
 
-from .format_utils import parse_value
 from .meas_dialog import MeasurementDialog
 from .validation_helpers import clear_field_error, set_field_error
 

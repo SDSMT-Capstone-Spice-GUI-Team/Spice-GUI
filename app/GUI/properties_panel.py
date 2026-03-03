@@ -2,8 +2,8 @@
 from models.component import DEFAULT_VALUES, OPAMP_MODELS
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QComboBox, QFormLayout, QGroupBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from utils.format_utils import format_value, validate_component_value
 
-from .format_utils import format_value, validate_component_value
 from .styles import theme_manager
 
 

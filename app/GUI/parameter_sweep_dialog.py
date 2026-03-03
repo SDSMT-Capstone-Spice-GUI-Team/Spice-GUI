@@ -14,8 +14,8 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
+from utils.format_utils import format_value, parse_value
 
-from .format_utils import format_value, parse_value
 from .validation_helpers import clear_field_error, set_field_error
 
 # Component types whose primary value can be swept

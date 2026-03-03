@@ -9,8 +9,8 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QVBoxLayout,
 )
+from utils.format_utils import parse_value
 
-from .format_utils import parse_value
 from .validation_helpers import clear_field_error, set_field_error
 
 
