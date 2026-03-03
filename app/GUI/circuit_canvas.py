@@ -2033,40 +2033,6 @@ class CircuitCanvasView(QGraphicsView):
         terminal_legend_text.setZValue(1000)
         self.obstacle_boundary_items.append(terminal_legend_text)
 
-    def get_model_components(self):
-        """Return dict of component_id -> ComponentData for simulation use.
-
-        Uses the controller's model as the single source of truth.
-        Falls back to the graphics items' local models if no controller.
-        """
-        if self.controller:
-            return self.controller.get_components()
-        return {comp_id: comp_item.model for comp_id, comp_item in self.components.items()}
-
-    def get_model_wires(self):
-        """Return list of WireData for simulation use."""
-        from models.wire import WireData
-
-        return [
-            WireData(
-                start_component_id=wire.start_comp.component_id,
-                start_terminal=wire.start_term,
-                end_component_id=wire.end_comp.component_id,
-                end_terminal=wire.end_term,
-            )
-            for wire in self.wires
-        ]
-
-    def get_model_nodes_and_terminal_map(self):
-        """Return (list of NodeData, terminal_to_node dict) for simulation use.
-
-        The terminal_to_node dict maps (comp_id, term_idx) -> NodeData,
-        sharing the same NodeData objects as the returned list.
-        """
-        if self.controller:
-            return self.controller.get_nodes_and_terminal_map()
-        return list(self.nodes), dict(self.terminal_to_node)
-
     def export_image(self, filepath, include_grid=True):
         """Export the circuit scene to an image file (PNG or SVG).
 
