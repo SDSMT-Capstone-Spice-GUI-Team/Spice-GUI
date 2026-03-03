@@ -18,7 +18,7 @@ AUTOSAVE_FILE = ".autosave_recovery.json"
 MAX_RECENT_FILES = 10
 
 
-from models.circuit_validator import validate_circuit_data  # noqa: F401 — re-exported for compatibility
+from models.circuit_schema_validator import validate_circuit_data  # noqa: F401 — re-exported for compatibility
 
 
 class FileController:
