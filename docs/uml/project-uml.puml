@@ -1,0 +1,1077 @@
+@startuml Spice-GUI Architecture
+!theme plain
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam groupInheritance 2
+
+title Spice-GUI — Full Class Diagram
+footer Generated 2026-03-03
+
+' ============================================================
+' MODELS LAYER
+' ============================================================
+package "models" <<Frame>> #F5F5DC {
+
+    class CircuitModel <<dataclass>> {
+        + components : dict[str, ComponentData]
+        + wires : list[WireData]
+        + nodes : list[NodeData]
+        + terminal_to_node : dict[tuple, NodeData]
+        + component_counter : dict[str, int]
+        + annotations : list[AnnotationData]
+        + recommended_components : list[str]
+        + analysis_type : str
+        + analysis_params : dict
+        --
+        + add_component(comp: ComponentData)
+        + remove_component(id: str) : list[int]
+        + add_wire(wire: WireData)
+        + remove_wire(index: int)
+        + rebuild_nodes()
+        + clear()
+        + to_dict() : dict
+        + {static} from_dict(data) : CircuitModel
+    }
+
+    class ComponentData <<dataclass>> {
+        + component_id : str
+        + component_type : str
+        + value : str
+        + position : tuple[float, float]
+        + rotation : int
+        + flip_h : bool
+        + flip_v : bool
+        + waveform_type : str
+        + waveform_params : dict
+        + initial_condition : Optional[str]
+        --
+        + get_terminal_count() : int
+        + get_base_terminal_positions() : list[tuple]
+        + get_terminal_positions() : list[tuple]
+        + get_spice_symbol() : str
+        + get_spice_value() : str
+        + to_dict() : dict
+        + {static} from_dict(data) : ComponentData
+    }
+
+    class WireData <<dataclass>> {
+        + start_component_id : str
+        + start_terminal : int
+        + end_component_id : str
+        + end_terminal : int
+        + waypoints : list[tuple]
+        + algorithm : str
+        + runtime : float
+        + iterations : int
+        + routing_failed : bool
+        + locked : bool
+        --
+        + get_terminals() : list[tuple]
+        + connects_component(id: str) : bool
+        + to_dict() : dict
+        + {static} from_dict(data) : WireData
+    }
+
+    class NodeData <<dataclass>> {
+        + terminals : set[tuple[str, int]]
+        + wire_indices : set[int]
+        + is_ground : bool
+        + custom_label : Optional[str]
+        + auto_label : str
+        --
+        + get_label() : str
+        + set_custom_label(label)
+        + add_terminal(comp_id, term_idx)
+        + remove_terminal(comp_id, term_idx)
+        + merge_with(other: NodeData)
+        + set_as_ground()
+        + is_empty() : bool
+    }
+
+    class NodeLabelGenerator {
+        - _counter : int
+        --
+        + reset()
+        + next_label() : str
+    }
+
+    class AnnotationData <<dataclass>> {
+        + text : str
+        + x : float
+        + y : float
+        + font_size : int
+        + bold : bool
+        + color : str
+        --
+        + to_dict() : dict
+        + {static} from_dict(data) : AnnotationData
+    }
+
+    class ClipboardData <<dataclass>> {
+        + components : list[ComponentData]
+        + wires : list[WireData]
+        + paste_count : int
+        --
+        + is_empty() : bool
+    }
+
+    class TemplateData <<dataclass>> {
+        + template_version : str
+        + metadata : TemplateMetadata
+        + instructions : str
+        + starter_circuit : Optional[dict]
+        + reference_circuit : Optional[dict]
+        + locked_components : list[str]
+        --
+        + to_dict() : dict
+        + {static} from_dict(data) : TemplateData
+    }
+
+    class TemplateMetadata <<dataclass>> {
+        + title : str
+        + description : str
+        + author : str
+        + created : str
+        + tags : list[str]
+    }
+
+    class AssignmentBundle <<dataclass>> {
+        + assignment_version : str
+        + template : Optional[TemplateData]
+        + rubric : Optional[dict]
+    }
+
+    class SubcircuitDefinition <<dataclass>> {
+        + name : str
+        + netlist : str
+        + is_builtin : bool
+    }
+
+    class SubcircuitLibrary {
+        - _definitions : dict[str, SubcircuitDefinition]
+        + library_path : Optional[Path]
+        --
+        + add_subcircuit(name, netlist)
+        + remove_subcircuit(name) : bool
+        + get_subcircuit(name) : Optional[SubcircuitDefinition]
+        + list_subcircuits() : list[str]
+    }
+
+    CircuitModel *-- "0..*" ComponentData
+    CircuitModel *-- "0..*" WireData
+    CircuitModel *-- "0..*" NodeData
+    CircuitModel *-- "0..*" AnnotationData
+    TemplateData *-- TemplateMetadata
+    SubcircuitLibrary *-- "0..*" SubcircuitDefinition
+}
+
+' ============================================================
+' PROTOCOLS LAYER
+' ============================================================
+package "protocols" <<Frame>> #E8F5E9 {
+
+    interface CircuitCanvasProtocol <<Protocol>> {
+        + handle_observer_event(event, data)
+        + get_selected_component_ids() : list[str]
+        + clear_selection()
+        + select_components(ids: list[str])
+        + zoom_in()
+        + zoom_out()
+        + zoom_fit()
+        + get_zoom_level() : float
+        + set_show_component_labels(show: bool)
+        + set_show_component_values(show: bool)
+        + set_show_node_labels(show: bool)
+        + set_node_voltages(voltages: dict)
+        + clear_op_annotations()
+        + export_image(filepath, include_grid)
+        + refresh_theme()
+    }
+
+    interface ApplicationShellProtocol <<Protocol>> {
+        + circuit_ctrl : CircuitController
+        + file_ctrl : FileController
+        + simulation_ctrl : SimulationController
+        + set_window_title(title: str)
+        + show_status_message(msg, timeout)
+        + set_dirty(dirty: bool)
+    }
+
+    interface DialogProvider <<Protocol>> {
+        + ask_save_file(title, filters, default) : Optional[Path]
+        + ask_open_file(title, filters) : Optional[Path]
+        + confirm(title, message) : bool
+        + show_error(title, message)
+        + show_warning(title, message)
+        + show_info(title, message)
+        + ask_analysis_params(...) : Optional[dict]
+        + create_progress(title, msg, max) : ProgressHandle
+    }
+
+    interface ProgressHandle <<Protocol>> {
+        + update(value, message) : bool
+        + close()
+    }
+}
+
+' ============================================================
+' CONTROLLERS LAYER
+' ============================================================
+package "controllers" <<Frame>> #E3F2FD {
+
+    abstract class Command <<ABC>> {
+        + {abstract} execute()
+        + {abstract} undo()
+        + get_description() : str
+    }
+
+    class AddComponentCommand { }
+    class DeleteComponentCommand { }
+    class MoveComponentCommand { }
+    class RotateComponentCommand { }
+    class FlipComponentCommand { }
+    class ChangeValueCommand { }
+    class AddWireCommand { }
+    class DeleteWireCommand { }
+    class ToggleWireLockCommand { }
+    class RerouteWireCommand { }
+    class PasteCommand { }
+    class AddAnnotationCommand { }
+    class DeleteAnnotationCommand { }
+    class EditAnnotationCommand { }
+    class CompoundCommand {
+        + commands : list[Command]
+        + description : str
+    }
+
+    Command <|-- AddComponentCommand
+    Command <|-- DeleteComponentCommand
+    Command <|-- MoveComponentCommand
+    Command <|-- RotateComponentCommand
+    Command <|-- FlipComponentCommand
+    Command <|-- ChangeValueCommand
+    Command <|-- AddWireCommand
+    Command <|-- DeleteWireCommand
+    Command <|-- ToggleWireLockCommand
+    Command <|-- RerouteWireCommand
+    Command <|-- PasteCommand
+    Command <|-- AddAnnotationCommand
+    Command <|-- DeleteAnnotationCommand
+    Command <|-- EditAnnotationCommand
+    Command <|-- CompoundCommand
+
+    class UndoManager {
+        + max_depth : int
+        - _undo_stack : list[Command]
+        - _redo_stack : list[Command]
+        --
+        + execute(cmd: Command)
+        + undo() : bool
+        + redo() : bool
+        + can_undo() : bool
+        + can_redo() : bool
+        + get_undo_description() : Optional[str]
+        + clear()
+    }
+
+    class CircuitController {
+        + model : CircuitModel
+        + undo_manager : UndoManager
+        - _observers : list[Callable]
+        - _clipboard : ClipboardData
+        - _locked_components : set[str]
+        --
+        + add_observer(callback)
+        + remove_observer(callback)
+        - _notify(event: str, data)
+        + add_component(type, position) : ComponentData
+        + remove_component(id: str)
+        + rotate_component(id, clockwise)
+        + flip_component(id, horizontal)
+        + update_component_value(id, value)
+        + move_component(id, position)
+        + add_wire(start_id, start_term, end_id, end_term)
+        + remove_wire(index)
+        + execute_command(cmd: Command)
+        + push_already_executed(cmd: Command)
+        + copy_components(ids) : bool
+        + paste_components() : tuple
+        + get_components() : dict
+        + get_wires() : list
+        + get_nodes_and_terminal_map() : tuple
+        + set_net_name(node, label)
+        + rebuild_nodes()
+        + to_dict() : dict
+    }
+
+    class FileController {
+        + model : CircuitModel
+        + circuit_ctrl : CircuitController
+        + current_file : Optional[Path]
+        --
+        + new_circuit()
+        + save_circuit(filepath)
+        + load_circuit(filepath)
+        + load_from_dict(data)
+        + has_file() : bool
+        + get_recent_files() : list[Path]
+    }
+
+    class SimulationController {
+        + model : CircuitModel
+        + circuit_ctrl : CircuitController
+        - _runner : Optional[NgspiceRunner]
+        --
+        + set_analysis(type, params)
+        + get_analysis_type() : str
+        + validate_circuit() : SimulationResult
+        + generate_netlist() : str
+        + run_simulation() : SimulationResult
+        + cancel_simulation()
+    }
+
+    class SimulationResult <<dataclass>> {
+        + success : bool
+        + analysis_type : str
+        + data : Any
+        + errors : list[str]
+        + warnings : list[str]
+        + netlist : str
+        + raw_output : str
+        + measurements : Optional[dict]
+    }
+
+    class TemplateController {
+        + template_manager : TemplateManager
+        + circuit_ctrl : CircuitController
+        + file_ctrl : FileController
+        --
+        + create_template_from_circuit() : TemplateData
+        + load_template(path) : TemplateData
+    }
+
+    class TemplateManager {
+        + template_dir : Path
+        --
+        + save_template(template, filepath)
+        + load_template(filepath) : TemplateData
+        + list_templates() : list[TemplateInfo]
+    }
+
+    class SettingsService <<singleton>> {
+        + get_value(key, default) : Any
+        + set_value(key, value)
+        + get_recent_files() : list[str]
+    }
+
+    class KeybindingsRegistry {
+        - _bindings : dict[str, str]
+        --
+        + register_binding(action, keys)
+        + get_binding(action) : Optional[str]
+        + load_bindings()
+        + save_bindings()
+    }
+
+    class ThemeController {
+        + theme_manager : ThemeManager
+        --
+        + set_theme(name)
+        + get_current_theme() : str
+        + list_themes() : list[str]
+    }
+
+    CircuitController *-- CircuitModel
+    CircuitController *-- UndoManager
+    CircuitController *-- ClipboardData
+    FileController --> CircuitController : uses
+    FileController --> CircuitModel : reads
+    SimulationController --> CircuitController : uses
+    SimulationController --> CircuitModel : reads
+    TemplateController --> TemplateManager
+    TemplateController --> CircuitController
+    UndoManager o-- "0..*" Command
+    CompoundCommand o-- "1..*" Command
+}
+
+' ============================================================
+' ALGORITHMS LAYER
+' ============================================================
+package "algorithms" <<Frame>> #FFF3E0 {
+
+    abstract class WeightedPathfinder <<ABC>> {
+        + grid_size : int
+        + allow_diagonal : bool
+        + bend_penalty_base : float
+        + crossing_penalty : float
+        + body_crossing_penalty : float
+        --
+        + {abstract} find_path(start, end, obstacles, ...) : tuple
+        # _pos_to_grid(pos) : tuple
+        # _grid_to_pos(grid) : tuple
+    }
+
+    class IDAStarPathfinder {
+        + find_path(start, end, obstacles, ...) : tuple
+    }
+
+    WeightedPathfinder <|-- IDAStarPathfinder
+
+    note right of WeightedPathfinder
+        Qt-free: works with
+        plain (x, y) tuples
+    end note
+}
+
+' ============================================================
+' GUI LAYER — CANVAS & GRAPHICS ITEMS
+' ============================================================
+package "GUI.canvas" <<Frame>> #FCE4EC {
+
+    class CircuitCanvasView <<QGraphicsView>> {
+        .. Signals ..
+        + componentAdded : pyqtSignal(str)
+        + wireAdded : pyqtSignal(str, str)
+        + selectionChanged : pyqtSignal(object)
+        + componentRightClicked : pyqtSignal(object, object)
+        + canvasClicked : pyqtSignal()
+        + zoomChanged : pyqtSignal(float)
+        + probeRequested : pyqtSignal(str, str)
+        + statusMessage : pyqtSignal(str, int)
+        .. State ..
+        + controller : CircuitController
+        + components : dict[str, ComponentGraphicsItem]
+        + wires : list[WireGraphicsItem]
+        + nodes : list[NodeData]
+        + annotations : list[AnnotationItem]
+        + node_voltages : dict[str, float]
+        + branch_currents : dict[str, float]
+        + show_component_labels : bool
+        + show_component_values : bool
+        + show_node_labels : bool
+        + probe_mode : bool
+        .. Observer ..
+        - _on_model_changed(event, data)
+        - _handle_component_added(data)
+        - _handle_component_removed(id)
+        - _handle_component_moved(data)
+        - _handle_wire_added(data)
+        - _handle_wire_removed(index)
+        - _handle_model_loaded(data)
+        - _handle_circuit_cleared(data)
+        .. Editing ..
+        + delete_selected()
+        + delete_component(comp)
+        + rotate_selected(clockwise)
+        + flip_selected(horizontal)
+        + add_component_at_center(type)
+        + add_annotation(scene_pos)
+        .. Wire Drawing ..
+        + cancel_wire_drawing()
+        + is_terminal_available(comp, term)
+        .. Zoom ..
+        + zoom_in(center)
+        + zoom_out(center)
+        + zoom_fit()
+        + zoom_reset()
+        + get_zoom_level() : float
+        .. Simulation ..
+        + set_node_voltages(voltages)
+        + set_op_results(voltages, currents)
+        + set_probe_mode(active)
+        .. Serialization ..
+        + to_dict() : dict
+        + from_dict(data)
+        + export_image(filepath, include_grid)
+        .. Rendering ..
+        + draw_grid()
+        + drawForeground(painter, rect)
+        + refresh_theme()
+        .. Clipboard ..
+        + copy_selected_components(ids)
+        + cut_selected_components(ids)
+        + paste_components()
+    }
+
+    class ComponentGraphicsItem <<QGraphicsItem>> {
+        + model : ComponentData
+        + canvas : CircuitCanvasView
+        + terminals : list[QPointF]
+        + type_name : str
+        - _locked : bool
+        - _hovered : bool
+        - _grading_state : Optional[str]
+        - _drag_start_positions : dict
+        --
+        + component_id : str  <<property>>
+        + component_type : str  <<property>>
+        + value : str  <<property>>
+        + rotation_angle : int  <<property>>
+        --
+        + update_terminals()
+        + sync_from_data(data: ComponentData)
+        + set_locked(locked: bool)
+        + get_terminal_pos(index) : QPointF
+        + get_obstacle_shape() : list[tuple]
+        + draw_component_body(painter)
+        + set_grading_state(state, feedback)
+        + paint(painter, option, widget)
+        + boundingRect() : QRectF
+        + itemChange(change, value) : Any
+        + to_dict() : dict
+        + {static} from_dict(data) : ComponentGraphicsItem
+    }
+
+    class Resistor <<ComponentGraphicsItem>> { type_name = "Resistor" }
+    class Capacitor <<ComponentGraphicsItem>> { type_name = "Capacitor" }
+    class Inductor <<ComponentGraphicsItem>> { type_name = "Inductor" }
+    class VoltageSource <<ComponentGraphicsItem>> { type_name = "Voltage Source" }
+    class CurrentSource <<ComponentGraphicsItem>> { type_name = "Current Source" }
+    class WaveformVoltageSource <<ComponentGraphicsItem>> {
+        type_name = "Waveform Source"
+        + waveform_type : str  <<property>>
+        + waveform_params : dict  <<property>>
+    }
+    class Ground <<ComponentGraphicsItem>> {
+        type_name = "Ground"
+        + paint(painter, option, widget)
+    }
+    class OpAmp <<ComponentGraphicsItem>> { type_name = "Op-Amp" }
+    class VCVS <<ComponentGraphicsItem>> { type_name = "VCVS" }
+    class CCVS <<ComponentGraphicsItem>> { type_name = "CCVS" }
+    class VCCS <<ComponentGraphicsItem>> { type_name = "VCCS" }
+    class CCCS <<ComponentGraphicsItem>> { type_name = "CCCS" }
+    class BJTNPN <<ComponentGraphicsItem>> { type_name = "BJT NPN" }
+    class BJTPNP <<ComponentGraphicsItem>> { type_name = "BJT PNP" }
+    class MOSFETNMOS <<ComponentGraphicsItem>> { type_name = "MOSFET NMOS" }
+    class MOSFETPMOS <<ComponentGraphicsItem>> { type_name = "MOSFET PMOS" }
+    class VCSwitch <<ComponentGraphicsItem>> { type_name = "VC Switch" }
+    class Diode <<ComponentGraphicsItem>> { type_name = "Diode" }
+    class LEDComponent <<ComponentGraphicsItem>> { type_name = "LED" }
+    class ZenerDiode <<ComponentGraphicsItem>> { type_name = "Zener Diode" }
+    class Transformer <<ComponentGraphicsItem>> {
+        type_name = "Transformer"
+        + draw_component_body(painter)
+        + get_obstacle_shape() : list[tuple]
+    }
+
+    ComponentGraphicsItem <|-- Resistor
+    ComponentGraphicsItem <|-- Capacitor
+    ComponentGraphicsItem <|-- Inductor
+    ComponentGraphicsItem <|-- VoltageSource
+    ComponentGraphicsItem <|-- CurrentSource
+    ComponentGraphicsItem <|-- WaveformVoltageSource
+    ComponentGraphicsItem <|-- Ground
+    ComponentGraphicsItem <|-- OpAmp
+    ComponentGraphicsItem <|-- VCVS
+    ComponentGraphicsItem <|-- CCVS
+    ComponentGraphicsItem <|-- VCCS
+    ComponentGraphicsItem <|-- CCCS
+    ComponentGraphicsItem <|-- BJTNPN
+    ComponentGraphicsItem <|-- BJTPNP
+    ComponentGraphicsItem <|-- MOSFETNMOS
+    ComponentGraphicsItem <|-- MOSFETPMOS
+    ComponentGraphicsItem <|-- VCSwitch
+    ComponentGraphicsItem <|-- Diode
+    ComponentGraphicsItem <|-- LEDComponent
+    ComponentGraphicsItem <|-- ZenerDiode
+    ComponentGraphicsItem <|-- Transformer
+
+    class WireGraphicsItem <<QGraphicsPathItem>> {
+        + model : WireData
+        + start_comp : ComponentGraphicsItem
+        + start_term : int
+        + end_comp : ComponentGraphicsItem
+        + end_term : int
+        + canvas : CircuitCanvasView
+        + node : Optional[NodeData]
+        + algorithm : str
+        + layer_color : QColor
+        + waypoints : list[QPointF]
+        - _waypoint_handles : list[WaypointHandle]
+        - _hovered : bool
+        --
+        + update_position()
+        + show_drag_preview()
+        + paint(painter, option, widget)
+        + shape() : QPainterPath
+        + boundingRect() : QRectF
+        + to_dict() : dict
+        + {static} from_dict(data, components, canvas)
+    }
+
+    class WaypointHandle <<QGraphicsEllipseItem>> {
+        - _wire : WireGraphicsItem
+        - _index : int
+        --
+        + itemChange(change, value)
+        + mouseReleaseEvent(event)
+    }
+
+    class AnnotationItem <<QGraphicsTextItem>> {
+        + canvas : CircuitCanvasView
+        - _color_hex : str
+        --
+        + mouseDoubleClickEvent(event)
+        + to_dict() : dict
+        + {static} from_dict(data) : AnnotationItem
+    }
+
+    class _ComponentAdapter {
+        - _comp : ComponentGraphicsItem
+        --
+        + pos() : tuple
+        + get_terminal_pos(index) : tuple
+    }
+
+    class _WireAdapter {
+        - _wire : WireGraphicsItem
+        --
+        + waypoints : list[tuple]  <<property>>
+    }
+
+    CircuitCanvasView ..|> CircuitCanvasProtocol
+    CircuitCanvasView *-- "0..*" ComponentGraphicsItem : components
+    CircuitCanvasView *-- "0..*" WireGraphicsItem : wires
+    CircuitCanvasView *-- "0..*" AnnotationItem : annotations
+    CircuitCanvasView --> CircuitController : observes
+    ComponentGraphicsItem *-- ComponentData : model
+    ComponentGraphicsItem --> CircuitCanvasView : canvas
+    WireGraphicsItem *-- WireData : model
+    WireGraphicsItem *-- "0..*" WaypointHandle
+    WireGraphicsItem --> CircuitCanvasView : canvas
+    WireGraphicsItem --> ComponentGraphicsItem : start_comp / end_comp
+    AnnotationItem --> CircuitCanvasView : canvas
+    _ComponentAdapter --> ComponentGraphicsItem : wraps
+    _WireAdapter --> WireGraphicsItem : wraps
+}
+
+' ============================================================
+' GUI LAYER — RENDERERS
+' ============================================================
+package "GUI.renderers" <<Frame>> #F3E5F5 {
+
+    abstract class ComponentRenderer <<ABC>> {
+        + {abstract} draw(painter, component)
+        + {abstract} get_obstacle_shape(component) : list[tuple]
+    }
+
+    class IEEEResistor { }
+    class IEEECapacitor { }
+    class IEEEInductor { }
+    class IEEEVoltageSource { }
+    class IEEECurrentSource { }
+    class IEEEWaveformVoltageSource { }
+    class IEEEGround { }
+    class IEEEOpAmp { }
+    class IEEEVCVS { }
+    class IEEECCVS { }
+    class IEEEVCCS { }
+    class IEEECCCS { }
+    class IEEEBJTNPN { }
+    class IEEEBJTPNP { }
+    class IEEEMOSFETNMOS { }
+    class IEEEMOSFETPMOS { }
+    class IEEEVCSwitch { }
+    class IEEEDiode { }
+    class IEEELED { }
+    class IEEEZenerDiode { }
+
+    class IECResistor { }
+    class IECCapacitor { }
+    class IECInductor { }
+
+    ComponentRenderer <|-- IEEEResistor
+    ComponentRenderer <|-- IEEECapacitor
+    ComponentRenderer <|-- IEEEInductor
+    ComponentRenderer <|-- IEEEVoltageSource
+    ComponentRenderer <|-- IEEECurrentSource
+    ComponentRenderer <|-- IEEEWaveformVoltageSource
+    ComponentRenderer <|-- IEEEGround
+    ComponentRenderer <|-- IEEEOpAmp
+    ComponentRenderer <|-- IEEEVCVS
+    ComponentRenderer <|-- IEEECCVS
+    ComponentRenderer <|-- IEEEVCCS
+    ComponentRenderer <|-- IEEECCCS
+    ComponentRenderer <|-- IEEEBJTNPN
+    ComponentRenderer <|-- IEEEBJTPNP
+    ComponentRenderer <|-- IEEEMOSFETNMOS
+    ComponentRenderer <|-- IEEEMOSFETPMOS
+    ComponentRenderer <|-- IEEEVCSwitch
+    ComponentRenderer <|-- IEEEDiode
+    ComponentRenderer <|-- IEEELED
+    ComponentRenderer <|-- IEEEZenerDiode
+    ComponentRenderer <|-- IECResistor
+    ComponentRenderer <|-- IECCapacitor
+    ComponentRenderer <|-- IECInductor
+
+    note bottom of ComponentRenderer
+        Registry: _registry[(type, style)] -> renderer
+        IEC delegates to IEEE for most types
+    end note
+}
+
+ComponentGraphicsItem ..> ComponentRenderer : dispatches to
+
+' ============================================================
+' GUI LAYER — STYLES & THEMES
+' ============================================================
+package "GUI.styles" <<Frame>> #EFEBE9 {
+
+    interface ThemeProtocol <<Protocol>> {
+        + color(name) : QColor
+        + pen(name) : QPen
+        + brush(name) : QBrush
+        + font(name) : QFont
+    }
+
+    class BaseTheme {
+        - _colors : dict[str, str]
+        --
+        + color(name) : QColor
+        + pen(name) : QPen
+        + brush(name) : QBrush
+        + font(name) : QFont
+    }
+
+    class LightTheme { }
+    class DarkTheme { }
+    class CustomTheme {
+        + load_from_file(filepath)
+        + save_to_file(filepath)
+    }
+
+    class ThemeManager <<singleton>> {
+        - _current_theme : BaseTheme
+        + symbol_style : str
+        + wire_thickness_px : int
+        + routing_mode : str
+        + show_junction_dots : bool
+        --
+        + color(name) : QColor
+        + color_hex(name) : str
+        + pen(name) : QPen
+        + brush(name) : QBrush
+        + font(name) : QFont
+        + get_component_color(type) : QColor
+        + create_component_pen(type) : QPen
+        + set_theme(theme: BaseTheme)
+        + stylesheet(name) : str
+    }
+
+    BaseTheme ..|> ThemeProtocol
+    BaseTheme <|-- LightTheme
+    BaseTheme <|-- DarkTheme
+    BaseTheme <|-- CustomTheme
+    ThemeManager *-- BaseTheme : _current_theme
+}
+
+' ============================================================
+' GUI LAYER — MAIN WINDOW & MIXINS
+' ============================================================
+package "GUI.shell" <<Frame>> #E8EAF6 {
+
+    class MainWindow <<QMainWindow>> {
+        + model : CircuitModel
+        + canvas : CircuitCanvasView
+        + keybindings : KeybindingsRegistry
+        + dialogs : QtDialogProvider
+        - _circuit_ctrl : CircuitController
+        - _file_ctrl : FileController
+        - _simulation_ctrl : SimulationController
+        - _dirty : bool
+        --
+        + init_ui()
+        + circuit_ctrl : CircuitController  <<property>>
+        + file_ctrl : FileController  <<property>>
+        + simulation_ctrl : SimulationController  <<property>>
+        + show_status_message(msg, timeout)
+        + set_dirty(dirty)
+        + set_window_title(title)
+    }
+
+    class MenuBarMixin <<mixin>> { + create_menu_bar() }
+    class FileOperationsMixin <<mixin>> {
+        + new_circuit()
+        + open_circuit()
+        + save_circuit()
+        + save_circuit_as()
+    }
+    class SimulationMixin <<mixin>> {
+        + run_simulation()
+        + cancel_simulation()
+    }
+    class AnalysisSettingsMixin <<mixin>> { + show_analysis_settings() }
+    class ViewOperationsMixin <<mixin>> {
+        + toggle_grid()
+        + toggle_probe_mode()
+    }
+    class PrintExportMixin <<mixin>> {
+        + print_circuit()
+        + export_pdf()
+    }
+    class HelpMixin <<mixin>> { + show_help() }
+    class SettingsMixin <<mixin>> {
+        + show_preferences_dialog()
+        - _restore_settings()
+        - _auto_save()
+    }
+
+    MainWindow --|> MenuBarMixin
+    MainWindow --|> FileOperationsMixin
+    MainWindow --|> SimulationMixin
+    MainWindow --|> AnalysisSettingsMixin
+    MainWindow --|> ViewOperationsMixin
+    MainWindow --|> PrintExportMixin
+    MainWindow --|> HelpMixin
+    MainWindow --|> SettingsMixin
+    MainWindow ..|> ApplicationShellProtocol
+
+    MainWindow *-- CircuitCanvasView
+    MainWindow *-- CircuitController
+    MainWindow *-- FileController
+    MainWindow *-- SimulationController
+}
+
+' ============================================================
+' GUI LAYER — PANELS & DIALOGS
+' ============================================================
+package "GUI.panels" <<Frame>> #E0F7FA {
+
+    class ComponentPalette <<QWidget>> {
+        + get_selected_component_type() : Optional[str]
+    }
+
+    class PropertiesPanel <<QWidget>> {
+        + set_selected_component(comp)
+        + update_component_value(value)
+        + clear_selection()
+    }
+
+    class ResultsPanel <<QWidget>> {
+        + display_results(result: SimulationResult)
+        + clear_results()
+    }
+
+    class CircuitStatisticsPanel <<QWidget>> {
+        + update_statistics(components, wires)
+    }
+
+    class GradingPanel <<QWidget>> {
+        + load_rubric(path)
+        + grade_circuit(circuit) : GradingResult
+    }
+
+    class NetlistPreviewWidget <<QWidget>> {
+        + set_netlist(text)
+        + get_netlist() : str
+    }
+
+    class SpiceHighlighter <<QSyntaxHighlighter>> {
+        + highlightBlock(text)
+    }
+}
+
+package "GUI.dialogs" <<Frame>> #FFF9C4 {
+
+    class AnalysisDialog <<QDialog>> { + get_analysis_params() : dict }
+    class ParameterSweepDialog <<QDialog>> { + get_sweep_config() : dict }
+    class MonteCarloDialog <<QDialog>> { + get_monte_carlo_config() : dict }
+    class MeasurementDialog <<QDialog>> { + get_measurements() : list[str] }
+    class WaveformDialog <<QDialog>> { + plot_waveform(data, signals) }
+    class WaveformConfigDialog <<QDialog>> { + get_waveform_config() : dict }
+    class PreferencesDialog <<QDialog>> { + get_preferences() : dict }
+    class KeybindingsDialog <<QDialog>> { + get_keybindings() : dict }
+    class ThemeEditorDialog <<QDialog>> { + apply_theme() }
+    class NewFromTemplateDialog <<QDialog>> { + get_selected_template() }
+    class SaveAsTemplateDialog <<QDialog>> { + get_template_metadata() }
+    class BatchGradingDialog <<QDialog>> { + start_batch_grading(dir, rubric) }
+    class RubricEditorDialog <<QDialog>> { + get_rubric() : Rubric }
+    class SubcircuitLibraryDialog <<QDialog>> { + load_library(path) }
+    class HelpDialog <<QDialog>> { }
+
+    class QtDialogProvider <<QObject>> {
+        - _parent : QWidget
+        --
+        + ask_save_file(title, filters, default) : Optional[Path]
+        + ask_open_file(title, filters) : Optional[Path]
+        + confirm(title, message) : bool
+        + show_error(title, message)
+        + create_progress(title, msg, max) : QtProgressHandle
+    }
+
+    class QtProgressHandle <<QObject>> {
+        - _dialog : QProgressDialog
+        --
+        + update(value, message) : bool
+        + close()
+    }
+
+    QtDialogProvider ..|> DialogProvider
+    QtProgressHandle ..|> ProgressHandle
+    QtDialogProvider --> QtProgressHandle : creates
+}
+
+' ============================================================
+' SIMULATION LAYER
+' ============================================================
+package "simulation" <<Frame>> #FFEBEE {
+
+    class NgspiceRunner {
+        + run(netlist, timeout) : tuple[bool, str, str]
+        + is_installed() : bool
+        + get_version() : str
+    }
+
+    class NetlistGenerator {
+        + components : dict
+        + wires : list
+        + nodes : list
+        + analysis_type : str
+        + analysis_params : dict
+        + measurements : list[str]
+        --
+        + generate() : str
+    }
+
+    class ResultParser {
+        + parse(raw_output, analysis_type) : dict
+        + parse_node_voltages(output) : dict
+        + parse_branch_currents(output) : dict
+    }
+
+    class PresetManager {
+        - _presets : dict
+        --
+        + save_preset(name, config)
+        + load_preset(name) : dict
+        + list_presets() : list[str]
+    }
+
+    enum ErrorCategory {
+        CONVERGENCE
+        CIRCUIT_INCOMPLETE
+        ZERO_VOLTAGE_SOURCE
+        ...
+    }
+
+    class ErrorDiagnosis <<dataclass>> {
+        + category : ErrorCategory
+        + severity : str
+        + message : str
+        + suggestions : list[str]
+    }
+
+    class FFTResult <<dataclass>> {
+        + frequencies : list[float]
+        + magnitudes : list[float]
+        + phases : list[float]
+        + fundamental_freq : Optional[float]
+        + harmonics : dict[int, float]
+    }
+
+    SimulationController --> NgspiceRunner : runs
+    SimulationController --> NetlistGenerator : generates
+    SimulationController --> ResultParser : parses
+    SimulationController --> PresetManager
+}
+
+' ============================================================
+' GRADING LAYER
+' ============================================================
+package "grading" <<Frame>> #F1F8E9 {
+
+    class Rubric <<dataclass>> {
+        + title : str
+        + total_points : int
+        + checks : list[RubricCheck]
+    }
+
+    class RubricCheck <<dataclass>> {
+        + check_id : str
+        + check_type : str
+        + points : int
+        + params : dict
+        + feedback_pass : str
+        + feedback_fail : str
+    }
+
+    class CircuitGrader {
+        - _comparer : CircuitComparer
+        --
+        + grade(student, rubric, reference) : GradingResult
+    }
+
+    class CircuitComparer {
+        + check_component_exists(circuit, id, type) : ComparisonResult
+        + check_component_value(circuit, id, value, tol) : ComparisonResult
+        + check_topology(student, reference) : ComparisonResult
+    }
+
+    class GradingResult <<dataclass>> {
+        + student_file : str
+        + rubric_title : str
+        + total_points : int
+        + earned_points : int
+        + check_results : list[CheckGradeResult]
+        + percentage : float  <<property>>
+    }
+
+    class CheckGradeResult <<dataclass>> {
+        + check_id : str
+        + passed : bool
+        + points_earned : int
+        + points_possible : int
+        + feedback : str
+    }
+
+    class BatchGrader {
+        + grade_directory(dir, rubric, progress) : BatchGradingResult
+    }
+
+    class BatchGradingResult <<dataclass>> {
+        + total_files : int
+        + successfully_graded : int
+        + results : list[GradingResult]
+    }
+
+    class CheckAnalytics {
+        + analyze_results(results) : dict
+        + get_check_pass_rate(check_id) : float
+    }
+
+    Rubric *-- "1..*" RubricCheck
+    CircuitGrader *-- CircuitComparer
+    CircuitGrader --> Rubric : uses
+    GradingResult *-- "0..*" CheckGradeResult
+    BatchGrader --> CircuitGrader : uses
+    BatchGradingResult *-- "0..*" GradingResult
+    CheckAnalytics --> GradingResult : analyzes
+}
+
+' ============================================================
+' CROSS-LAYER RELATIONSHIPS
+' ============================================================
+
+' Controller → Model
+CircuitController --> CircuitModel : owns & mutates
+
+' Canvas → Controller (Observer)
+CircuitCanvasView --> CircuitController : registers as observer
+
+' Canvas → Pathfinder
+WireGraphicsItem ..> IDAStarPathfinder : lazy import for routing
+_ComponentAdapter ..> IDAStarPathfinder : obstacle data
+_WireAdapter ..> IDAStarPathfinder : obstacle data
+
+' Theme usage
+CircuitCanvasView ..> ThemeManager : colors, pens, fonts
+ComponentGraphicsItem ..> ThemeManager : component colors
+WireGraphicsItem ..> ThemeManager : wire colors
+AnnotationItem ..> ThemeManager : text colors
+
+' Simulation flow
+SimulationController --> CircuitModel : reads for netlist
+
+@enduml
