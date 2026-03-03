@@ -189,7 +189,7 @@ class MonteCarloDialog(QDialog):
 
     def _validate(self):
         """Validate all fields and return a list of error messages (empty if valid)."""
-        from .format_utils import parse_value
+        from utils.format_utils import parse_value
 
         errors = []
         # Validate base analysis params
@@ -233,7 +233,7 @@ class MonteCarloDialog(QDialog):
                             tolerances
             or None if validation fails.
         """
-        from .format_utils import parse_value
+        from utils.format_utils import parse_value
 
         try:
             num_runs = self.num_runs_spin.value()

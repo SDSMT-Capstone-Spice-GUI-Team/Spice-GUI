@@ -9,8 +9,8 @@ from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from models.component import DEFAULT_VALUES, ComponentData
+from utils.format_utils import validate_component_value
 
-from .format_utils import validate_component_value
 from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
 
 

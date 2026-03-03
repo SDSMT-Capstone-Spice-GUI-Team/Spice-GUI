@@ -24,8 +24,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from utils.format_utils import format_value, parse_value
 
-from .format_utils import format_value, parse_value
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .styles import SCROLL_LOAD_COUNT, theme_manager
 
