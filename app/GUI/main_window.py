@@ -303,9 +303,8 @@ class MainWindow(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
-            self.canvas.clear_circuit()
+            self.circuit_ctrl.clear_circuit()
             self.file_ctrl.new_circuit()
-            # Phase 5: No sync needed - observer pattern handles canvas update
 
     def on_component_right_clicked(self, component, event_pos):
         """Handle right-click on a component"""

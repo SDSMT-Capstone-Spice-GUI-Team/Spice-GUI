@@ -196,8 +196,7 @@ class CircuitCanvasView(QGraphicsView):
         (node labels, OP annotations, probe lookups).
         """
         if self.controller:
-            self.nodes = list(self.controller.model.nodes)
-            self.terminal_to_node = dict(self.controller.model.terminal_to_node)
+            self.nodes, self.terminal_to_node = self.controller.get_nodes_and_terminal_map()
 
     def _handle_component_added(self, component_data) -> None:
         """Create graphics item when component added to model"""
@@ -347,6 +346,9 @@ class CircuitCanvasView(QGraphicsView):
         if 0 <= wire_index < len(self.wires):
             wire = self.wires[wire_index]
             wire.update_position()
+            # Sync the new waypoints back through controller
+            waypoints = [(wp.x(), wp.y()) for wp in wire.waypoints]
+            self.controller.update_wire_waypoints(wire_index, waypoints)
 
     # ===================================================================
     # Scene item callbacks (avoid hierarchy climbing in items)
@@ -400,9 +402,9 @@ class CircuitCanvasView(QGraphicsView):
 
     def _handle_annotation_updated(self, annotation_data) -> None:
         """Update AnnotationItem text when annotation updated in model."""
-        # Find matching annotation by position
+        # Find matching annotation by identity in controller's list
         idx = None
-        for i, ann_data in enumerate(self.controller.model.annotations):
+        for i, ann_data in enumerate(self.controller.get_annotations()):
             if ann_data is annotation_data:
                 idx = i
                 break
@@ -438,22 +440,22 @@ class CircuitCanvasView(QGraphicsView):
         self.annotations = []
 
         # Restore components
-        for comp_data in self.controller.model.components.values():
+        for comp_data in self.controller.get_components().values():
             self._handle_component_added(comp_data)
 
         # Restore wires
-        for wire_data in self.controller.model.wires:
+        for wire_data in self.controller.get_wires():
             self._handle_wire_added(wire_data)
 
         # Rebuild nodes
         self._handle_nodes_rebuilt(None)
 
         # Restore annotations
-        for ann_data in self.controller.model.annotations:
+        for ann_data in self.controller.get_annotations():
             self._handle_annotation_added(ann_data)
 
         # Restore component counter
-        self.component_counter = self.controller.model.component_counter.copy()
+        self.component_counter = self.controller.get_component_counter()
 
     # ===================================================================
     # End Observer Pattern Handlers
@@ -1442,8 +1444,8 @@ class CircuitCanvasView(QGraphicsView):
         if new_components:
             self.componentAdded.emit(new_components[0].component_id)
 
-        # Sync component counter from model
-        self.component_counter = self.controller.model.component_counter.copy()
+        # Sync component counter from controller
+        self.component_counter = self.controller.get_component_counter()
 
         main_window = self.window()
         if main_window and hasattr(main_window, "statusBar"):
@@ -2038,7 +2040,7 @@ class CircuitCanvasView(QGraphicsView):
         Falls back to the graphics items' local models if no controller.
         """
         if self.controller:
-            return dict(self.controller.model.components)
+            return self.controller.get_components()
         return {comp_id: comp_item.model for comp_id, comp_item in self.components.items()}
 
     def get_model_wires(self):
@@ -2145,7 +2147,7 @@ class CircuitCanvasView(QGraphicsView):
         available; falls back to local graphics items for legacy callers.
         """
         if self.controller:
-            return self.controller.model.to_dict()
+            return self.controller.to_dict()
 
         data = {
             "components": [comp.to_dict() for comp in self.components.values()],

@@ -177,7 +177,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         move_commands = []
 
         for comp_id, old_pos in self._drag_start_positions.items():
-            component = controller.model.components.get(comp_id)
+            component = controller.get_component(comp_id)
             if component is None:
                 continue
             new_pos = component.position
@@ -193,12 +193,10 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         if len(move_commands) == 1:
             # Push directly to undo stack (move already happened during drag)
-            controller.undo_manager._undo_stack.append(move_commands[0])
-            controller.undo_manager._redo_stack.clear()
+            controller.push_already_executed(move_commands[0])
         else:
             compound = CompoundCommand(move_commands, f"Move {len(move_commands)} components")
-            controller.undo_manager._undo_stack.append(compound)
-            controller.undo_manager._redo_stack.clear()
+            controller.push_already_executed(compound)
 
     def hoverEnterEvent(self, event):
         """Show visual feedback when the mouse enters the component."""

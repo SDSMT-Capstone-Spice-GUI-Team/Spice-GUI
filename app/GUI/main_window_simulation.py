@@ -592,8 +592,8 @@ class SimulationMixin:
 
     def _calculate_power(self, node_voltages):
         """Calculate and display power dissipation for all components."""
-        components = list(self.circuit_ctrl.model.components.values())
-        nodes = self.circuit_ctrl.model.nodes
+        components = list(self.circuit_ctrl.get_components().values())
+        nodes, _ = self.circuit_ctrl.get_nodes_and_terminal_map()
         power_data, tp = self.sim_ctrl.compute_power(components, nodes, node_voltages)
 
         if power_data:

@@ -334,10 +334,34 @@ class CircuitController:
         """Look up the node for a given terminal, or None."""
         return self.model.terminal_to_node.get((comp_id, term_idx))
 
+    def get_component(self, component_id: str):
+        """Return a single component by ID, or None."""
+        return self.model.components.get(component_id)
+
+    def get_components(self) -> dict:
+        """Return a copy of the components dict."""
+        return dict(self.model.components)
+
+    def get_wires(self) -> list:
+        """Return a copy of the wires list."""
+        return list(self.model.wires)
+
+    def get_annotations(self) -> list:
+        """Return a copy of the annotations list."""
+        return list(self.model.annotations)
+
+    def get_component_counter(self) -> dict:
+        """Return a copy of the component counter."""
+        return dict(self.model.component_counter)
+
     def set_net_name(self, node, label) -> None:
         """Set a custom net name on a node and notify observers."""
         node.set_custom_label(label)
         self._notify("net_name_changed", node)
+
+    def to_dict(self) -> dict:
+        """Serialize the circuit model to a dictionary."""
+        return self.model.to_dict()
 
     def set_recommended_components(self, components: list[str]) -> None:
         """Update the file-level recommended components list."""
@@ -506,6 +530,15 @@ class CircuitController:
             command: A Command instance to execute
         """
         self.undo_manager.execute(command)
+
+    def push_already_executed(self, command) -> None:
+        """Push a pre-executed command onto the undo stack.
+
+        Used when an action has already been applied (e.g. during a drag)
+        and only needs to be recorded for undo/redo.
+        """
+        self.undo_manager._undo_stack.append(command)
+        self.undo_manager._redo_stack.clear()
 
     def undo(self) -> bool:
         """
