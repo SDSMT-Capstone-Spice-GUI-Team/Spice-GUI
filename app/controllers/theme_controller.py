@@ -5,8 +5,8 @@ so that view-layer dialogs never mutate global theme_manager state
 directly.
 """
 
-from GUI.styles import theme_manager
 from GUI.styles.theme import ThemeProtocol
+from services.theme_manager import theme_manager
 
 
 class ThemeController:

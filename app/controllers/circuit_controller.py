@@ -334,22 +334,6 @@ class CircuitController:
         """Look up the node for a given terminal, or None."""
         return self.model.terminal_to_node.get((comp_id, term_idx))
 
-    def get_component(self, component_id: str):
-        """Return a single component by ID, or None."""
-        return self.model.components.get(component_id)
-
-    def get_components(self) -> dict:
-        """Return a copy of the components dict."""
-        return dict(self.model.components)
-
-    def get_wires(self) -> list:
-        """Return a copy of the wires list."""
-        return list(self.model.wires)
-
-    def get_annotations(self) -> list:
-        """Return a copy of the annotations list."""
-        return list(self.model.annotations)
-
     def get_component_counter(self) -> dict:
         """Return a copy of the component counter."""
         return dict(self.model.component_counter)
