@@ -29,7 +29,6 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QStackedWidget,
     QTabWidget,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -47,6 +46,7 @@ from .main_window_settings import SettingsMixin
 from .main_window_simulation import SimulationMixin
 from .main_window_view import ViewOperationsMixin
 from .properties_panel import PropertiesPanel
+from .results_panel import ResultsPanel
 from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
 
 logger = logging.getLogger(__name__)
@@ -124,6 +124,8 @@ class MainWindow(
         self.palette.componentDoubleClicked.connect(self.canvas.add_component_at_center)
         self.properties_panel.property_changed.connect(self.on_property_changed)
         self.circuit_ctrl.add_observer(self._on_dirty_change)
+        # Wire results panel display delegate to SimulationMixin handler.
+        self.results_panel._display_delegate = self._display_simulation_results
 
     def init_ui(self):
         """Initialize user interface"""
@@ -187,29 +189,17 @@ class MainWindow(
         # Results / Netlist tabbed panel
         self.results_tabs = QTabWidget()
 
-        # Tab 1: Simulation Results
-        results_widget = QWidget()
-        results_layout = QVBoxLayout(results_widget)
-        results_header = QHBoxLayout()
-        results_header.addWidget(QLabel("Simulation Results"))
-        self.btn_export_csv = QPushButton("Export CSV")
-        self.btn_export_csv.setEnabled(False)
-        self.btn_export_csv.clicked.connect(self.export_results_csv)
-        results_header.addWidget(self.btn_export_csv)
-        self.btn_export_excel = QPushButton("Export Excel")
-        self.btn_export_excel.setEnabled(False)
-        self.btn_export_excel.clicked.connect(self.export_results_excel)
-        results_header.addWidget(self.btn_export_excel)
-        self.btn_copy_markdown = QPushButton("Copy Markdown")
-        self.btn_copy_markdown.setEnabled(False)
-        self.btn_copy_markdown.clicked.connect(self.copy_results_markdown)
-        results_header.addWidget(self.btn_copy_markdown)
-        results_header.addStretch()
-        results_layout.addLayout(results_header)
-        self.results_text = QTextEdit()
-        self.results_text.setReadOnly(True)
-        results_layout.addWidget(self.results_text)
-        self.results_tabs.addTab(results_widget, "Results")
+        # Tab 1: Simulation Results (extracted into ResultsPanel)
+        self.results_panel = ResultsPanel(parent=self)
+        self.results_panel.btn_export_csv.clicked.connect(self.export_results_csv)
+        self.results_panel.btn_export_excel.clicked.connect(self.export_results_excel)
+        self.results_panel.btn_copy_markdown.clicked.connect(self.copy_results_markdown)
+        # Backward-compat aliases so existing SimulationMixin code works unchanged.
+        self.results_text = self.results_panel.results_text
+        self.btn_export_csv = self.results_panel.btn_export_csv
+        self.btn_export_excel = self.results_panel.btn_export_excel
+        self.btn_copy_markdown = self.results_panel.btn_copy_markdown
+        self.results_tabs.addTab(self.results_panel, "Results")
 
         # Tab 2: Netlist Preview
         from .netlist_preview import NetlistPreviewWidget
@@ -217,6 +207,8 @@ class MainWindow(
         self.netlist_preview = NetlistPreviewWidget()
         self.netlist_preview.refresh_btn.clicked.connect(self._refresh_netlist_preview)
         self.results_tabs.addTab(self.netlist_preview, "Netlist")
+        # Wire netlist preview into results panel for set_netlist_preview() delegation.
+        self.results_panel._netlist_preview_widget = self.netlist_preview
 
         center_splitter.addWidget(self.results_tabs)
         center_splitter.setSizes(DEFAULT_SPLITTER_SIZES)
