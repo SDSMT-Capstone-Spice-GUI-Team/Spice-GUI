@@ -4,7 +4,7 @@ Handles interactive voltage/current probing: mode toggling, hit-testing
 nodes and components, formatting results, and node-voltage display.
 """
 
-from GUI.component_graphics import ComponentGraphicsItem
+from GUI.component_item import ComponentGraphicsItem
 from PyQt6.QtCore import QPointF, Qt
 
 

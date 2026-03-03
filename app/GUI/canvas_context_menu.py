@@ -5,8 +5,8 @@ annotation, node, or empty space).
 """
 
 from GUI.annotation_item import AnnotationItem
-from GUI.component_graphics import ComponentGraphicsItem
-from GUI.wire_graphics import WireItem
+from GUI.component_item import ComponentGraphicsItem
+from GUI.wire_item import WireItem
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QMenu
 
