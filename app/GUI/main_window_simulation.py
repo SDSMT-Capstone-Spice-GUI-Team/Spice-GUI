@@ -22,10 +22,8 @@ class SimulationMixin:
         try:
             # Phase 5: No sync needed - model always up to date
             netlist = self.simulation_ctrl.generate_netlist()
-            self.results_text.setPlainText("SPICE Netlist:\n\n" + netlist)
-            # Also update the netlist preview tab
-            if hasattr(self, "netlist_preview"):
-                self.netlist_preview.set_netlist(netlist)
+            self.results_panel.display_text("SPICE Netlist:\n\n" + netlist)
+            self.results_panel.set_netlist_preview(netlist)
         except (ValueError, KeyError, TypeError) as e:
             QMessageBox.critical(self, "Error", f"Failed to generate netlist: {e}")
 
@@ -70,8 +68,8 @@ class SimulationMixin:
                 # Phase 5: No sync needed - model always up to date
                 result = self.simulation_ctrl.run_simulation()
 
-            # Display results (view responsibility)
-            self._display_simulation_results(result)
+            # Display results via ResultsPanel (delegates to _display_simulation_results).
+            self.results_panel.display_simulation_result(result)
 
         except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.error("Simulation failed: %s", e, exc_info=True)
