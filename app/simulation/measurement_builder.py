@@ -2,7 +2,7 @@
 Pure-logic builder for ngspice .meas directives.
 
 Extracted from GUI/meas_dialog.py so that measurement directive
-generation can be tested and reused without importing PyQt6.
+generation can be tested and reused without any GUI framework dependency.
 """
 
 # Maps the GUI analysis type name to the .meas domain keyword
