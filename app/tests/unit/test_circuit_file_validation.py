@@ -3,7 +3,7 @@ Tests for validate_circuit_data — JSON schema validation.
 """
 
 import pytest
-from models.circuit_validator import validate_circuit_data
+from models.circuit_schema_validator import validate_circuit_data
 
 
 def _valid_data():
