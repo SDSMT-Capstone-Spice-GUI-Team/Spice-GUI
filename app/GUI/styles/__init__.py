@@ -25,6 +25,8 @@ Usage:
     # theme_manager.set_theme(DarkTheme())
 """
 
+# Services layer (canonical locations — loaded after local theme modules
+# to avoid circular import: services.theme_store -> GUI.styles.custom_theme)
 from services import theme_store
 from services.theme_manager import (
     COLOR_MODES,
@@ -57,11 +59,11 @@ from .constants import (
     ZOOM_MAX,
     ZOOM_MIN,
 )
+
+# Theme classes — must load before services/ (which imports them back)
 from .custom_theme import CustomTheme
 from .dark_theme import DarkTheme
 from .light_theme import LightTheme
-
-# Theme system
 from .theme import BaseTheme, ThemeProtocol
 
 __all__ = [

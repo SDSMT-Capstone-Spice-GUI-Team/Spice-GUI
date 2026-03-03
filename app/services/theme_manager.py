@@ -5,13 +5,23 @@ Provides global access to the current theme, symbol style, and color mode.
 Enables runtime theme/style switching with observer notification.
 """
 
-import logging
-from typing import Callable, List, Optional, Tuple
+from __future__ import annotations
 
-from GUI.styles.light_theme import LightTheme
-from GUI.styles.theme import ThemeProtocol
+import logging
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from GUI.styles.theme import ThemeProtocol
 
 logger = logging.getLogger(__name__)
+
+
+def _get_light_theme():
+    """Lazy import to avoid circular dependency with GUI.styles.__init__."""
+    from GUI.styles.light_theme import LightTheme
+
+    return LightTheme
+
 
 # Valid symbol styles
 SYMBOL_STYLES = ("ieee", "iec")
@@ -73,7 +83,7 @@ class ThemeManager:
     def __new__(cls) -> "ThemeManager":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._theme = LightTheme()
+            cls._instance._theme = _get_light_theme()()
             cls._instance._listeners = []
             cls._instance._symbol_style = "ieee"
             cls._instance._color_mode = "color"
@@ -245,9 +255,9 @@ class ThemeManager:
                 self.set_theme(theme)
             else:
                 logger.warning("Custom theme %r not found, falling back to light", stem)
-                self.set_theme(LightTheme())
+                self.set_theme(_get_light_theme()())
         else:
-            self.set_theme(LightTheme())
+            self.set_theme(_get_light_theme()())
 
     def get_theme_key(self) -> str:
         """Return the key for the current theme."""

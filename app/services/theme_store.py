@@ -3,13 +3,16 @@
 Stores themes as JSON files in ~/.spice-gui/themes/.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import re
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from GUI.styles.custom_theme import CustomTheme
+if TYPE_CHECKING:
+    from GUI.styles.custom_theme import CustomTheme
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,8 @@ def list_custom_themes(themes_dir: Optional[Path] = None) -> list:
 
 def load_theme(name_or_stem: str, themes_dir: Optional[Path] = None) -> Optional[CustomTheme]:
     """Load a custom theme by filename stem. Returns None on error."""
+    from GUI.styles.custom_theme import CustomTheme
+
     d = themes_dir if themes_dir is not None else _THEMES_DIR
     path = d / f"{name_or_stem}.json"
     if not path.exists():
@@ -105,6 +110,8 @@ def export_theme(theme: CustomTheme, path: Path) -> None:
 
 def import_theme(path: Path, themes_dir: Optional[Path] = None) -> Optional[CustomTheme]:
     """Import a theme JSON file into the themes directory. Returns the theme or None."""
+    from GUI.styles.custom_theme import CustomTheme
+
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         theme = CustomTheme(
