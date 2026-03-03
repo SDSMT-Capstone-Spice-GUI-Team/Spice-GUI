@@ -614,7 +614,7 @@ class SimulationMixin:
             self.properties_panel.set_simulation_results(power_data, voltage_data, tp)
 
             # Show summary in results text
-            from GUI.format_utils import format_value
+            from utils.format_utils import format_value
 
             self.results_text.append("\nPOWER DISSIPATION:")
             self.results_text.append("-" * 40)

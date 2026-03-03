@@ -3,7 +3,7 @@ Tests for GUI/format_utils.py — SI prefix parsing, formatting, and validation.
 """
 
 import pytest
-from GUI.format_utils import format_value, parse_value, validate_component_value
+from utils.format_utils import format_value, parse_value, validate_component_value
 
 # ── parse_value ──────────────────────────────────────────────────────
 
