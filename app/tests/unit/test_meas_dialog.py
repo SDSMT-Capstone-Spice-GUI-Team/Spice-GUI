@@ -1,7 +1,8 @@
 """Tests for the .meas directive GUI builder (meas_dialog.py)."""
 
 import pytest
-from GUI.meas_dialog import ANALYSIS_DOMAIN_MAP, MeasurementDialog, MeasurementEntryDialog, build_directive
+from GUI.meas_dialog import MeasurementDialog, MeasurementEntryDialog
+from simulation.measurement_builder import ANALYSIS_DOMAIN_MAP, build_directive
 
 # ---------------------------------------------------------------------------
 # build_directive unit tests
@@ -297,6 +298,36 @@ class TestAnalysisDialogMeasIntegration:
         params = dialog.get_parameters()
         assert params is not None
         assert "measurements" not in params
+
+
+# ---------------------------------------------------------------------------
+# Canonical location structural tests
+# ---------------------------------------------------------------------------
+
+
+class TestCanonicalLocation:
+    """Verify measurement_builder lives in simulation/ with no Qt deps."""
+
+    def test_module_in_simulation(self):
+        import simulation.measurement_builder as mb
+
+        assert "simulation" in mb.__file__
+
+    def test_no_qt_imports(self):
+        from pathlib import Path
+
+        import simulation.measurement_builder as mb
+
+        source = Path(mb.__file__).read_text(encoding="utf-8")
+        assert "PyQt" not in source
+
+    def test_backward_compat_reexport(self):
+        """GUI.meas_dialog still re-exports build_directive and constants."""
+        from GUI.meas_dialog import ANALYSIS_DOMAIN_MAP, MEAS_TYPES, build_directive
+
+        assert callable(build_directive)
+        assert isinstance(ANALYSIS_DOMAIN_MAP, dict)
+        assert isinstance(MEAS_TYPES, list)
 
     def test_meas_label_updates(self, qtbot):
         from GUI.analysis_dialog import AnalysisDialog

@@ -11,9 +11,10 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
+from simulation.measurement_builder import ANALYSIS_DOMAIN_MAP
 
 from .format_utils import parse_value
-from .meas_dialog import ANALYSIS_DOMAIN_MAP, MeasurementDialog
+from .meas_dialog import MeasurementDialog
 from .validation_helpers import clear_field_error, set_field_error
 
 # Analysis types that support .meas directives
