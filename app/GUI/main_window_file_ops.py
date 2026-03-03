@@ -22,13 +22,7 @@ class FileOperationsMixin:
     def _on_new(self):
         """Create a new circuit"""
         if len(self.canvas.components) > 0:
-            reply = QMessageBox.question(
-                self,
-                "New Circuit",
-                "Current circuit will be lost. Continue?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if reply == QMessageBox.StandardButton.No:
+            if not self.dialogs.confirm("New Circuit", "Current circuit will be lost. Continue?"):
                 return
 
         self.file_ctrl.new_circuit()
@@ -175,30 +169,30 @@ class FileOperationsMixin:
 
     def _on_save_as(self):
         """Save circuit to a new file"""
-        filename, _ = QFileDialog.getSaveFileName(self, "Save Circuit", "", "JSON Files (*.json);;All Files (*)")
-        if filename:
+        path = self.dialogs.ask_save_file("Save Circuit", "JSON Files (*.json);;All Files (*)")
+        if path:
             try:
                 # Phase 5: No sync needed - model always up to date
-                self.file_ctrl.save_circuit(filename)
+                self.file_ctrl.save_circuit(path)
                 self.file_ctrl.clear_auto_save()
                 self._set_dirty(False)
-                QMessageBox.information(self, "Success", "Circuit saved successfully!")
+                self.dialogs.show_info("Success", "Circuit saved successfully!")
             except (OSError, TypeError) as e:
-                QMessageBox.critical(self, "Error", f"Failed to save: {e}")
+                self.dialogs.show_error("Error", f"Failed to save: {e}")
 
     def _on_load(self):
         """Load circuit from file"""
-        filename, _ = QFileDialog.getOpenFileName(self, "Load Circuit", "", "JSON Files (*.json);;All Files (*)")
-        if filename:
+        path = self.dialogs.ask_open_file("Load Circuit", "JSON Files (*.json);;All Files (*)")
+        if path:
             try:
-                self.file_ctrl.load_circuit(filename)
+                self.file_ctrl.load_circuit(path)
                 # Phase 5: No sync needed - observer pattern rebuilds canvas
-                self.setWindowTitle(f"Circuit Design GUI - {filename}")
+                self.setWindowTitle(f"Circuit Design GUI - {path}")
                 self._sync_analysis_menu()
                 self._apply_default_zoom()
-                QMessageBox.information(self, "Success", "Circuit loaded successfully!")
+                self.dialogs.show_info("Success", "Circuit loaded successfully!")
             except (OSError, ValueError) as e:
-                QMessageBox.critical(self, "Error", f"Failed to load: {e}")
+                self.dialogs.show_error("Error", f"Failed to load: {e}")
 
     def _on_new_from_template(self):
         """Create a new circuit from an assignment template"""
