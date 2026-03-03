@@ -1,5 +1,5 @@
-@startuml Spice-GUI Architecture
-!theme plain
+@startuml Spice-GUI_Architecture
+!pragma layout smetana
 skinparam linetype ortho
 skinparam classAttributeIconSize 0
 skinparam packageStyle rectangle
@@ -523,35 +523,50 @@ package "GUI.canvas" <<Frame>> #FCE4EC {
         + {static} from_dict(data) : ComponentGraphicsItem
     }
 
-    class Resistor <<ComponentGraphicsItem>> { type_name = "Resistor" }
-    class Capacitor <<ComponentGraphicsItem>> { type_name = "Capacitor" }
-    class Inductor <<ComponentGraphicsItem>> { type_name = "Inductor" }
-    class VoltageSource <<ComponentGraphicsItem>> { type_name = "Voltage Source" }
-    class CurrentSource <<ComponentGraphicsItem>> { type_name = "Current Source" }
+    class Resistor <<ComponentGraphicsItem>> {
+    }
+    class Capacitor <<ComponentGraphicsItem>> {
+    }
+    class Inductor <<ComponentGraphicsItem>> {
+    }
+    class VoltageSource <<ComponentGraphicsItem>> {
+    }
+    class CurrentSource <<ComponentGraphicsItem>> {
+    }
     class WaveformVoltageSource <<ComponentGraphicsItem>> {
-        type_name = "Waveform Source"
-        + waveform_type : str  <<property>>
-        + waveform_params : dict  <<property>>
+        + waveform_type : str
+        + waveform_params : dict
     }
     class Ground <<ComponentGraphicsItem>> {
-        type_name = "Ground"
         + paint(painter, option, widget)
     }
-    class OpAmp <<ComponentGraphicsItem>> { type_name = "Op-Amp" }
-    class VCVS <<ComponentGraphicsItem>> { type_name = "VCVS" }
-    class CCVS <<ComponentGraphicsItem>> { type_name = "CCVS" }
-    class VCCS <<ComponentGraphicsItem>> { type_name = "VCCS" }
-    class CCCS <<ComponentGraphicsItem>> { type_name = "CCCS" }
-    class BJTNPN <<ComponentGraphicsItem>> { type_name = "BJT NPN" }
-    class BJTPNP <<ComponentGraphicsItem>> { type_name = "BJT PNP" }
-    class MOSFETNMOS <<ComponentGraphicsItem>> { type_name = "MOSFET NMOS" }
-    class MOSFETPMOS <<ComponentGraphicsItem>> { type_name = "MOSFET PMOS" }
-    class VCSwitch <<ComponentGraphicsItem>> { type_name = "VC Switch" }
-    class Diode <<ComponentGraphicsItem>> { type_name = "Diode" }
-    class LEDComponent <<ComponentGraphicsItem>> { type_name = "LED" }
-    class ZenerDiode <<ComponentGraphicsItem>> { type_name = "Zener Diode" }
+    class OpAmp <<ComponentGraphicsItem>> {
+    }
+    class VCVS <<ComponentGraphicsItem>> {
+    }
+    class CCVS <<ComponentGraphicsItem>> {
+    }
+    class VCCS <<ComponentGraphicsItem>> {
+    }
+    class CCCS <<ComponentGraphicsItem>> {
+    }
+    class BJTNPN <<ComponentGraphicsItem>> {
+    }
+    class BJTPNP <<ComponentGraphicsItem>> {
+    }
+    class MOSFETNMOS <<ComponentGraphicsItem>> {
+    }
+    class MOSFETPMOS <<ComponentGraphicsItem>> {
+    }
+    class VCSwitch <<ComponentGraphicsItem>> {
+    }
+    class Diode <<ComponentGraphicsItem>> {
+    }
+    class LEDComponent <<ComponentGraphicsItem>> {
+    }
+    class ZenerDiode <<ComponentGraphicsItem>> {
+    }
     class Transformer <<ComponentGraphicsItem>> {
-        type_name = "Transformer"
         + draw_component_body(painter)
         + get_obstacle_shape() : list[tuple]
     }
@@ -791,7 +806,9 @@ package "GUI.shell" <<Frame>> #E8EAF6 {
         + set_window_title(title)
     }
 
-    class MenuBarMixin <<mixin>> { + create_menu_bar() }
+    class MenuBarMixin <<mixin>> {
+        + create_menu_bar()
+    }
     class FileOperationsMixin <<mixin>> {
         + new_circuit()
         + open_circuit()
@@ -802,7 +819,9 @@ package "GUI.shell" <<Frame>> #E8EAF6 {
         + run_simulation()
         + cancel_simulation()
     }
-    class AnalysisSettingsMixin <<mixin>> { + show_analysis_settings() }
+    class AnalysisSettingsMixin <<mixin>> {
+        + show_analysis_settings()
+    }
     class ViewOperationsMixin <<mixin>> {
         + toggle_grid()
         + toggle_probe_mode()
@@ -811,7 +830,9 @@ package "GUI.shell" <<Frame>> #E8EAF6 {
         + print_circuit()
         + export_pdf()
     }
-    class HelpMixin <<mixin>> { + show_help() }
+    class HelpMixin <<mixin>> {
+        + show_help()
+    }
     class SettingsMixin <<mixin>> {
         + show_preferences_dialog()
         - _restore_settings()
@@ -875,21 +896,50 @@ package "GUI.panels" <<Frame>> #E0F7FA {
 
 package "GUI.dialogs" <<Frame>> #FFF9C4 {
 
-    class AnalysisDialog <<QDialog>> { + get_analysis_params() : dict }
-    class ParameterSweepDialog <<QDialog>> { + get_sweep_config() : dict }
-    class MonteCarloDialog <<QDialog>> { + get_monte_carlo_config() : dict }
-    class MeasurementDialog <<QDialog>> { + get_measurements() : list[str] }
-    class WaveformDialog <<QDialog>> { + plot_waveform(data, signals) }
-    class WaveformConfigDialog <<QDialog>> { + get_waveform_config() : dict }
-    class PreferencesDialog <<QDialog>> { + get_preferences() : dict }
-    class KeybindingsDialog <<QDialog>> { + get_keybindings() : dict }
-    class ThemeEditorDialog <<QDialog>> { + apply_theme() }
-    class NewFromTemplateDialog <<QDialog>> { + get_selected_template() }
-    class SaveAsTemplateDialog <<QDialog>> { + get_template_metadata() }
-    class BatchGradingDialog <<QDialog>> { + start_batch_grading(dir, rubric) }
-    class RubricEditorDialog <<QDialog>> { + get_rubric() : Rubric }
-    class SubcircuitLibraryDialog <<QDialog>> { + load_library(path) }
-    class HelpDialog <<QDialog>> { }
+    class AnalysisDialog <<QDialog>> {
+        + get_analysis_params() : dict
+    }
+    class ParameterSweepDialog <<QDialog>> {
+        + get_sweep_config() : dict
+    }
+    class MonteCarloDialog <<QDialog>> {
+        + get_monte_carlo_config() : dict
+    }
+    class MeasurementDialog <<QDialog>> {
+        + get_measurements() : list
+    }
+    class WaveformDialog <<QDialog>> {
+        + plot_waveform(data, signals)
+    }
+    class WaveformConfigDialog <<QDialog>> {
+        + get_waveform_config() : dict
+    }
+    class PreferencesDialog <<QDialog>> {
+        + get_preferences() : dict
+    }
+    class KeybindingsDialog <<QDialog>> {
+        + get_keybindings() : dict
+    }
+    class ThemeEditorDialog <<QDialog>> {
+        + apply_theme()
+    }
+    class NewFromTemplateDialog <<QDialog>> {
+        + get_selected_template()
+    }
+    class SaveAsTemplateDialog <<QDialog>> {
+        + get_template_metadata()
+    }
+    class BatchGradingDialog <<QDialog>> {
+        + start_batch_grading(dir, rubric)
+    }
+    class RubricEditorDialog <<QDialog>> {
+        + get_rubric() : Rubric
+    }
+    class SubcircuitLibraryDialog <<QDialog>> {
+        + load_library(path)
+    }
+    class HelpDialog <<QDialog>> {
+    }
 
     class QtDialogProvider <<QObject>> {
         - _parent : QWidget
@@ -953,7 +1003,9 @@ package "simulation" <<Frame>> #FFEBEE {
         CONVERGENCE
         CIRCUIT_INCOMPLETE
         ZERO_VOLTAGE_SOURCE
-        ...
+        MISSING_GROUND
+        SYNTAX_ERROR
+        UNKNOWN
     }
 
     class ErrorDiagnosis <<dataclass>> {
