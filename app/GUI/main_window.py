@@ -36,6 +36,7 @@ from PyQt6.QtWidgets import (
 from .circuit_canvas import CircuitCanvasView
 from .circuit_statistics_panel import CircuitStatisticsPanel
 from .component_palette import ComponentPalette
+from .dialog_provider import QtDialogProvider
 from .grading_panel import GradingPanel
 from .main_window_analysis import AnalysisSettingsMixin
 from .main_window_file_ops import FileOperationsMixin
@@ -96,6 +97,7 @@ class MainWindow(
         # Build UI
         self.init_ui()
         self.create_menu_bar()
+        self.dialogs = QtDialogProvider(self)
 
         # Wire up connections
         self._connect_signals()
