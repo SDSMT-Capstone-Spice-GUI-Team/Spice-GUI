@@ -66,6 +66,17 @@ class SimulationController:
         self.model.analysis_type = analysis_type
         self.model.analysis_params = (params or {}).copy()
 
+    # --- Read-only query methods ---
+    # Views should use these instead of accessing self.model directly.
+
+    def get_analysis_type(self) -> str:
+        """Return the current analysis type."""
+        return self.model.analysis_type
+
+    def get_analysis_params(self) -> dict:
+        """Return a copy of the current analysis parameters."""
+        return self.model.analysis_params.copy()
+
     def validate_circuit(self) -> SimulationResult:
         """
         Validate the circuit before simulation.
