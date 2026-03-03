@@ -8,13 +8,10 @@ import logging
 import math
 import re
 
-from utils.format_utils import format_si  # noqa: F401 — re-exported for compatibility
-
 logger = logging.getLogger(__name__)
 
 __all__ = [
     "ResultParser",
-    "format_si",
 ]
 
 
