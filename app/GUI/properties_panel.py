@@ -304,6 +304,10 @@ class PropertiesPanel(QWidget):
         self._total_power = 0.0
         self.results_group.setVisible(False)
 
+    def set_property_change_callback(self, callback) -> None:
+        """Register a callback for property changes (PropertiesPanelProtocol)."""
+        self.property_changed.connect(callback)
+
     def _update_results_display(self):
         """Update the results section for the current component."""
         if not self._power_data:
