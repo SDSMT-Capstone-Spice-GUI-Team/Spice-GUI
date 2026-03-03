@@ -76,9 +76,7 @@ def make_bug_url(item_text: str, issue_number: int) -> str:
         f"**Screenshot**: (paste with Ctrl+V)\n"
     )
 
-    params = urllib.parse.urlencode(
-        {"labels": "bug", "title": title, "body": body}, quote_via=urllib.parse.quote
-    )
+    params = urllib.parse.urlencode({"labels": "bug", "title": title, "body": body}, quote_via=urllib.parse.quote)
     return f"{BASE_URL}?{params}"
 
 
@@ -108,9 +106,7 @@ def add_links_to_body(body: str, issue_number: int) -> str:
             prefix = m.group(1)  # "- [ ] " or "- [x] "
             item_text = m.group(2).strip()
             # Remove existing link if re-running
-            item_text = re.sub(
-                r"\s*(?:—\s*)?\[report bug\]\([^)]*\)\s*$", "", item_text
-            ).strip()
+            item_text = re.sub(r"\s*(?:—\s*)?\[report bug\]\([^)]*\)\s*$", "", item_text).strip()
             url = make_bug_url(item_text, issue_number)
             result.append(f"{prefix}{item_text} — [report bug]({url})")
         else:
@@ -138,9 +134,7 @@ def fetch_issue_body(issue_number: int) -> str:
 
 def update_issue_body(issue_number: int, new_body: str) -> None:
     """Update an issue body via gh CLI using a temp file (Windows-safe)."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".md", delete=False, encoding="utf-8"
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
         f.write(new_body)
         tmp_path = f.name
     try:
@@ -165,9 +159,9 @@ def main():
     apply = "--apply" in sys.argv
 
     for issue_number, section_name in TESTING_ISSUES.items():
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Issue #{issue_number}: {section_name}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         body = fetch_issue_body(issue_number)
         new_body = add_links_to_body(body, issue_number)
@@ -189,10 +183,10 @@ def main():
                     break
 
     if not apply:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("DRY RUN — no issues were modified.")
         print("Run with --apply to update the issues on GitHub.")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":
