@@ -158,22 +158,22 @@ class TestNoDirectQSettingsInProduction:
     @pytest.mark.parametrize("rel_path", _GUI_FILES + _CONTROLLER_FILES)
     def test_no_direct_qsettings_import(self, rel_path):
         """No production file should import QSettings directly."""
-        base = pathlib.Path(__file__).resolve().parent.parent.parent / "app" / rel_path
+        base = pathlib.Path(__file__).resolve().parent.parent.parent / rel_path
         if not base.exists():
             import os
 
-            base = pathlib.Path(os.getcwd()) / rel_path
+            base = pathlib.Path(os.getcwd()) / "app" / rel_path
         source = base.read_text()
         assert 'QSettings("SDSMT"' not in source, f"{rel_path} still creates QSettings directly"
 
     @pytest.mark.parametrize("rel_path", _GUI_FILES + _CONTROLLER_FILES)
     def test_uses_settings_service(self, rel_path):
         """All production files should import from settings_service."""
-        base = pathlib.Path(__file__).resolve().parent.parent.parent / "app" / rel_path
+        base = pathlib.Path(__file__).resolve().parent.parent.parent / rel_path
         if not base.exists():
             import os
 
-            base = pathlib.Path(os.getcwd()) / rel_path
+            base = pathlib.Path(os.getcwd()) / "app" / rel_path
         source = base.read_text()
         assert "settings_service" in source, f"{rel_path} does not use settings_service"
 
@@ -190,11 +190,11 @@ class TestControllerLayerNoPyQt6:
     @pytest.mark.parametrize("rel_path", _CONTROLLER_FILES)
     def test_no_pyqt6_import(self, rel_path):
         """Controller files must not import from PyQt6."""
-        base = pathlib.Path(__file__).resolve().parent.parent.parent / "app" / rel_path
+        base = pathlib.Path(__file__).resolve().parent.parent.parent / rel_path
         if not base.exists():
             import os
 
-            base = pathlib.Path(os.getcwd()) / rel_path
+            base = pathlib.Path(os.getcwd()) / "app" / rel_path
         source = base.read_text()
         assert "from PyQt6" not in source, f"{rel_path} imports from PyQt6"
         assert "import PyQt6" not in source, f"{rel_path} imports PyQt6"
