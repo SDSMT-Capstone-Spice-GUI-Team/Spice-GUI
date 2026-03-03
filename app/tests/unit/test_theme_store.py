@@ -4,7 +4,7 @@ import json
 
 import pytest
 from GUI.styles.custom_theme import CustomTheme
-from GUI.styles.theme_store import (
+from services.theme_store import (
     _filename_safe,
     delete_theme,
     export_theme,
@@ -109,3 +109,36 @@ class TestInvalidJson:
         bad_file.write_text('{"base": "light", "colors": {}}', encoding="utf-8")
         result = load_theme("noname", themes_dir=tmp_path)
         assert result is None
+
+
+class TestCanonicalLocation:
+    """Verify theme_store and theme_manager live in services/."""
+
+    def test_theme_store_in_services(self):
+        import services.theme_store as ts
+
+        assert "services" in ts.__file__
+
+    def test_theme_manager_in_services(self):
+        import services.theme_manager as tm
+
+        assert "services" in tm.__file__
+
+    def test_theme_store_no_qt_imports(self):
+        import services.theme_store as ts
+
+        source = open(ts.__file__).read()
+        assert "PyQt" not in source
+
+    def test_theme_manager_no_qt_imports(self):
+        import services.theme_manager as ts
+
+        source = open(ts.__file__).read()
+        assert "PyQt" not in source
+
+    def test_backward_compat_reexport(self):
+        """GUI.styles still re-exports theme_store and theme_manager."""
+        from GUI.styles import theme_manager, theme_store
+
+        assert hasattr(theme_store, "list_custom_themes")
+        assert hasattr(theme_manager, "set_theme")

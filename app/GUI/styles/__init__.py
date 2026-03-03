@@ -25,7 +25,16 @@ Usage:
     # theme_manager.set_theme(DarkTheme())
 """
 
-from . import theme_store
+from services import theme_store
+from services.theme_manager import (
+    COLOR_MODES,
+    ROUTING_MODES,
+    SYMBOL_STYLES,
+    WIRE_THICKNESS_PX,
+    WIRE_THICKNESSES,
+    ThemeManager,
+    theme_manager,
+)
 
 # Core constants (always available, theme-independent)
 from .constants import (
@@ -54,15 +63,6 @@ from .light_theme import LightTheme
 
 # Theme system
 from .theme import BaseTheme, ThemeProtocol
-from .theme_manager import (
-    COLOR_MODES,
-    ROUTING_MODES,
-    SYMBOL_STYLES,
-    WIRE_THICKNESS_PX,
-    WIRE_THICKNESSES,
-    ThemeManager,
-    theme_manager,
-)
 
 __all__ = [
     # Constants
