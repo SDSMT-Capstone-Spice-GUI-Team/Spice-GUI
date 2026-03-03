@@ -544,3 +544,42 @@ class CircuitController:
     def clear_undo_history(self) -> None:
         """Clear the undo/redo history."""
         self.undo_manager.clear()
+
+    # --- Read-only query methods ---
+    # Views should use these instead of accessing self.model directly.
+
+    def get_component(self, component_id: str) -> Optional[ComponentData]:
+        """Return a single component by ID, or None."""
+        return self.model.components.get(component_id)
+
+    def get_components(self) -> dict[str, ComponentData]:
+        """Return a copy of the components dict."""
+        return dict(self.model.components)
+
+    def get_component_count(self) -> int:
+        """Return the number of components in the circuit."""
+        return len(self.model.components)
+
+    def get_wires(self) -> list[WireData]:
+        """Return a copy of the wires list."""
+        return list(self.model.wires)
+
+    def get_wire_count(self) -> int:
+        """Return the number of wires in the circuit."""
+        return len(self.model.wires)
+
+    def get_nodes(self) -> list:
+        """Return a copy of the nodes list."""
+        return list(self.model.nodes)
+
+    def get_annotations(self) -> list[AnnotationData]:
+        """Return a copy of the annotations list."""
+        return list(self.model.annotations)
+
+    def has_ground(self) -> bool:
+        """Return whether the circuit has a ground component."""
+        return any(n.is_ground for n in self.model.nodes)
+
+    def get_terminal_to_node(self) -> dict:
+        """Return a copy of the terminal-to-node mapping."""
+        return dict(self.model.terminal_to_node)
