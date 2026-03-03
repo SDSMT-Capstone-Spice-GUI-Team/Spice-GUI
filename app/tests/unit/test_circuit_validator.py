@@ -1,9 +1,9 @@
 """
-Tests for simulation/circuit_validator.py — pre-simulation validation.
+Tests for simulation/circuit_semantic_validator.py — pre-simulation validation.
 """
 
 import pytest
-from simulation.circuit_validator import validate_circuit
+from simulation.circuit_semantic_validator import validate_circuit
 from tests.conftest import make_component, make_wire
 
 

@@ -1,6 +1,9 @@
-"""Validate circuit JSON data structures.
+"""Validate circuit JSON data structures (schema validation).
 
-Pure-Python validation with no controller or Qt dependencies.
+Checks that a parsed JSON dict has the required fields and types before
+attempting to deserialise it into a CircuitModel. No controller or Qt
+dependencies.
+
 This module is the canonical location for ``validate_circuit_data``.
 """
 

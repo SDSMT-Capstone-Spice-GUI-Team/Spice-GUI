@@ -16,7 +16,7 @@ from typing import Callable, Optional
 from grading.grader import CircuitGrader, GradingResult
 from grading.rubric import Rubric
 from models.circuit import CircuitModel
-from models.circuit_validator import validate_circuit_data
+from models.circuit_schema_validator import validate_circuit_data
 
 logger = logging.getLogger(__name__)
 

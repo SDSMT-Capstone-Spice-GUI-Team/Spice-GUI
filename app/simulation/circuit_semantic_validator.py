@@ -1,9 +1,8 @@
-"""
-simulation/circuit_validator.py
+"""Pre-simulation semantic validation (circuit_semantic_validator).
 
-Pre-simulation circuit validation with no Qt dependencies.
-Error messages are written to be educational and student-friendly,
-suggesting how to fix each problem.
+Checks circuit completeness and correctness before simulation runs:
+ground presence, connected terminals, analysis-specific source requirements.
+No Qt dependencies. Error messages are student-friendly.
 """
 
 
