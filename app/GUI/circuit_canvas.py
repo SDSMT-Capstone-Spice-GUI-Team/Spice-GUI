@@ -76,9 +76,10 @@ class CircuitCanvasView(QGraphicsView):
         self.show_node_voltages = False  # Toggle for showing voltage values
         self.show_op_annotations = True  # Toggle for OP result annotations
 
-        # Probe mode state
-        self.probe_mode = False  # Whether probe tool is active
-        self.probe_results = []  # List of probe result dicts for display
+        # Probe overlay (owns probe_mode, probe_results, hit-testing)
+        from GUI.canvas_probe_overlay import CanvasProbeOverlay
+
+        self.probe_overlay = CanvasProbeOverlay(self)
 
         # Label visibility settings
         self.show_component_labels = True  # Toggle for component IDs (R1, V1, etc.)
@@ -1599,156 +1600,52 @@ class CircuitCanvasView(QGraphicsView):
         self.show_node_voltages = False
         self.scene.update()
 
+    # -- Probe subsystem (delegated to self.probe_overlay) ---------------
+
+    @property
+    def probe_mode(self):
+        return self.probe_overlay.probe_mode
+
+    @probe_mode.setter
+    def probe_mode(self, value):
+        self.probe_overlay.probe_mode = value
+
+    @property
+    def probe_results(self):
+        return self.probe_overlay.probe_results
+
+    @probe_results.setter
+    def probe_results(self, value):
+        self.probe_overlay.probe_results = value
+
     def set_probe_mode(self, active):
         """Enable or disable probe mode."""
-        if active and self.wire_start_comp is not None:
-            # Cancel any in-progress wire drawing before entering probe mode
-            self.cancel_wire_drawing()
-        self.probe_mode = active
-        if active:
-            self.setCursor(Qt.CursorShape.CrossCursor)
-        else:
-            self.unsetCursor()
-        self.scene.update()
+        self.probe_overlay.set_probe_mode(active)
 
     def clear_probes(self):
         """Remove all probe annotations."""
-        self.probe_results = []
-        self.scene.update()
+        self.probe_overlay.clear_probes()
 
     def _probe_at_position(self, scene_pos):
-        """Probe the node or component at scene_pos and store result."""
-        # Check if we clicked on a component first
-        item = self.itemAt(self.mapFromScene(scene_pos))
-        if isinstance(item, ComponentGraphicsItem):
-            if self.node_voltages:
-                return self._probe_component(item)
-            # No OP data - request sweep probe for this component
-            comp_ref = item.component_id.lower()
-            self.probeRequested.emit(comp_ref, "component")
-            return None
-
-        # Otherwise try to find a node near the click
-        node = self.find_node_at_position(scene_pos)
-        if node:
-            if self.node_voltages:
-                return self._probe_node(node)
-            # No OP data - request sweep probe for this node
-            self.probeRequested.emit(node.get_label(), "node")
-            return None
-
-        return None
+        return self.probe_overlay.probe_at_position(scene_pos)
 
     def _probe_node(self, node):
-        """Create a probe result for a node."""
-        from PyQt6.QtCore import QPointF
-        from utils.format_utils import format_si
-
-        label = node.get_label()
-        if label not in self.node_voltages:
-            return None
-
-        voltage = self.node_voltages[label]
-        pos = self._get_node_position(node)
-        if not pos:
-            return None
-
-        result = {
-            "type": "node",
-            "label": label,
-            "voltage": format_si(voltage, "V"),
-            "pos": QPointF(pos.x(), pos.y()),
-        }
-        self.probe_results.append(result)
-        self.scene.update()
-        return result
+        return self.probe_overlay._probe_node(node)
 
     def _probe_component(self, comp_item):
-        """Create a probe result for a component."""
-        from PyQt6.QtCore import QPointF
-        from utils.format_utils import format_si
-
-        comp_id = comp_item.component_id
-        comp_ref = comp_id.lower()
-
-        lines = [comp_id]
-
-        # Voltage across terminals
-        term_voltages = []
-        for term_idx in range(len(comp_item.terminals)):
-            terminal_key = (comp_id, term_idx)
-            node = self.terminal_to_node.get(terminal_key)
-            if node:
-                node_label = node.get_label()
-                if node_label in self.node_voltages:
-                    v = self.node_voltages[node_label]
-                    term_voltages.append((term_idx, node_label, v))
-
-        if len(term_voltages) >= 2:
-            v_across = term_voltages[0][2] - term_voltages[1][2]
-            lines.append(f"V: {format_si(v_across, 'V')}")
-        elif len(term_voltages) == 1:
-            lines.append(f"V({term_voltages[0][1]}): {format_si(term_voltages[0][2], 'V')}")
-
-        # Branch current
-        if comp_ref in self.branch_currents:
-            current = self.branch_currents[comp_ref]
-            lines.append(f"I: {format_si(current, 'A')}")
-
-        # Power dissipation (if both voltage and current known)
-        if len(term_voltages) >= 2 and comp_ref in self.branch_currents:
-            v_across = term_voltages[0][2] - term_voltages[1][2]
-            power = abs(v_across * self.branch_currents[comp_ref])
-            lines.append(f"P: {format_si(power, 'W')}")
-
-        comp_rect = comp_item.boundingRect()
-        center = comp_item.mapToScene(comp_rect.center())
-        result = {
-            "type": "component",
-            "label": comp_id,
-            "text": "\n".join(lines),
-            "pos": QPointF(center.x() + comp_rect.width() / 2 + 10, center.y()),
-        }
-        self.probe_results.append(result)
-        self.scene.update()
-        return result
+        return self.probe_overlay._probe_component(comp_item)
 
     def display_node_voltages(self):
-        """Enable display of node voltages."""
-        self.show_node_voltages = True
-        self.scene.update()
+        self.probe_overlay.display_node_voltages()
 
     def hide_node_voltages(self):
-        """Disable display of node voltages."""
-        self.show_node_voltages = False
-        self.scene.update()
+        self.probe_overlay.hide_node_voltages()
 
     def _get_node_position(self, node):
-        """Get a representative QPointF position for a node using canvas components."""
-        if not node.terminals:
-            return None
-        positions = []
-        for comp_id, term_idx in node.terminals:
-            if comp_id in self.components:
-                pos = self.components[comp_id].get_terminal_pos(term_idx)
-                positions.append(pos)
-        if not positions:
-            return None
-        avg_x = sum(p.x() for p in positions) / len(positions)
-        avg_y = sum(p.y() for p in positions) / len(positions)
-        return QPointF(avg_x, avg_y)
+        return self.probe_overlay._get_node_position(node)
 
     def find_node_at_position(self, scene_pos):
-        """Find a node near the given scene position."""
-        for comp_id, comp in self.components.items():
-            for term_idx in range(len(comp.terminals)):
-                term_pos = comp.get_terminal_pos(term_idx)
-                distance = (term_pos - scene_pos).manhattanLength()
-                if distance < 20:
-                    if self.controller:
-                        return self.controller.find_node_for_terminal(comp_id, term_idx)
-                    return self.terminal_to_node.get((comp_id, term_idx))
-        return None
+        return self.probe_overlay.find_node_at_position(scene_pos)
 
     def label_node(self, node):
         """Open dialog to set a net name for a node."""
