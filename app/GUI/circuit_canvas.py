@@ -1,7 +1,7 @@
 import logging
 
 from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QBrush, QPainter, QPen
+from PyQt6.QtGui import QBrush, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsLineItem,
     QGraphicsScene,
@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (
     QGraphicsView,
     QInputDialog,
     QLineEdit,
-    QMenu,
     QRubberBand,
 )
 
@@ -1010,148 +1009,10 @@ class CircuitCanvasView(QGraphicsView):
         self.zoomChanged.emit(self.get_zoom_level())
 
     def show_context_menu(self, position):
-        """Show context menu for delete operations and component properties"""
-        item = self.itemAt(position)
+        """Show context menu for the item under *position*."""
+        from GUI.canvas_context_menu import build_context_menu
 
-        # If a component is right-clicked, emit a signal to show properties
-        if isinstance(item, ComponentGraphicsItem):
-            self.componentRightClicked.emit(item, self.mapToGlobal(position))
-
-        scene_pos = self.mapToScene(position)
-
-        menu = QMenu()
-
-        if isinstance(item, ComponentGraphicsItem):
-            delete_action = QAction(f"Delete {item.component_id}", self)
-            delete_action.triggered.connect(lambda: self.delete_component(item))
-            menu.addAction(delete_action)
-
-            menu.addSeparator()
-
-            rotate_cw_action = QAction("Rotate Clockwise (R)", self)
-            rotate_cw_action.triggered.connect(lambda: self.rotate_component(item, True))
-            menu.addAction(rotate_cw_action)
-
-            rotate_ccw_action = QAction("Rotate Counter-Clockwise (Shift+R)", self)
-            rotate_ccw_action.triggered.connect(lambda: self.rotate_component(item, False))
-            menu.addAction(rotate_ccw_action)
-
-            menu.addSeparator()
-
-            flip_h_action = QAction("Flip Horizontal (F)", self)
-            flip_h_action.triggered.connect(lambda: self.flip_component(item, True))
-            menu.addAction(flip_h_action)
-
-            flip_v_action = QAction("Flip Vertical (Shift+F)", self)
-            flip_v_action.triggered.connect(lambda: self.flip_component(item, False))
-            menu.addAction(flip_v_action)
-
-        elif isinstance(item, AnnotationItem):
-            delete_action = QAction("Delete Annotation", self)
-            delete_action.triggered.connect(lambda: self._delete_annotation(item))
-            menu.addAction(delete_action)
-
-            edit_action = QAction("Edit Annotation", self)
-            edit_action.triggered.connect(lambda: self._edit_annotation(item))
-            menu.addAction(edit_action)
-
-        elif isinstance(item, WireItem):
-            delete_action = QAction("Delete Wire", self)
-            delete_action.triggered.connect(lambda: self.delete_wire(item))
-            menu.addAction(delete_action)
-
-            menu.addSeparator()
-
-            # Lock/Unlock wire path toggle
-            if item.model.locked:
-                lock_action = QAction("Unlock Wire Path", self)
-                lock_action.triggered.connect(lambda: self.toggle_wire_lock(item, False))
-            else:
-                lock_action = QAction("Lock Wire Path", self)
-                lock_action.triggered.connect(lambda: self.toggle_wire_lock(item, True))
-            menu.addAction(lock_action)
-
-            # Check if multiple wires are selected
-            selected_wires = [i for i in self.scene.selectedItems() if isinstance(i, WireItem)]
-            if len(selected_wires) > 1 and item in selected_wires:
-                reroute_action = QAction(f"Reroute Selected Wires ({len(selected_wires)})", self)
-                reroute_action.triggered.connect(lambda: self.reroute_selected_wires(selected_wires))
-            else:
-                reroute_action = QAction("Reroute Wire", self)
-                reroute_action.triggered.connect(lambda: self.reroute_wire(item))
-            menu.addAction(reroute_action)
-
-            if item.node:
-                menu.addSeparator()
-                current = item.node.get_label()
-                label_action = QAction(f"Set Net Name ({current})...", self)
-                label_action.triggered.connect(lambda: self.label_node(item.node))
-                menu.addAction(label_action)
-        else:
-            # Check if we clicked near a terminal to set its net name
-            clicked_node = self.find_node_at_position(scene_pos)
-            if clicked_node:
-                current = clicked_node.get_label()
-                label_action = QAction(f"Set Net Name ({current})...", self)
-                label_action.triggered.connect(lambda: self.label_node(clicked_node))
-                menu.addAction(label_action)
-                menu.addSeparator()
-
-            # No specific item, offer to delete all selected
-            selected_items = self.scene.selectedItems()
-            if selected_items:
-                delete_action = QAction(f"Delete Selected ({len(selected_items)} items)", self)
-                delete_action.triggered.connect(self.delete_selected)
-                menu.addAction(delete_action)
-
-                # Check if any components are selected
-                selected_components = [i for i in selected_items if isinstance(i, ComponentGraphicsItem)]
-                if selected_components:
-                    menu.addSeparator()
-                    rotate_cw_action = QAction("Rotate Selected Clockwise", self)
-                    rotate_cw_action.triggered.connect(lambda: self.rotate_selected(True))
-                    menu.addAction(rotate_cw_action)
-
-                    rotate_ccw_action = QAction("Rotate Selected Counter-Clockwise", self)
-                    rotate_ccw_action.triggered.connect(lambda: self.rotate_selected(False))
-                    menu.addAction(rotate_ccw_action)
-
-                    flip_h_action = QAction("Flip Selected Horizontal", self)
-                    flip_h_action.triggered.connect(lambda: self.flip_selected(True))
-                    menu.addAction(flip_h_action)
-
-                    flip_v_action = QAction("Flip Selected Vertical", self)
-                    flip_v_action.triggered.connect(lambda: self.flip_selected(False))
-                    menu.addAction(flip_v_action)
-
-                    menu.addSeparator()
-                    sel_ids = [c.component_id for c in selected_components]
-                    copy_action = QAction(
-                        f"Copy ({len(selected_components)} component{'s' if len(selected_components) != 1 else ''})",
-                        self,
-                    )
-                    copy_action.triggered.connect(lambda checked=False, ids=sel_ids: self.copy_selected_components(ids))
-                    menu.addAction(copy_action)
-
-                    cut_action = QAction(
-                        f"Cut ({len(selected_components)} component{'s' if len(selected_components) != 1 else ''})",
-                        self,
-                    )
-                    cut_action.triggered.connect(lambda checked=False, ids=sel_ids: self.cut_selected_components(ids))
-                    menu.addAction(cut_action)
-
-        has_clipboard = (self.controller and self.controller.has_clipboard_content()) or not self._clipboard.is_empty()
-        if has_clipboard:
-            paste_action = QAction("Paste", self)
-            paste_action.triggered.connect(self.paste_components)
-            menu.addAction(paste_action)
-
-        # Always offer "Add Annotation" on empty-area right-click
-        menu.addSeparator()
-        add_ann_action = QAction("Add Annotation", self)
-        add_ann_action.triggered.connect(lambda: self.add_annotation(scene_pos))
-        menu.addAction(add_ann_action)
-
+        menu = build_context_menu(self, self.mapToScene(position))
         if not menu.isEmpty():
             menu.exec(self.mapToGlobal(position))
 
