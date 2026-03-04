@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from .format_utils import parse_value
+from .analysis_field_helpers import parse_field_widgets
 from .meas_dialog import ANALYSIS_DOMAIN_MAP, MeasurementDialog
 
 # Analysis types that support .meas directives
@@ -290,18 +290,9 @@ class AnalysisDialog(QDialog):
 
     def get_parameters(self):
         """Get parameters from dialog with validation"""
-        params = {"analysis_type": self.analysis_type}
-
         try:
-            for key, (widget, field_type) in self.field_widgets.items():
-                if field_type == "combo":
-                    params[key] = widget.currentText()
-                elif field_type == "float":
-                    params[key] = parse_value(widget.text())
-                elif field_type == "int":
-                    params[key] = int(parse_value(widget.text()))
-                else:  # text
-                    params[key] = widget.text()
+            params = parse_field_widgets(self.field_widgets)
+            params["analysis_type"] = self.analysis_type
 
             # Include measurement directives if any are configured
             if self._measurements:
@@ -309,7 +300,7 @@ class AnalysisDialog(QDialog):
 
             return params
 
-        except ValueError:
+        except (ValueError, TypeError):
             return None
 
     def get_ngspice_command(self):
