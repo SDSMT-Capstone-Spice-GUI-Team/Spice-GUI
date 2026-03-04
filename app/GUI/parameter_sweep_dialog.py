@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from .analysis_field_helpers import build_analysis_fields, parse_field_widgets
 from .format_utils import format_value, parse_value
 
 # Component types whose primary value can be swept
@@ -116,7 +117,7 @@ class ParameterSweepDialog(QDialog):
         layout.addWidget(analysis_group)
 
         # Build initial base analysis form
-        self._build_base_form()
+        self._rebuild_base_fields()
 
         # --- Buttons ---
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -144,39 +145,15 @@ class ParameterSweepDialog(QDialog):
                 pass
 
     def _on_analysis_changed(self, analysis_type):
-        self._build_base_form()
+        self._rebuild_base_fields()
 
-    def _build_base_form(self):
+    def _rebuild_base_fields(self):
         """Build form fields for the selected base analysis type."""
-        # Clear existing
-        while self._base_form.count():
-            item = self._base_form.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self._base_field_widgets.clear()
-
-        from .analysis_dialog import AnalysisDialog
-
-        analysis_type = self.analysis_combo.currentText()
-        config = AnalysisDialog.ANALYSIS_CONFIGS.get(analysis_type, {})
-
-        tooltips = config.get("tooltips", {})
-        for field_config in config.get("fields", []):
-            if field_config[2] == "combo":
-                label, key, _, options, default = field_config
-                widget = QComboBox()
-                widget.addItems(options)
-                widget.setCurrentText(default)
-            else:
-                label, key, field_type, default = field_config
-                widget = QLineEdit(str(default))
-
-            tooltip = tooltips.get(key)
-            if tooltip:
-                widget.setToolTip(tooltip)
-
-            self._base_field_widgets[key] = (widget, field_config[2])
-            self._base_form.addRow(f"{label}:", widget)
+        build_analysis_fields(
+            self._base_form,
+            self.analysis_combo.currentText(),
+            self._base_field_widgets,
+        )
 
     def get_parameters(self):
         """
@@ -201,17 +178,9 @@ class ParameterSweepDialog(QDialog):
 
             base_analysis_type = self.analysis_combo.currentText()
 
-            # Parse base analysis params
-            base_params = {"analysis_type": base_analysis_type}
-            for key, (widget, field_type) in self._base_field_widgets.items():
-                if field_type == "combo":
-                    base_params[key] = widget.currentText()
-                elif field_type == "float":
-                    base_params[key] = parse_value(widget.text())
-                elif field_type == "int":
-                    base_params[key] = int(parse_value(widget.text()))
-                else:
-                    base_params[key] = widget.text()
+            # Parse base analysis params via shared helper
+            base_params = parse_field_widgets(self._base_field_widgets)
+            base_params["analysis_type"] = base_analysis_type
 
             return {
                 "component_id": component_id,

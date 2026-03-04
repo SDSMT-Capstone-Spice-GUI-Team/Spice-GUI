@@ -15,12 +15,13 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
 )
+
+from .analysis_field_helpers import build_analysis_fields, parse_field_widgets
 
 # Base analysis types available for Monte Carlo
 MC_BASE_ANALYSIS_TYPES = [
@@ -78,7 +79,7 @@ class MonteCarloDialog(QDialog):
         layout.addWidget(run_group)
 
         # Build initial base analysis fields
-        self._build_base_form()
+        self._rebuild_base_fields()
 
         # --- Tolerance Table ---
         tol_group = QGroupBox("Component Tolerances")
@@ -135,38 +136,15 @@ class MonteCarloDialog(QDialog):
         layout.addWidget(buttons)
 
     def _on_analysis_changed(self, analysis_type):
-        self._build_base_form()
+        self._rebuild_base_fields()
 
-    def _build_base_form(self):
+    def _rebuild_base_fields(self):
         """Build form fields for the selected base analysis type."""
-        while self._base_form.count():
-            item = self._base_form.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self._base_field_widgets.clear()
-
-        from .analysis_dialog import AnalysisDialog
-
-        analysis_type = self.analysis_combo.currentText()
-        config = AnalysisDialog.ANALYSIS_CONFIGS.get(analysis_type, {})
-
-        tooltips = config.get("tooltips", {})
-        for field_config in config.get("fields", []):
-            if field_config[2] == "combo":
-                label, key, _, options, default = field_config
-                widget = QComboBox()
-                widget.addItems(options)
-                widget.setCurrentText(default)
-            else:
-                label, key, field_type, default = field_config
-                widget = QLineEdit(str(default))
-
-            tooltip = tooltips.get(key)
-            if tooltip:
-                widget.setToolTip(tooltip)
-
-            self._base_field_widgets[key] = (widget, field_config[2])
-            self._base_form.addRow(f"{label}:", widget)
+        build_analysis_fields(
+            self._base_form,
+            self.analysis_combo.currentText(),
+            self._base_field_widgets,
+        )
 
     def get_parameters(self):
         """Get all Monte Carlo parameters.
@@ -176,23 +154,13 @@ class MonteCarloDialog(QDialog):
                             tolerances
             or None if validation fails.
         """
-        from .format_utils import parse_value
-
         try:
             num_runs = self.num_runs_spin.value()
             base_analysis_type = self.analysis_combo.currentText()
 
-            # Parse base analysis params
-            base_params = {"analysis_type": base_analysis_type}
-            for key, (widget, field_type) in self._base_field_widgets.items():
-                if field_type == "combo":
-                    base_params[key] = widget.currentText()
-                elif field_type == "float":
-                    base_params[key] = parse_value(widget.text())
-                elif field_type == "int":
-                    base_params[key] = int(parse_value(widget.text()))
-                else:
-                    base_params[key] = widget.text()
+            # Parse base analysis params via shared helper
+            base_params = parse_field_widgets(self._base_field_widgets)
+            base_params["analysis_type"] = base_analysis_type
 
             # Build tolerances from table
             tolerances = {}
