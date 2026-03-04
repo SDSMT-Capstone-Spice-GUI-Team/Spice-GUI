@@ -63,7 +63,7 @@ class CanvasProbeOverlay:
             self.canvas.probeRequested.emit(comp_ref, "component")
             return None
 
-        node = self.find_node_at_position(scene_pos)
+        node = self.canvas.find_node_at_position(scene_pos)
         if node:
             if self.canvas.node_voltages:
                 return self._probe_node(node)
