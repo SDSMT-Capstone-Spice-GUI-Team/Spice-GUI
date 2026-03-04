@@ -16,7 +16,6 @@ This prototype implements:
 
 import sys
 
-from GUI.main_window import MainWindow
 from PyQt6.QtWidgets import QApplication
 
 from app.MainWindow import MainWindowRebuild, MyWidgetRebuild
