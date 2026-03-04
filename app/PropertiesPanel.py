@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 
 class PropertiesPanel(QWidget):
@@ -7,7 +7,6 @@ class PropertiesPanel(QWidget):
 
         layout = QVBoxLayout(self)
 
-        #Title
+        # Title
         propertiesTitle = QLabel("Properties")
         layout.addWidget(propertiesTitle)
-
