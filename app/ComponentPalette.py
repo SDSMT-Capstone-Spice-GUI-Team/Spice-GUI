@@ -1,21 +1,21 @@
-from PyQt6.QtWidgets import QWidget, QTreeWidget, QTreeWidgetItem, QLineEdit, QVBoxLayout
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+
 
 class ComponentPalette(QWidget):
     def __init__(self):
         super().__init__()
 
-        #Setting up Palette Layout
+        # Setting up Palette Layout
         layout = QVBoxLayout(self)
         layout.setSpacing(4)
 
-        #Searchbar
+        # Searchbar
         self.__searchbar = QLineEdit()
         self.__searchbar.setPlaceholderText("Search Components:")
         self.__searchbar.setClearButtonEnabled(True)
         layout.addWidget(self.__searchbar)
 
-        #List of Components
+        # List of Components
         self.__listWidget = QTreeWidget()
         item1 = QTreeWidgetItem(self.__listWidget)
         item2 = QTreeWidgetItem(self.__listWidget)

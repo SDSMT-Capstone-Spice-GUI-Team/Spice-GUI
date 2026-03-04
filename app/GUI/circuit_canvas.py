@@ -1,7 +1,7 @@
 import logging
 
 from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QBrush, QPainter, QPen
+from PyQt6.QtGui import QBrush, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsLineItem,
     QGraphicsScene,
@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (
     QGraphicsView,
     QInputDialog,
     QLineEdit,
-    QMenu,
     QRubberBand,
 )
 
@@ -76,18 +75,15 @@ class CircuitCanvasView(QGraphicsView):
         self.show_node_voltages = False  # Toggle for showing voltage values
         self.show_op_annotations = True  # Toggle for OP result annotations
 
-        # Probe mode state
-        self.probe_mode = False  # Whether probe tool is active
-        self.probe_results = []  # List of probe result dicts for display
+        # Probe overlay (owns probe_mode, probe_results, hit-testing)
+        from GUI.canvas_probe_overlay import CanvasProbeOverlay
+
+        self.probe_overlay = CanvasProbeOverlay(self)
 
         # Label visibility settings
         self.show_component_labels = True  # Toggle for component IDs (R1, V1, etc.)
         self.show_component_values = True  # Toggle for component values (1k, 5V, etc.)
         self.show_node_labels = True  # Toggle for node labels (n1, n2, etc.)
-
-        # Debug visualization
-        self.show_obstacle_boundaries = False  # Toggle for showing obstacle boundaries
-        self.obstacle_boundary_items = []  # Store obstacle boundary graphics items
 
         # Grid drawing deferred to first show for faster startup
         self._grid_drawn = False
@@ -1013,148 +1009,10 @@ class CircuitCanvasView(QGraphicsView):
         self.zoomChanged.emit(self.get_zoom_level())
 
     def show_context_menu(self, position):
-        """Show context menu for delete operations and component properties"""
-        item = self.itemAt(position)
+        """Show context menu for the item under *position*."""
+        from GUI.canvas_context_menu import build_context_menu
 
-        # If a component is right-clicked, emit a signal to show properties
-        if isinstance(item, ComponentGraphicsItem):
-            self.componentRightClicked.emit(item, self.mapToGlobal(position))
-
-        scene_pos = self.mapToScene(position)
-
-        menu = QMenu()
-
-        if isinstance(item, ComponentGraphicsItem):
-            delete_action = QAction(f"Delete {item.component_id}", self)
-            delete_action.triggered.connect(lambda: self.delete_component(item))
-            menu.addAction(delete_action)
-
-            menu.addSeparator()
-
-            rotate_cw_action = QAction("Rotate Clockwise (R)", self)
-            rotate_cw_action.triggered.connect(lambda: self.rotate_component(item, True))
-            menu.addAction(rotate_cw_action)
-
-            rotate_ccw_action = QAction("Rotate Counter-Clockwise (Shift+R)", self)
-            rotate_ccw_action.triggered.connect(lambda: self.rotate_component(item, False))
-            menu.addAction(rotate_ccw_action)
-
-            menu.addSeparator()
-
-            flip_h_action = QAction("Flip Horizontal (F)", self)
-            flip_h_action.triggered.connect(lambda: self.flip_component(item, True))
-            menu.addAction(flip_h_action)
-
-            flip_v_action = QAction("Flip Vertical (Shift+F)", self)
-            flip_v_action.triggered.connect(lambda: self.flip_component(item, False))
-            menu.addAction(flip_v_action)
-
-        elif isinstance(item, AnnotationItem):
-            delete_action = QAction("Delete Annotation", self)
-            delete_action.triggered.connect(lambda: self._delete_annotation(item))
-            menu.addAction(delete_action)
-
-            edit_action = QAction("Edit Annotation", self)
-            edit_action.triggered.connect(lambda: self._edit_annotation(item))
-            menu.addAction(edit_action)
-
-        elif isinstance(item, WireItem):
-            delete_action = QAction("Delete Wire", self)
-            delete_action.triggered.connect(lambda: self.delete_wire(item))
-            menu.addAction(delete_action)
-
-            menu.addSeparator()
-
-            # Lock/Unlock wire path toggle
-            if item.model.locked:
-                lock_action = QAction("Unlock Wire Path", self)
-                lock_action.triggered.connect(lambda: self.toggle_wire_lock(item, False))
-            else:
-                lock_action = QAction("Lock Wire Path", self)
-                lock_action.triggered.connect(lambda: self.toggle_wire_lock(item, True))
-            menu.addAction(lock_action)
-
-            # Check if multiple wires are selected
-            selected_wires = [i for i in self.scene.selectedItems() if isinstance(i, WireItem)]
-            if len(selected_wires) > 1 and item in selected_wires:
-                reroute_action = QAction(f"Reroute Selected Wires ({len(selected_wires)})", self)
-                reroute_action.triggered.connect(lambda: self.reroute_selected_wires(selected_wires))
-            else:
-                reroute_action = QAction("Reroute Wire", self)
-                reroute_action.triggered.connect(lambda: self.reroute_wire(item))
-            menu.addAction(reroute_action)
-
-            if item.node:
-                menu.addSeparator()
-                current = item.node.get_label()
-                label_action = QAction(f"Set Net Name ({current})...", self)
-                label_action.triggered.connect(lambda: self.label_node(item.node))
-                menu.addAction(label_action)
-        else:
-            # Check if we clicked near a terminal to set its net name
-            clicked_node = self.find_node_at_position(scene_pos)
-            if clicked_node:
-                current = clicked_node.get_label()
-                label_action = QAction(f"Set Net Name ({current})...", self)
-                label_action.triggered.connect(lambda: self.label_node(clicked_node))
-                menu.addAction(label_action)
-                menu.addSeparator()
-
-            # No specific item, offer to delete all selected
-            selected_items = self.scene.selectedItems()
-            if selected_items:
-                delete_action = QAction(f"Delete Selected ({len(selected_items)} items)", self)
-                delete_action.triggered.connect(self.delete_selected)
-                menu.addAction(delete_action)
-
-                # Check if any components are selected
-                selected_components = [i for i in selected_items if isinstance(i, ComponentGraphicsItem)]
-                if selected_components:
-                    menu.addSeparator()
-                    rotate_cw_action = QAction("Rotate Selected Clockwise", self)
-                    rotate_cw_action.triggered.connect(lambda: self.rotate_selected(True))
-                    menu.addAction(rotate_cw_action)
-
-                    rotate_ccw_action = QAction("Rotate Selected Counter-Clockwise", self)
-                    rotate_ccw_action.triggered.connect(lambda: self.rotate_selected(False))
-                    menu.addAction(rotate_ccw_action)
-
-                    flip_h_action = QAction("Flip Selected Horizontal", self)
-                    flip_h_action.triggered.connect(lambda: self.flip_selected(True))
-                    menu.addAction(flip_h_action)
-
-                    flip_v_action = QAction("Flip Selected Vertical", self)
-                    flip_v_action.triggered.connect(lambda: self.flip_selected(False))
-                    menu.addAction(flip_v_action)
-
-                    menu.addSeparator()
-                    sel_ids = [c.component_id for c in selected_components]
-                    copy_action = QAction(
-                        f"Copy ({len(selected_components)} component{'s' if len(selected_components) != 1 else ''})",
-                        self,
-                    )
-                    copy_action.triggered.connect(lambda checked=False, ids=sel_ids: self.copy_selected_components(ids))
-                    menu.addAction(copy_action)
-
-                    cut_action = QAction(
-                        f"Cut ({len(selected_components)} component{'s' if len(selected_components) != 1 else ''})",
-                        self,
-                    )
-                    cut_action.triggered.connect(lambda checked=False, ids=sel_ids: self.cut_selected_components(ids))
-                    menu.addAction(cut_action)
-
-        has_clipboard = (self.controller and self.controller.has_clipboard_content()) or not self._clipboard.is_empty()
-        if has_clipboard:
-            paste_action = QAction("Paste", self)
-            paste_action.triggered.connect(self.paste_components)
-            menu.addAction(paste_action)
-
-        # Always offer "Add Annotation" on empty-area right-click
-        menu.addSeparator()
-        add_ann_action = QAction("Add Annotation", self)
-        add_ann_action.triggered.connect(lambda: self.add_annotation(scene_pos))
-        menu.addAction(add_ann_action)
-
+        menu = build_context_menu(self, self.mapToScene(position))
         if not menu.isEmpty():
             menu.exec(self.mapToGlobal(position))
 
@@ -1603,156 +1461,52 @@ class CircuitCanvasView(QGraphicsView):
         self.show_node_voltages = False
         self.scene.update()
 
+    # -- Probe subsystem (delegated to self.probe_overlay) ---------------
+
+    @property
+    def probe_mode(self):
+        return self.probe_overlay.probe_mode
+
+    @probe_mode.setter
+    def probe_mode(self, value):
+        self.probe_overlay.probe_mode = value
+
+    @property
+    def probe_results(self):
+        return self.probe_overlay.probe_results
+
+    @probe_results.setter
+    def probe_results(self, value):
+        self.probe_overlay.probe_results = value
+
     def set_probe_mode(self, active):
         """Enable or disable probe mode."""
-        if active and self.wire_start_comp is not None:
-            # Cancel any in-progress wire drawing before entering probe mode
-            self.cancel_wire_drawing()
-        self.probe_mode = active
-        if active:
-            self.setCursor(Qt.CursorShape.CrossCursor)
-        else:
-            self.unsetCursor()
-        self.scene.update()
+        self.probe_overlay.set_probe_mode(active)
 
     def clear_probes(self):
         """Remove all probe annotations."""
-        self.probe_results = []
-        self.scene.update()
+        self.probe_overlay.clear_probes()
 
     def _probe_at_position(self, scene_pos):
-        """Probe the node or component at scene_pos and store result."""
-        # Check if we clicked on a component first
-        item = self.itemAt(self.mapFromScene(scene_pos))
-        if isinstance(item, ComponentGraphicsItem):
-            if self.node_voltages:
-                return self._probe_component(item)
-            # No OP data - request sweep probe for this component
-            comp_ref = item.component_id.lower()
-            self.probeRequested.emit(comp_ref, "component")
-            return None
-
-        # Otherwise try to find a node near the click
-        node = self.find_node_at_position(scene_pos)
-        if node:
-            if self.node_voltages:
-                return self._probe_node(node)
-            # No OP data - request sweep probe for this node
-            self.probeRequested.emit(node.get_label(), "node")
-            return None
-
-        return None
+        return self.probe_overlay.probe_at_position(scene_pos)
 
     def _probe_node(self, node):
-        """Create a probe result for a node."""
-        from PyQt6.QtCore import QPointF
-        from utils.format_utils import format_si
-
-        label = node.get_label()
-        if label not in self.node_voltages:
-            return None
-
-        voltage = self.node_voltages[label]
-        pos = self._get_node_position(node)
-        if not pos:
-            return None
-
-        result = {
-            "type": "node",
-            "label": label,
-            "voltage": format_si(voltage, "V"),
-            "pos": QPointF(pos.x(), pos.y()),
-        }
-        self.probe_results.append(result)
-        self.scene.update()
-        return result
+        return self.probe_overlay._probe_node(node)
 
     def _probe_component(self, comp_item):
-        """Create a probe result for a component."""
-        from PyQt6.QtCore import QPointF
-        from utils.format_utils import format_si
-
-        comp_id = comp_item.component_id
-        comp_ref = comp_id.lower()
-
-        lines = [comp_id]
-
-        # Voltage across terminals
-        term_voltages = []
-        for term_idx in range(len(comp_item.terminals)):
-            terminal_key = (comp_id, term_idx)
-            node = self.terminal_to_node.get(terminal_key)
-            if node:
-                node_label = node.get_label()
-                if node_label in self.node_voltages:
-                    v = self.node_voltages[node_label]
-                    term_voltages.append((term_idx, node_label, v))
-
-        if len(term_voltages) >= 2:
-            v_across = term_voltages[0][2] - term_voltages[1][2]
-            lines.append(f"V: {format_si(v_across, 'V')}")
-        elif len(term_voltages) == 1:
-            lines.append(f"V({term_voltages[0][1]}): {format_si(term_voltages[0][2], 'V')}")
-
-        # Branch current
-        if comp_ref in self.branch_currents:
-            current = self.branch_currents[comp_ref]
-            lines.append(f"I: {format_si(current, 'A')}")
-
-        # Power dissipation (if both voltage and current known)
-        if len(term_voltages) >= 2 and comp_ref in self.branch_currents:
-            v_across = term_voltages[0][2] - term_voltages[1][2]
-            power = abs(v_across * self.branch_currents[comp_ref])
-            lines.append(f"P: {format_si(power, 'W')}")
-
-        comp_rect = comp_item.boundingRect()
-        center = comp_item.mapToScene(comp_rect.center())
-        result = {
-            "type": "component",
-            "label": comp_id,
-            "text": "\n".join(lines),
-            "pos": QPointF(center.x() + comp_rect.width() / 2 + 10, center.y()),
-        }
-        self.probe_results.append(result)
-        self.scene.update()
-        return result
+        return self.probe_overlay._probe_component(comp_item)
 
     def display_node_voltages(self):
-        """Enable display of node voltages."""
-        self.show_node_voltages = True
-        self.scene.update()
+        self.probe_overlay.display_node_voltages()
 
     def hide_node_voltages(self):
-        """Disable display of node voltages."""
-        self.show_node_voltages = False
-        self.scene.update()
+        self.probe_overlay.hide_node_voltages()
 
     def _get_node_position(self, node):
-        """Get a representative QPointF position for a node using canvas components."""
-        if not node.terminals:
-            return None
-        positions = []
-        for comp_id, term_idx in node.terminals:
-            if comp_id in self.components:
-                pos = self.components[comp_id].get_terminal_pos(term_idx)
-                positions.append(pos)
-        if not positions:
-            return None
-        avg_x = sum(p.x() for p in positions) / len(positions)
-        avg_y = sum(p.y() for p in positions) / len(positions)
-        return QPointF(avg_x, avg_y)
+        return self.probe_overlay._get_node_position(node)
 
     def find_node_at_position(self, scene_pos):
-        """Find a node near the given scene position."""
-        for comp_id, comp in self.components.items():
-            for term_idx in range(len(comp.terminals)):
-                term_pos = comp.get_terminal_pos(term_idx)
-                distance = (term_pos - scene_pos).manhattanLength()
-                if distance < 20:
-                    if self.controller:
-                        return self.controller.find_node_for_terminal(comp_id, term_idx)
-                    return self.terminal_to_node.get((comp_id, term_idx))
-        return None
+        return self.probe_overlay.find_node_at_position(scene_pos)
 
     def label_node(self, node):
         """Open dialog to set a net name for a node."""
@@ -1844,229 +1598,6 @@ class CircuitCanvasView(QGraphicsView):
             self.nodes = []
             self.terminal_to_node = {}
 
-    def toggle_obstacle_boundaries(self, show=None):
-        """
-        Toggle or set obstacle boundary visualization
-
-        Args:
-            show: If None, toggle; if bool, set to that value
-
-        Returns:
-            bool: New state of obstacle boundary display
-        """
-        if show is None:
-            self.show_obstacle_boundaries = not self.show_obstacle_boundaries
-            pass
-        else:
-            self.show_obstacle_boundaries = show
-
-        if self.show_obstacle_boundaries:
-            self.draw_obstacle_boundaries()
-            pass
-        else:
-            self.clear_obstacle_boundaries()
-
-        return self.show_obstacle_boundaries
-
-    def clear_obstacle_boundaries(self):
-        """Remove all obstacle boundary visualization items"""
-        for item in self.obstacle_boundary_items:
-            if item.scene() == self.scene:
-                self.scene.removeItem(item)
-        self.obstacle_boundary_items.clear()
-
-    def draw_obstacle_boundaries(self):
-        """Draw obstacle boundaries for all components"""
-        # Clear existing boundary items
-        self.clear_obstacle_boundaries()
-
-        if not self.components:
-            return
-
-        # Draw custom polygon boundaries for each component
-        # Shows the actual obstacle boundary matching component visual shape
-        import math
-
-        for comp in self.components.values():
-            pos = comp.pos()
-
-            # Get custom obstacle shape from component
-            if hasattr(comp, "get_obstacle_shape"):
-                polygon_points = comp.get_obstacle_shape()
-                pass
-            else:
-                # Fallback to bounding rect
-                rect = comp.boundingRect()
-                polygon_points = [
-                    (rect.left(), rect.top()),
-                    (rect.right(), rect.top()),
-                    (rect.right(), rect.bottom()),
-                    (rect.left(), rect.bottom()),
-                ]
-
-            # Helper function to transform polygon points
-            def transform_polygon(points, inset_distance=0):
-                """Transform polygon points: apply inset, rotation, translation"""
-                rad = math.radians(comp.rotation_angle)
-                cos_a = math.cos(rad)
-                sin_a = math.sin(rad)
-
-                transformed = []
-                for x, y in points:
-                    # Apply inset (move toward center)
-                    if inset_distance > 0:
-                        center_x = sum(p[0] for p in points) / len(points)
-                        center_y = sum(p[1] for p in points) / len(points)
-                        dx = center_x - x
-                        dy = center_y - y
-                        dist = math.sqrt(dx * dx + dy * dy)
-                        if dist > 0:
-                            x += (dx / dist) * inset_distance
-                            y += (dy / dist) * inset_distance
-
-                    # Rotate
-                    rotated_x = x * cos_a - y * sin_a
-                    rotated_y = x * sin_a + y * cos_a
-
-                    # Translate
-                    world_x = pos.x() + rotated_x
-                    world_y = pos.y() + rotated_y
-
-                    transformed.append((world_x, world_y))
-                return transformed
-
-            # Draw full shape (red - connected components)
-            obstacle_full_pen = theme_manager.pen("obstacle_full")
-            full_points = transform_polygon(polygon_points, inset_distance=0)
-            for i in range(len(full_points)):
-                p1 = full_points[i]
-                p2 = full_points[(i + 1) % len(full_points)]
-                line = self.scene.addLine(p1[0], p1[1], p2[0], p2[1], obstacle_full_pen)
-                line.setZValue(50)
-                self.obstacle_boundary_items.append(line)
-
-            # Draw inset shape (blue - non-connected components)
-            obstacle_inset_pen = theme_manager.pen("obstacle_inset")
-            inset_pixels = 1.5 * GRID_SIZE
-            inset_points = transform_polygon(polygon_points, inset_distance=inset_pixels)
-            for i in range(len(inset_points)):
-                p1 = inset_points[i]
-                p2 = inset_points[(i + 1) % len(inset_points)]
-                line = self.scene.addLine(p1[0], p1[1], p2[0], p2[1], obstacle_inset_pen)
-                line.setZValue(50)
-                self.obstacle_boundary_items.append(line)
-
-            # Draw terminal markers
-            terminal_pen = theme_manager.pen("terminal_marker")
-            terminal_brush = theme_manager.brush("terminal_fill")
-            for i in range(len(comp.terminals)):
-                term_pos = comp.get_terminal_pos(i)
-                terminal_circle = self.scene.addEllipse(
-                    term_pos.x() - 5,
-                    term_pos.y() - 5,
-                    10,
-                    10,
-                    terminal_pen,
-                    terminal_brush,
-                )
-                terminal_circle.setZValue(100)
-                self.obstacle_boundary_items.append(terminal_circle)
-
-        # Add legend
-        legend_y = -480
-        legend_x = -480
-        obstacle_full_color = theme_manager.color("obstacle_full")
-        obstacle_inset_color = theme_manager.color("obstacle_inset")
-        terminal_color = theme_manager.color("terminal_highlight")
-
-        # Full boundary legend (red solid frame)
-        full_legend_rect = self.scene.addRect(
-            legend_x,
-            legend_y,
-            30,
-            15,
-            theme_manager.pen("obstacle_full"),
-            QBrush(Qt.BrushStyle.NoBrush),
-        )
-        full_legend_rect.setZValue(1000)
-        self.obstacle_boundary_items.append(full_legend_rect)
-
-        full_legend_text = self.scene.addText("Custom Shape (Connected)")
-        full_legend_text.setPos(legend_x + 35, legend_y - 5)
-        full_legend_text.setDefaultTextColor(obstacle_full_color)
-        full_legend_text.setZValue(1000)
-        self.obstacle_boundary_items.append(full_legend_text)
-
-        # Inset boundary legend (blue dotted frame)
-        inset_legend_rect = self.scene.addRect(
-            legend_x,
-            legend_y + 25,
-            30,
-            15,
-            theme_manager.pen("obstacle_inset"),
-            QBrush(Qt.BrushStyle.NoBrush),
-        )
-        inset_legend_rect.setZValue(1000)
-        self.obstacle_boundary_items.append(inset_legend_rect)
-
-        inset_legend_text = self.scene.addText("Custom Shape (Inset)")
-        inset_legend_text.setPos(legend_x + 35, legend_y + 20)
-        inset_legend_text.setDefaultTextColor(obstacle_inset_color)
-        inset_legend_text.setZValue(1000)
-        self.obstacle_boundary_items.append(inset_legend_text)
-
-        # Terminal legend
-        terminal_legend_circle = self.scene.addEllipse(
-            legend_x + 7.5,
-            legend_y + 52.5,
-            10,
-            10,
-            theme_manager.pen("terminal_marker"),
-            theme_manager.brush("terminal_fill"),
-        )
-        terminal_legend_circle.setZValue(1000)
-        self.obstacle_boundary_items.append(terminal_legend_circle)
-
-        terminal_legend_text = self.scene.addText("Terminals (Active=Clear, Inactive=Obstacle)")
-        terminal_legend_text.setPos(legend_x + 35, legend_y + 45)
-        terminal_legend_text.setDefaultTextColor(terminal_color)
-        terminal_legend_text.setZValue(1000)
-        self.obstacle_boundary_items.append(terminal_legend_text)
-
-    def get_model_components(self):
-        """Return dict of component_id -> ComponentData for simulation use.
-
-        Uses the controller's model as the single source of truth.
-        Falls back to the graphics items' local models if no controller.
-        """
-        if self.controller:
-            return self.controller.get_components()
-        return {comp_id: comp_item.model for comp_id, comp_item in self.components.items()}
-
-    def get_model_wires(self):
-        """Return list of WireData for simulation use."""
-        from models.wire import WireData
-
-        return [
-            WireData(
-                start_component_id=wire.start_comp.component_id,
-                start_terminal=wire.start_term,
-                end_component_id=wire.end_comp.component_id,
-                end_terminal=wire.end_term,
-            )
-            for wire in self.wires
-        ]
-
-    def get_model_nodes_and_terminal_map(self):
-        """Return (list of NodeData, terminal_to_node dict) for simulation use.
-
-        The terminal_to_node dict maps (comp_id, term_idx) -> NodeData,
-        sharing the same NodeData objects as the returned list.
-        """
-        if self.controller:
-            return self.controller.get_nodes_and_terminal_map()
-        return list(self.nodes), dict(self.terminal_to_node)
-
     def export_image(self, filepath, include_grid=True):
         """Export the circuit scene to an image file (PNG or SVG).
 
@@ -2139,97 +1670,6 @@ class CircuitCanvasView(QGraphicsView):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.scene.render(painter, QRectF(0, 0, width, height), source_rect)
         painter.end()
-
-    def to_dict(self):
-        """Serialize circuit to dictionary.
-
-        Uses the controller's model as the single source of truth when
-        available; falls back to local graphics items for legacy callers.
-        """
-        if self.controller:
-            return self.controller.to_dict()
-
-        data = {
-            "components": [comp.to_dict() for comp in self.components.values()],
-            "wires": [wire.to_dict() for wire in self.wires],
-            "counters": self.component_counter.copy(),
-        }
-        if self.annotations:
-            data["annotations"] = [ann.to_dict() for ann in self.annotations]
-        return data
-
-    @staticmethod
-    def _validate_circuit_data(data):
-        """Validate JSON structure before loading. Raises ValueError on problems."""
-        if not isinstance(data, dict):
-            raise ValueError("File does not contain a valid circuit object.")
-
-        if "components" not in data or not isinstance(data["components"], list):
-            raise ValueError("Missing or invalid 'components' list.")
-        if "wires" not in data or not isinstance(data["wires"], list):
-            raise ValueError("Missing or invalid 'wires' list.")
-
-        comp_ids = set()
-        for i, comp in enumerate(data["components"]):
-            for key in ("id", "type", "value", "pos"):
-                if key not in comp:
-                    raise ValueError(f"Component #{i + 1} is missing required field '{key}'.")
-            pos = comp["pos"]
-            if not isinstance(pos, dict) or "x" not in pos or "y" not in pos:
-                raise ValueError(f"Component '{comp.get('id', i)}' has invalid position data.")
-            if not isinstance(pos["x"], (int, float)) or not isinstance(pos["y"], (int, float)):
-                raise ValueError(f"Component '{comp['id']}' position values must be numeric.")
-            comp_ids.add(comp["id"])
-
-        for i, wire in enumerate(data["wires"]):
-            for key in ("start_comp", "end_comp", "start_term", "end_term"):
-                if key not in wire:
-                    raise ValueError(f"Wire #{i + 1} is missing required field '{key}'.")
-            if wire["start_comp"] not in comp_ids:
-                raise ValueError(f"Wire #{i + 1} references unknown component '{wire['start_comp']}'.")
-            if wire["end_comp"] not in comp_ids:
-                raise ValueError(f"Wire #{i + 1} references unknown component '{wire['end_comp']}'.")
-
-    def from_dict(self, data):
-        """Deserialize circuit from dictionary"""
-        self._validate_circuit_data(data)
-        self.clear_circuit()
-
-        self.component_counter = data.get("counters", self.component_counter)
-
-        for comp_data in data["components"]:
-            comp = ComponentGraphicsItem.from_dict(comp_data)
-            comp.canvas = self
-            self.scene.addItem(comp)
-            self.components[comp.component_id] = comp
-
-        for wire_data in data["wires"]:
-            start_comp = self.components[wire_data["start_comp"]]
-            end_comp = self.components[wire_data["end_comp"]]
-            wire = WireItem(
-                start_comp,
-                wire_data["start_term"],
-                end_comp,
-                wire_data["end_term"],
-                canvas=self,
-            )
-            self.scene.addItem(wire)
-            self.wires.append(wire)
-
-        # Load annotations
-        for ann_data in data.get("annotations", []):
-            ann = AnnotationItem.from_dict(ann_data)
-            ann.canvas = self
-            self.scene.addItem(ann)
-            self.annotations.append(ann)
-
-        # Rebuild node connectivity via controller/model (single source of truth)
-        if self.controller:
-            self.controller.rebuild_nodes()
-        self._sync_nodes_from_model()
-
-    # Phase 5: sync_to_model() and sync_from_model() methods DELETED
-    # Observer pattern handles all synchronization automatically
 
     # --- Protocol wrapper methods (CircuitCanvasProtocol) ---
 
