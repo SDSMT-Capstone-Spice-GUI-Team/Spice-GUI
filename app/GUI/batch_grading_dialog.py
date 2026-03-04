@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 if TYPE_CHECKING:
+    from controllers.grading_controller import GradingController
     from grading.batch_grader import BatchGradingResult
 
 logger = logging.getLogger(__name__)
@@ -28,13 +29,21 @@ logger = logging.getLogger(__name__)
 class BatchGradingDialog(QDialog):
     """Dialog for batch grading a folder of student submissions."""
 
-    def __init__(self, reference_circuit=None, parent=None):
+    def __init__(self, reference_circuit=None, parent=None, grading_ctrl=None):
         super().__init__(parent)
         self.setWindowTitle("Batch Grade Student Submissions")
         self.setMinimumWidth(500)
         self._reference_circuit = reference_circuit
         self._rubric = None
         self._batch_result: Optional[BatchGradingResult] = None
+
+        if grading_ctrl is not None:
+            self._ctrl: GradingController = grading_ctrl
+        else:
+            from controllers.grading_controller import GradingController as _GC
+
+            self._ctrl = _GC()
+
         self._init_ui()
 
     def _init_ui(self):
@@ -127,8 +136,6 @@ class BatchGradingDialog(QDialog):
         self.grade_btn.setEnabled(bool(self.folder_path.text()) and self._rubric is not None)
 
     def _on_grade(self):
-        from grading.batch_grader import BatchGrader
-
         folder = self.folder_path.text()
         if not folder or self._rubric is None:
             return
@@ -137,15 +144,13 @@ class BatchGradingDialog(QDialog):
         self.progress_bar.setValue(0)
         self.grade_btn.setEnabled(False)
 
-        grader = BatchGrader()
-
         def progress_callback(current, total, filename):
             if total > 0:
                 self.progress_bar.setMaximum(total)
                 self.progress_bar.setValue(current)
             self.progress_label.setText(f"Grading: {filename}")
 
-        self._batch_result = grader.grade_folder(
+        self._batch_result = self._ctrl.grade_folder(
             folder_path=folder,
             rubric=self._rubric,
             reference_circuit=self._reference_circuit,
@@ -199,9 +204,7 @@ class BatchGradingDialog(QDialog):
             return
 
         try:
-            from grading.grade_exporter import export_gradebook_csv
-
-            export_gradebook_csv(self._batch_result, filename)
+            self._ctrl.export_csv(self._batch_result, filename)
             QMessageBox.information(self, "Exported", f"Gradebook saved to {filename}")
         except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to export:\n{e}")
