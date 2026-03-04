@@ -8,6 +8,7 @@ wire-drawing mode and probe mode.
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from GUI.canvas_probe_overlay import CanvasProbeOverlay
 from PyQt6.QtCore import Qt
 
 
@@ -22,6 +23,7 @@ class TestWireDrawingCursor:
 
             canvas = CircuitCanvasView.__new__(CircuitCanvasView)
             # Manually initialise only the attributes the tests touch
+            canvas.probe_overlay = CanvasProbeOverlay(canvas)
             canvas.wire_start_comp = None
             canvas.wire_start_term = None
             canvas.temp_wire_line = None
@@ -65,6 +67,7 @@ class TestProbeModeCursor:
             from GUI.circuit_canvas import CircuitCanvasView
 
             canvas = CircuitCanvasView.__new__(CircuitCanvasView)
+            canvas.probe_overlay = CanvasProbeOverlay(canvas)
             canvas.wire_start_comp = None
             canvas.wire_start_term = None
             canvas.temp_wire_line = None
