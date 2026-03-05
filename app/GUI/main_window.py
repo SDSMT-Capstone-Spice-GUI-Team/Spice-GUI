@@ -434,7 +434,7 @@ class MainWindow(
 
     def _import_dropped_file(self, filepath):
         """Route a dropped file to the correct import handler by extension."""
-        from .drag_drop_router import route_dropped_file
+        from utils.drag_drop_router import route_dropped_file
 
         ext = Path(filepath).suffix.lower()
         handler_name = route_dropped_file(ext)
