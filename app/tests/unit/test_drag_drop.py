@@ -1,7 +1,7 @@
 """Tests for drag-and-drop file import routing logic."""
 
 import pytest
-from GUI.drag_drop_router import EXTENSION_ROUTES, route_dropped_file
+from utils.drag_drop_router import EXTENSION_ROUTES, route_dropped_file
 
 
 class TestRouteDroppedFile:
@@ -55,7 +55,7 @@ class TestExtensionRoutes:
 
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
-        import GUI.drag_drop_router as mod
+        import utils.drag_drop_router as mod
 
         source = open(mod.__file__).read()
         assert "PyQt" not in source
