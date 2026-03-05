@@ -625,3 +625,105 @@ class TestRerouteWireCommand:
         controller.undo()
         assert model.wires[0].waypoints == [(0.0, 0.0), (100.0, 0.0)]
         assert model.wires[1].waypoints == [(100.0, 0.0), (200.0, 0.0)]
+
+
+# ===========================================================================
+# Stale State Validation  (#505)
+# ===========================================================================
+
+
+class TestStaleStateValidation:
+    """Issue #505: commands must not crash when model state is stale."""
+
+    def test_delete_missing_component_skips(self):
+        """DeleteComponentCommand on non-existent component should not crash."""
+        controller = CircuitController()
+        cmd = DeleteComponentCommand(controller, "BOGUS")
+        cmd.execute()
+        assert cmd.component_data is None
+
+    def test_move_missing_component_skips(self):
+        """MoveComponentCommand on non-existent component should not crash."""
+        controller = CircuitController()
+        cmd = MoveComponentCommand(controller, "BOGUS", (50, 50))
+        cmd.execute()  # should not raise
+
+    def test_move_undo_missing_component_skips(self):
+        """MoveComponentCommand.undo after component deleted should not crash."""
+        controller = CircuitController()
+        comp = controller.add_component("Resistor", (0, 0))
+        cmd = MoveComponentCommand(controller, comp.component_id, (50, 50))
+        cmd.execute()
+        controller.remove_component(comp.component_id)
+        cmd.undo()  # component gone; should not crash
+
+    def test_rotate_missing_component_skips(self):
+        """RotateComponentCommand on non-existent component should not crash."""
+        controller = CircuitController()
+        cmd = RotateComponentCommand(controller, "BOGUS")
+        cmd.execute()
+        cmd.undo()
+
+    def test_flip_missing_component_skips(self):
+        """FlipComponentCommand on non-existent component should not crash."""
+        controller = CircuitController()
+        cmd = FlipComponentCommand(controller, "BOGUS")
+        cmd.execute()
+        cmd.undo()
+
+    def test_change_value_missing_component_skips(self):
+        """ChangeValueCommand on non-existent component should not crash."""
+        controller = CircuitController()
+        cmd = ChangeValueCommand(controller, "BOGUS", "10k")
+        cmd.execute()
+        assert cmd.old_value is None
+
+    def test_change_value_undo_missing_component_skips(self):
+        """ChangeValueCommand.undo after component deleted should not crash."""
+        controller = CircuitController()
+        comp = controller.add_component("Resistor", (0, 0))
+        cmd = ChangeValueCommand(controller, comp.component_id, "10k")
+        cmd.execute()
+        controller.remove_component(comp.component_id)
+        cmd.undo()  # component gone; should not crash
+
+    def test_add_wire_missing_endpoint_skips(self):
+        """AddWireCommand with non-existent endpoint should not crash."""
+        controller = CircuitController()
+        controller.add_component("Resistor", (0, 0))
+        cmd = AddWireCommand(controller, "R1", 0, "BOGUS", 0)
+        cmd.execute()
+        assert cmd.wire_index is None
+
+    def test_delete_wire_out_of_range_skips(self):
+        """DeleteWireCommand with out-of-range index should not crash."""
+        controller = CircuitController()
+        cmd = DeleteWireCommand(controller, 99)
+        cmd.execute()
+        assert cmd.wire_data is None
+
+    def test_delete_wire_undo_missing_endpoint_skips(self):
+        """DeleteWireCommand.undo when endpoint component was deleted should not crash."""
+        controller = CircuitController()
+        r1 = controller.add_component("Resistor", (0, 0))
+        r2 = controller.add_component("Resistor", (100, 0))
+        controller.add_wire(r1.component_id, 0, r2.component_id, 0)
+        cmd = DeleteWireCommand(controller, 0)
+        cmd.execute()
+        controller.remove_component(r2.component_id)
+        cmd.undo()  # R2 gone; should not crash, wire not restored
+        assert len(controller.model.wires) == 0
+
+    def test_toggle_wire_lock_out_of_range_skips(self):
+        """ToggleWireLockCommand with out-of-range index should not crash."""
+        controller = CircuitController()
+        cmd = ToggleWireLockCommand(controller, 99, True)
+        cmd.execute()
+        cmd.undo()
+
+    def test_reroute_wire_out_of_range_skips(self):
+        """RerouteWireCommand with out-of-range index should not crash."""
+        controller = CircuitController()
+        cmd = RerouteWireCommand(controller, 99)
+        cmd.execute()
+        cmd.undo()

@@ -5,12 +5,15 @@ Each command stores minimal state needed to undo/redo an operation.
 Commands are executed through the CircuitController to maintain consistency.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
 from models.annotation import AnnotationData
 from models.component import ComponentData
 from models.wire import WireData
+
+logger = logging.getLogger(__name__)
 
 
 class Command(ABC):
@@ -67,8 +70,13 @@ class DeleteComponentCommand(Command):
         """Delete the component and store its data for undo."""
         # Store component data before deletion
         self.component_data = self.controller.model.components.get(self.component_id)
-        if self.component_data:
-            self.component_data = ComponentData.from_dict(self.component_data.to_dict())
+        if not self.component_data:
+            logger.warning(
+                "DeleteComponentCommand: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        self.component_data = ComponentData.from_dict(self.component_data.to_dict())
 
         # Store connected wires before deletion (with their indices)
         self.deleted_wires = []
@@ -113,15 +121,27 @@ class MoveComponentCommand(Command):
     def execute(self) -> None:
         """Move the component and store the old position."""
         component = self.controller.model.components.get(self.component_id)
-        if component:
-            if self.old_position is None:
-                self.old_position = component.position
-            self.controller.move_component(self.component_id, self.new_position)
+        if not component:
+            logger.warning(
+                "MoveComponentCommand: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        if self.old_position is None:
+            self.old_position = component.position
+        self.controller.move_component(self.component_id, self.new_position)
 
     def undo(self) -> None:
         """Restore the old position."""
-        if self.old_position:
-            self.controller.move_component(self.component_id, self.old_position)
+        if not self.old_position:
+            return
+        if self.component_id not in self.controller.model.components:
+            logger.warning(
+                "MoveComponentCommand.undo: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        self.controller.move_component(self.component_id, self.old_position)
 
     def get_description(self) -> str:
         return f"Move {self.component_id}"
@@ -137,10 +157,22 @@ class RotateComponentCommand(Command):
 
     def execute(self) -> None:
         """Rotate the component."""
+        if self.component_id not in self.controller.model.components:
+            logger.warning(
+                "RotateComponentCommand: component %s not found, skipping",
+                self.component_id,
+            )
+            return
         self.controller.rotate_component(self.component_id, self.clockwise)
 
     def undo(self) -> None:
         """Rotate back in the opposite direction."""
+        if self.component_id not in self.controller.model.components:
+            logger.warning(
+                "RotateComponentCommand.undo: component %s not found, skipping",
+                self.component_id,
+            )
+            return
         self.controller.rotate_component(self.component_id, not self.clockwise)
 
     def get_description(self) -> str:
@@ -158,10 +190,22 @@ class FlipComponentCommand(Command):
 
     def execute(self) -> None:
         """Flip the component."""
+        if self.component_id not in self.controller.model.components:
+            logger.warning(
+                "FlipComponentCommand: component %s not found, skipping",
+                self.component_id,
+            )
+            return
         self.controller.flip_component(self.component_id, self.horizontal)
 
     def undo(self) -> None:
         """Flip back (toggle state)."""
+        if self.component_id not in self.controller.model.components:
+            logger.warning(
+                "FlipComponentCommand.undo: component %s not found, skipping",
+                self.component_id,
+            )
+            return
         self.controller.flip_component(self.component_id, self.horizontal)
 
     def get_description(self) -> str:
@@ -181,14 +225,26 @@ class ChangeValueCommand(Command):
     def execute(self) -> None:
         """Change the value and store the old value."""
         component = self.controller.model.components.get(self.component_id)
-        if component:
-            self.old_value = component.value
-            self.controller.update_component_value(self.component_id, self.new_value)
+        if not component:
+            logger.warning(
+                "ChangeValueCommand: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        self.old_value = component.value
+        self.controller.update_component_value(self.component_id, self.new_value)
 
     def undo(self) -> None:
         """Restore the old value."""
-        if self.old_value is not None:
-            self.controller.update_component_value(self.component_id, self.old_value)
+        if self.old_value is None:
+            return
+        if self.component_id not in self.controller.model.components:
+            logger.warning(
+                "ChangeValueCommand.undo: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        self.controller.update_component_value(self.component_id, self.old_value)
 
     def get_description(self) -> str:
         return f"Change {self.component_id} value"
@@ -216,6 +272,14 @@ class AddWireCommand(Command):
 
     def execute(self) -> None:
         """Add the wire and store its index."""
+        model = self.controller.model
+        if self.start_comp_id not in model.components or self.end_comp_id not in model.components:
+            logger.warning(
+                "AddWireCommand: endpoint component(s) not found (%s, %s), skipping",
+                self.start_comp_id,
+                self.end_comp_id,
+            )
+            return
         self.controller.add_wire(
             self.start_comp_id,
             self.start_term,
@@ -245,17 +309,29 @@ class DeleteWireCommand(Command):
 
     def execute(self) -> None:
         """Delete the wire and store its data."""
-        if self.wire_index < len(self.controller.model.wires):
-            wire = self.controller.model.wires[self.wire_index]
-            self.wire_data = WireData.from_dict(wire.to_dict())
-            self.controller.remove_wire(self.wire_index)
+        if self.wire_index >= len(self.controller.model.wires):
+            logger.warning(
+                "DeleteWireCommand: wire index %d out of range, skipping",
+                self.wire_index,
+            )
+            return
+        wire = self.controller.model.wires[self.wire_index]
+        self.wire_data = WireData.from_dict(wire.to_dict())
+        self.controller.remove_wire(self.wire_index)
 
     def undo(self) -> None:
         """Restore the deleted wire at its original index."""
-        if self.wire_data:
-            # Insert wire at the same index it was removed from
-            self.controller.model.wires.insert(self.wire_index, self.wire_data)
-            self.controller._notify("wire_added", self.wire_data)
+        if not self.wire_data:
+            return
+        model = self.controller.model
+        if (
+            self.wire_data.start_component_id not in model.components
+            or self.wire_data.end_component_id not in model.components
+        ):
+            logger.warning("DeleteWireCommand.undo: endpoint component(s) no longer exist, skipping")
+            return
+        model.wires.insert(self.wire_index, self.wire_data)
+        self.controller._notify("wire_added", self.wire_data)
 
     def get_description(self) -> str:
         return "Delete wire"
@@ -271,15 +347,25 @@ class ToggleWireLockCommand(Command):
 
     def execute(self) -> None:
         """Set the wire's locked state."""
-        if self.wire_index < len(self.controller.model.wires):
-            self.controller.model.wires[self.wire_index].locked = self.locked
-            self.controller._notify("wire_lock_changed", (self.wire_index, self.locked))
+        if self.wire_index >= len(self.controller.model.wires):
+            logger.warning(
+                "ToggleWireLockCommand: wire index %d out of range, skipping",
+                self.wire_index,
+            )
+            return
+        self.controller.model.wires[self.wire_index].locked = self.locked
+        self.controller._notify("wire_lock_changed", (self.wire_index, self.locked))
 
     def undo(self) -> None:
         """Restore previous locked state."""
-        if self.wire_index < len(self.controller.model.wires):
-            self.controller.model.wires[self.wire_index].locked = not self.locked
-            self.controller._notify("wire_lock_changed", (self.wire_index, not self.locked))
+        if self.wire_index >= len(self.controller.model.wires):
+            logger.warning(
+                "ToggleWireLockCommand.undo: wire index %d out of range, skipping",
+                self.wire_index,
+            )
+            return
+        self.controller.model.wires[self.wire_index].locked = not self.locked
+        self.controller._notify("wire_lock_changed", (self.wire_index, not self.locked))
 
     def get_description(self) -> str:
         return "Lock wire" if self.locked else "Unlock wire"
@@ -295,17 +381,27 @@ class RerouteWireCommand(Command):
 
     def execute(self) -> None:
         """Save old waypoints and signal that the wire needs rerouting."""
-        if self.wire_index < len(self.controller.model.wires):
-            wire = self.controller.model.wires[self.wire_index]
-            self.old_waypoints = list(wire.waypoints)
-            # Clear waypoints to force fresh pathfinding
-            wire.waypoints = []
-            self.controller._notify("wire_reroute_requested", self.wire_index)
+        if self.wire_index >= len(self.controller.model.wires):
+            logger.warning(
+                "RerouteWireCommand: wire index %d out of range, skipping",
+                self.wire_index,
+            )
+            return
+        wire = self.controller.model.wires[self.wire_index]
+        self.old_waypoints = list(wire.waypoints)
+        # Clear waypoints to force fresh pathfinding
+        wire.waypoints = []
+        self.controller._notify("wire_reroute_requested", self.wire_index)
 
     def undo(self) -> None:
         """Restore old waypoints."""
-        if self.wire_index < len(self.controller.model.wires):
-            self.controller.update_wire_waypoints(self.wire_index, self.old_waypoints)
+        if self.wire_index >= len(self.controller.model.wires):
+            logger.warning(
+                "RerouteWireCommand.undo: wire index %d out of range, skipping",
+                self.wire_index,
+            )
+            return
+        self.controller.update_wire_waypoints(self.wire_index, self.old_waypoints)
 
     def get_description(self) -> str:
         return "Reroute wire"
@@ -358,8 +454,15 @@ class AddAnnotationCommand(Command):
         self.annotation_index = self.controller.add_annotation(self.annotation_data)
 
     def undo(self) -> None:
-        if self.annotation_index is not None:
-            self.controller.remove_annotation(self.annotation_index)
+        if self.annotation_index is None:
+            return
+        if self.annotation_index >= len(self.controller.model.annotations):
+            logger.warning(
+                "AddAnnotationCommand.undo: index %d out of range, skipping",
+                self.annotation_index,
+            )
+            return
+        self.controller.remove_annotation(self.annotation_index)
 
     def get_description(self) -> str:
         return "Add annotation"
@@ -374,15 +477,27 @@ class DeleteAnnotationCommand(Command):
         self.annotation_data: Optional[AnnotationData] = None
 
     def execute(self) -> None:
-        if self.annotation_index < len(self.controller.model.annotations):
-            ann = self.controller.model.annotations[self.annotation_index]
-            self.annotation_data = AnnotationData.from_dict(ann.to_dict())
-            self.controller.remove_annotation(self.annotation_index)
+        if self.annotation_index >= len(self.controller.model.annotations):
+            logger.warning(
+                "DeleteAnnotationCommand: index %d out of range, skipping",
+                self.annotation_index,
+            )
+            return
+        ann = self.controller.model.annotations[self.annotation_index]
+        self.annotation_data = AnnotationData.from_dict(ann.to_dict())
+        self.controller.remove_annotation(self.annotation_index)
 
     def undo(self) -> None:
-        if self.annotation_data:
-            self.controller.model.annotations.insert(self.annotation_index, self.annotation_data)
-            self.controller._notify("annotation_added", self.annotation_data)
+        if not self.annotation_data:
+            return
+        if self.annotation_index > len(self.controller.model.annotations):
+            logger.warning(
+                "DeleteAnnotationCommand.undo: index %d out of range, skipping",
+                self.annotation_index,
+            )
+            return
+        self.controller.model.annotations.insert(self.annotation_index, self.annotation_data)
+        self.controller._notify("annotation_added", self.annotation_data)
 
     def get_description(self) -> str:
         return "Delete annotation"
@@ -398,13 +513,25 @@ class EditAnnotationCommand(Command):
         self.old_text: Optional[str] = None
 
     def execute(self) -> None:
-        if self.annotation_index < len(self.controller.model.annotations):
-            self.old_text = self.controller.model.annotations[self.annotation_index].text
-            self.controller.update_annotation_text(self.annotation_index, self.new_text)
+        if self.annotation_index >= len(self.controller.model.annotations):
+            logger.warning(
+                "EditAnnotationCommand: index %d out of range, skipping",
+                self.annotation_index,
+            )
+            return
+        self.old_text = self.controller.model.annotations[self.annotation_index].text
+        self.controller.update_annotation_text(self.annotation_index, self.new_text)
 
     def undo(self) -> None:
-        if self.old_text is not None:
-            self.controller.update_annotation_text(self.annotation_index, self.old_text)
+        if self.old_text is None:
+            return
+        if self.annotation_index >= len(self.controller.model.annotations):
+            logger.warning(
+                "EditAnnotationCommand.undo: index %d out of range, skipping",
+                self.annotation_index,
+            )
+            return
+        self.controller.update_annotation_text(self.annotation_index, self.old_text)
 
     def get_description(self) -> str:
         return "Edit annotation"
