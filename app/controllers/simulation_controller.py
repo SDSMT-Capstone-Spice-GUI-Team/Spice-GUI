@@ -243,6 +243,7 @@ class SimulationController:
     ) -> SimulationResult:
         """Parse simulation results based on analysis type."""
         from simulation import ResultParser
+        from simulation.result_parser import ResultParseError
 
         analysis = self.model.analysis_type
 
@@ -295,7 +296,7 @@ class SimulationController:
                 measurements=meas_results,
             )
 
-        except (ValueError, IndexError, KeyError, OSError) as e:
+        except (ResultParseError, ValueError, IndexError, KeyError, OSError) as e:
             logger.error("Result parsing failed: %s", e, exc_info=True)
             return SimulationResult(
                 success=False,

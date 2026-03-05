@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "ResultParser",
+    "ResultParseError",
 ]
+
+
+class ResultParseError(Exception):
+    """Raised when simulation output cannot be parsed."""
 
 
 class ResultParser:
@@ -133,9 +138,8 @@ class ResultParser:
 
             return sweep_data if sweep_data["data"] else None
 
-        except (ValueError, IndexError, KeyError) as e:
-            logger.error("Error parsing DC results: %s", e)
-            return None
+        except (ValueError, IndexError, KeyError, AttributeError) as e:
+            raise ResultParseError(f"Error parsing DC results: {e}") from e
 
     @staticmethod
     def parse_ac_results(output):
@@ -185,9 +189,8 @@ class ResultParser:
 
             return ac_data if ac_data["frequencies"] else None
 
-        except (ValueError, IndexError, KeyError) as e:
-            logger.error("Error parsing AC results: %s", e)
-            return None
+        except (ValueError, IndexError, KeyError, AttributeError) as e:
+            raise ResultParseError(f"Error parsing AC results: {e}") from e
 
     @staticmethod
     def parse_noise_results(output):
@@ -234,9 +237,8 @@ class ResultParser:
 
             return noise_data if noise_data["frequencies"] else None
 
-        except (ValueError, IndexError, KeyError) as e:
-            logger.error("Error parsing noise results: %s", e)
-            return None
+        except (ValueError, IndexError, KeyError, AttributeError) as e:
+            raise ResultParseError(f"Error parsing noise results: {e}") from e
 
     @staticmethod
     def parse_sensitivity_results(output):
@@ -313,8 +315,7 @@ class ResultParser:
             return results if results else None
 
         except (ValueError, IndexError, AttributeError) as e:
-            logger.error("Error parsing sensitivity results: %s", e, exc_info=True)
-            return None
+            raise ResultParseError(f"Error parsing sensitivity results: {e}") from e
 
     @staticmethod
     def parse_tf_results(output):
@@ -361,8 +362,7 @@ class ResultParser:
             return results if results else None
 
         except (ValueError, IndexError, AttributeError) as e:
-            logger.error("Error parsing TF results: %s", e, exc_info=True)
-            return None
+            raise ResultParseError(f"Error parsing TF results: {e}") from e
 
     @staticmethod
     def parse_pz_results(output):
@@ -414,8 +414,7 @@ class ResultParser:
             return {"poles": poles, "zeros": zeros}
 
         except (ValueError, IndexError, AttributeError) as e:
-            logger.error("Error parsing PZ results: %s", e, exc_info=True)
-            return None
+            raise ResultParseError(f"Error parsing PZ results: {e}") from e
 
     @staticmethod
     def parse_transient_results(filepath):
@@ -451,12 +450,10 @@ class ResultParser:
                         continue
 
             return results if results else None
-        except FileNotFoundError:
-            logger.error("wrdata file not found at %s", filepath)
-            return None
+        except FileNotFoundError as e:
+            raise ResultParseError(f"wrdata file not found at {filepath}") from e
         except (OSError, ValueError, IndexError, KeyError) as e:
-            logger.error("Error parsing wrdata file: %s", e, exc_info=True)
-            return None
+            raise ResultParseError(f"Error parsing wrdata file: {e}") from e
 
     @staticmethod
     def format_results_as_table(results):
