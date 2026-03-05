@@ -26,14 +26,14 @@ def mock_main_window():
     """Create a mock MainWindow with the methods PreferencesDialog calls."""
     mw = MagicMock()
     mw._set_theme = MagicMock()
-    mw._apply_theme = MagicMock()
-    mw._set_symbol_style = MagicMock()
-    mw._set_color_mode = MagicMock()
-    mw._set_wire_thickness = MagicMock()
-    mw._set_show_junction_dots = MagicMock()
-    mw._start_autosave_timer = MagicMock()
-    mw._open_keybindings_dialog = MagicMock()
-    mw._refresh_theme_menu = MagicMock()
+    mw.apply_theme = MagicMock()
+    mw.set_symbol_style = MagicMock()
+    mw.set_color_mode = MagicMock()
+    mw.set_wire_thickness = MagicMock()
+    mw.set_show_junction_dots = MagicMock()
+    mw.start_autosave_timer = MagicMock()
+    mw.open_keybindings_dialog = MagicMock()
+    mw.refresh_theme_menu = MagicMock()
     return mw
 
 
@@ -109,20 +109,20 @@ class TestLivePreview:
     """Tests verifying combo changes apply theme immediately."""
 
     def test_theme_combo_dark(self, dialog, mock_main_window):
-        mock_main_window._apply_theme.reset_mock()
+        mock_main_window.apply_theme.reset_mock()
         dialog.theme_combo.setCurrentIndex(1)  # Dark
-        mock_main_window._apply_theme.assert_called()
+        mock_main_window.apply_theme.assert_called()
         assert theme_manager.current_theme.name == "Dark Theme"
 
     def test_symbol_style_combo_live_preview(self, dialog, mock_main_window):
-        mock_main_window._set_symbol_style.reset_mock()
+        mock_main_window.set_symbol_style.reset_mock()
         dialog.style_combo.setCurrentIndex(1)  # IEC
-        mock_main_window._set_symbol_style.assert_called_with("iec")
+        mock_main_window.set_symbol_style.assert_called_with("iec")
 
     def test_color_mode_combo_live_preview(self, dialog, mock_main_window):
-        mock_main_window._set_color_mode.reset_mock()
+        mock_main_window.set_color_mode.reset_mock()
         dialog.color_combo.setCurrentIndex(1)  # Monochrome
-        mock_main_window._set_color_mode.assert_called_with("monochrome")
+        mock_main_window.set_color_mode.assert_called_with("monochrome")
 
 
 class TestCancelRevert:
@@ -137,9 +137,9 @@ class TestCancelRevert:
 
     def test_cancel_reverts_symbol_style(self, dialog, mock_main_window):
         dialog.style_combo.setCurrentIndex(1)
-        mock_main_window._set_symbol_style.reset_mock()
+        mock_main_window.set_symbol_style.reset_mock()
         dialog._on_cancel()
-        mock_main_window._set_symbol_style.assert_called_with("ieee")
+        mock_main_window.set_symbol_style.assert_called_with("ieee")
 
     def test_cancel_reverts_default_zoom(self, dialog, mock_main_window):
         dialog.default_zoom_combo.setCurrentIndex(0)  # 50%
@@ -159,7 +159,7 @@ class TestOkPersist:
 
         assert app_settings.get_int("autosave/interval") == 120
         assert app_settings.get_bool("autosave/enabled") is True
-        mock_main_window._start_autosave_timer.assert_called()
+        mock_main_window.start_autosave_timer.assert_called()
 
     def test_ok_persists_theme_key(self, dialog, mock_main_window):
         dialog._on_ok()
@@ -217,31 +217,31 @@ class TestWireRenderingPreferences:
         assert dialog.junction_dots_checkbox.isChecked()
 
     def test_wire_thickness_live_preview(self, dialog, mock_main_window):
-        mock_main_window._set_wire_thickness.reset_mock()
+        mock_main_window.set_wire_thickness.reset_mock()
         dialog.wire_thickness_combo.setCurrentIndex(0)  # Thin
-        mock_main_window._set_wire_thickness.assert_called_with("thin")
+        mock_main_window.set_wire_thickness.assert_called_with("thin")
 
     def test_wire_thickness_thick_live_preview(self, dialog, mock_main_window):
-        mock_main_window._set_wire_thickness.reset_mock()
+        mock_main_window.set_wire_thickness.reset_mock()
         dialog.wire_thickness_combo.setCurrentIndex(2)  # Thick
-        mock_main_window._set_wire_thickness.assert_called_with("thick")
+        mock_main_window.set_wire_thickness.assert_called_with("thick")
 
     def test_junction_dots_toggle_live_preview(self, dialog, mock_main_window):
-        mock_main_window._set_show_junction_dots.reset_mock()
+        mock_main_window.set_show_junction_dots.reset_mock()
         dialog.junction_dots_checkbox.setChecked(False)
-        mock_main_window._set_show_junction_dots.assert_called_with(False)
+        mock_main_window.set_show_junction_dots.assert_called_with(False)
 
     def test_cancel_reverts_wire_thickness(self, dialog, mock_main_window):
         dialog.wire_thickness_combo.setCurrentIndex(0)  # Change to thin
-        mock_main_window._set_wire_thickness.reset_mock()
+        mock_main_window.set_wire_thickness.reset_mock()
         dialog._on_cancel()
-        mock_main_window._set_wire_thickness.assert_called_with("normal")
+        mock_main_window.set_wire_thickness.assert_called_with("normal")
 
     def test_cancel_reverts_junction_dots(self, dialog, mock_main_window):
         dialog.junction_dots_checkbox.setChecked(False)
-        mock_main_window._set_show_junction_dots.reset_mock()
+        mock_main_window.set_show_junction_dots.reset_mock()
         dialog._on_cancel()
-        mock_main_window._set_show_junction_dots.assert_called_with(True)
+        mock_main_window.set_show_junction_dots.assert_called_with(True)
 
     def test_ok_persists_wire_thickness(self, dialog, mock_main_window):
         dialog.wire_thickness_combo.setCurrentIndex(2)  # Thick
@@ -298,7 +298,7 @@ class TestAutosaveSpinboxState:
         dlg.autosave_checkbox.setChecked(False)
         dlg._on_cancel()
         assert app_settings.get_bool("autosave/enabled") is True
-        mock_main_window._start_autosave_timer.assert_called()
+        mock_main_window.start_autosave_timer.assert_called()
 
     def test_cancel_reverts_autosave_interval(self, dialog, mock_main_window):
         """Cancel should revert auto-save interval to the snapshot value."""

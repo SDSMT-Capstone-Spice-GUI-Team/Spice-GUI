@@ -113,7 +113,7 @@ class MainWindow(
         # Auto-save timer
         self._autosave_timer = QTimer(self)
         self._autosave_timer.timeout.connect(self._auto_save)
-        self._start_autosave_timer()
+        self.start_autosave_timer()
 
     # --- ApplicationShellProtocol properties ---
 
@@ -263,7 +263,7 @@ class MainWindow(
         right_panel_layout.addWidget(self.statistics_panel)
 
         # Instructor grading panel
-        self.grading_panel = GradingPanel(self.model, self)
+        self.grading_panel = GradingPanel(self.model, self, canvas=self.canvas)
         self.grading_panel.setVisible(False)
         right_panel_layout.addWidget(self.grading_panel)
 

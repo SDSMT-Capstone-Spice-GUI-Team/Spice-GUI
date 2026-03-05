@@ -19,11 +19,11 @@ class ViewOperationsMixin:
         else:
             theme_ctrl.set_theme_by_key("light")
             self.light_theme_action.setChecked(True)
-        self._apply_theme()
-        if hasattr(self, "_refresh_theme_menu"):
-            self._refresh_theme_menu()
+        self.apply_theme()
+        if hasattr(self, "refresh_theme_menu"):
+            self.refresh_theme_menu()
 
-    def _apply_theme(self):
+    def apply_theme(self):
         """Apply the current theme to all visual elements."""
         theme = theme_manager.current_theme
         self.setStyleSheet(theme.generate_dark_stylesheet())
@@ -31,7 +31,7 @@ class ViewOperationsMixin:
         # Refresh canvas (grid + components)
         self.canvas.refresh_theme()
 
-    def _set_symbol_style(self, style: str):
+    def set_symbol_style(self, style: str):
         """Switch the component symbol drawing style."""
         theme_ctrl.set_symbol_style(style)
         if style == "iec":
@@ -40,7 +40,7 @@ class ViewOperationsMixin:
             self.ieee_style_action.setChecked(True)
         self.canvas.scene.update()
 
-    def _set_color_mode(self, mode: str):
+    def set_color_mode(self, mode: str):
         """Switch between per-type color and monochrome rendering."""
         theme_ctrl.set_color_mode(mode)
         if mode == "monochrome":
@@ -49,7 +49,7 @@ class ViewOperationsMixin:
             self.color_mode_action.setChecked(True)
         self.canvas.scene.update()
 
-    def _set_wire_thickness(self, thickness: str):
+    def set_wire_thickness(self, thickness: str):
         """Switch wire rendering thickness."""
         theme_ctrl.set_wire_thickness(thickness)
         if hasattr(self, "wire_thickness_actions"):
@@ -57,14 +57,14 @@ class ViewOperationsMixin:
                 action.setChecked(t == thickness)
         self.canvas.scene.update()
 
-    def _set_show_junction_dots(self, show: bool):
+    def set_show_junction_dots(self, show: bool):
         """Toggle junction dot visibility at wire intersections."""
         theme_ctrl.set_show_junction_dots(show)
         if hasattr(self, "show_junction_dots_action"):
             self.show_junction_dots_action.setChecked(show)
         self.canvas.scene.update()
 
-    def _set_routing_mode(self, mode: str):
+    def set_routing_mode(self, mode: str):
         """Switch wire routing mode between orthogonal and diagonal."""
         theme_ctrl.set_routing_mode(mode)
         if hasattr(self, "routing_mode_actions"):

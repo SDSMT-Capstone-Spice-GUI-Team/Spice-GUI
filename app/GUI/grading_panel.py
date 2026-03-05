@@ -39,9 +39,10 @@ class GradingPanel(QWidget):
     running the grader, and exporting results.
     """
 
-    def __init__(self, model: CircuitModel, parent=None):
+    def __init__(self, model: CircuitModel, parent=None, canvas=None):
         super().__init__(parent)
         self._model = model
+        self._canvas = canvas
         self._grader = None  # Lazy-initialized to avoid circular import
         self._rubric: Optional[Rubric] = None
         self._student_circuit: Optional[CircuitModel] = None
@@ -271,12 +272,13 @@ class GradingPanel(QWidget):
 
     # --- Highlight management ---
 
+    def set_canvas(self, canvas):
+        """Inject the circuit canvas reference for highlight management."""
+        self._canvas = canvas
+
     def _get_canvas(self):
-        """Get the circuit canvas from the parent window."""
-        parent = self.parent()
-        if parent is not None and hasattr(parent, "canvas"):
-            return parent.canvas
-        return None
+        """Return the injected circuit canvas, or None."""
+        return self._canvas
 
     def _clear_highlights(self):
         """Remove all grading overlays from canvas components."""

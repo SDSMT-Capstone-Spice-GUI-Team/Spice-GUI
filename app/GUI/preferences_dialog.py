@@ -71,15 +71,15 @@ class PreferencesDialog(QDialog):
     def _revert_settings(self):
         """Restore appearance and autosave to snapshot values."""
         theme_ctrl.set_theme(self._snap_theme_obj)
-        self.main_window._apply_theme()
-        self.main_window._set_symbol_style(self._snap_symbol_style)
-        self.main_window._set_color_mode(self._snap_color_mode)
-        self.main_window._set_wire_thickness(self._snap_wire_thickness)
-        self.main_window._set_show_junction_dots(self._snap_show_junction_dots)
+        self.main_window.apply_theme()
+        self.main_window.set_symbol_style(self._snap_symbol_style)
+        self.main_window.set_color_mode(self._snap_color_mode)
+        self.main_window.set_wire_thickness(self._snap_wire_thickness)
+        self.main_window.set_show_junction_dots(self._snap_show_junction_dots)
         settings.set("autosave/enabled", self._snap_autosave_enabled)
         settings.set("autosave/interval", self._snap_autosave_interval)
         settings.set("view/default_zoom", self._snap_default_zoom)
-        self.main_window._start_autosave_timer()
+        self.main_window.start_autosave_timer()
 
     # ---- UI construction --------------------------------------------------
 
@@ -249,23 +249,23 @@ class PreferencesDialog(QDialog):
         if 0 <= index < len(self._theme_keys):
             key = self._theme_keys[index]
             theme_ctrl.set_theme_by_key(key)
-            self.main_window._apply_theme()
+            self.main_window.apply_theme()
             self._update_theme_buttons()
             # Sync the View > Theme menu checkmarks
-            if hasattr(self.main_window, "_refresh_theme_menu"):
-                self.main_window._refresh_theme_menu()
+            if hasattr(self.main_window, "refresh_theme_menu"):
+                self.main_window.refresh_theme_menu()
 
     def _on_style_changed(self, index):
-        self.main_window._set_symbol_style(_STYLE_ITEMS[index][1])
+        self.main_window.set_symbol_style(_STYLE_ITEMS[index][1])
 
     def _on_color_changed(self, index):
-        self.main_window._set_color_mode(_COLOR_ITEMS[index][1])
+        self.main_window.set_color_mode(_COLOR_ITEMS[index][1])
 
     def _on_wire_thickness_changed(self, index):
-        self.main_window._set_wire_thickness(_WIRE_THICKNESS_ITEMS[index][1])
+        self.main_window.set_wire_thickness(_WIRE_THICKNESS_ITEMS[index][1])
 
     def _on_junction_dots_changed(self, checked):
-        self.main_window._set_show_junction_dots(checked)
+        self.main_window.set_show_junction_dots(checked)
 
     # ---- Theme management -------------------------------------------------
 
@@ -282,8 +282,8 @@ class PreferencesDialog(QDialog):
                 if key in self._theme_keys:
                     self.theme_combo.setCurrentIndex(self._theme_keys.index(key))
                 self._update_theme_buttons()
-                if hasattr(self.main_window, "_refresh_theme_menu"):
-                    self.main_window._refresh_theme_menu()
+                if hasattr(self.main_window, "refresh_theme_menu"):
+                    self.main_window.refresh_theme_menu()
 
     def _on_edit_theme(self):
         idx = self.theme_combo.currentIndex()
@@ -314,8 +314,8 @@ class PreferencesDialog(QDialog):
                 if new_key in self._theme_keys:
                     self.theme_combo.setCurrentIndex(self._theme_keys.index(new_key))
                 self._update_theme_buttons()
-                if hasattr(self.main_window, "_refresh_theme_menu"):
-                    self.main_window._refresh_theme_menu()
+                if hasattr(self.main_window, "refresh_theme_menu"):
+                    self.main_window.refresh_theme_menu()
 
     def _on_delete_theme(self):
         idx = self.theme_combo.currentIndex()
@@ -339,12 +339,12 @@ class PreferencesDialog(QDialog):
         theme_store.delete_theme(stem)
         # Switch to Light theme
         theme_ctrl.set_theme_by_key("light")
-        self.main_window._apply_theme()
+        self.main_window.apply_theme()
         self._populate_theme_combo()
         self.theme_combo.setCurrentIndex(0)
         self._update_theme_buttons()
-        if hasattr(self.main_window, "_refresh_theme_menu"):
-            self.main_window._refresh_theme_menu()
+        if hasattr(self.main_window, "refresh_theme_menu"):
+            self.main_window.refresh_theme_menu()
 
     def _on_import_theme(self):
         from pathlib import Path
@@ -359,8 +359,8 @@ class PreferencesDialog(QDialog):
             if key in self._theme_keys:
                 self.theme_combo.setCurrentIndex(self._theme_keys.index(key))
             self._update_theme_buttons()
-            if hasattr(self.main_window, "_refresh_theme_menu"):
-                self.main_window._refresh_theme_menu()
+            if hasattr(self.main_window, "refresh_theme_menu"):
+                self.main_window.refresh_theme_menu()
         else:
             QMessageBox.warning(self, "Import Failed", "Could not import the theme file.")
 
@@ -386,7 +386,7 @@ class PreferencesDialog(QDialog):
         settings.set("autosave/interval", self.autosave_spin.value())
         zoom_index = self.default_zoom_combo.currentIndex()
         settings.set("view/default_zoom", _ZOOM_ITEMS[zoom_index][1])
-        self.main_window._start_autosave_timer()
+        self.main_window.start_autosave_timer()
         # Persist theme key
         settings.set("view/theme_key", theme_manager.get_theme_key())
         settings.set("view/theme", theme_manager.current_theme.name)
@@ -412,4 +412,4 @@ class PreferencesDialog(QDialog):
 
     def _open_keybindings(self):
         """Open the keybindings editor dialog."""
-        self.main_window._open_keybindings_dialog()
+        self.main_window.open_keybindings_dialog()
