@@ -463,7 +463,7 @@ class BatchGradingDialog(QDialog):
             return
 
         try:
-            from controllers.grading_controller import export_student_reports
+            from grading.feedback_exporter import export_student_reports
 
             created = export_student_reports(self._batch_result, folder)
             QMessageBox.information(
