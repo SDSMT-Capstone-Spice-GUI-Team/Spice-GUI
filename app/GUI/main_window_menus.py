@@ -322,19 +322,19 @@ class MenuBarMixin:
         self.theme_group.addAction(self.dark_theme_action)
 
         self._custom_theme_actions = []
-        self._refresh_theme_menu()
+        self.refresh_theme_menu()
 
         # Symbol Style submenu
         symbol_style_menu = view_menu.addMenu("&Symbol Style")
         self.ieee_style_action = QAction("&IEEE / ANSI (American)", self)
         self.ieee_style_action.setCheckable(True)
         self.ieee_style_action.setChecked(True)
-        self.ieee_style_action.triggered.connect(lambda: self._set_symbol_style("ieee"))
+        self.ieee_style_action.triggered.connect(lambda: self.set_symbol_style("ieee"))
         symbol_style_menu.addAction(self.ieee_style_action)
 
         self.iec_style_action = QAction("I&EC (European)", self)
         self.iec_style_action.setCheckable(True)
-        self.iec_style_action.triggered.connect(lambda: self._set_symbol_style("iec"))
+        self.iec_style_action.triggered.connect(lambda: self.set_symbol_style("iec"))
         symbol_style_menu.addAction(self.iec_style_action)
 
         self.symbol_style_group = QActionGroup(self)
@@ -346,12 +346,12 @@ class MenuBarMixin:
         self.color_mode_action = QAction("&Color (per component type)", self)
         self.color_mode_action.setCheckable(True)
         self.color_mode_action.setChecked(True)
-        self.color_mode_action.triggered.connect(lambda: self._set_color_mode("color"))
+        self.color_mode_action.triggered.connect(lambda: self.set_color_mode("color"))
         color_mode_menu.addAction(self.color_mode_action)
 
         self.monochrome_mode_action = QAction("&Monochrome", self)
         self.monochrome_mode_action.setCheckable(True)
-        self.monochrome_mode_action.triggered.connect(lambda: self._set_color_mode("monochrome"))
+        self.monochrome_mode_action.triggered.connect(lambda: self.set_color_mode("monochrome"))
         color_mode_menu.addAction(self.monochrome_mode_action)
 
         self.color_mode_group = QActionGroup(self)
@@ -364,20 +364,20 @@ class MenuBarMixin:
 
         thin_action = QAction("&Thin (1px)", self)
         thin_action.setCheckable(True)
-        thin_action.triggered.connect(lambda: self._set_wire_thickness("thin"))
+        thin_action.triggered.connect(lambda: self.set_wire_thickness("thin"))
         wire_thickness_menu.addAction(thin_action)
         self.wire_thickness_actions["thin"] = thin_action
 
         normal_action = QAction("&Normal (2px)", self)
         normal_action.setCheckable(True)
         normal_action.setChecked(True)
-        normal_action.triggered.connect(lambda: self._set_wire_thickness("normal"))
+        normal_action.triggered.connect(lambda: self.set_wire_thickness("normal"))
         wire_thickness_menu.addAction(normal_action)
         self.wire_thickness_actions["normal"] = normal_action
 
         thick_action = QAction("Thic&k (3px)", self)
         thick_action.setCheckable(True)
-        thick_action.triggered.connect(lambda: self._set_wire_thickness("thick"))
+        thick_action.triggered.connect(lambda: self.set_wire_thickness("thick"))
         wire_thickness_menu.addAction(thick_action)
         self.wire_thickness_actions["thick"] = thick_action
 
@@ -390,7 +390,7 @@ class MenuBarMixin:
         self.show_junction_dots_action = QAction("Show &Junction Dots", self)
         self.show_junction_dots_action.setCheckable(True)
         self.show_junction_dots_action.setChecked(True)
-        self.show_junction_dots_action.triggered.connect(self._set_show_junction_dots)
+        self.show_junction_dots_action.triggered.connect(self.set_show_junction_dots)
         view_menu.addAction(self.show_junction_dots_action)
 
         # Wire Routing Mode submenu
@@ -400,13 +400,13 @@ class MenuBarMixin:
         orthogonal_action = QAction("&Orthogonal (4-direction)", self)
         orthogonal_action.setCheckable(True)
         orthogonal_action.setChecked(True)
-        orthogonal_action.triggered.connect(lambda: self._set_routing_mode("orthogonal"))
+        orthogonal_action.triggered.connect(lambda: self.set_routing_mode("orthogonal"))
         routing_mode_menu.addAction(orthogonal_action)
         self.routing_mode_actions["orthogonal"] = orthogonal_action
 
         diagonal_action = QAction("&Diagonal (8-direction, 45°)", self)
         diagonal_action.setCheckable(True)
-        diagonal_action.triggered.connect(lambda: self._set_routing_mode("diagonal"))
+        diagonal_action.triggered.connect(lambda: self.set_routing_mode("diagonal"))
         routing_mode_menu.addAction(diagonal_action)
         self.routing_mode_actions["diagonal"] = diagonal_action
 
@@ -607,7 +607,7 @@ class MenuBarMixin:
             settings_menu.addSeparator()
 
             keybindings_action = QAction("&Keybindings...", self)
-            keybindings_action.triggered.connect(self._open_keybindings_dialog)
+            keybindings_action.triggered.connect(self.open_keybindings_dialog)
             settings_menu.addAction(keybindings_action)
 
         # Help menu
@@ -636,7 +636,7 @@ class MenuBarMixin:
         self._preferences_dialog = PreferencesDialog(self)
         self._preferences_dialog.show()
 
-    def _open_keybindings_dialog(self):
+    def open_keybindings_dialog(self):
         """Open the keybindings preferences dialog."""
         from .keybindings_dialog import KeybindingsDialog
 
@@ -651,7 +651,7 @@ class MenuBarMixin:
         for action_name, qaction in self._bound_actions.items():
             qaction.setShortcut(kb.get(action_name))
 
-    def _refresh_theme_menu(self):
+    def refresh_theme_menu(self):
         """Rebuild custom theme entries in the Theme submenu."""
         from .styles import theme_manager
 
@@ -695,5 +695,5 @@ class MenuBarMixin:
         from controllers.theme_controller import theme_ctrl
 
         theme_ctrl.set_theme_by_key(key)
-        self._apply_theme()
-        self._refresh_theme_menu()
+        self.apply_theme()
+        self.refresh_theme_menu()

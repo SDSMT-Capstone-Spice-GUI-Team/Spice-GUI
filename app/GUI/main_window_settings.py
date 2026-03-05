@@ -89,9 +89,9 @@ class SettingsMixin:
         saved_theme_key = settings.get("view/theme_key")
         if saved_theme_key and saved_theme_key != "light":
             theme_ctrl.set_theme_by_key(saved_theme_key)
-            self._apply_theme()
-            if hasattr(self, "_refresh_theme_menu"):
-                self._refresh_theme_menu()
+            self.apply_theme()
+            if hasattr(self, "refresh_theme_menu"):
+                self.refresh_theme_menu()
         else:
             # Legacy fallback: check old theme name
             saved_theme = settings.get("view/theme")
@@ -100,23 +100,23 @@ class SettingsMixin:
 
         saved_symbol_style = settings.get("view/symbol_style")
         if saved_symbol_style in ("ieee", "iec"):
-            self._set_symbol_style(saved_symbol_style)
+            self.set_symbol_style(saved_symbol_style)
 
         saved_color_mode = settings.get("view/color_mode")
         if saved_color_mode in ("color", "monochrome"):
-            self._set_color_mode(saved_color_mode)
+            self.set_color_mode(saved_color_mode)
 
         saved_wire_thickness = settings.get("view/wire_thickness")
         if saved_wire_thickness in ("thin", "normal", "thick"):
-            self._set_wire_thickness(saved_wire_thickness)
+            self.set_wire_thickness(saved_wire_thickness)
 
         saved_junction_dots = settings.get("view/show_junction_dots")
         if saved_junction_dots is not None:
-            self._set_show_junction_dots(settings.get_bool("view/show_junction_dots"))
+            self.set_show_junction_dots(settings.get_bool("view/show_junction_dots"))
 
         saved_routing_mode = settings.get("view/routing_mode")
         if saved_routing_mode in ("orthogonal", "diagonal"):
-            self._set_routing_mode(saved_routing_mode)
+            self.set_routing_mode(saved_routing_mode)
 
     def closeEvent(self, event):
         """Save settings before closing"""
@@ -124,7 +124,7 @@ class SettingsMixin:
         self.file_ctrl.clear_auto_save()
         super().closeEvent(event)
 
-    def _start_autosave_timer(self):
+    def start_autosave_timer(self):
         """Start or restart the auto-save timer using the configured interval."""
         interval = settings.get_int("autosave/interval", 60)
         enabled = settings.get_bool("autosave/enabled", True)

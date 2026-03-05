@@ -131,7 +131,7 @@ class TestMainWindowHasAllExpectedMethods:
 
         for method in [
             "create_menu_bar",
-            "_open_keybindings_dialog",
+            "open_keybindings_dialog",
             "_apply_keybindings",
         ]:
             assert hasattr(MainWindow, method), f"Missing: {method}"
@@ -196,7 +196,7 @@ class TestMainWindowHasAllExpectedMethods:
 
         methods = [
             "_set_theme",
-            "_apply_theme",
+            "apply_theme",
             "_toggle_statistics_panel",
             "_on_dirty_change",
             "_set_dirty",
@@ -236,7 +236,7 @@ class TestMainWindowHasAllExpectedMethods:
             "_save_settings",
             "_restore_settings",
             "closeEvent",
-            "_start_autosave_timer",
+            "start_autosave_timer",
             "_auto_save",
             "_check_auto_save_recovery",
         ]
