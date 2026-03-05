@@ -184,7 +184,7 @@ def parse_asc(text):
                     )
                     wires.append((x1, y1, x2, y2))
                 except ValueError:
-                    pass
+                    logger.debug("Skipping WIRE with invalid coordinates: %s", stripped)
 
         elif stripped.startswith("FLAG "):
             parts = stripped.split()
@@ -194,7 +194,7 @@ def parse_asc(text):
                     label = parts[3]
                     flags.append((x, y, label))
                 except ValueError:
-                    pass
+                    logger.debug("Skipping FLAG with invalid coordinates: %s", stripped)
 
         elif stripped.startswith("SYMBOL "):
             # Save any previous symbol
@@ -218,6 +218,7 @@ def parse_asc(text):
                         "spice_model": None,
                     }
                 except ValueError:
+                    logger.debug("Skipping SYMBOL with invalid coordinates: %s", stripped)
                     current_symbol = None
 
         elif stripped.startswith("SYMATTR "):

@@ -79,6 +79,7 @@ class ResultParser:
                             voltage = float(parts[1])
                             node_voltages[node_name] = voltage
                         except (ValueError, IndexError):
+                            logger.debug("Skipping unparseable voltage table line: %s", result_line)
                             continue
 
         # Pattern 3: ngspice print output format
@@ -134,6 +135,7 @@ class ResultParser:
                             data_row = [float(p) for p in parts[: len(headers)]]
                             sweep_data["data"].append(data_row)
                         except ValueError:
+                            logger.debug("Skipping unparseable DC sweep row: %s", line.strip())
                             continue
 
             return sweep_data if sweep_data["data"] else None
@@ -185,6 +187,7 @@ class ResultParser:
                                             ac_data["magnitude"][node] = []
                                         ac_data["magnitude"][node].append(float(parts[j]))
                         except (ValueError, IndexError):
+                            logger.debug("Skipping unparseable AC sweep row: %s", line.strip())
                             continue
 
             return ac_data if ac_data["frequencies"] else None
@@ -233,6 +236,7 @@ class ResultParser:
                                     elif "inoise" in h_lower:
                                         noise_data["inoise_spectrum"].append(float(parts[j]))
                         except (ValueError, IndexError):
+                            logger.debug("Skipping unparseable noise data row: %s", line.strip())
                             continue
 
             return noise_data if noise_data["frequencies"] else None
@@ -295,6 +299,7 @@ class ResultParser:
                                 }
                             )
                         except (ValueError, IndexError):
+                            logger.debug("Skipping unparseable sensitivity row: %s", stripped)
                             continue
                     elif len(parts) >= 3:
                         try:
@@ -310,6 +315,7 @@ class ResultParser:
                                 }
                             )
                         except (ValueError, IndexError):
+                            logger.debug("Skipping unparseable sensitivity row: %s", stripped)
                             continue
 
             return results if results else None
@@ -447,6 +453,7 @@ class ResultParser:
                         row_data = {headers[i]: float(parts[i]) for i in range(len(parts))}
                         results.append(row_data)
                     except (ValueError, IndexError):
+                        logger.debug("Skipping unparseable transient data row: %s", line.strip())
                         continue
 
             return results if results else None
