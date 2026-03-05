@@ -463,12 +463,15 @@ class SimulationController:
         base_params = mc_config["base_params"]
         tolerances = mc_config.get("tolerances", {})
 
-        # Save original state
+        # Validate component IDs and save original state
+        invalid_ids = [cid for cid in tolerances if cid not in self.model.components]
+        if invalid_ids:
+            logger.warning("Monte Carlo: ignoring unknown component IDs: %s", invalid_ids)
+            tolerances = {cid: t for cid, t in tolerances.items() if cid not in invalid_ids}
+
         original_values = {}
         for cid in tolerances:
-            comp = self.model.components.get(cid)
-            if comp:
-                original_values[cid] = comp.value
+            original_values[cid] = self.model.components[cid].value
 
         original_analysis = self.model.analysis_type
         original_params = self.model.analysis_params.copy()
