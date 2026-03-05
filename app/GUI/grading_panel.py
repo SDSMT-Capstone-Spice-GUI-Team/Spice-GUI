@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from grading.component_mapper import extract_component_ids
+from controllers.grading_controller import extract_component_ids
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
@@ -172,7 +172,7 @@ class GradingPanel(QWidget):
             return
 
         try:
-            from grading.rubric import load_rubric
+            from controllers.grading_controller import load_rubric
 
             self._rubric = load_rubric(filename)
             self.rubric_label.setText(f"Rubric: {self._rubric.title}")
@@ -192,9 +192,9 @@ class GradingPanel(QWidget):
             return
 
         if self._grader is None:
-            from grading.grader import CircuitGrader
+            from controllers.grading_controller import create_grader
 
-            self._grader = CircuitGrader()
+            self._grader = create_grader()
 
         self._result = self._grader.grade(
             student_circuit=self._student_circuit,
@@ -313,7 +313,7 @@ class GradingPanel(QWidget):
     @staticmethod
     def _export_result_csv(result: GradingResult, filepath: str):
         """Write a single student's grading result to CSV."""
-        from grading.grade_exporter import export_single_result_csv
+        from controllers.grading_controller import export_single_result_csv
 
         export_single_result_csv(result, filepath)
 

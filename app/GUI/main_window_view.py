@@ -99,7 +99,7 @@ class ViewOperationsMixin:
 
     def _on_generate_rubric(self):
         """Auto-generate a rubric from the current circuit and open it in the editor."""
-        from grading.rubric_generator import generate_rubric_from_circuit
+        from controllers.grading_controller import generate_rubric_from_circuit
 
         from .rubric_editor_dialog import RubricEditorDialog
 
@@ -172,7 +172,7 @@ class ViewOperationsMixin:
             return
 
         try:
-            from grading.rubric import load_rubric
+            from controllers.grading_controller import load_rubric
 
             rubric = load_rubric(rubric_path)
         except (OSError, ValueError) as e:

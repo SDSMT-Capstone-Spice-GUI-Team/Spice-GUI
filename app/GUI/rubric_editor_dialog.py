@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Optional
 
-from grading.rubric_validator import (
-    CHECK_TYPE_PARAMS,
+from controllers.grading_controller import (
     build_rubric,
     calculate_total_points,
     generate_check_id,
+    get_check_type_params,
     validate_rubric,
 )
 from PyQt6.QtCore import Qt
@@ -122,7 +122,7 @@ class RubricEditorDialog(QDialog):
         basic_form.addRow("Check ID:", self.check_id_edit)
 
         self.check_type_combo = QComboBox()
-        self.check_type_combo.addItems(sorted(CHECK_TYPE_PARAMS.keys()))
+        self.check_type_combo.addItems(sorted(get_check_type_params().keys()))
         self.check_type_combo.currentTextChanged.connect(self._on_check_type_changed)
         basic_form.addRow("Check Type:", self.check_type_combo)
 
@@ -314,7 +314,7 @@ class RubricEditorDialog(QDialog):
             self.params_layout.removeRow(0)
         self._param_widgets.clear()
 
-        params = CHECK_TYPE_PARAMS.get(check_type, [])
+        params = get_check_type_params().get(check_type, [])
         for key, label, widget_type, default in params:
             widget = self._create_param_widget(widget_type, default)
             self._param_widgets[key] = widget
@@ -431,7 +431,7 @@ class RubricEditorDialog(QDialog):
 
         try:
             rubric = self._build_rubric()
-            from grading.rubric import save_rubric
+            from controllers.grading_controller import save_rubric
 
             save_rubric(rubric, filename)
             QMessageBox.information(self, "Saved", f"Rubric saved to {filename}")
@@ -450,7 +450,7 @@ class RubricEditorDialog(QDialog):
             return
 
         try:
-            from grading.rubric import load_rubric
+            from controllers.grading_controller import load_rubric
 
             rubric = load_rubric(filename)
             self._load_rubric_into_ui(rubric)

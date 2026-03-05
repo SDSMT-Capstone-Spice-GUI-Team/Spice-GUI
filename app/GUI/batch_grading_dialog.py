@@ -49,9 +49,9 @@ class _GradingWorker(QThread):
         self._reference_circuit = reference_circuit
 
     def run(self):
-        from grading.batch_grader import BatchGrader
+        from controllers.grading_controller import create_batch_grader
 
-        grader = BatchGrader()
+        grader = create_batch_grader()
 
         def progress_callback(current, total, filename):
             self.progress.emit(current, total, filename)
@@ -199,7 +199,7 @@ class BatchGradingDialog(QDialog):
         )
         if filename:
             try:
-                from grading.rubric import load_rubric
+                from controllers.grading_controller import load_rubric
 
                 self._rubric = load_rubric(filename)
                 self.rubric_path.setText(filename)
@@ -279,7 +279,7 @@ class BatchGradingDialog(QDialog):
         if self._batch_result is None:
             return
 
-        from grading.session_persistence import GRADES_EXTENSION, batch_result_to_session, save_grading_session
+        from controllers.grading_controller import GRADES_EXTENSION, batch_result_to_session, save_grading_session
 
         filename, _ = QFileDialog.getSaveFileName(
             self,
@@ -303,7 +303,7 @@ class BatchGradingDialog(QDialog):
 
     def _on_load_grades(self):
         """Load a previous grading session from a .spice-grades file."""
-        from grading.session_persistence import GRADES_EXTENSION, load_grading_session, session_to_batch_result
+        from controllers.grading_controller import GRADES_EXTENSION, load_grading_session, session_to_batch_result
 
         filename, _ = QFileDialog.getOpenFileName(
             self,
@@ -333,7 +333,7 @@ class BatchGradingDialog(QDialog):
         if self._batch_result is None:
             return
 
-        from grading.session_persistence import batch_result_to_session, compare_sessions
+        from controllers.grading_controller import batch_result_to_session, compare_sessions
 
         new_session = batch_result_to_session(self._batch_result)
         comparisons = compare_sessions(old_session, new_session)
@@ -361,7 +361,7 @@ class BatchGradingDialog(QDialog):
 
     def _display_check_analytics(self, result: BatchGradingResult):
         """Populate the per-check analytics table."""
-        from grading.check_analytics import compute_check_analytics
+        from controllers.grading_controller import compute_check_analytics
 
         analytics = compute_check_analytics(result)
         if not analytics:
@@ -389,7 +389,7 @@ class BatchGradingDialog(QDialog):
     def _show_histogram(self, result: BatchGradingResult):
         """Embed a matplotlib histogram in the results group."""
         try:
-            from grading.histogram import create_histogram_figure
+            from controllers.grading_controller import create_histogram_figure
             from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
         except ImportError:
             logger.warning("matplotlib not available for histogram")
@@ -425,7 +425,7 @@ class BatchGradingDialog(QDialog):
             return
 
         try:
-            from grading.histogram import save_histogram_png
+            from controllers.grading_controller import save_histogram_png
 
             save_histogram_png(self._batch_result, filename)
             QMessageBox.information(self, "Saved", f"Histogram saved to {filename}")
@@ -446,7 +446,7 @@ class BatchGradingDialog(QDialog):
             return
 
         try:
-            from grading.grade_exporter import export_gradebook_csv
+            from controllers.grading_controller import export_gradebook_csv
 
             export_gradebook_csv(self._batch_result, filename)
             QMessageBox.information(self, "Exported", f"Gradebook saved to {filename}")
@@ -463,7 +463,7 @@ class BatchGradingDialog(QDialog):
             return
 
         try:
-            from grading.feedback_exporter import export_student_reports
+            from controllers.grading_controller import export_student_reports
 
             created = export_student_reports(self._batch_result, folder)
             QMessageBox.information(
