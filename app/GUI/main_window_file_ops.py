@@ -486,6 +486,8 @@ class FileOperationsMixin:
         if not filename.lower().endswith(".zip"):
             filename += ".zip"
 
+        tmp_img_path = None
+        tmp_xlsx_path = None
         try:
             # Circuit JSON
             circuit_json = self.model.to_dict()
@@ -495,19 +497,19 @@ class FileOperationsMixin:
             try:
                 netlist = self.simulation_ctrl.generate_netlist()
             except Exception:
-                pass
+                logger.warning("Bundle export: netlist generation failed", exc_info=True)
 
             # Schematic PNG (rendered at 2x via canvas)
             schematic_png = None
             try:
                 tmp_img = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
                 tmp_img.close()
-                self.canvas.export_image(tmp_img.name, include_grid=False)
-                with open(tmp_img.name, "rb") as f:
+                tmp_img_path = tmp_img.name
+                self.canvas.export_image(tmp_img_path, include_grid=False)
+                with open(tmp_img_path, "rb") as f:
                     schematic_png = f.read()
-                os.unlink(tmp_img.name)
             except Exception:
-                pass
+                logger.warning("Bundle export: schematic PNG export failed", exc_info=True)
 
             # Results CSV (only if simulation was run)
             results_csv = None
@@ -518,7 +520,7 @@ class FileOperationsMixin:
                         self._last_results, self._last_results_type, cn
                     )
                 except Exception:
-                    pass
+                    logger.warning("Bundle export: CSV results export failed", exc_info=True)
 
             # Results Excel (only if simulation was run)
             results_xlsx_path = None
@@ -527,12 +529,13 @@ class FileOperationsMixin:
                     cn = os.path.basename(str(self.file_ctrl.current_file)) if self.file_ctrl.current_file else ""
                     tmp_xlsx = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
                     tmp_xlsx.close()
+                    tmp_xlsx_path = tmp_xlsx.name
                     self.simulation_ctrl.export_results_excel(
-                        self._last_results, self._last_results_type, tmp_xlsx.name, cn
+                        self._last_results, self._last_results_type, tmp_xlsx_path, cn
                     )
-                    results_xlsx_path = tmp_xlsx.name
+                    results_xlsx_path = tmp_xlsx_path
                 except Exception:
-                    pass
+                    logger.warning("Bundle export: Excel results export failed", exc_info=True)
 
             included = create_bundle(
                 filepath=filename,
@@ -544,20 +547,20 @@ class FileOperationsMixin:
                 circuit_name=circuit_name,
             )
 
-            # Clean up temp xlsx
-            if results_xlsx_path:
-                try:
-                    os.unlink(results_xlsx_path)
-                except OSError:
-                    pass
-
             QMessageBox.information(
                 self,
                 "Bundle Exported",
                 f"Lab bundle saved to {Path(filename).name}\n\nIncludes: {', '.join(included)}",
             )
-        except (OSError, Exception) as e:
+        except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to export bundle: {e}")
+        finally:
+            for path in (tmp_img_path, tmp_xlsx_path):
+                if path:
+                    try:
+                        os.unlink(path)
+                    except OSError:
+                        pass
 
     def _load_last_session(self):
         """Load last session using FileController"""
