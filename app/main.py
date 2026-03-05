@@ -16,20 +16,14 @@ This prototype implements:
 
 import sys
 
+from GUI.main_window import MainWindow
 from PyQt6.QtWidgets import QApplication
-
-from app.MainWindow import MainWindowRebuild, MyWidgetRebuild
 
 
 def main():
     app = QApplication(sys.argv)
-
-    window = MainWindowRebuild()
+    window = MainWindow()
     window.show()
-
-    splash = MyWidgetRebuild()
-    splash.show()
-
     sys.exit(app.exec())
 
 
