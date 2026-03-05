@@ -7,10 +7,13 @@ managing persistence directly.
 
 import base64
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Any, List
+
+logger = logging.getLogger(__name__)
 
 _ORG = "SDSMT"
 _APP = "SDM Spice"
@@ -40,12 +43,13 @@ class SettingsService:
         self._load()
 
     def _load(self) -> None:
-        """Load settings from disk (silently ignore missing/corrupt file)."""
+        """Load settings from disk, logging any I/O or corruption errors."""
         try:
             if self._path.exists():
                 with open(self._path, "r") as f:
                     self._data = json.load(f)
         except (json.JSONDecodeError, OSError):
+            logger.warning("Failed to load settings from %s", self._path, exc_info=True)
             self._data = {}
 
     def _save(self) -> None:
@@ -55,7 +59,7 @@ class SettingsService:
             with open(self._path, "w") as f:
                 json.dump(self._data, f, indent=2)
         except OSError:
-            pass  # Best-effort persistence
+            logger.warning("Failed to save settings to %s", self._path, exc_info=True)
 
     @staticmethod
     def _encode(value: Any) -> Any:

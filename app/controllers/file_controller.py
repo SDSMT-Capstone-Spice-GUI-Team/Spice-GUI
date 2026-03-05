@@ -6,9 +6,12 @@ Recent files tracking uses the centralized settings service for cross-session pe
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from controllers.settings_service import settings
 from models.circuit import CircuitModel
@@ -163,7 +166,7 @@ class FileController:
             with open(self._session_file, "w") as f:
                 f.write(os.path.abspath(str(self.current_file)) if self.current_file else "")
         except OSError:
-            pass  # Session save is best-effort
+            logger.warning("Failed to save session file %s", self._session_file, exc_info=True)
 
     def load_last_session(self) -> Optional[Path]:
         """
@@ -180,7 +183,7 @@ class FileController:
                     if path.exists():
                         return path
         except OSError:
-            pass
+            logger.warning("Failed to read session file %s", self._session_file, exc_info=True)
         return None
 
     def get_recent_files(self) -> List[str]:
@@ -244,7 +247,7 @@ class FileController:
             with open(self._autosave_file, "w") as f:
                 json.dump(data, f, indent=2)
         except (OSError, TypeError):
-            pass  # Auto-save is best-effort
+            logger.warning("Auto-save failed for %s", self._autosave_file, exc_info=True)
 
     def has_auto_save(self) -> bool:
         """Return True if an auto-save recovery file exists."""
@@ -276,6 +279,7 @@ class FileController:
 
             return source_path
         except (OSError, json.JSONDecodeError, ValueError):
+            logger.warning("Failed to load auto-save from %s", self._autosave_file, exc_info=True)
             return None
 
     def import_netlist(self, filepath) -> None:
@@ -417,4 +421,4 @@ class FileController:
         try:
             self._autosave_file.unlink(missing_ok=True)
         except OSError:
-            pass
+            logger.warning("Failed to delete auto-save file %s", self._autosave_file, exc_info=True)
