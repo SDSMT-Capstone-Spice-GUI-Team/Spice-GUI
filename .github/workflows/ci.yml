@@ -85,6 +85,28 @@ jobs:
         working-directory: app
         run: python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
 
+  integration:
+    name: Integration (ngspice)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y ngspice libegl1 xvfb
+
+      - name: Install dependencies
+        run: pip install -r app/requirements.txt -r app/requirements-dev.txt
+
+      - name: Run integration tests
+        working-directory: app
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: xvfb-run python -m pytest tests/integration/ -v --tb=short -m ngspice
+
   import-check:
     name: Import Check
     runs-on: ubuntu-latest
