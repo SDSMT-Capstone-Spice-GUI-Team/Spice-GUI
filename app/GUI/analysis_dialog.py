@@ -1,3 +1,4 @@
+from controllers.simulation_controller import SimulationController
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -11,14 +12,13 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
-from simulation.measurement_builder import ANALYSIS_DOMAIN_MAP
 from utils.format_utils import parse_value
 
 from .meas_dialog import MeasurementDialog
 from .validation_helpers import clear_field_error, set_field_error
 
 # Analysis types that support .meas directives
-_MEAS_SUPPORTED_TYPES = set(ANALYSIS_DOMAIN_MAP.keys())
+_MEAS_SUPPORTED_TYPES = set(SimulationController.get_analysis_domain_map().keys())
 
 
 class AnalysisDialog(QDialog):
@@ -372,15 +372,13 @@ class AnalysisDialog(QDialog):
         if params is None:
             return None
 
-        from simulation.netlist_generator import generate_analysis_command
-
-        return generate_analysis_command(self.analysis_type, params)
+        return SimulationController.generate_analysis_command(self.analysis_type, params)
 
     # --- Measurement management ---
 
     def _open_meas_dialog(self):
         """Open the measurement configuration dialog."""
-        domain = ANALYSIS_DOMAIN_MAP.get(self.analysis_type, "tran")
+        domain = SimulationController.get_analysis_domain_map().get(self.analysis_type, "tran")
         dialog = MeasurementDialog(
             domain=domain,
             parent=self,

@@ -7,6 +7,7 @@ needing to know the exact syntax.  Supports statistical measures
 FIND...WHEN), and timing measurements (TRIG...TARG).
 """
 
+from controllers.simulation_controller import SimulationController
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QComboBox,
@@ -23,7 +24,10 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
-from simulation.measurement_builder import ANALYSIS_DOMAIN_MAP, MEAS_TYPES, build_directive
+
+ANALYSIS_DOMAIN_MAP = SimulationController.get_analysis_domain_map()
+MEAS_TYPES = SimulationController.get_meas_types()
+build_directive = SimulationController.build_meas_directive
 
 # Re-export so existing imports from GUI.meas_dialog keep working.
 __all__ = ["ANALYSIS_DOMAIN_MAP", "MEAS_TYPES", "build_directive"]

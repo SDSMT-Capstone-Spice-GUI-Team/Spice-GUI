@@ -572,13 +572,13 @@ class WaveformDialog(QDialog):
 
     def _export_csv(self):
         """Export current view data to CSV."""
-        from simulation.csv_exporter import export_transient_results, write_csv
+        from controllers.simulation_controller import SimulationController
 
-        csv_content = export_transient_results(self.view_data)
         filename, _ = QFileDialog.getSaveFileName(self, "Export Results to CSV", "", "CSV Files (*.csv);;All Files (*)")
         if filename:
             try:
-                write_csv(csv_content, filename)
+                ctrl = self._sim_ctrl or SimulationController()
+                ctrl.export_results_csv(self.view_data, "Transient", filename)
                 QMessageBox.information(self, "Success", f"Exported to {filename}")
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export: {e}")

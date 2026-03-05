@@ -419,8 +419,6 @@ class ViewOperationsMixin:
         """Export the circuit as a CircuiTikZ LaTeX file."""
         import os
 
-        from simulation.circuitikz_exporter import generate
-
         from .circuitikz_options_dialog import CircuiTikZOptionsDialog
 
         model = self.circuit_ctrl.model
@@ -434,14 +432,8 @@ class ViewOperationsMixin:
             return
         opts = dialog.get_options()
 
-        model.rebuild_nodes()
-
         try:
-            tikz_code = generate(
-                components=model.components,
-                wires=model.wires,
-                nodes=model.nodes,
-                terminal_to_node=model.terminal_to_node,
+            tikz_code = self.sim_ctrl.generate_circuitikz(
                 standalone=opts["standalone"],
                 circuit_name=(os.path.basename(self.file_ctrl.current_file) if self.file_ctrl.current_file else ""),
                 scale=opts["scale"],
@@ -481,23 +473,13 @@ class ViewOperationsMixin:
 
     def copy_circuitikz(self):
         """Copy the CircuiTikZ environment block to the clipboard."""
-        from simulation.circuitikz_exporter import generate
-
         model = self.circuit_ctrl.model
         if not model.components:
             self.statusBar().showMessage("Nothing to copy — the canvas is empty.", 3000)
             return
 
-        model.rebuild_nodes()
-
         try:
-            tikz_code = generate(
-                components=model.components,
-                wires=model.wires,
-                nodes=model.nodes,
-                terminal_to_node=model.terminal_to_node,
-                standalone=False,
-            )
+            tikz_code = self.sim_ctrl.generate_circuitikz(standalone=False)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
             return
