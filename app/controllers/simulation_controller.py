@@ -695,11 +695,11 @@ class SimulationController:
         return MEAS_TYPES
 
     @staticmethod
-    def build_meas_directive(meas_type: str, **kwargs) -> str:
+    def build_meas_directive(domain: str, name: str, meas_type: str, params: dict) -> str:
         """Build a .meas directive string."""
         from simulation.measurement_builder import build_directive
 
-        return build_directive(meas_type, **kwargs)
+        return build_directive(domain, name, meas_type, params)
 
     # --- Monte Carlo metadata ---
 
