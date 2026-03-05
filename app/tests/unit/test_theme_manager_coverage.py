@@ -35,73 +35,71 @@ def _make_mock_theme(name="Mock Theme"):
 
 
 # ---------------------------------------------------------------------------
-# Pre-seed GUI stub modules so the import chain doesn't recurse into Qt.
-# This must run before `import services.theme_manager` for the first time.
+# Try the real import first.  Only seed stubs when Qt is unavailable.
+# This avoids contaminating sys.modules for other test files in CI.
 # ---------------------------------------------------------------------------
-_STUB_MODULES = [
-    "GUI",
-    "GUI.styles",
-    "GUI.styles.light_theme",
-    "GUI.styles.dark_theme",
-    "GUI.styles.theme",
-    "GUI.styles.constants",
-    "GUI.styles.theme_manager",
-    "GUI.styles.custom_theme",
-]
-_saved_modules = {}
-for _mod_name in _STUB_MODULES:
-    if _mod_name not in sys.modules:
-        _stub = types.ModuleType(_mod_name)
-        if _mod_name in ("GUI", "GUI.styles"):
-            _stub.__path__ = []  # make it a package
-        sys.modules[_mod_name] = _stub
-        _saved_modules[_mod_name] = _stub
+try:
+    import services.theme_manager as _tm_mod  # works when Qt is available
+except (ImportError, RuntimeError):
+    # Qt not available — seed GUI stubs so the import chain doesn't explode.
+    _STUB_MODULES = [
+        "GUI",
+        "GUI.styles",
+        "GUI.styles.light_theme",
+        "GUI.styles.dark_theme",
+        "GUI.styles.theme",
+        "GUI.styles.constants",
+        "GUI.styles.theme_manager",
+        "GUI.styles.custom_theme",
+    ]
+    for _mod_name in _STUB_MODULES:
+        if _mod_name not in sys.modules:
+            _stub = types.ModuleType(_mod_name)
+            if _mod_name in ("GUI", "GUI.styles"):
+                _stub.__path__ = []
+            sys.modules[_mod_name] = _stub
 
-# Provide a mock LightTheme class for _get_light_theme()
-_MockLT = type(
-    "LightTheme",
-    (),
-    {
-        "__init__": lambda self: None,
-        "name": property(lambda self: "Light Theme"),
-        "is_dark": False,
-        "color": lambda self, k: MagicMock(),
-        "color_hex": lambda self, k: "#000000",
-        "pen": lambda self, k: MagicMock(),
-        "brush": lambda self, k: MagicMock(),
-        "font": lambda self, k: MagicMock(),
-        "stylesheet": lambda self, k: "",
-        "get_component_color": lambda self, ct: MagicMock(),
-        "get_component_color_hex": lambda self, ct: "#000000",
-        "get_algorithm_color": lambda self, a: MagicMock(),
-        "create_component_pen": lambda self, ct, w=2.0: MagicMock(),
-        "create_component_brush": lambda self, ct: MagicMock(),
-    },
-)
-sys.modules["GUI.styles.light_theme"].LightTheme = _MockLT
+    _MockLT = type(
+        "LightTheme",
+        (),
+        {
+            "__init__": lambda self: None,
+            "name": property(lambda self: "Light Theme"),
+            "is_dark": False,
+            "color": lambda self, k: MagicMock(),
+            "color_hex": lambda self, k: "#000000",
+            "pen": lambda self, k: MagicMock(),
+            "brush": lambda self, k: MagicMock(),
+            "font": lambda self, k: MagicMock(),
+            "stylesheet": lambda self, k: "",
+            "get_component_color": lambda self, ct: MagicMock(),
+            "get_component_color_hex": lambda self, ct: "#000000",
+            "get_algorithm_color": lambda self, a: MagicMock(),
+            "create_component_pen": lambda self, ct, w=2.0: MagicMock(),
+            "create_component_brush": lambda self, ct: MagicMock(),
+        },
+    )
+    sys.modules["GUI.styles.light_theme"].LightTheme = _MockLT
 
-# Provide mock DarkTheme for set_theme_by_key
-sys.modules["GUI.styles.dark_theme"].DarkTheme = type(
-    "DarkTheme",
-    (),
-    {
-        "__init__": lambda self: None,
-        "name": property(lambda self: "Dark Theme"),
-        "is_dark": True,
-    },
-)
+    sys.modules["GUI.styles.dark_theme"].DarkTheme = type(
+        "DarkTheme",
+        (),
+        {
+            "__init__": lambda self: None,
+            "name": property(lambda self: "Dark Theme"),
+            "is_dark": True,
+        },
+    )
 
-# Provide mock CustomTheme for theme_store imports
-sys.modules["GUI.styles.custom_theme"].CustomTheme = type(
-    "CustomTheme",
-    (),
-    {
-        "__init__": lambda self, *a, **kw: None,
-    },
-)
+    sys.modules["GUI.styles.custom_theme"].CustomTheme = type(
+        "CustomTheme",
+        (),
+        {
+            "__init__": lambda self, *a, **kw: None,
+        },
+    )
 
-# Now it's safe to import
-import services.theme_manager as _tm_mod  # noqa: E402
+    import services.theme_manager as _tm_mod  # noqa: E402
 
 
 def _get_manager():

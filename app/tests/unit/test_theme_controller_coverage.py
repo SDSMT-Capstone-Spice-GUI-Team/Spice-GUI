@@ -9,36 +9,39 @@ import sys
 import types
 from unittest.mock import MagicMock, patch
 
-# Pre-seed GUI modules to prevent circular import when loading
-# services.theme_manager for the first time.
-_STUB_MODULES = [
-    "GUI",
-    "GUI.styles",
-    "GUI.styles.light_theme",
-    "GUI.styles.dark_theme",
-    "GUI.styles.theme",
-    "GUI.styles.constants",
-    "GUI.styles.theme_manager",
-    "GUI.styles.custom_theme",
-]
-for _mod_name in _STUB_MODULES:
-    if _mod_name not in sys.modules:
-        _stub = types.ModuleType(_mod_name)
-        if _mod_name in ("GUI", "GUI.styles"):
-            _stub.__path__ = []
-        sys.modules[_mod_name] = _stub
+# Try real import first.  Only seed stubs when Qt is unavailable,
+# to avoid contaminating sys.modules for other test files in CI.
+try:
+    import controllers.theme_controller as _tc_mod
+except (ImportError, RuntimeError):
+    _STUB_MODULES = [
+        "GUI",
+        "GUI.styles",
+        "GUI.styles.light_theme",
+        "GUI.styles.dark_theme",
+        "GUI.styles.theme",
+        "GUI.styles.constants",
+        "GUI.styles.theme_manager",
+        "GUI.styles.custom_theme",
+    ]
+    for _mod_name in _STUB_MODULES:
+        if _mod_name not in sys.modules:
+            _stub = types.ModuleType(_mod_name)
+            if _mod_name in ("GUI", "GUI.styles"):
+                _stub.__path__ = []
+            sys.modules[_mod_name] = _stub
 
-if not hasattr(sys.modules["GUI.styles.light_theme"], "LightTheme"):
-    sys.modules["GUI.styles.light_theme"].LightTheme = type(
-        "LightTheme",
-        (),
-        {
-            "__init__": lambda self: None,
-            "name": property(lambda self: "Light Theme"),
-        },
-    )
+    if not hasattr(sys.modules["GUI.styles.light_theme"], "LightTheme"):
+        sys.modules["GUI.styles.light_theme"].LightTheme = type(
+            "LightTheme",
+            (),
+            {
+                "__init__": lambda self: None,
+                "name": property(lambda self: "Light Theme"),
+            },
+        )
 
-import controllers.theme_controller as _tc_mod  # noqa: E402
+    import controllers.theme_controller as _tc_mod  # noqa: E402
 
 
 class TestThemeControllerDelegation:
