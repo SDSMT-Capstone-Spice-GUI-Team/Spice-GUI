@@ -678,6 +678,45 @@ class SimulationController:
 
         return generate_analysis_command(analysis_type, params)
 
+    # --- Measurement / analysis metadata ---
+
+    @staticmethod
+    def get_analysis_domain_map() -> dict:
+        """Return mapping of analysis types to measurement domains."""
+        from simulation.measurement_builder import ANALYSIS_DOMAIN_MAP
+
+        return ANALYSIS_DOMAIN_MAP
+
+    @staticmethod
+    def get_meas_types() -> dict:
+        """Return the measurement type definitions."""
+        from simulation.measurement_builder import MEAS_TYPES
+
+        return MEAS_TYPES
+
+    @staticmethod
+    def build_meas_directive(meas_type: str, **kwargs) -> str:
+        """Build a .meas directive string."""
+        from simulation.measurement_builder import build_directive
+
+        return build_directive(meas_type, **kwargs)
+
+    # --- Monte Carlo metadata ---
+
+    @staticmethod
+    def get_mc_eligible_types() -> set:
+        """Return the set of component types eligible for Monte Carlo analysis."""
+        from simulation.monte_carlo import MC_ELIGIBLE_TYPES
+
+        return MC_ELIGIBLE_TYPES
+
+    @staticmethod
+    def get_mc_default_tolerance(component_type: str) -> float:
+        """Return the default tolerance percentage for a component type."""
+        from simulation.monte_carlo import DEFAULT_TOLERANCES
+
+        return DEFAULT_TOLERANCES.get(component_type, 5.0)
+
     # --- Export helpers ---
 
     def export_netlist(self, filepath: str) -> None:
@@ -774,3 +813,35 @@ class SimulationController:
         content = self.generate_results_markdown(results, results_type, circuit_name)
         if content is not None:
             write_markdown(content, filepath)
+
+    def generate_circuitikz(self, **kwargs) -> str:
+        """Generate CircuiTikZ LaTeX code from the current circuit model."""
+        from simulation.circuitikz_exporter import generate
+
+        self.model.rebuild_nodes()
+        return generate(
+            components=self.model.components,
+            wires=self.model.wires,
+            nodes=self.model.nodes,
+            terminal_to_node=self.model.terminal_to_node,
+            **kwargs,
+        )
+
+    @staticmethod
+    def suggest_bundle_name(circuit_name: str) -> str:
+        """Suggest a filename for a lab bundle export."""
+        from simulation.bundle_exporter import suggest_bundle_name
+
+        return suggest_bundle_name(circuit_name)
+
+    @staticmethod
+    def create_bundle(filepath: str, **kwargs) -> str:
+        """Create a ZIP bundle of circuit artifacts for lab submission.
+
+        Delegates to ``simulation.bundle_exporter.create_bundle``.
+        Accepts the same keyword arguments (circuit_json, netlist,
+        schematic_png, results_csv, etc.).
+        """
+        from simulation.bundle_exporter import create_bundle
+
+        return create_bundle(filepath, **kwargs)

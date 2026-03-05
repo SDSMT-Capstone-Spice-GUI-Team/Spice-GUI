@@ -464,8 +464,6 @@ class FileOperationsMixin:
         import os
         import tempfile
 
-        from simulation.bundle_exporter import create_bundle, suggest_bundle_name
-
         if not self.model.components:
             QMessageBox.information(self, "Export Bundle", "Nothing to export — the canvas is empty.")
             return
@@ -474,7 +472,7 @@ class FileOperationsMixin:
         if self.file_ctrl.current_file:
             circuit_name = self.file_ctrl.current_file.name
 
-        suggested = suggest_bundle_name(circuit_name)
+        suggested = self.simulation_ctrl.suggest_bundle_name(circuit_name)
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Export Lab Bundle",
@@ -537,7 +535,7 @@ class FileOperationsMixin:
                 except Exception:
                     logger.warning("Bundle export: Excel results export failed", exc_info=True)
 
-            included = create_bundle(
+            included = self.simulation_ctrl.create_bundle(
                 filepath=filename,
                 circuit_json=circuit_json,
                 netlist=netlist,
@@ -850,14 +848,7 @@ class FileOperationsMixin:
             elif export_function == "export_results_excel":
                 self._re_export_results_excel(path)
             elif export_function == "export_circuitikz":
-                from simulation.circuitikz_exporter import generate
-
-                content = generate(
-                    self.model.components,
-                    self.model.wires,
-                    self.model.nodes,
-                    self.model.terminal_to_node,
-                )
+                content = self.simulation_ctrl.generate_circuitikz()
                 with open(path, "w") as f:
                     f.write(content)
             elif export_function == "export_asc":

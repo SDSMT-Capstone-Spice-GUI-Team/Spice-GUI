@@ -461,9 +461,9 @@ class ACSweepPlotDialog(QDialog):
         if self._sim_ctrl is not None:
             markers = self._sim_ctrl.compute_frequency_markers(frequencies, mag_vals, phase_vals)
         else:
-            from simulation.freq_markers import compute_markers
+            from controllers.simulation_controller import SimulationController
 
-            markers = compute_markers(frequencies, mag_vals, phase_vals)
+            markers = SimulationController.compute_frequency_markers(frequencies, mag_vals, phase_vals)
 
         if markers["peak_gain_db"] is None:
             self._marker_summary.setPlainText("No markers computed (insufficient data).")

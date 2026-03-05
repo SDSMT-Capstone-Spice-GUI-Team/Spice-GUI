@@ -5,6 +5,7 @@ Allows users to set number of runs, per-component tolerances and
 distribution, and select the base analysis type.
 """
 
+from controllers.simulation_controller import SimulationController
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QComboBox,
@@ -42,10 +43,9 @@ class MonteCarloDialog(QDialog):
         self.setMinimumWidth(550)
         self.setMinimumHeight(400)
 
-        from simulation.monte_carlo import MC_ELIGIBLE_TYPES
-
         self._components = components
-        self._eligible = {cid: comp for cid, comp in components.items() if comp.component_type in MC_ELIGIBLE_TYPES}
+        mc_eligible = SimulationController.get_mc_eligible_types()
+        self._eligible = {cid: comp for cid, comp in components.items() if comp.component_type in mc_eligible}
         self._base_field_widgets = {}
         self._init_ui()
 
@@ -110,13 +110,11 @@ class MonteCarloDialog(QDialog):
 
                 # Tolerance spin
                 tol_spin = QDoubleSpinBox()
-                from simulation.monte_carlo import DEFAULT_TOLERANCES
-
                 tol_spin.setRange(0.0, 50.0)
                 tol_spin.setSuffix("%")
                 tol_spin.setDecimals(1)
                 tol_spin.setToolTip("Component value tolerance as a percentage (0-50%)")
-                default_tol = DEFAULT_TOLERANCES.get(comp.component_type, 5.0)
+                default_tol = SimulationController.get_mc_default_tolerance(comp.component_type)
                 tol_spin.setValue(default_tol)
                 self.tol_table.setCellWidget(row, 2, tol_spin)
 
