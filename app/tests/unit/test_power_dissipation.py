@@ -198,6 +198,60 @@ class TestCalculatePowerDictInput:
         assert result == {}
 
 
+class TestPowerEdgeCases:
+    """Edge case tests for power calculation (#502)."""
+
+    def test_empty_node_voltages_returns_empty(self):
+        r1 = ComponentData("R1", "Resistor", "1k", (0, 0))
+        nodeA = _make_node([("R1", 0)], "nodeA")
+        nodeB = _make_node([("R1", 1)], "nodeB")
+        result = calculate_power([r1], [nodeA, nodeB], {})
+        assert result == {}
+
+    def test_missing_terminal_mapping_skips_component(self):
+        """Component with no node mapping should be omitted, not crash."""
+        r1 = ComponentData("R1", "Resistor", "1k", (0, 0))
+        voltages = {"nodeA": 5.0, "nodeB": 0.0}
+        # No nodes mapped to R1 terminals
+        result = calculate_power([r1], [], voltages)
+        assert "R1" not in result
+
+    def test_current_source_power(self):
+        """Current source power = V_across * I."""
+        i1 = ComponentData("I1", "Current Source", "10m", (0, 0))
+        nodeA = _make_node([("I1", 0)], "nodeA")
+        nodeB = _make_node([("I1", 1)], "nodeB")
+        voltages = {"nodeA": 5.0, "nodeB": 0.0}
+        result = calculate_power([i1], [nodeA, nodeB], voltages)
+        assert result["I1"] == pytest.approx(0.05)
+
+    def test_capacitor_dc_power_is_zero(self):
+        """Capacitor DC power should be 0."""
+        c1 = ComponentData("C1", "Capacitor", "100u", (0, 0))
+        nodeA = _make_node([("C1", 0)], "nodeA")
+        nodeB = _make_node([("C1", 1)], "nodeB")
+        voltages = {"nodeA": 5.0, "nodeB": 0.0}
+        result = calculate_power([c1], [nodeA, nodeB], voltages)
+        assert result["C1"] == pytest.approx(0.0)
+
+    def test_voltage_source_without_current_is_omitted(self):
+        """Voltage source without branch current cannot compute power."""
+        v1 = ComponentData("V1", "Voltage Source", "5V", (0, 0))
+        nodeA = _make_node([("V1", 0)], "nodeA")
+        nodeB = _make_node([("V1", 1)], "nodeB")
+        voltages = {"nodeA": 5.0, "nodeB": 0.0}
+        result = calculate_power([v1], [nodeA, nodeB], voltages)
+        assert "V1" not in result
+
+    def test_ground_component_is_skipped(self):
+        """Ground components should be ignored entirely."""
+        gnd = ComponentData("GND1", "Ground", "0V", (0, 0))
+        nodeA = _make_node([("GND1", 0)], "0", is_ground=True)
+        voltages = {"0": 0.0}
+        result = calculate_power([gnd], [nodeA], voltages)
+        assert "GND1" not in result
+
+
 class TestTotalPower:
     """Test total power calculation."""
 

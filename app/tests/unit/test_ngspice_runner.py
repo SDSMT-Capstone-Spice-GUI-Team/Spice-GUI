@@ -1,10 +1,116 @@
-"""Tests for NgspiceRunner - empty output detection (#497)."""
+"""Tests for NgspiceRunner (#497, #502)."""
 
 import os
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
 from simulation.ngspice_runner import NgspiceRunner
+
+
+class TestInit:
+    """Constructor tests."""
+
+    def test_creates_output_dir(self, tmp_path):
+        output_dir = tmp_path / "sim_out"
+        runner = NgspiceRunner(output_dir=str(output_dir))
+        assert output_dir.exists()
+        assert runner.ngspice_cmd is None
+
+
+class TestFindNgspice:
+    """Tests for find_ngspice()."""
+
+    def test_found_via_shutil_which(self, tmp_path):
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        with patch("simulation.ngspice_runner.shutil.which", return_value="/usr/bin/ngspice"):
+            result = runner.find_ngspice()
+        assert result == "/usr/bin/ngspice"
+        assert runner.ngspice_cmd == "/usr/bin/ngspice"
+
+    def test_not_found_returns_none(self, tmp_path):
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        with (
+            patch("simulation.ngspice_runner.shutil.which", return_value=None),
+            patch("simulation.ngspice_runner.os.path.exists", return_value=False),
+        ):
+            result = runner.find_ngspice()
+        assert result is None
+        assert runner.ngspice_cmd is None
+
+    def test_fallback_path_found(self, tmp_path):
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+
+        def fake_exists(path):
+            return path == "/usr/local/bin/ngspice"
+
+        with (
+            patch("simulation.ngspice_runner.shutil.which", return_value=None),
+            patch("simulation.ngspice_runner.platform.system", return_value="Linux"),
+            patch("simulation.ngspice_runner.os.path.exists", side_effect=fake_exists),
+        ):
+            result = runner.find_ngspice()
+        assert result == "/usr/local/bin/ngspice"
+
+
+class TestRunSimulation:
+    """Tests for run_simulation()."""
+
+    def test_ngspice_not_found(self, tmp_path):
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        with (
+            patch("simulation.ngspice_runner.shutil.which", return_value=None),
+            patch("simulation.ngspice_runner.os.path.exists", return_value=False),
+        ):
+            success, output_file, stdout, stderr = runner.run_simulation("test netlist")
+        assert success is False
+        assert "not found" in stderr
+
+    def test_timeout_returns_failure(self, tmp_path):
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/usr/bin/ngspice"
+        with patch(
+            "simulation.ngspice_runner.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="ngspice", timeout=30),
+        ):
+            success, output_file, stdout, stderr = runner.run_simulation("test netlist")
+        assert success is False
+        assert "timed out" in stderr.lower()
+
+    def test_subprocess_error_returns_failure(self, tmp_path):
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/usr/bin/ngspice"
+        with patch(
+            "simulation.ngspice_runner.subprocess.run",
+            side_effect=OSError("Permission denied"),
+        ):
+            success, output_file, stdout, stderr = runner.run_simulation("test netlist")
+        assert success is False
+        assert "Permission denied" in stderr
+
+    def test_netlist_write_error(self, tmp_path):
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/usr/bin/ngspice"
+        with patch("builtins.open", side_effect=OSError("disk full")):
+            success, output_file, stdout, stderr = runner.run_simulation("test netlist")
+        assert success is False
+        assert "disk full" in stderr
+
+
+class TestReadOutput:
+    """Tests for read_output()."""
+
+    def test_reads_existing_file(self, tmp_path):
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        outfile = tmp_path / "output.txt"
+        outfile.write_text("v(1) = 5.0\n")
+        result = runner.read_output(str(outfile))
+        assert "v(1) = 5.0" in result
+
+    def test_missing_file_returns_error_string(self, tmp_path):
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        result = runner.read_output("/nonexistent/output.txt")
+        assert "Error reading output" in result
 
 
 class TestEmptyOutputDetection:
