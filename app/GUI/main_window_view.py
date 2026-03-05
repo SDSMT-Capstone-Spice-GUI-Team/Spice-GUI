@@ -89,6 +89,126 @@ class ViewOperationsMixin:
         dialog = BatchGradingDialog(reference_circuit=self.model, parent=self)
         dialog.exec()
 
+    def _on_create_rubric(self):
+        """Open the rubric editor dialog."""
+        from .rubric_editor_dialog import RubricEditorDialog
+
+        dialog = RubricEditorDialog(parent=self)
+        dialog.exec()
+
+    def _on_generate_rubric(self):
+        """Auto-generate a rubric from the current circuit and open it in the editor."""
+        from controllers.grading_controller import generate_rubric_from_circuit
+
+        from .rubric_editor_dialog import RubricEditorDialog
+
+        model = self.circuit_ctrl.model
+        if not model.components:
+            QMessageBox.information(
+                self,
+                "Generate Rubric",
+                "The canvas is empty. Build a reference circuit first.",
+            )
+            return
+
+        rubric = generate_rubric_from_circuit(model)
+        dialog = RubricEditorDialog(rubric=rubric, parent=self)
+        dialog.exec()
+
+    def _on_open_assignment(self):
+        """Open a .spice-assignment bundle file."""
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Assignment",
+            "",
+            "Assignment Files (*.spice-assignment);;All Files (*)",
+        )
+        if not filename:
+            return
+
+        try:
+            from controllers.assignment_controller import extract_rubric, load_assignment
+
+            bundle = load_assignment(filename)
+
+            # Load template circuit if present
+            if bundle.template is not None:
+                from controllers.template_controller import TemplateController
+
+                model = TemplateController.create_circuit_from_template(bundle.template)
+                self.file_ctrl.load_from_model(model)
+
+            # Load rubric into grading panel if present
+            if bundle.rubric is not None:
+                rubric = extract_rubric(bundle)
+                self.grading_panel._rubric = rubric
+                self.grading_panel.rubric_label.setText(f"Rubric: {rubric.title}")
+                self.grading_panel._update_grade_button()
+                self.grading_panel.setVisible(True)
+
+            self.statusBar().showMessage(f"Assignment loaded: {filename}", 3000)
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load assignment:\n{e}")
+
+    def _on_save_assignment(self):
+        """Save current circuit + rubric as a .spice-assignment bundle."""
+        if not self.model.components:
+            QMessageBox.information(
+                self,
+                "Save Assignment",
+                "The canvas is empty. Build a circuit first.",
+            )
+            return
+
+        # Get rubric file
+        rubric_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Rubric for Assignment",
+            "",
+            "Rubric Files (*.spice-rubric);;All Files (*)",
+        )
+        if not rubric_path:
+            return
+
+        try:
+            from controllers.grading_controller import load_rubric
+
+            rubric = load_rubric(rubric_path)
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load rubric:\n{e}")
+            return
+
+        # Ask for save location
+        save_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Assignment Bundle",
+            "",
+            "Assignment Files (*.spice-assignment);;All Files (*)",
+        )
+        if not save_path:
+            return
+        if not save_path.endswith(".spice-assignment"):
+            save_path += ".spice-assignment"
+
+        try:
+            from controllers.assignment_controller import save_assignment
+            from models.assignment import AssignmentBundle
+            from models.template import TemplateData, TemplateMetadata
+
+            template = TemplateData(
+                metadata=TemplateMetadata(title=rubric.title),
+                starter_circuit=self.model.to_dict(),
+                reference_circuit=self.model.to_dict(),
+            )
+            bundle = AssignmentBundle(
+                template=template,
+                rubric=rubric.to_dict(),
+            )
+            save_assignment(bundle, save_path)
+            self.statusBar().showMessage(f"Assignment saved: {save_path}", 3000)
+        except OSError as e:
+            QMessageBox.critical(self, "Error", f"Failed to save assignment:\n{e}")
+
     # Dirty flag (unsaved changes indicator)
 
     def _on_dirty_change(self, event: str, data) -> None:
@@ -109,6 +229,17 @@ class ViewOperationsMixin:
             self._set_dirty(True)
         elif event in ("circuit_cleared", "model_loaded"):
             self._set_dirty(False)
+
+        # Sync palette "Used in File" when components change
+        if event in (
+            "component_added",
+            "component_removed",
+            "circuit_cleared",
+            "model_loaded",
+        ):
+            self._sync_palette_used_in_file()
+        if event == "model_loaded":
+            self._sync_palette_recommendations()
 
     def _set_dirty(self, dirty: bool):
         """Update the dirty flag and refresh the title bar."""
@@ -184,7 +315,7 @@ class ViewOperationsMixin:
             return
         # Open or raise the waveform dialog
         if self._waveform_dialog is None or not self._waveform_dialog.isVisible():
-            self._waveform_dialog = WaveformDialog(tran_data, self)
+            self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.sim_ctrl)
             self._waveform_dialog.show()
         self._waveform_dialog.raise_()
         self._waveform_dialog.activateWindow()
@@ -207,7 +338,7 @@ class ViewOperationsMixin:
         if not ac_data:
             return
         if self._plot_dialog is None or not self._plot_dialog.isVisible():
-            self._show_plot_dialog(ACSweepPlotDialog(ac_data, self))
+            self._show_plot_dialog(ACSweepPlotDialog(ac_data, self, sim_ctrl=self.sim_ctrl))
         self._plot_dialog.raise_()
         self._plot_dialog.activateWindow()
         self.statusBar().showMessage(f"Opened AC sweep plot for {signal_name}.", 2000)

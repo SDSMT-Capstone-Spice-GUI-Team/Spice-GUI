@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
+from controllers.grading_controller import extract_component_ids
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
@@ -172,7 +172,7 @@ class GradingPanel(QWidget):
             return
 
         try:
-            from grading.rubric import load_rubric
+            from controllers.grading_controller import load_rubric
 
             self._rubric = load_rubric(filename)
             self.rubric_label.setText(f"Rubric: {self._rubric.title}")
@@ -192,9 +192,9 @@ class GradingPanel(QWidget):
             return
 
         if self._grader is None:
-            from grading.grader import CircuitGrader
+            from controllers.grading_controller import create_grader
 
-            self._grader = CircuitGrader()
+            self._grader = create_grader()
 
         self._result = self._grader.grade(
             student_circuit=self._student_circuit,
@@ -209,7 +209,7 @@ class GradingPanel(QWidget):
     def _display_results(self, result: GradingResult):
         """Populate the results list with check outcomes."""
         self.results_list.clear()
-        self._highlighted_components.clear()
+        self._clear_highlights()
 
         # Score header
         pct = result.percentage
@@ -243,7 +243,9 @@ class GradingPanel(QWidget):
         self.feedback_label.setText("Click a check to see feedback")
 
     def _on_check_selected(self, current, previous):
-        """Show feedback for the selected check."""
+        """Show feedback for the selected check and highlight affected components."""
+        self._clear_highlights()
+
         if current is None:
             self.feedback_label.setText("")
             return
@@ -253,6 +255,38 @@ class GradingPanel(QWidget):
             return
 
         self.feedback_label.setText(cr.feedback)
+
+        # Highlight components associated with this check
+        comp_ids = extract_component_ids(cr.check_id)
+        canvas = self._get_canvas()
+        if canvas is None:
+            return
+
+        state = "passed" if cr.passed else "failed"
+        for comp_id in comp_ids:
+            comp_item = canvas.components.get(comp_id)
+            if comp_item is not None:
+                comp_item.set_grading_state(state, cr.feedback)
+                self._highlighted_components.append(comp_id)
+
+    # --- Highlight management ---
+
+    def _get_canvas(self):
+        """Get the circuit canvas from the parent window."""
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "canvas"):
+            return parent.canvas
+        return None
+
+    def _clear_highlights(self):
+        """Remove all grading overlays from canvas components."""
+        canvas = self._get_canvas()
+        if canvas is not None:
+            for comp_id in self._highlighted_components:
+                comp_item = canvas.components.get(comp_id)
+                if comp_item is not None:
+                    comp_item.clear_grading_state()
+        self._highlighted_components.clear()
 
     # --- Export ---
 
@@ -279,34 +313,15 @@ class GradingPanel(QWidget):
     @staticmethod
     def _export_result_csv(result: GradingResult, filepath: str):
         """Write a single student's grading result to CSV."""
-        with open(filepath, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Student File", "Rubric", "Score", "Percentage"])
-            writer.writerow(
-                [
-                    result.student_file,
-                    result.rubric_title,
-                    f"{result.earned_points}/{result.total_points}",
-                    f"{result.percentage:.1f}%",
-                ]
-            )
-            writer.writerow([])
-            writer.writerow(["Check ID", "Passed", "Points Earned", "Points Possible", "Feedback"])
-            for cr in result.check_results:
-                writer.writerow(
-                    [
-                        cr.check_id,
-                        "Yes" if cr.passed else "No",
-                        cr.points_earned,
-                        cr.points_possible,
-                        cr.feedback,
-                    ]
-                )
+        from controllers.grading_controller import export_single_result_csv
+
+        export_single_result_csv(result, filepath)
 
     # --- Public API ---
 
     def clear_results(self):
-        """Clear all grading results and reset the panel."""
+        """Clear all grading results, overlays, and reset the panel."""
+        self._clear_highlights()
         self._result = None
         self._student_circuit = None
         self._student_file = ""

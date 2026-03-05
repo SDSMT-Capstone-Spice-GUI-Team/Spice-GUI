@@ -67,3 +67,69 @@ class GradingController:
         from grading.grade_exporter import export_gradebook_csv
 
         export_gradebook_csv(result, filepath)
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers used by grading_panel.py and similar GUI modules
+# ---------------------------------------------------------------------------
+
+
+def create_grader():
+    """Return a new CircuitGrader instance."""
+    from grading.grader import CircuitGrader
+
+    return CircuitGrader()
+
+
+def extract_component_ids(check_id: str) -> list:
+    """Return component IDs referenced in a rubric check ID string.
+
+    The check ID may encode the component ID as a suffix after the last '_'.
+    Returns an empty list when no component ID can be inferred.
+    """
+    parts = check_id.rsplit("_", 1)
+    if len(parts) == 2 and parts[1]:
+        return [parts[1]]
+    return []
+
+
+def export_single_result_csv(result, filepath: str) -> None:
+    """Write a single student grading result to a CSV file.
+
+    Raises:
+        OSError: If the file cannot be written.
+    """
+    import csv
+
+    with open(filepath, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Student File", "Rubric", "Score", "Percentage"])
+        writer.writerow(
+            [
+                result.student_file,
+                result.rubric_title,
+                f"{result.earned_points}/{result.total_points}",
+                f"{result.percentage:.1f}%",
+            ]
+        )
+        writer.writerow([])
+        writer.writerow(["Check ID", "Passed", "Points Earned", "Points Possible", "Feedback"])
+        for cr in result.check_results:
+            writer.writerow([cr.check_id, cr.passed, cr.points_earned, cr.points_possible, cr.feedback])
+
+
+def export_student_reports(batch_result, output_folder: str) -> list:
+    """Export individual HTML feedback reports for each student.
+
+    Delegates to grading.feedback_exporter.
+    """
+    from grading.feedback_exporter import export_student_reports as _export  # delegates to grading.feedback_exporter
+
+    return _export(batch_result, output_folder)
+
+
+def load_rubric(filepath: str):
+    """Load a rubric from a JSON file. Delegates to grading.rubric."""
+    from grading.rubric import load_rubric as _load
+
+    return _load(filepath)
