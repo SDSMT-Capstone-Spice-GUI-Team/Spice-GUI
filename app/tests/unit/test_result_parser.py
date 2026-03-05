@@ -5,7 +5,7 @@ Tests for simulation/result_parser.py — ngspice output parsing.
 import os
 
 import pytest
-from simulation.result_parser import ResultParser
+from simulation.result_parser import ResultParseError, ResultParser
 
 # ── parse_op_results ─────────────────────────────────────────────────
 
@@ -148,9 +148,9 @@ class TestParseTransientResults:
         assert "out" in headers
         assert "i_v1#branch" in headers
 
-    def test_missing_file_returns_none(self):
-        result = ResultParser.parse_transient_results("/nonexistent/path.txt")
-        assert result is None
+    def test_missing_file_raises_parse_error(self):
+        with pytest.raises(ResultParseError, match="wrdata file not found"):
+            ResultParser.parse_transient_results("/nonexistent/path.txt")
 
     def test_empty_file_returns_none(self, tmp_path):
         wrdata = tmp_path / "empty.txt"
@@ -186,3 +186,38 @@ class TestFormatResultsAsTable:
     def test_none_input(self):
         result = ResultParser.format_results_as_table(None)
         assert "No data" in result
+
+
+# ── ResultParseError propagation ────────────────────────────────────
+
+
+class TestParseErrorPropagation:
+    """Verify that parse failures raise ResultParseError instead of returning None."""
+
+    def test_dc_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="DC results"):
+            ResultParser.parse_dc_results(None)
+
+    def test_ac_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="AC results"):
+            ResultParser.parse_ac_results(None)
+
+    def test_noise_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="noise results"):
+            ResultParser.parse_noise_results(None)
+
+    def test_sensitivity_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="sensitivity results"):
+            ResultParser.parse_sensitivity_results(None)
+
+    def test_tf_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="TF results"):
+            ResultParser.parse_tf_results(None)
+
+    def test_pz_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="PZ results"):
+            ResultParser.parse_pz_results(None)
+
+    def test_transient_parse_error_on_missing_file(self):
+        with pytest.raises(ResultParseError, match="wrdata file not found"):
+            ResultParser.parse_transient_results("/nonexistent/path.txt")
