@@ -400,7 +400,19 @@ class ComponentData:
 
         Handles both old-style class names (VoltageSource, OpAmp) and
         display names (Voltage Source, Op-Amp) in the 'type' field.
+
+        Raises:
+            ValueError: If required fields are missing or have wrong types.
         """
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected dict, got {type(data).__name__}")
+        for key in ("id", "type", "value", "pos"):
+            if key not in data:
+                raise ValueError(f"Missing required field '{key}' in component data")
+        pos = data["pos"]
+        if not isinstance(pos, dict) or "x" not in pos or "y" not in pos:
+            raise ValueError("Component 'pos' must be a dict with 'x' and 'y' keys")
+
         raw_type = data["type"]
         # Normalize to display name
         component_type = _CLASS_TO_DISPLAY.get(raw_type, raw_type)

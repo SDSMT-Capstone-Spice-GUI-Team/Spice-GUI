@@ -876,3 +876,96 @@ class TestNodeConsistency:
 
         ground_nodes = [n for n in model.nodes if n.is_ground]
         assert len(ground_nodes) == 1
+
+
+# ===========================================================================
+# from_dict Input Validation  (#504)
+# ===========================================================================
+
+
+class TestComponentDataFromDictValidation:
+    """Issue #504: ComponentData.from_dict must reject invalid input."""
+
+    def test_non_dict_raises(self):
+        with pytest.raises(ValueError, match="Expected dict"):
+            ComponentData.from_dict("not a dict")
+
+    def test_list_raises(self):
+        with pytest.raises(ValueError, match="Expected dict"):
+            ComponentData.from_dict([1, 2, 3])
+
+    def test_none_raises(self):
+        with pytest.raises(ValueError, match="Expected dict"):
+            ComponentData.from_dict(None)
+
+    @pytest.mark.parametrize("missing_key", ["id", "type", "value", "pos"])
+    def test_missing_required_field(self, missing_key):
+        data = {
+            "id": "R1",
+            "type": "Resistor",
+            "value": "1k",
+            "pos": {"x": 0, "y": 0},
+        }
+        del data[missing_key]
+        with pytest.raises(ValueError, match=missing_key):
+            ComponentData.from_dict(data)
+
+    def test_pos_not_dict_raises(self):
+        data = {"id": "R1", "type": "Resistor", "value": "1k", "pos": [0, 0]}
+        with pytest.raises(ValueError, match="pos"):
+            ComponentData.from_dict(data)
+
+    def test_pos_missing_x_raises(self):
+        data = {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"y": 0}}
+        with pytest.raises(ValueError, match="pos"):
+            ComponentData.from_dict(data)
+
+    def test_pos_missing_y_raises(self):
+        data = {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0}}
+        with pytest.raises(ValueError, match="pos"):
+            ComponentData.from_dict(data)
+
+    def test_valid_data_succeeds(self):
+        data = {
+            "id": "R1",
+            "type": "Resistor",
+            "value": "1k",
+            "pos": {"x": 10, "y": 20},
+        }
+        comp = ComponentData.from_dict(data)
+        assert comp.component_id == "R1"
+        assert comp.position == (10, 20)
+
+
+class TestWireDataFromDictValidation:
+    """Issue #504: WireData.from_dict must reject invalid input."""
+
+    def test_non_dict_raises(self):
+        with pytest.raises(ValueError, match="Expected dict"):
+            WireData.from_dict("not a dict")
+
+    def test_list_raises(self):
+        with pytest.raises(ValueError, match="Expected dict"):
+            WireData.from_dict([1, 2])
+
+    def test_none_raises(self):
+        with pytest.raises(ValueError, match="Expected dict"):
+            WireData.from_dict(None)
+
+    @pytest.mark.parametrize("missing_key", ["start_comp", "start_term", "end_comp", "end_term"])
+    def test_missing_required_field(self, missing_key):
+        data = {
+            "start_comp": "R1",
+            "start_term": 0,
+            "end_comp": "R2",
+            "end_term": 1,
+        }
+        del data[missing_key]
+        with pytest.raises(ValueError, match=missing_key):
+            WireData.from_dict(data)
+
+    def test_valid_data_succeeds(self):
+        data = {"start_comp": "R1", "start_term": 0, "end_comp": "R2", "end_term": 1}
+        wire = WireData.from_dict(data)
+        assert wire.start_component_id == "R1"
+        assert wire.end_component_id == "R2"
