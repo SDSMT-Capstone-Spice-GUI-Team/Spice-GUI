@@ -368,7 +368,9 @@ class CircuitCanvasView(QGraphicsView):
             idx = self.wires.index(wire_item)
             self.controller.update_wire_routing_result(idx, waypoints, runtime, iterations, routing_failed)
         else:
-            # Wire not yet tracked (during construction) — write directly
+            # Construction-time initialisation: wire not yet registered with
+            # the controller, so we populate the model as part of object setup.
+            # Once the wire enters controller.add_wire() this path is never hit.
             wire_item.model.waypoints = waypoints
             wire_item.model.runtime = runtime
             wire_item.model.iterations = iterations

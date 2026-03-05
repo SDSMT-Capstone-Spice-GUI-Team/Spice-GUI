@@ -139,15 +139,9 @@ class WireGraphicsItem(QGraphicsPathItem):
     # --- Methods ---
 
     def _persist_routing_result(self, waypoints, runtime=0.0, iterations=0, routing_failed=False):
-        """Persist pathfinding results through the controller when available."""
+        """Persist pathfinding results through the canvas/controller."""
         if self.canvas and hasattr(self.canvas, "on_wire_routing_complete"):
             self.canvas.on_wire_routing_complete(self, waypoints, runtime, iterations, routing_failed)
-        else:
-            # Fallback during initialisation (wire not yet in canvas.wires)
-            self.model.waypoints = waypoints
-            self.model.runtime = runtime
-            self.model.iterations = iterations
-            self.model.routing_failed = routing_failed
 
     def show_drag_preview(self):
         """Show a straight-line preview during component drag.
@@ -412,9 +406,6 @@ class WireGraphicsItem(QGraphicsPathItem):
         # Persist waypoints and lock through canvas -> controller
         if self.canvas and hasattr(self.canvas, "on_wire_waypoints_changed"):
             self.canvas.on_wire_waypoints_changed(self, tuple_waypoints)
-        else:
-            self.model.waypoints = tuple_waypoints
-            self.model.locked = True
 
     def _rebuild_path_from_waypoints(self):
         """Rebuild the QPainterPath from the current waypoints list."""

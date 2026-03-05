@@ -72,10 +72,6 @@ class ComponentGraphicsItem(QGraphicsItem):
     def component_id(self):
         return self.model.component_id
 
-    @component_id.setter
-    def component_id(self, value):
-        self.model.component_id = value
-
     @property
     def component_type(self):
         return self.model.component_type
@@ -84,25 +80,13 @@ class ComponentGraphicsItem(QGraphicsItem):
     def value(self):
         return self.model.value
 
-    @value.setter
-    def value(self, v):
-        self.model.value = v
-
     @property
     def rotation_angle(self):
         return self.model.rotation
 
-    @rotation_angle.setter
-    def rotation_angle(self, v):
-        self.model.rotation = v
-
     @property
     def initial_condition(self):
         return self.model.initial_condition
-
-    @initial_condition.setter
-    def initial_condition(self, v):
-        self.model.initial_condition = v
 
     def sync_from_data(self, component_data) -> None:
         """Sync the graphics item's local model from authoritative controller data.
@@ -273,9 +257,6 @@ class ComponentGraphicsItem(QGraphicsItem):
             # Route through controller; observer callback syncs the local model
             if self.canvas and hasattr(self.canvas, "controller") and self.canvas.controller:
                 self.canvas.controller.update_component_value(self.component_id, new_value)
-            else:
-                self.model.value = new_value
-                self.update()
 
     # --- Geometry ---
 
@@ -456,9 +437,10 @@ class ComponentGraphicsItem(QGraphicsItem):
         if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
             return
 
-        # Sync local model position immediately (lightweight attribute assignment).
-        # The canonical controller model is updated via the debounced
-        # _notify_controller_position -> controller.move_component() call below.
+        # Sync the *local rendering copy* of position immediately so
+        # paint/terminal queries stay consistent during drag.  The
+        # authoritative controller model is updated via the debounced
+        # _notify_controller_position → controller.move_component() call.
         if self._pending_position:
             self.model.position = self._pending_position
 
@@ -487,10 +469,14 @@ class ComponentGraphicsItem(QGraphicsItem):
         return self.pos() + self.terminals[index]
 
     def to_dict(self):
-        """Serialize component to dictionary via the model"""
-        # Sync Qt position to model before serializing
-        self.model.position = (self.pos().x(), self.pos().y())
-        return self.model.to_dict()
+        """Serialize component to dictionary via the model.
+
+        Reads the authoritative Qt position for serialization without
+        mutating the model object (model is owned by the controller).
+        """
+        d = self.model.to_dict()
+        d["pos"] = {"x": self.pos().x(), "y": self.pos().y()}
+        return d
 
     @staticmethod
     def from_dict(data_dict):
@@ -564,22 +550,14 @@ class WaveformVoltageSource(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    # Waveform properties delegated to model
+    # Waveform properties delegated to model (read-only; mutations go through controller)
     @property
     def waveform_type(self):
         return self.model.waveform_type
 
-    @waveform_type.setter
-    def waveform_type(self, v):
-        self.model.waveform_type = v
-
     @property
     def waveform_params(self):
         return self.model.waveform_params
-
-    @waveform_params.setter
-    def waveform_params(self, v):
-        self.model.waveform_params = v
 
     def get_spice_value(self):
         """Generate SPICE waveform specification (delegates to model)"""
