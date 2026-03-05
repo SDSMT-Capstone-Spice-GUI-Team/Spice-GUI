@@ -76,7 +76,15 @@ class WireData:
         Deserialize wire from dictionary.
 
         Handles both old format (no waypoints) and new format (with waypoints).
+
+        Raises:
+            ValueError: If required fields are missing or have wrong types.
         """
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected dict, got {type(data).__name__}")
+        for key in ("start_comp", "start_term", "end_comp", "end_term"):
+            if key not in data:
+                raise ValueError(f"Missing required field '{key}' in wire data")
         wire = cls(
             start_component_id=data["start_comp"],
             start_terminal=data["start_term"],
