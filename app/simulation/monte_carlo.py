@@ -97,6 +97,9 @@ def format_spice_value(value):
     return f"{value:.6g}"
 
 
+_VALID_DISTRIBUTIONS = {"gaussian", "uniform"}
+
+
 def apply_tolerance(value_str, tolerance_pct, distribution="gaussian", rng=None):
     """Apply a random tolerance to a SPICE value string.
 
@@ -109,7 +112,17 @@ def apply_tolerance(value_str, tolerance_pct, distribution="gaussian", rng=None)
     Returns:
         New SPICE value string with tolerance applied, or the original
         if the value cannot be parsed.
+
+    Raises:
+        ValueError: If tolerance_pct is negative or distribution is unknown.
     """
+    if not isinstance(tolerance_pct, (int, float)):
+        raise ValueError(f"tolerance_pct must be a number, got {type(tolerance_pct).__name__}")
+    if tolerance_pct < 0:
+        raise ValueError(f"tolerance_pct must be non-negative, got {tolerance_pct}")
+    if distribution not in _VALID_DISTRIBUTIONS:
+        raise ValueError(f"Unknown distribution {distribution!r}, expected one of {_VALID_DISTRIBUTIONS}")
+
     if rng is None:
         rng = np.random.default_rng()
 
