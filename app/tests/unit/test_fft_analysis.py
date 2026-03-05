@@ -84,6 +84,22 @@ class TestComputeFFT:
         with pytest.raises(ValueError, match="at least 4 samples"):
             compute_fft(time, signal)
 
+    def test_constant_time_raises(self):
+        """Test FFT with all-identical timestamps raises ValueError, not ZeroDivisionError."""
+        time = np.array([0.0, 0.0, 0.0, 0.0])
+        signal = np.array([1.0, 2.0, 3.0, 4.0])
+
+        with pytest.raises(ValueError, match="strictly increasing"):
+            compute_fft(time, signal)
+
+    def test_decreasing_time_raises(self):
+        """Test FFT with decreasing timestamps raises ValueError."""
+        time = np.array([1.0, 0.75, 0.5, 0.25])
+        signal = np.array([1.0, 2.0, 3.0, 4.0])
+
+        with pytest.raises(ValueError, match="strictly increasing"):
+            compute_fft(time, signal)
+
     def test_magnitude_db_range(self):
         """Test that magnitude_db values are reasonable."""
         time = np.linspace(0, 1, 100, endpoint=False)

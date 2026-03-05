@@ -64,6 +64,8 @@ def compute_fft(
 
     # Calculate sample rate from time array
     dt = np.mean(np.diff(time))
+    if dt <= 0:
+        raise ValueError("Time data must be strictly increasing (mean time step is <= 0)")
     sample_rate = 1.0 / dt
     n_samples = len(signal)
 
