@@ -632,6 +632,79 @@ class TestExportAsc:
         assert len(content) > 0
 
 
+class TestImportNetlist:
+    """Tests for FileController.import_netlist (#502)."""
+
+    @patch("controllers.file_controller.settings")
+    def test_import_simple_netlist(self, mock_settings, tmp_path):
+        """A valid SPICE netlist should populate the model."""
+        mock_settings.get_list.return_value = []
+        netlist = tmp_path / "circuit.cir"
+        netlist.write_text("Test Circuit\nV1 1 0 DC 5V\nR1 1 0 1k\n.op\n.end\n")
+        model = CircuitModel()
+        ctrl = FileController(model)
+        ctrl.import_netlist(netlist)
+        assert len(ctrl.model.components) > 0
+        assert ctrl.current_file is None  # import clears current_file
+
+    @patch("controllers.file_controller.settings")
+    def test_import_netlist_file_not_found(self, mock_settings, tmp_path):
+        """Missing file should raise OSError."""
+        ctrl = FileController(CircuitModel())
+        with pytest.raises(OSError):
+            ctrl.import_netlist(tmp_path / "nonexistent.cir")
+
+    @patch("controllers.file_controller.settings")
+    def test_import_netlist_sets_analysis(self, mock_settings, tmp_path):
+        """Analysis directives should be extracted from the netlist."""
+        mock_settings.get_list.return_value = []
+        netlist = tmp_path / "tran.cir"
+        netlist.write_text("Transient Test\nV1 1 0 DC 5V\nR1 1 0 1k\n.tran 1u 1m\n.end\n")
+        ctrl = FileController(CircuitModel())
+        ctrl.import_netlist(netlist)
+        assert ctrl.model.analysis_type == "Transient"
+
+
+class TestImportAsc:
+    """Tests for FileController.import_asc (#502)."""
+
+    @patch("controllers.file_controller.settings")
+    def test_import_simple_asc(self, mock_settings, tmp_path):
+        """A valid ASC file should populate the model."""
+        mock_settings.get_list.return_value = []
+        asc = tmp_path / "circuit.asc"
+        asc.write_text(
+            "Version 4\nSHEET 1 880 680\n"
+            "SYMBOL res 160 128 R0\n"
+            "SYMATTR InstName R1\nSYMATTR Value 1k\n"
+            "SYMBOL voltage 48 128 R0\n"
+            "SYMATTR InstName V1\nSYMATTR Value 5\n"
+            "WIRE 160 128 48 128\n"
+        )
+        ctrl = FileController(CircuitModel())
+        warnings = ctrl.import_asc(asc)
+        assert isinstance(warnings, list)
+        assert len(ctrl.model.components) > 0
+
+    @patch("controllers.file_controller.settings")
+    def test_import_asc_file_not_found(self, mock_settings, tmp_path):
+        """Missing file should raise OSError."""
+        ctrl = FileController(CircuitModel())
+        with pytest.raises(OSError):
+            ctrl.import_asc(tmp_path / "nonexistent.asc")
+
+
+class TestImportCircuitikz:
+    """Tests for FileController.import_circuitikz (#502)."""
+
+    @patch("controllers.file_controller.settings")
+    def test_import_circuitikz_file_not_found(self, mock_settings, tmp_path):
+        """Missing file should raise OSError."""
+        ctrl = FileController(CircuitModel())
+        with pytest.raises(OSError):
+            ctrl.import_circuitikz(tmp_path / "nonexistent.tex")
+
+
 class TestQtDependencies:
     def test_settings_service_used_for_recent_files(self):
         """FileController uses centralized SettingsService for persistence (#598)."""
