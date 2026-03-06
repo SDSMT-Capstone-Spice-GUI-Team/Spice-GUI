@@ -327,7 +327,7 @@ class IEEEMOSFETNMOS(ComponentRenderer):
         painter.drawLine(-5, -10, 20, -10)
         painter.drawLine(-5, 10, 20, 10)
         # Vertical bar connecting drain and source (body tied to source)
-        painter.drawLine(10, -10, 10, 10)
+        painter.drawLine(10, 0, 10, 10)
         # Body connection from vertical bar toward channel
         painter.drawLine(10, 0, -1, 0)
         # Arrow on body pointing INWARD (toward channel) for NMOS
@@ -353,7 +353,7 @@ class IEEEMOSFETPMOS(ComponentRenderer):
         painter.drawLine(-5, -10, 20, -10)
         painter.drawLine(-5, 10, 20, 10)
         # Vertical bar connecting drain and source (body tied to source)
-        painter.drawLine(10, -10, 10, 10)
+        painter.drawLine(10, 0, 10, 10)
         # Body connection from channel toward vertical bar
         painter.drawLine(-1, 0, 10, 0)
         # Arrow on body pointing OUTWARD (away from channel) for PMOS
