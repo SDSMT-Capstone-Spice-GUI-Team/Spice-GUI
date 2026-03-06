@@ -176,22 +176,22 @@ class TestMOSFETEnhancementMode:
         assert len(arrowhead) == 2
 
     def test_nmos_has_body_source_tie(self):
-        """NMOS should have a vertical bar connecting drain and source."""
+        """NMOS should have a vertical bar on the source side of the body."""
         renderer = IEEEMOSFETNMOS()
         painter = _make_mock_painter()
         comp = _make_mock_component(in_scene=False)
         renderer.draw(painter, comp)
         line_calls = painter.drawLine.call_args_list
-        assert call(10, -10, 10, 10) in line_calls
+        assert call(10, 0, 10, 10) in line_calls
 
     def test_pmos_has_body_source_tie(self):
-        """PMOS should have a vertical bar connecting drain and source."""
+        """PMOS should have a vertical bar on the source side of the body."""
         renderer = IEEEMOSFETPMOS()
         painter = _make_mock_painter()
         comp = _make_mock_component(in_scene=False)
         renderer.draw(painter, comp)
         line_calls = painter.drawLine.call_args_list
-        assert call(10, -10, 10, 10) in line_calls
+        assert call(10, 0, 10, 10) in line_calls
 
 
 class TestRendererRegistration:
