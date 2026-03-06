@@ -23,8 +23,8 @@ class ComponentRenderer(ABC):
     def draw(self, painter, component) -> None:
         """Draw the component body using *painter*.
 
-        *component* is the ``ComponentGraphicsItem`` instance — renderers may
-        call ``component.scene()`` to decide whether to draw terminal leads.
+        *component* is the ``ComponentGraphicsItem`` instance.
+        Leads and body are drawn unconditionally.
         """
 
     @abstractmethod
@@ -69,25 +69,24 @@ def _bounding_rect_obstacle(component) -> list[tuple[float, float]]:
 
 class IEEEResistor(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -15, 0)
-            painter.drawLine(15, 0, 30, 0)
-        painter.drawLine(-15, 0, -10, -8)
-        painter.drawLine(-10, -8, -5, 8)
-        painter.drawLine(-5, 8, 0, -8)
-        painter.drawLine(0, -8, 5, 8)
-        painter.drawLine(5, 8, 10, -8)
-        painter.drawLine(10, -8, 15, 0)
+        painter.drawLine(-30, 0, -18, 0)
+        painter.drawLine(18, 0, 30, 0)
+        painter.drawLine(-18, 0, -15, 8)
+        painter.drawLine(-15, 8, -9, -8)
+        painter.drawLine(-9, -8, -3, 8)
+        painter.drawLine(-3, 8, 3, -8)
+        painter.drawLine(3, -8, 9, 8)
+        painter.drawLine(9, 8, 15, -8)
+        painter.drawLine(15, -8, 18, 0)
 
     def get_obstacle_shape(self, component):
-        return [(-18.0, -11.0), (18.0, -11.0), (18.0, 11.0), (-18.0, 11.0)]
+        return [(-20.0, -10.0), (20.0, -10.0), (20.0, 10.0), (-20.0, 10.0)]
 
 
 class IEEECapacitor(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -5, 0)
-            painter.drawLine(5, 0, 30, 0)
+        painter.drawLine(-30, 0, -5, 0)
+        painter.drawLine(5, 0, 30, 0)
         painter.drawLine(-5, -12, -5, 12)
         painter.drawLine(5, -12, 5, 12)
 
@@ -97,9 +96,8 @@ class IEEECapacitor(ComponentRenderer):
 
 class IEEEInductor(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -20, 0)
-            painter.drawLine(20, 0, 30, 0)
+        painter.drawLine(-30, 0, -20, 0)
+        painter.drawLine(20, 0, 30, 0)
         for i in range(-20, 20, 8):
             painter.drawArc(i, -5, 8, 10, 0, 180 * 16)
 
@@ -109,9 +107,8 @@ class IEEEInductor(ComponentRenderer):
 
 class IEEEVoltageSource(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -15, 0)
-            painter.drawLine(15, 0, 30, 0)
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
         painter.drawLine(-10, 2, -10, -2)
         painter.drawLine(-12, 0, -8, 0)
@@ -123,9 +120,8 @@ class IEEEVoltageSource(ComponentRenderer):
 
 class IEEECurrentSource(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -15, 0)
-            painter.drawLine(15, 0, 30, 0)
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
         # Arrow showing current direction (left to right)
         painter.drawLine(-8, 0, 8, 0)
@@ -138,9 +134,8 @@ class IEEECurrentSource(ComponentRenderer):
 
 class IEEEWaveformVoltageSource(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -15, 0)
-            painter.drawLine(15, 0, 30, 0)
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
         # Draw sine wave symbol
         from models.component import COMPONENT_COLORS
@@ -161,8 +156,7 @@ class IEEEWaveformVoltageSource(ComponentRenderer):
 
 class IEEEGround(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(0, -10, 0, 0)
+        painter.drawLine(0, -10, 0, 0)
         painter.drawLine(0, 0, 0, 10)
         painter.drawLine(-15, 10, 15, 10)
         painter.drawLine(-10, 15, 10, 15)
@@ -174,10 +168,9 @@ class IEEEGround(ComponentRenderer):
 
 class IEEEOpAmp(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, -10, -20, -10)
-            painter.drawLine(-30, 10, -20, 10)
-            painter.drawLine(20, 0, 30, 0)
+        painter.drawLine(-30, -10, -20, -10)
+        painter.drawLine(-30, 10, -20, 10)
+        painter.drawLine(20, 0, 30, 0)
         painter.drawLine(-20, -15, 20, 0)
         painter.drawLine(20, 0, -20, 15)
         painter.drawLine(-20, 15, -20, -15)
@@ -195,11 +188,10 @@ class IEEEOpAmp(ComponentRenderer):
 
 class IEEEVCVS(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, -10, -15, -10)
-            painter.drawLine(-30, 10, -15, 10)
-            painter.drawLine(15, -10, 30, -10)
-            painter.drawLine(15, 10, 30, 10)
+        painter.drawLine(-30, -10, -15, -10)
+        painter.drawLine(-30, 10, -15, 10)
+        painter.drawLine(15, -10, 30, -10)
+        painter.drawLine(15, 10, 30, 10)
         # Diamond shape
         painter.drawLine(-15, 0, 0, -15)
         painter.drawLine(0, -15, 15, 0)
@@ -218,11 +210,10 @@ class IEEEVCVS(ComponentRenderer):
 
 class IEEECCVS(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, -10, -15, -10)
-            painter.drawLine(-30, 10, -15, 10)
-            painter.drawLine(15, -10, 30, -10)
-            painter.drawLine(15, 10, 30, 10)
+        painter.drawLine(-30, -10, -15, -10)
+        painter.drawLine(-30, 10, -15, 10)
+        painter.drawLine(15, -10, 30, -10)
+        painter.drawLine(15, 10, 30, 10)
         # Diamond shape
         painter.drawLine(-15, 0, 0, -15)
         painter.drawLine(0, -15, 15, 0)
@@ -245,11 +236,10 @@ class IEEECCVS(ComponentRenderer):
 
 class IEEEVCCS(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, -10, -15, -10)
-            painter.drawLine(-30, 10, -15, 10)
-            painter.drawLine(15, -10, 30, -10)
-            painter.drawLine(15, 10, 30, 10)
+        painter.drawLine(-30, -10, -15, -10)
+        painter.drawLine(-30, 10, -15, 10)
+        painter.drawLine(15, -10, 30, -10)
+        painter.drawLine(15, 10, 30, 10)
         # Diamond shape
         painter.drawLine(-15, 0, 0, -15)
         painter.drawLine(0, -15, 15, 0)
@@ -268,11 +258,10 @@ class IEEEVCCS(ComponentRenderer):
 
 class IEEECCCS(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, -10, -15, -10)
-            painter.drawLine(-30, 10, -15, 10)
-            painter.drawLine(15, -10, 30, -10)
-            painter.drawLine(15, 10, 30, 10)
+        painter.drawLine(-30, -10, -15, -10)
+        painter.drawLine(-30, 10, -15, 10)
+        painter.drawLine(15, -10, 30, -10)
+        painter.drawLine(15, 10, 30, 10)
         # Diamond shape
         painter.drawLine(-15, 0, 0, -15)
         painter.drawLine(0, -15, 15, 0)
@@ -295,10 +284,9 @@ class IEEECCCS(ComponentRenderer):
 
 class IEEEBJTNPN(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-20, 0, -8, 0)
-            painter.drawLine(8, -12, 20, -20)
-            painter.drawLine(8, 12, 20, 20)
+        painter.drawLine(-20, 0, -8, 0)
+        painter.drawLine(8, -12, 20, -20)
+        painter.drawLine(8, 12, 20, 20)
         painter.drawLine(-8, -12, -8, 12)
         painter.drawLine(-8, -6, 8, -12)
         painter.drawLine(-8, 6, 8, 12)
@@ -311,10 +299,9 @@ class IEEEBJTNPN(ComponentRenderer):
 
 class IEEEBJTPNP(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-20, 0, -8, 0)
-            painter.drawLine(8, -12, 20, -20)
-            painter.drawLine(8, 12, 20, 20)
+        painter.drawLine(-20, 0, -8, 0)
+        painter.drawLine(8, -12, 20, -20)
+        painter.drawLine(8, 12, 20, 20)
         painter.drawLine(-8, -12, -8, 12)
         painter.drawLine(-8, -6, 8, -12)
         painter.drawLine(-8, 6, 8, 12)
@@ -327,10 +314,9 @@ class IEEEBJTPNP(ComponentRenderer):
 
 class IEEEMOSFETNMOS(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(20, -20, 20, -10)
-            painter.drawLine(-20, 0, -10, 0)
-            painter.drawLine(20, 20, 20, 10)
+        painter.drawLine(20, -20, 20, -10)
+        painter.drawLine(-20, 0, -10, 0)
+        painter.drawLine(20, 20, 20, 10)
         # Gate plate (continuous vertical line)
         painter.drawLine(-10, -12, -10, 12)
         # Channel segments (three separate segments for enhancement mode)
@@ -354,10 +340,9 @@ class IEEEMOSFETNMOS(ComponentRenderer):
 
 class IEEEMOSFETPMOS(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(20, -20, 20, -10)
-            painter.drawLine(-20, 0, -10, 0)
-            painter.drawLine(20, 20, 20, 10)
+        painter.drawLine(20, -20, 20, -10)
+        painter.drawLine(-20, 0, -10, 0)
+        painter.drawLine(20, 20, 20, 10)
         # Gate plate (continuous vertical line)
         painter.drawLine(-10, -12, -10, 12)
         # Channel segments (three separate segments for enhancement mode)
@@ -383,11 +368,10 @@ class IEEEMOSFETPMOS(ComponentRenderer):
 
 class IEEEVCSwitch(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, -10, -15, -10)
-            painter.drawLine(-30, 10, -15, 10)
-            painter.drawLine(15, -10, 30, -10)
-            painter.drawLine(15, 10, 30, 10)
+        painter.drawLine(-30, -10, -15, -10)
+        painter.drawLine(-30, 10, -15, 10)
+        painter.drawLine(15, -10, 30, -10)
+        painter.drawLine(15, 10, 30, 10)
         painter.drawRect(-15, -15, 30, 30)
         painter.drawLine(-8, 8, 8, -4)
         painter.drawEllipse(-10, 6, 4, 4)
@@ -404,9 +388,8 @@ class IEEEVCSwitch(ComponentRenderer):
 
 class IEEEDiode(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -10, 0)
-            painter.drawLine(10, 0, 30, 0)
+        painter.drawLine(-30, 0, -10, 0)
+        painter.drawLine(10, 0, 30, 0)
         painter.drawLine(-10, -10, -10, 10)
         painter.drawLine(-10, -10, 10, 0)
         painter.drawLine(-10, 10, 10, 0)
@@ -418,9 +401,8 @@ class IEEEDiode(ComponentRenderer):
 
 class IEEELED(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -10, 0)
-            painter.drawLine(10, 0, 30, 0)
+        painter.drawLine(-30, 0, -10, 0)
+        painter.drawLine(10, 0, 30, 0)
         painter.drawLine(-10, -10, -10, 10)
         painter.drawLine(-10, -10, 10, 0)
         painter.drawLine(-10, 10, 10, 0)
@@ -439,9 +421,8 @@ class IEEELED(ComponentRenderer):
 
 class IEEEZenerDiode(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -10, 0)
-            painter.drawLine(10, 0, 30, 0)
+        painter.drawLine(-30, 0, -10, 0)
+        painter.drawLine(10, 0, 30, 0)
         painter.drawLine(-10, -10, -10, 10)
         painter.drawLine(-10, -10, 10, 0)
         painter.drawLine(-10, 10, 10, 0)
@@ -461,9 +442,8 @@ class IEEEZenerDiode(ComponentRenderer):
 
 class IECResistor(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -15, 0)
-            painter.drawLine(15, 0, 30, 0)
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
         painter.drawRect(-15, -8, 30, 16)
 
     def get_obstacle_shape(self, component):
@@ -472,9 +452,8 @@ class IECResistor(ComponentRenderer):
 
 class IECCapacitor(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -5, 0)
-            painter.drawLine(5, 0, 30, 0)
+        painter.drawLine(-30, 0, -5, 0)
+        painter.drawLine(5, 0, 30, 0)
         # IEC non-polarized: two parallel lines (same as IEEE)
         painter.drawLine(-5, -12, -5, 12)
         painter.drawLine(5, -12, 5, 12)
@@ -485,9 +464,8 @@ class IECCapacitor(ComponentRenderer):
 
 class IECInductor(ComponentRenderer):
     def draw(self, painter, component):
-        if component.scene() is not None:
-            painter.drawLine(-30, 0, -18, 0)
-            painter.drawLine(18, 0, 30, 0)
+        painter.drawLine(-30, 0, -18, 0)
+        painter.drawLine(18, 0, 30, 0)
         # IEC inductor: filled rectangular humps
         painter.drawRect(-18, -8, 36, 8)
         painter.drawLine(-18, 0, 18, 0)
