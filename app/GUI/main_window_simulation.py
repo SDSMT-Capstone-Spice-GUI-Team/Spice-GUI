@@ -316,11 +316,11 @@ class SimulationMixin:
             self._last_results = tran_data
             self.results_text.append("\nTRANSIENT ANALYSIS RESULTS:")
 
-            table_string = self.sim_ctrl.format_results_table(tran_data)
+            table_string = self.simulation_ctrl.format_results_table(tran_data)
             self.results_text.append(table_string)
 
             # Power summary for resistors
-            power_metrics, power_summary = self.sim_ctrl.compute_power_metrics(tran_data, self.model.components)
+            power_metrics, power_summary = self.simulation_ctrl.compute_power_metrics(tran_data, self.model.components)
             if power_metrics:
                 self.results_text.append(power_summary)
 
@@ -344,14 +344,14 @@ class SimulationMixin:
                 else:
                     self._waveform_dialog.close()
                     self._waveform_dialog.deleteLater()
-                    self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.sim_ctrl)
+                    self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.simulation_ctrl)
                     self._waveform_dialog.show()
             else:
                 # Clean up previous waveform dialog
                 if self._waveform_dialog is not None:
                     self._waveform_dialog.close()
                     self._waveform_dialog.deleteLater()
-                self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.sim_ctrl)
+                self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.simulation_ctrl)
                 self._waveform_dialog.show()
         else:
             self.results_text.append("\nNo transient data found in output.")
@@ -583,7 +583,7 @@ class SimulationMixin:
 
             if ok_count > 0:
                 self.results_text.append("\nResults opened in a new window.")
-                self._show_plot_dialog(MonteCarloResultsDialog(mc_data, self, sim_ctrl=self.sim_ctrl))
+                self._show_plot_dialog(MonteCarloResultsDialog(mc_data, self, sim_ctrl=self.simulation_ctrl))
         else:
             self.results_text.append("\nNo Monte Carlo data.")
         self.canvas.clear_op_results()
@@ -592,7 +592,7 @@ class SimulationMixin:
         """Calculate and display power dissipation for all components."""
         components = list(self.circuit_ctrl.get_components().values())
         nodes, _ = self.circuit_ctrl.get_nodes_and_terminal_map()
-        power_data, tp = self.sim_ctrl.compute_power(components, nodes, node_voltages)
+        power_data, tp = self.simulation_ctrl.compute_power(components, nodes, node_voltages)
 
         if power_data:
             # Build voltage-across data for properties panel
@@ -660,7 +660,7 @@ class SimulationMixin:
                 return
 
         if dialog_class is ACSweepPlotDialog:
-            self._show_plot_dialog(dialog_class(data, self, sim_ctrl=self.sim_ctrl))
+            self._show_plot_dialog(dialog_class(data, self, sim_ctrl=self.simulation_ctrl))
         else:
             self._show_plot_dialog(dialog_class(data, self))
 
