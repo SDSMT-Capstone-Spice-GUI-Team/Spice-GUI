@@ -175,6 +175,8 @@ class FileController:
         Returns:
             Path to the last opened file, or None.
         """
+        if not self._session_file.exists():
+            return None
         try:
             with open(self._session_file, "r") as f:
                 path_str = f.read().strip()
