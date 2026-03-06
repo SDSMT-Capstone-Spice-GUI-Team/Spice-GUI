@@ -504,6 +504,7 @@ class CircuitCanvasView(QGraphicsView):
             is_major = x % MAJOR_GRID_INTERVAL == 0
             pen = major_pen if is_major else minor_pen
             line = self.scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
+            line.setZValue(-1)
             self._grid_items.append(line)
 
             # Add label for major grid lines
@@ -521,6 +522,7 @@ class CircuitCanvasView(QGraphicsView):
             is_major = y % MAJOR_GRID_INTERVAL == 0
             pen = major_pen if is_major else minor_pen
             line = self.scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
+            line.setZValue(-1)
             self._grid_items.append(line)
 
             # Add label for major grid lines
