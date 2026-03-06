@@ -169,23 +169,30 @@ class ResultParser:
                     if len(parts) >= 2:
                         try:
                             freq = float(parts[1]) if len(parts) > 1 else float(parts[0])
-                            ac_data["frequencies"].append(freq)
 
-                            # Parse voltage magnitudes and phases
+                            # Parse all column values before committing any
+                            # to avoid length mismatches on partial failures.
+                            row_mag = {}
+                            row_phase = {}
                             for j, header in enumerate(headers[2:], start=2):
                                 if j < len(parts):
                                     if "vp(" in header.lower():
-                                        # Phase data
                                         node = header.replace("vp(", "").replace(")", "")
-                                        if node not in ac_data["phase"]:
-                                            ac_data["phase"][node] = []
-                                        ac_data["phase"][node].append(float(parts[j]))
+                                        row_phase[node] = float(parts[j])
                                     elif "v(" in header.lower():
-                                        # Magnitude data
                                         node = header.replace("v(", "").replace(")", "")
-                                        if node not in ac_data["magnitude"]:
-                                            ac_data["magnitude"][node] = []
-                                        ac_data["magnitude"][node].append(float(parts[j]))
+                                        row_mag[node] = float(parts[j])
+
+                            # Commit atomically: frequency + all parsed columns
+                            ac_data["frequencies"].append(freq)
+                            for node, val in row_mag.items():
+                                if node not in ac_data["magnitude"]:
+                                    ac_data["magnitude"][node] = []
+                                ac_data["magnitude"][node].append(val)
+                            for node, val in row_phase.items():
+                                if node not in ac_data["phase"]:
+                                    ac_data["phase"][node] = []
+                                ac_data["phase"][node].append(val)
                         except (ValueError, IndexError):
                             logger.debug("Skipping unparseable AC sweep row: %s", line.strip())
                             continue

@@ -357,6 +357,8 @@ class ACSweepPlotDialog(QDialog):
             prefix = f"{ds_label} — " if len(self._datasets) > 1 else ""
 
             for i, (node, mag_vals) in enumerate(sorted(magnitude.items())):
+                if not mag_vals or len(mag_vals) != len(frequencies):
+                    continue
                 color = cmap(i % 10)
                 trace_label = f"{prefix}{node}"
                 (line,) = self._ax_mag.semilogx(
@@ -368,7 +370,7 @@ class ACSweepPlotDialog(QDialog):
                 )
                 self._lines[trace_label] = line
 
-                if node in phase:
+                if node in phase and len(phase[node]) == len(frequencies):
                     phase_label = f"{prefix}{node} (phase)"
                     (pline,) = self._ax_phase.semilogx(
                         frequencies,
@@ -380,6 +382,8 @@ class ACSweepPlotDialog(QDialog):
                     self._lines[phase_label] = pline
 
             for i, (node, ph_vals) in enumerate(sorted(phase.items())):
+                if not ph_vals or len(ph_vals) != len(frequencies):
+                    continue
                 if node not in magnitude:
                     color = cmap((len(magnitude) + i) % 10)
                     trace_label = f"{prefix}{node}"
