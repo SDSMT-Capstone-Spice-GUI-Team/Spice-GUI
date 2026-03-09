@@ -529,6 +529,19 @@ class MenuBarMixin:
         self.temp_action = temp_action
         self.noise_action = noise_action
         self.sweep_action = sweep_action
+        self.mc_action = mc_action
+
+        # Short code → QAction mapping used by profile-based analysis filtering
+        self._analysis_action_map: dict[str, QAction] = {
+            "op": op_action,
+            "dc": dc_action,
+            "ac": ac_action,
+            "tran": tran_action,
+            "temp": temp_action,
+            "noise": noise_action,
+            "sweep": sweep_action,
+            "mc": mc_action,
+        }
 
         # Store action references for keybinding re-application
         self._bound_actions = {
