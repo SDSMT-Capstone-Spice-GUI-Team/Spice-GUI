@@ -13,6 +13,7 @@ Issue: #282
 import pytest
 from controllers.circuit_controller import CircuitController
 from controllers.keybindings import KeybindingsRegistry
+from controllers.profile_manager import profile_manager
 from controllers.simulation_controller import SimulationController
 from GUI.analysis_dialog import AnalysisDialog
 from GUI.component_palette import ComponentPalette
@@ -20,6 +21,7 @@ from GUI.keybindings_dialog import KeybindingsDialog
 from GUI.properties_panel import PropertiesPanel
 from models.circuit import CircuitModel
 from models.component import COMPONENT_TYPES, TERMINAL_COUNTS, ComponentData
+from models.course_profile import BUILTIN_PROFILES
 
 pytest.importorskip("PyQt6")
 
@@ -127,6 +129,13 @@ class TestAnalysisDialogInteractions:
 
 class TestComponentPaletteInteractions:
     """Additional palette tests: search and category filtering."""
+
+    @pytest.fixture(autouse=True)
+    def _full_profile(self):
+        """Ensure the 'full' profile is active so all components are visible."""
+        profile_manager._profile = BUILTIN_PROFILES["full"]
+        yield
+        profile_manager._profile = BUILTIN_PROFILES["full"]
 
     @pytest.fixture
     def palette(self, qtbot):

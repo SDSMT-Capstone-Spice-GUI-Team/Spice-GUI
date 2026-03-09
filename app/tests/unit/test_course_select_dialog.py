@@ -9,7 +9,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from controllers.profile_manager import ProfileManager
+from controllers.profile_manager import ProfileManager, profile_manager
 from models.course_profile import BUILTIN_PROFILES
 from PyQt6.QtCore import Qt
 
@@ -18,10 +18,14 @@ from PyQt6.QtCore import Qt
 
 @pytest.fixture(autouse=True)
 def _reset_profile_manager():
-    """Reset singleton state between tests."""
+    """Reset singleton and module-level instance state between tests."""
     ProfileManager._instance = None
+    profile_manager._profile = BUILTIN_PROFILES["full"]
+    profile_manager._observers.clear()
     yield
     ProfileManager._instance = None
+    profile_manager._profile = BUILTIN_PROFILES["full"]
+    profile_manager._observers.clear()
 
 
 @pytest.fixture()
