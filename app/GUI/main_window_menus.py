@@ -302,6 +302,11 @@ class MenuBarMixin:
         self.show_statistics_action.triggered.connect(self._toggle_statistics_panel)
         view_menu.addAction(self.show_statistics_action)
 
+        course_profile_action = QAction("Course &Profile...", self)
+        course_profile_action.setToolTip("Select a course profile to customise the interface")
+        course_profile_action.triggered.connect(self._show_course_profile_dialog)
+        view_menu.addAction(course_profile_action)
+
         view_menu.addSeparator()
 
         # Theme submenu (dynamic — includes custom themes)

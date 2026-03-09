@@ -1,5 +1,6 @@
 """Settings persistence, autosave, crash recovery, and window lifecycle for MainWindow."""
 
+from controllers.profile_manager import profile_manager
 from controllers.settings_service import settings
 from controllers.theme_controller import theme_ctrl
 from PyQt6.QtWidgets import QMessageBox
@@ -35,6 +36,7 @@ class SettingsMixin:
         settings.set("view/wire_thickness", theme_manager.wire_thickness)
         settings.set("view/show_junction_dots", theme_manager.show_junction_dots)
         settings.set("view/routing_mode", theme_manager.routing_mode)
+        settings.set("course/profile_id", profile_manager.get_profile().id)
 
     def _restore_settings(self):
         """Restore user preferences from the centralized settings service."""

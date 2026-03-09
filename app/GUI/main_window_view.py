@@ -1,11 +1,17 @@
 """View operations: theme, visibility toggles, probe tool, zoom, and image export for MainWindow."""
 
+import logging
+
+from controllers.profile_manager import profile_manager
+from controllers.settings_service import settings as app_settings
 from controllers.theme_controller import theme_ctrl
 from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
 from .styles import theme_manager
 from .waveform_dialog import WaveformDialog
+
+_logger = logging.getLogger(__name__)
 
 
 class ViewOperationsMixin:
@@ -470,6 +476,38 @@ class ViewOperationsMixin:
                 statusBar.showMessage(f"CircuiTikZ exported to {filename}", 3000)
         except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to export: {e}")
+
+    # ── Course profile integration ─────────────────────────────────
+
+    def _restore_course_profile(self):
+        """On startup, activate the last-used profile from settings."""
+        saved_id = app_settings.get_str("course/profile_id", "")
+        if saved_id:
+            try:
+                profile_manager.set_profile(saved_id)
+            except KeyError:
+                _logger.warning("Saved profile %r not found, keeping default", saved_id)
+        # Apply panel visibility for the current profile
+        self._apply_profile_panels(profile_manager.get_profile())
+
+    def _on_profile_changed(self, profile):
+        """Observer callback — update UI panels when the active profile changes."""
+        self._apply_profile_panels(profile)
+        self.show_status_message(f"Course profile: {profile.name}", 3000)
+
+    def _apply_profile_panels(self, profile):
+        """Show or hide advanced panels based on the profile's show_advanced_panels flag."""
+        show = profile.show_advanced_panels
+        self.statistics_panel.setVisible(show and self.show_statistics_action.isChecked())
+        self.show_statistics_action.setEnabled(show)
+        self.grading_panel.setVisible(show and self.grading_panel.isVisible())
+
+    def _show_course_profile_dialog(self):
+        """Open the CourseSelectDialog from the View menu."""
+        from .course_select_dialog import CourseSelectDialog
+
+        dialog = CourseSelectDialog(self)
+        dialog.exec()
 
     def copy_circuitikz(self):
         """Copy the CircuiTikZ environment block to the clipboard."""
