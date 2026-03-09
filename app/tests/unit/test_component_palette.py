@@ -7,10 +7,12 @@ recommended components, and used-in-file auto-detection.
 """
 
 import pytest
+from controllers.profile_manager import ProfileManager, profile_manager
 from controllers.settings_service import settings as app_settings
 from GUI.component_palette import _RECOMMENDED_CATEGORY, _USED_IN_FILE_CATEGORY, ComponentPalette
 from GUI.styles import COMPONENTS
 from models.component import COMPONENT_CATEGORIES
+from models.course_profile import BUILTIN_PROFILES
 from PyQt6.QtCore import Qt
 
 
@@ -23,6 +25,14 @@ def _clear_palette_settings():
     # Cleanup after test too
     for category_name in COMPONENT_CATEGORIES:
         app_settings.set(f"palette/expanded/{category_name}", None)
+
+
+@pytest.fixture(autouse=True)
+def _reset_profile_manager():
+    """Reset ProfileManager singleton so each test starts with 'full' profile."""
+    ProfileManager._instance = None
+    yield
+    ProfileManager._instance = None
 
 
 @pytest.fixture
@@ -389,3 +399,65 @@ class TestCircuitModelRecommendedPersistence:
         model.recommended_components = ["Resistor"]
         model.clear()
         assert model.recommended_components == []
+
+
+class TestProfileFiltering:
+    """Test profile-based component filtering."""
+
+    def test_full_profile_shows_all(self, palette):
+        """With the default 'full' profile every component should be visible."""
+        visible = _visible_component_names(palette)
+        assert len(visible) == len(COMPONENTS)
+
+    def test_restricted_profile_hides_components(self, qtbot):
+        """Switching to ee120 should hide components not in that profile."""
+        profile_manager.set_profile("ee120")
+        p = ComponentPalette()
+        qtbot.addWidget(p)
+        visible = _visible_component_names(p)
+        ee120 = BUILTIN_PROFILES["ee120"]
+        assert set(visible) == set(ee120.allowed_components)
+
+    def test_observer_updates_on_profile_change(self, palette):
+        """Palette observes ProfileManager and updates when profile changes."""
+        profile_manager.set_profile("ee120")
+        visible = _visible_component_names(palette)
+        ee120 = BUILTIN_PROFILES["ee120"]
+        assert set(visible) == set(ee120.allowed_components)
+
+    def test_switch_back_to_full_restores_all(self, palette):
+        """Switching from restricted back to full should show everything again."""
+        profile_manager.set_profile("ee120")
+        profile_manager.set_profile("full")
+        visible = _visible_component_names(palette)
+        assert len(visible) == len(COMPONENTS)
+
+    def test_hidden_categories_when_no_children_allowed(self, palette):
+        """Categories with no allowed children should be hidden entirely."""
+        profile_manager.set_profile("ee120")
+        # ee120 has no semiconductors
+        assert palette._category_items["Semiconductors"].isHidden()
+        # Passive has Resistor which is in ee120
+        assert not palette._category_items["Passive"].isHidden()
+
+    def test_search_respects_profile_filter(self, palette):
+        """Search should not reveal components hidden by the profile."""
+        profile_manager.set_profile("ee120")
+        palette.search_input.setText("capacitor")
+        visible = _visible_component_names(palette)
+        # Capacitor is not in ee120, so it should stay hidden
+        assert "Capacitor" not in visible
+
+    def test_search_works_within_allowed(self, palette):
+        """Search should find components that are allowed by the profile."""
+        profile_manager.set_profile("ee120")
+        palette.search_input.setText("resistor")
+        visible = _visible_component_names(palette)
+        assert "Resistor" in visible
+
+    def test_circuits2_profile(self, palette):
+        """circuits2 should show op-amp and dependent sources."""
+        profile_manager.set_profile("circuits2")
+        visible = _visible_component_names(palette)
+        circuits2 = BUILTIN_PROFILES["circuits2"]
+        assert set(visible) == set(circuits2.allowed_components)

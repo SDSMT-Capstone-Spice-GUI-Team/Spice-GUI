@@ -1,3 +1,4 @@
+from controllers.profile_manager import profile_manager
 from controllers.settings_service import settings as app_settings
 from models.builtin_subcircuits import register_builtin_subcircuits
 from models.component import COMPONENT_CATEGORIES
@@ -90,6 +91,10 @@ class ComponentPalette(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
+        # Profile filtering — set of allowed component names (empty = show all)
+        self._allowed_components: set[str] = set()
+        self._apply_profile(profile_manager.get_profile())
+
         # Search filter
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Filter components...")
@@ -143,6 +148,48 @@ class ComponentPalette(QWidget):
         self.tree_widget.itemExpanded.connect(self._save_expanded_state)
         self.tree_widget.itemCollapsed.connect(self._save_expanded_state)
         layout.addWidget(self.tree_widget)
+
+        # Apply initial profile filter and observe future changes
+        self._apply_profile_filter()
+        profile_manager.register_observer(self._on_profile_changed)
+
+    # ── Profile filtering ────────────────────────────────────────────
+
+    def _apply_profile(self, profile):
+        """Update the allowed-components set from a CourseProfile."""
+        if profile.id == "full":
+            self._allowed_components = set()
+        else:
+            self._allowed_components = set(profile.allowed_components)
+
+    def _on_profile_changed(self, profile):
+        """Observer callback — refresh visibility when the active profile changes."""
+        self._apply_profile(profile)
+        self._apply_profile_filter()
+
+    def _apply_profile_filter(self):
+        """Show/hide component items based on the active profile then re-apply search."""
+        allowed = self._allowed_components
+
+        for category_item in self._category_items.values():
+            for i in range(category_item.childCount()):
+                child = category_item.child(i)
+                hidden_by_profile = bool(allowed) and child.text(0) not in allowed
+                child.setHidden(hidden_by_profile)
+
+            # Hide category entirely when all children are profile-hidden
+            if allowed:
+                any_visible = any(not category_item.child(i).isHidden() for i in range(category_item.childCount()))
+                category_item.setHidden(not any_visible)
+            else:
+                category_item.setHidden(False)
+
+        # Re-apply the current search filter on top of profile filtering
+        self._filter_components(self.search_input.text())
+
+    def _is_hidden_by_profile(self, component_name: str) -> bool:
+        """Return True if the component is excluded by the active profile."""
+        return bool(self._allowed_components) and component_name not in self._allowed_components
 
     def _on_item_double_clicked(self, item, column):
         """Handle double-click on palette item (ignore category headers)."""
@@ -249,6 +296,10 @@ class ComponentPalette(QWidget):
             any_child_visible = False
             for i in range(category_item.childCount()):
                 child = category_item.child(i)
+                # Items hidden by profile stay hidden regardless of search
+                if self._is_hidden_by_profile(child.text(0)):
+                    child.setHidden(True)
+                    continue
                 name = child.text(0).lower()
                 tooltip = (child.toolTip(0) or "").lower()
                 matches = text in name or text in tooltip
