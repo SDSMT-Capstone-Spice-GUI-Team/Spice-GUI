@@ -178,10 +178,11 @@ class TestAutoSaveWriting:
         autosave_file = str(tmp_path / ".autosave_recovery.json")
         model = _build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
-        ctrl.current_file = Path("/some/circuit.json")
+        source = tmp_path / "circuit.json"
+        ctrl.current_file = source
         ctrl.auto_save()
         data = json.loads(ctrl._autosave_file.read_text())
-        assert data["_autosave_source"] == "/some/circuit.json"
+        assert data["_autosave_source"] == str(source)
 
     def test_auto_save_empty_source_when_no_current_file(self, tmp_path):
         """auto_save should store empty string when no current_file."""
@@ -381,13 +382,14 @@ class TestLoadAutoSaveBranches:
         autosave_file = str(tmp_path / ".autosave_recovery.json")
         model = _build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
-        ctrl.current_file = Path("/original/circuit.json")
+        original_path = tmp_path / "circuit.json"
+        ctrl.current_file = original_path
         ctrl.auto_save()
 
         ctrl2 = FileController(autosave_file=autosave_file)
         source = ctrl2.load_auto_save()
-        assert source == "/original/circuit.json"
-        assert ctrl2.current_file == Path("/original/circuit.json")
+        assert source == str(original_path)
+        assert ctrl2.current_file == original_path
 
     def test_load_auto_save_notifies_circuit_ctrl(self, tmp_path):
         """load_auto_save should notify circuit_ctrl with 'model_loaded'."""
