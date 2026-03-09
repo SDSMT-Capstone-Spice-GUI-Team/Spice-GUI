@@ -13,6 +13,8 @@ from models.subcircuit_library import (
     SubcircuitDefinition,
     SubcircuitLibrary,
     _generate_terminal_geometry,
+    _register_graphics,
+    _register_subcircuit_renderer,
     parse_subckt,
     register_subcircuit_component,
 )
@@ -319,3 +321,212 @@ class TestParseSubcktEdgeCases:
         text = ".SUBCKT Upper A B\n.ENDS"
         defs = parse_subckt(text)
         assert defs[0].name == "Upper"
+
+
+# ---- _load_builtins ImportError path (lines 208-209) ----
+
+
+class TestLoadBuiltinsImportError:
+    def test_load_builtins_import_error_silenced(self, tmp_path):
+        """When models.builtin_subcircuits cannot be imported, _load_builtins silently passes."""
+        with patch.dict("sys.modules", {"models.builtin_subcircuits": None}):
+            lib = SubcircuitLibrary(library_dir=tmp_path)
+            # Library should still be usable, just no builtins
+            assert isinstance(lib.definitions, dict)
+
+
+# ---- register_subcircuit_component GUI import failures (lines 307-308) ----
+
+
+class TestRegisterSubcircuitComponentStylesFailure:
+    def setup_method(self):
+        from models.component import (
+            COMPONENT_CATEGORIES,
+            COMPONENT_COLORS,
+            COMPONENT_TYPES,
+            DEFAULT_VALUES,
+            SPICE_SYMBOLS,
+            TERMINAL_COUNTS,
+            TERMINAL_GEOMETRY,
+        )
+
+        self._saved = {
+            "types": list(COMPONENT_TYPES),
+            "symbols": dict(SPICE_SYMBOLS),
+            "counts": dict(TERMINAL_COUNTS),
+            "defaults": dict(DEFAULT_VALUES),
+            "colors": dict(COMPONENT_COLORS),
+            "geometry": dict(TERMINAL_GEOMETRY),
+            "categories": {k: list(v) for k, v in COMPONENT_CATEGORIES.items()},
+        }
+
+    def teardown_method(self):
+        from models.component import (
+            COMPONENT_CATEGORIES,
+            COMPONENT_COLORS,
+            COMPONENT_TYPES,
+            DEFAULT_VALUES,
+            SPICE_SYMBOLS,
+            TERMINAL_COUNTS,
+            TERMINAL_GEOMETRY,
+        )
+
+        COMPONENT_TYPES.clear()
+        COMPONENT_TYPES.extend(self._saved["types"])
+        SPICE_SYMBOLS.clear()
+        SPICE_SYMBOLS.update(self._saved["symbols"])
+        TERMINAL_COUNTS.clear()
+        TERMINAL_COUNTS.update(self._saved["counts"])
+        DEFAULT_VALUES.clear()
+        DEFAULT_VALUES.update(self._saved["defaults"])
+        COMPONENT_COLORS.clear()
+        COMPONENT_COLORS.update(self._saved["colors"])
+        TERMINAL_GEOMETRY.clear()
+        TERMINAL_GEOMETRY.update(self._saved["geometry"])
+        COMPONENT_CATEGORIES.clear()
+        COMPONENT_CATEGORIES.update(self._saved["categories"])
+
+    def test_styles_import_failure_silenced(self):
+        """When GUI.styles.constants import fails, registration still completes."""
+        defn = SubcircuitDefinition(
+            name="StylesFail", terminals=["A", "B"], spice_definition=".subckt StylesFail A B\n.ends"
+        )
+        with (
+            patch("models.subcircuit_library._register_graphics"),
+            patch.dict("sys.modules", {"GUI.styles.constants": None}),
+        ):
+            register_subcircuit_component(defn)
+        from models.component import SPICE_SYMBOLS
+
+        assert SPICE_SYMBOLS["StylesFail"] == "X"
+
+
+# ---- _register_graphics exception paths (lines 332-333, 339-340) ----
+
+
+class TestRegisterGraphicsExceptions:
+    def test_component_item_import_failure(self):
+        """When GUI.component_item import fails, _register_graphics silently passes."""
+        defn = SubcircuitDefinition(
+            name="GfxFail1", terminals=["A", "B"], spice_definition=".subckt GfxFail1 A B\n.ends"
+        )
+        with patch.dict("sys.modules", {"GUI.component_item": None}):
+            # Should not raise
+            _register_graphics("GfxFail1", defn)
+
+    def test_renderers_import_failure(self):
+        """When GUI.renderers import fails, _register_graphics silently passes."""
+        defn = SubcircuitDefinition(
+            name="GfxFail2", terminals=["A", "B"], spice_definition=".subckt GfxFail2 A B\n.ends"
+        )
+        with patch.dict("sys.modules", {"GUI.renderers": None}):
+            _register_graphics("GfxFail2", defn)
+
+
+# ---- SubcircuitRenderer.draw and get_obstacle_shape (lines 355-383) ----
+
+
+class TestSubcircuitRenderer:
+    def _make_renderer(self, terminal_count):
+        """Create a SubcircuitRenderer instance via _register_subcircuit_renderer."""
+        from GUI.renderers import ComponentRenderer, _bounding_rect_obstacle
+
+        defn = SubcircuitDefinition(
+            name=f"RenderTest{terminal_count}",
+            terminals=[f"t{i}" for i in range(terminal_count)],
+            spice_definition=f".subckt RenderTest{terminal_count} "
+            + " ".join(f"t{i}" for i in range(terminal_count))
+            + "\n.ends",
+        )
+        captured = {}
+
+        def fake_register(name, style, renderer):
+            captured.setdefault(name, {})[style] = renderer
+
+        _register_subcircuit_renderer(defn.name, defn, fake_register, lambda r: r)
+        return captured[defn.name]["ieee"]
+
+    def test_draw_two_terminals(self):
+        """Exercise the 2-terminal draw branch."""
+        renderer = self._make_renderer(2)
+        painter = MagicMock()
+        component = MagicMock()
+        component.scene.return_value = MagicMock()  # non-None scene
+        renderer.draw(painter, component)
+        painter.drawRect.assert_called_once_with(-18, -15, 36, 30)
+        # 2-terminal draws 2 lines
+        assert painter.drawLine.call_count == 2
+
+    def test_draw_three_terminals(self):
+        """Exercise the 3-terminal draw branch."""
+        renderer = self._make_renderer(3)
+        painter = MagicMock()
+        component = MagicMock()
+        component.scene.return_value = MagicMock()
+        renderer.draw(painter, component)
+        painter.drawRect.assert_called_once()
+        # 3-terminal draws 3 lines
+        assert painter.drawLine.call_count == 3
+
+    def test_draw_four_terminals(self):
+        """Exercise the 4+ terminal draw branch (left/right leads)."""
+        renderer = self._make_renderer(4)
+        painter = MagicMock()
+        component = MagicMock()
+        component.scene.return_value = MagicMock()
+        renderer.draw(painter, component)
+        painter.drawRect.assert_called_once()
+        # 4 terminals = 4 lead lines
+        assert painter.drawLine.call_count == 4
+
+    def test_draw_no_scene(self):
+        """When component.scene() is None, terminal lines are skipped."""
+        renderer = self._make_renderer(3)
+        painter = MagicMock()
+        component = MagicMock()
+        component.scene.return_value = None
+        renderer.draw(painter, component)
+        painter.drawRect.assert_called_once()
+        # No drawLine calls when scene is None
+        painter.drawLine.assert_not_called()
+
+    def test_get_obstacle_shape(self):
+        """Exercise get_obstacle_shape method."""
+        renderer = self._make_renderer(2)
+        component = MagicMock()
+        result = renderer.get_obstacle_shape(component)
+        # Should return whatever _bounding_rect_obstacle returns
+        assert result is not None
+
+
+# ---- _register_subcircuit_renderer exception path (lines 389-390) ----
+
+
+class TestRegisterRendererException:
+    def test_register_fn_failure_silenced(self):
+        """When register_fn raises, _register_subcircuit_renderer silently passes."""
+        from GUI.renderers import ComponentRenderer, _bounding_rect_obstacle
+
+        defn = SubcircuitDefinition(name="RegFail", terminals=["A", "B"], spice_definition=".subckt RegFail A B\n.ends")
+
+        def failing_register(name, style, renderer):
+            raise RuntimeError("registration failed")
+
+        # Should not raise
+        _register_subcircuit_renderer("RegFail", defn, failing_register, lambda r: r)
+
+
+# ---- builtin_subcircuits.py load_builtin_subcircuits_into_library (lines 96-97) ----
+
+
+class TestLoadBuiltinSubcircuitsIntoLibrary:
+    def test_load_builtin_subcircuits_into_library(self, tmp_path):
+        """Calling load_builtin_subcircuits_into_library adds all builtins to the library."""
+        from models.builtin_subcircuits import BUILTIN_SUBCIRCUITS, load_builtin_subcircuits_into_library
+
+        lib = SubcircuitLibrary(library_dir=tmp_path)
+        load_builtin_subcircuits_into_library(lib)
+        for defn in BUILTIN_SUBCIRCUITS:
+            loaded = lib.get(defn.name)
+            assert loaded is not None
+            assert loaded.name == defn.name
