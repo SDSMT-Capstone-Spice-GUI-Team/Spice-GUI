@@ -39,9 +39,10 @@ def _clear_course_setting():
 
 def _make_stub_window():
     """Build a minimal stub with the attributes ViewOperationsMixin expects."""
+    from GUI.main_window_analysis import AnalysisSettingsMixin
     from GUI.main_window_view import ViewOperationsMixin
 
-    stub = type("StubWindow", (ViewOperationsMixin,), {})()
+    stub = type("StubWindow", (AnalysisSettingsMixin, ViewOperationsMixin), {})()
 
     # Minimal widget stand-ins
     stub.statistics_panel = MagicMock()
@@ -53,6 +54,13 @@ def _make_stub_window():
 
     stub.statusBar = MagicMock(return_value=MagicMock())
     stub.show_status_message = MagicMock()
+
+    # Analysis menu mock actions (needed by AnalysisSettingsMixin)
+    stub._analysis_action_map = {
+        code: MagicMock() for code in ("op", "dc", "ac", "tran", "temp", "noise", "sweep", "mc")
+    }
+    stub.analysis_group = MagicMock()
+    stub.analysis_group.checkedAction.return_value = None
 
     return stub
 

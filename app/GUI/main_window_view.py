@@ -487,12 +487,15 @@ class ViewOperationsMixin:
                 profile_manager.set_profile(saved_id)
             except KeyError:
                 _logger.warning("Saved profile %r not found, keeping default", saved_id)
-        # Apply panel visibility for the current profile
-        self._apply_profile_panels(profile_manager.get_profile())
+        # Apply panel visibility and analysis menu filtering for the current profile
+        current = profile_manager.get_profile()
+        self._apply_profile_panels(current)
+        self._apply_analysis_profile_filter(current)
 
     def _on_profile_changed(self, profile):
-        """Observer callback — update UI panels when the active profile changes."""
+        """Observer callback — update UI panels and menus when the active profile changes."""
         self._apply_profile_panels(profile)
+        self._apply_analysis_profile_filter(profile)
         self.show_status_message(f"Course profile: {profile.name}", 3000)
 
     def _apply_profile_panels(self, profile):

@@ -1,10 +1,25 @@
 """Analysis type configuration dialogs and menu synchronization for MainWindow."""
 
+from __future__ import annotations
+
 from PyQt6.QtWidgets import QDialog, QMessageBox
 
 from .analysis_dialog import AnalysisDialog
 from .monte_carlo_dialog import MonteCarloDialog
 from .parameter_sweep_dialog import ParameterSweepDialog
+
+# Maps analysis short codes (used in CourseProfile.allowed_analyses) to the
+# full analysis-type name stored in CircuitModel.analysis_type.
+_CODE_TO_ANALYSIS_TYPE: dict[str, str] = {
+    "op": "DC Operating Point",
+    "dc": "DC Sweep",
+    "ac": "AC Sweep",
+    "tran": "Transient",
+    "temp": "Temperature Sweep",
+    "noise": "Noise",
+    "sweep": "Parameter Sweep",
+    "mc": "Monte Carlo",
+}
 
 
 class AnalysisSettingsMixin:
@@ -199,3 +214,35 @@ class AnalysisSettingsMixin:
             self.noise_action.setChecked(True)
         elif analysis_type == "Parameter Sweep":
             self.sweep_action.setChecked(True)
+
+    # ── Profile-based analysis filtering ──────────────────────────
+
+    def _apply_analysis_profile_filter(self, profile) -> None:
+        """Show/hide analysis menu actions based on the active profile.
+
+        When the profile id is ``"full"`` every analysis is visible.
+        Otherwise only analyses whose short code appears in
+        ``profile.allowed_analyses`` are shown.  If the currently
+        selected analysis becomes hidden, we fall back to the first
+        allowed analysis type.
+        """
+        action_map: dict = self._analysis_action_map  # code → QAction
+
+        if profile.id == "full":
+            allowed: set[str] = set()
+        else:
+            allowed = set(profile.allowed_analyses)
+
+        for code, action in action_map.items():
+            hidden = bool(allowed) and code not in allowed
+            action.setVisible(not hidden)
+
+        # If the currently checked analysis is now hidden, switch to
+        # the first visible analysis (prefer "op" if available).
+        if allowed:
+            checked = self.analysis_group.checkedAction()
+            if checked is not None and not checked.isVisible():
+                fallback_code = "op" if "op" in allowed else next(iter(allowed))
+                fallback_action = action_map[fallback_code]
+                fallback_action.setChecked(True)
+                fallback_action.trigger()
