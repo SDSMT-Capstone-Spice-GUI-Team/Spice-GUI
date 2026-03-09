@@ -17,6 +17,7 @@ from pathlib import Path
 from controllers.circuit_controller import CircuitController
 from controllers.file_controller import FileController
 from controllers.keybindings import KeybindingsRegistry
+from controllers.profile_manager import profile_manager
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt, QTimer
@@ -114,6 +115,10 @@ class MainWindow(
         self._autosave_timer = QTimer(self)
         self._autosave_timer.timeout.connect(self._auto_save)
         self.start_autosave_timer()
+
+        # Restore last-used course profile and observe future changes
+        self._restore_course_profile()
+        profile_manager.register_observer(self._on_profile_changed)
 
     # --- ApplicationShellProtocol properties ---
 
