@@ -26,7 +26,7 @@ class ViewOperationsMixin:
     def apply_theme(self):
         """Apply the current theme to all visual elements."""
         theme = theme_manager.current_theme
-        self.setStyleSheet(theme.generate_dark_stylesheet())
+        self.setStyleSheet(theme.load_qss())
 
         # Refresh canvas (grid + components)
         self.canvas.refresh_theme()

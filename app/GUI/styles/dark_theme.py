@@ -10,13 +10,14 @@ from .theme import BaseTheme
 class DarkTheme(BaseTheme):
     """Dark theme with high-contrast colors on a dark background."""
 
+    _qss_filename = "dark_theme.qss"
+
     def __init__(self):
         super().__init__()
         self._define_colors()
         self._define_pens()
         self._define_brushes()
         self._define_fonts()
-        self._define_stylesheets()
 
     @property
     def name(self) -> str:
@@ -146,18 +147,3 @@ class DarkTheme(BaseTheme):
             "probe_label": {"size": 10, "bold": True},
         }
 
-    def _define_stylesheets(self):
-        """Define all stylesheet strings for dark mode."""
-        self._stylesheets = {
-            "instructions_panel": """
-                QLabel {
-                    background-color: #2D2D2D;
-                    color: #D4D4D4;
-                    padding: 10px;
-                    border-radius: 5px;
-                }
-            """,
-            "muted_label": "QLabel { color: #999; }",
-            "title_bold": "font-weight: bold; font-size: 12pt; color: #D4D4D4;",
-            "metrics_text": "font-family: monospace; font-size: 9pt; color: #D4D4D4;",
-        }

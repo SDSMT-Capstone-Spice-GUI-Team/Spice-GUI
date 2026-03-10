@@ -1,6 +1,9 @@
 """
 Styles module - Centralized styling system for the Spice-GUI application.
 
+Widget styling is defined in QSS files (dark_theme.qss, light_theme.qss).
+Canvas rendering (pens, brushes, fonts) remains in Python theme classes.
+
 Usage:
     from app.GUI.styles import GRID_SIZE, COMPONENTS, theme_manager
 
@@ -8,19 +11,19 @@ Usage:
     color = theme_manager.color('component_resistor')
     hex_color = theme_manager.color_hex('grid_minor')
 
-    # Get pre-configured pens/brushes/fonts
+    # Get pre-configured pens/brushes/fonts (for QPainter/canvas)
     pen = theme_manager.pen('grid_minor')
     brush = theme_manager.brush('node_label_bg')
     font = theme_manager.font('node_label')
 
-    # Get stylesheets
-    style = theme_manager.stylesheet('instructions_panel')
+    # Load QSS stylesheet for the current theme
+    qss = theme_manager.load_qss()
 
     # Get component-specific styles
     comp_color = theme_manager.get_component_color('Resistor')
     comp_pen = theme_manager.create_component_pen('Resistor')
 
-    # Future: switch themes at runtime
+    # Switch themes at runtime
     # from app.GUI.styles import DarkTheme
     # theme_manager.set_theme(DarkTheme())
 """

@@ -4,12 +4,19 @@ theme.py - Theme protocol and base class.
 Defines the contract that all themes must fulfill.
 """
 
+import logging
+import re
+from pathlib import Path
 from typing import Dict, Protocol
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QPen
 
 from .constants import COMPONENTS
+
+logger = logging.getLogger(__name__)
+
+_STYLES_DIR = Path(__file__).parent
 
 
 class ThemeProtocol(Protocol):
@@ -40,20 +47,21 @@ class ThemeProtocol(Protocol):
         """Get a pre-configured QFont by semantic key."""
         ...
 
-    def stylesheet(self, key: str) -> str:
-        """Get a stylesheet string by semantic key."""
+    def load_qss(self) -> str:
+        """Load and return the resolved QSS stylesheet string."""
         ...
 
 
 class BaseTheme:
     """Base class for themes with shared functionality."""
 
+    _qss_filename: str = ""
+
     def __init__(self):
         self._colors: Dict[str, str] = {}  # key -> hex string
         self._pens: Dict[str, Dict] = {}  # key -> pen config dict
         self._brushes: Dict[str, Dict] = {}  # key -> brush config dict
         self._fonts: Dict[str, Dict] = {}  # key -> font config dict
-        self._stylesheets: Dict[str, str] = {}  # key -> stylesheet string
 
     @property
     def name(self) -> str:
@@ -130,9 +138,65 @@ class BaseTheme:
 
         return font
 
-    def stylesheet(self, key: str) -> str:
-        """Get stylesheet string by key."""
-        return self._stylesheets.get(key, "")
+    def load_qss(self) -> str:
+        """Load the QSS file for this theme and substitute @variable@ placeholders.
+
+        Derived colors (background_mid, border, background_mid_hover) are
+        computed automatically from the theme's color definitions.
+        """
+        if not self._qss_filename:
+            return ""
+
+        qss_path = _STYLES_DIR / self._qss_filename
+        if not qss_path.exists():
+            logger.warning("QSS file not found: %s", qss_path)
+            return ""
+
+        template = qss_path.read_text(encoding="utf-8")
+        return self._substitute_variables(template)
+
+    def _substitute_variables(self, template: str) -> str:
+        """Replace @key@ placeholders with color values from self._colors.
+
+        Also computes derived colors that aren't stored directly:
+        - background_mid: lighter shade of background_secondary
+        - border: even lighter shade of background_secondary
+        - background_mid_hover: lighter shade of background_mid
+
+        Placeholders inside CSS comments are ignored.
+        """
+        # Build the substitution map from theme colors + derived colors
+        variables = dict(self._colors)
+
+        # Compute derived colors
+        bg2 = QColor(self._colors.get("background_secondary", "#F0F0F0"))
+        bg_mid = bg2.lighter(120)
+        border = bg2.lighter(150)
+        bg_mid_hover = bg_mid.lighter(110)
+
+        variables["background_mid"] = bg_mid.name()
+        variables["border"] = border.name()
+        variables["background_mid_hover"] = bg_mid_hover.name()
+
+        # Strip CSS comments before substitution, then substitute on the
+        # original template by only replacing @var@ outside of comments.
+        comment_ranges = [
+            (m.start(), m.end()) for m in re.finditer(r"/\*.*?\*/", template, re.DOTALL)
+        ]
+
+        def in_comment(pos: int) -> bool:
+            return any(start <= pos < end for start, end in comment_ranges)
+
+        def replace_var(match):
+            if in_comment(match.start()):
+                return match.group(0)
+            key = match.group(1)
+            if key in variables:
+                return variables[key]
+            logger.warning("Unknown QSS variable: @%s@", key)
+            return match.group(0)
+
+        return re.sub(r"@(\w+)@", replace_var, template)
 
     # ===== Helper methods for common patterns =====
 
@@ -162,43 +226,3 @@ class BaseTheme:
         """Create a brush for filling a specific component type."""
         color = self.get_component_color(component_type)
         return QBrush(color.lighter(150))
-
-    def generate_dark_stylesheet(self) -> str:
-        """Generate a global dark stylesheet from theme colors.
-
-        Returns an empty string for light themes.
-        """
-        if not self.is_dark:
-            return ""
-
-        bg1 = self.color_hex("background_primary")
-        bg2 = self.color_hex("background_secondary")
-        fg = self.color_hex("text_primary")
-        # Derive mid-tone colors from the background
-        bg_mid = QColor(bg2).lighter(120).name()
-        border = QColor(bg2).lighter(150).name()
-
-        return (
-            f"QMainWindow, QWidget {{ background-color: {bg1}; color: {fg}; }}"
-            f" QMenuBar {{ background-color: {bg2}; color: {fg}; }}"
-            f" QMenuBar::item:selected {{ background-color: {bg_mid}; }}"
-            f" QMenu {{ background-color: {bg2}; color: {fg}; }}"
-            f" QMenu::item:selected {{ background-color: {bg_mid}; }}"
-            f" QLabel {{ color: {fg}; }}"
-            f" QPushButton {{"
-            f"   background-color: {bg_mid}; color: {fg};"
-            f"   border: 1px solid {border}; padding: 4px 12px; border-radius: 3px;"
-            f" }}"
-            f" QPushButton:hover {{ background-color: {QColor(bg_mid).lighter(110).name()}; }}"
-            f" QTextEdit, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {{"
-            f"   background-color: {bg2}; color: {fg};"
-            f"   border: 1px solid {border};"
-            f" }}"
-            f" QSplitter::handle {{ background-color: {bg_mid}; }}"
-            f" QScrollBar {{ background-color: {bg2}; }}"
-            f" QScrollBar::handle {{ background-color: {border}; }}"
-            f" QGroupBox {{ color: {fg}; border: 1px solid {border}; }}"
-            f" QTableWidget {{ background-color: {bg2}; color: {fg};"
-            f"   gridline-color: {border}; }}"
-            f" QHeaderView::section {{ background-color: {bg_mid}; color: {fg}; }}"
-        )

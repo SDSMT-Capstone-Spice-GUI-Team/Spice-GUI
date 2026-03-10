@@ -11,13 +11,14 @@ from .theme import BaseTheme
 class LightTheme(BaseTheme):
     """Light theme - the default application theme."""
 
+    _qss_filename = "light_theme.qss"
+
     def __init__(self):
         super().__init__()
         self._define_colors()
         self._define_pens()
         self._define_brushes()
         self._define_fonts()
-        self._define_stylesheets()
 
     @property
     def name(self) -> str:
@@ -143,17 +144,3 @@ class LightTheme(BaseTheme):
             "probe_label": {"size": 10, "bold": True},
         }
 
-    def _define_stylesheets(self):
-        """Define all stylesheet strings."""
-        self._stylesheets = {
-            "instructions_panel": """
-                QLabel {
-                    background-color: #f0f0f0;
-                    padding: 10px;
-                    border-radius: 5px;
-                }
-            """,
-            "muted_label": "QLabel { color: #666; }",
-            "title_bold": "font-weight: bold; font-size: 12pt;",
-            "metrics_text": "font-family: monospace; font-size: 9pt;",
-        }

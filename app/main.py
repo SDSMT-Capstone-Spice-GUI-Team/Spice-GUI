@@ -19,11 +19,15 @@ import sys
 from GUI.main_window import MainWindow
 from PyQt6.QtWidgets import QApplication
 
+from app.GUI.main_window import SplashScreen
+
 
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
+    widget = SplashScreen()
+    widget.show()
     sys.exit(app.exec())
 
 

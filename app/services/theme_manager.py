@@ -294,9 +294,9 @@ class ThemeManager:
         """Shortcut to get a font from current theme."""
         return self._theme.font(key)
 
-    def stylesheet(self, key: str) -> str:
-        """Shortcut to get a stylesheet from current theme."""
-        return self._theme.stylesheet(key)
+    def load_qss(self) -> str:
+        """Load the QSS stylesheet from the current theme."""
+        return self._theme.load_qss()
 
     # ===== Helper methods delegated to current theme =====
 

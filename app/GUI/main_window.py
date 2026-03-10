@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
-    QWidget,
+    QWidget, QGridLayout, QApplication,
 )
 
 from .circuit_canvas import CircuitCanvasView
@@ -169,7 +169,7 @@ class MainWindow(
         left_panel.addWidget(QLabel("Component Palette"))
         self.palette = ComponentPalette()
         left_panel.addWidget(self.palette)
-        instructions = QLabel(
+        '''instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
             "🖱️ Drag components to move (wires follow!)\n"
@@ -179,9 +179,9 @@ class MainWindow(
             "\n"
             "Wires auto-route using IDA* path finding!"
         )
-        instructions.setWordWrap(True)
-        instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
-        left_panel.addWidget(instructions)
+        ##instructions.setWordWrap(True)
+        ##instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
+        ##left_panel.addWidget(instructions)'''
         main_layout.addLayout(left_panel, 1)
 
         # Center - Canvas and results
@@ -486,3 +486,51 @@ class MainWindow(
                 statusBar.showMessage(f"Imported {Path(filepath).name}", 3000)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Import Error", f"Failed to import file:\n{e}")
+
+
+class SplashScreen(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Welcome to SDM-Spice!")
+
+        self.newCircuitButton = QPushButton("New Circuit")
+        self.loadCircuitButton = QPushButton("Load Circuit")
+        self.preferencesButton = QPushButton("Preferences")
+        self.aboutButton = QPushButton("About SDM-Spice")
+        self.text = QLabel("Welcome to SDM-Spice")
+        self.image = QLabel("I'm a picture, shhhhhh")
+
+        self.layout = QGridLayout(self)
+        self.layout.setVerticalSpacing(15)
+        self.layout.addWidget(self.text, 0, 1)
+        self.layout.addWidget(self.newCircuitButton, 1, 0)
+        self.layout.addWidget(self.loadCircuitButton, 2, 0)
+        self.layout.addWidget(self.preferencesButton, 3, 0)
+        self.layout.addWidget(self.aboutButton, 4, 0)
+        self.layout.addWidget(self.image, 2, 2)
+
+        self.resize(800, 600)
+
+        desktopScreen = self.frameGeometry()
+        centerPoint = QApplication.primaryScreen().geometry().center()
+        desktopScreen.moveCenter(centerPoint)
+        self.move(desktopScreen.topLeft())
+
+
+# def main():
+#    app = QtWidgets.QApplication([])
+#
+#    window = MainWindow()
+#    window.show()
+#
+#    widget = MyWidget()
+#    widget.show()
+#
+#    with open("../darkMode.qss", "r") as file:
+#        _style = file.read()
+#        app.setStyleSheet(_style)
+#
+#    sys.exit(app.exec())
+#
+# main()
