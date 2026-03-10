@@ -24,9 +24,13 @@ class ViewOperationsMixin:
             self.refresh_theme_menu()
 
     def apply_theme(self):
-        """Apply the current theme to all visual elements."""
+        """Apply the current theme to all top-level widgets."""
         theme = theme_manager.current_theme
-        self.setStyleSheet(theme.load_qss())
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(theme.load_qss())
+        else:
+            self.setStyleSheet(theme.load_qss())
 
         # Refresh canvas (grid + components)
         self.canvas.refresh_theme()
