@@ -489,8 +489,9 @@ class MainWindow(
 
 
 class SplashScreen(QWidget):
-    def __init__(self):
+    def __init__(self, main_window=None):
         super().__init__()
+        self._main_window = main_window
 
         self.setWindowTitle("Welcome to SDM-Spice!")
 
@@ -510,12 +511,28 @@ class SplashScreen(QWidget):
         self.layout.addWidget(self.aboutButton, 4, 0)
         self.layout.addWidget(self.image, 2, 2)
 
+        # Connect button actions
+        self.newCircuitButton.clicked.connect(self.close)
+        self.loadCircuitButton.clicked.connect(self._on_load_circuit)
+        self.preferencesButton.clicked.connect(self._on_preferences)
+
         self.resize(800, 600)
 
         desktopScreen = self.frameGeometry()
         centerPoint = QApplication.primaryScreen().geometry().center()
         desktopScreen.moveCenter(centerPoint)
         self.move(desktopScreen.topLeft())
+
+    def _on_load_circuit(self):
+        """Open the load file dialog via the main window, then close splash."""
+        if self._main_window is not None:
+            self._main_window._on_load()
+        self.close()
+
+    def _on_preferences(self):
+        """Open the preferences dialog via the main window."""
+        if self._main_window is not None:
+            self._main_window._open_preferences_dialog()
 
 
 # def main():

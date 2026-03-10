@@ -24,7 +24,7 @@ def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    widget = SplashScreen()
+    widget = SplashScreen(main_window=window)
     widget.show()
     sys.exit(app.exec())
 
