@@ -103,6 +103,10 @@ class CircuitCanvasView(QGraphicsView):
         self._wire_waypoints: list[QPointF] = []  # In-progress waypoints (click-to-place)
         self._wire_waypoint_markers: list = []  # Visual markers for placed waypoints
 
+        # Middle-click panning
+        self._panning = False
+        self._pan_start = QPoint()
+
         # Rubber band selection
         self._rubber_band = None
         self._rubber_band_origin = QPoint()
@@ -489,15 +493,13 @@ class CircuitCanvasView(QGraphicsView):
         self.scene.update()
 
     def draw_grid(self):
-        """Draw background grid with major grid lines labeled with position values"""
+        """Draw background grid with major and minor grid lines."""
         if self.scene is None:
             return
 
         # Grid pens from theme
         minor_pen = theme_manager.pen("grid_minor")
         major_pen = theme_manager.pen("grid_major")
-        grid_label_color = theme_manager.color("grid_label")
-        grid_label_font = theme_manager.font("grid_label")
 
         # Draw vertical lines
         for x in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
@@ -507,16 +509,6 @@ class CircuitCanvasView(QGraphicsView):
             line.setZValue(-1)
             self._grid_items.append(line)
 
-            # Add label for major grid lines
-            if is_major:
-                label = QGraphicsTextItem(str(x))
-                label.setDefaultTextColor(grid_label_color)
-                label.setFont(grid_label_font)
-                label.setPos(x - 15, -GRID_EXTENT)  # Position at top
-                label.setZValue(-1)  # Draw behind components
-                self.scene.addItem(label)
-                self._grid_items.append(label)
-
         # Draw horizontal lines
         for y in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
             is_major = y % MAJOR_GRID_INTERVAL == 0
@@ -524,16 +516,6 @@ class CircuitCanvasView(QGraphicsView):
             line = self.scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
             line.setZValue(-1)
             self._grid_items.append(line)
-
-            # Add label for major grid lines
-            if is_major:
-                label = QGraphicsTextItem(str(y))
-                label.setDefaultTextColor(grid_label_color)
-                label.setFont(grid_label_font)
-                label.setPos(-GRID_EXTENT, y - 10)  # Position at left
-                label.setZValue(-1)  # Draw behind components
-                self.scene.addItem(label)
-                self._grid_items.append(label)
 
     def reroute_connected_wires(self, component):
         """Reroute all wires connected to a component.
@@ -650,8 +632,16 @@ class CircuitCanvasView(QGraphicsView):
         self.componentAdded.emit(component_data.component_id)
 
     def mousePressEvent(self, event):
-        """Handle wire drawing, probe mode, and component selection"""
+        """Handle wire drawing, probe mode, panning, and component selection"""
         if event is None:
+            return
+
+        # Middle-click: start panning
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._panning = True
+            self._pan_start = event.position().toPoint()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
             return
 
         # Probe mode: intercept left clicks to probe nodes/components
@@ -807,8 +797,17 @@ class CircuitCanvasView(QGraphicsView):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        """Update temporary wire line or rubber band while drawing"""
+        """Update temporary wire line, rubber band, or pan while drawing"""
         if event is None:
+            return
+
+        # Middle-click panning
+        if self._panning:
+            delta = event.position().toPoint() - self._pan_start
+            self._pan_start = event.position().toPoint()
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta.x())
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+            event.accept()
             return
 
         if self.wire_start_comp is not None and self.temp_wire_line is not None:
@@ -833,8 +832,15 @@ class CircuitCanvasView(QGraphicsView):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        """Handle mouse release — finalize rubber band selection"""
+        """Handle mouse release — finalize rubber band selection or end panning"""
         if event is None:
+            return
+
+        # End middle-click panning
+        if event.button() == Qt.MouseButton.MiddleButton and self._panning:
+            self._panning = False
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            event.accept()
             return
 
         if self._rubber_band is not None and self._rubber_band.isVisible():
