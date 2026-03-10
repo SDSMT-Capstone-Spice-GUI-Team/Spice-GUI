@@ -1,0 +1,85 @@
+{
+  "name": "Common Emitter Amplifier",
+  "description": "BJT common-emitter amplifier with voltage divider bias. A fundamental single-transistor amplifier topology used in analog circuits.",
+  "components": [
+    {
+      "type": "VoltageSource",
+      "id": "V1",
+      "value": "12V",
+      "pos": {"x": 100.0, "y": 200.0},
+      "rotation": 0
+    },
+    {
+      "type": "VoltageSource",
+      "id": "V2",
+      "value": "0.1V",
+      "pos": {"x": 100.0, "y": 400.0},
+      "rotation": 0
+    },
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "56k",
+      "pos": {"x": 300.0, "y": 100.0},
+      "rotation": 90
+    },
+    {
+      "type": "Resistor",
+      "id": "R2",
+      "value": "12k",
+      "pos": {"x": 300.0, "y": 300.0},
+      "rotation": 90
+    },
+    {
+      "type": "Resistor",
+      "id": "R3",
+      "value": "4.7k",
+      "pos": {"x": 500.0, "y": 100.0},
+      "rotation": 90
+    },
+    {
+      "type": "Resistor",
+      "id": "R4",
+      "value": "1k",
+      "pos": {"x": 500.0, "y": 380.0},
+      "rotation": 90
+    },
+    {
+      "type": "Capacitor",
+      "id": "C1",
+      "value": "10u",
+      "pos": {"x": 200.0, "y": 250.0},
+      "rotation": 0
+    },
+    {
+      "type": "BJTNPN",
+      "id": "Q1",
+      "value": "2N3904",
+      "pos": {"x": 420.0, "y": 250.0},
+      "rotation": 0
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "0V",
+      "pos": {"x": 300.0, "y": 480.0},
+      "rotation": 0
+    }
+  ],
+  "wires": [
+    {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
+    {"start_comp": "V1", "start_term": 0, "end_comp": "R3", "end_term": 0},
+    {"start_comp": "R1", "start_term": 1, "end_comp": "R2", "end_term": 0},
+    {"start_comp": "R1", "start_term": 1, "end_comp": "C1", "end_term": 1},
+    {"start_comp": "C1", "start_term": 0, "end_comp": "V2", "end_term": 0},
+    {"start_comp": "C1", "start_term": 1, "end_comp": "Q1", "end_term": 1},
+    {"start_comp": "R3", "start_term": 1, "end_comp": "Q1", "end_term": 0},
+    {"start_comp": "Q1", "start_term": 2, "end_comp": "R4", "end_term": 0},
+    {"start_comp": "R4", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "R2", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "V2", "start_term": 1, "end_comp": "GND1", "end_term": 0}
+  ],
+  "counters": {"V": 2, "R": 4, "C": 1, "Q": 1, "GND": 1},
+  "category": "Amplifiers"
+}

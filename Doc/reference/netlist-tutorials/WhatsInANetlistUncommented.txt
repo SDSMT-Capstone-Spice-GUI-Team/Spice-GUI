@@ -1,0 +1,17 @@
+Title
+
+Vinput A 0 DC 12
+
+Rapple A B 2
+
+Rorange B 0 4
+
+.op
+
+.control
+run
+
+print v(A) v(B)
+
+.endc
+.end

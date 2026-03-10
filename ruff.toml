@@ -1,0 +1,21 @@
+target-version = "py310"
+line-length = 120
+
+[lint]
+# Start with a focused set of rules — expand over time
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+]
+ignore = [
+    "E402",  # module-level import not at top — logger setup before imports is intentional
+    "E501",  # line too long — handled by formatter, not linter
+    "E741",  # ambiguous variable name (l, O, I) — common in math/circuit code
+    "W291",  # trailing whitespace
+    "W292",  # no newline at end of file
+    "W293",  # whitespace before ':'
+]
+
+[lint.per-file-ignores]
+"app/tests/**" = ["F401"]  # unused imports OK in tests

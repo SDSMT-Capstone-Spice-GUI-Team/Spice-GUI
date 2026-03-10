@@ -1,42 +1,41 @@
-import sys
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QAction
 
 from app.ComponentPalette import ComponentPalette
-from app.GUI import CircuitCanvasView
-from app.PropertiesPanel import PropertiesPanel
 from app.GUI.circuit_canvas_rebuild import CircuitCanvasViewRebuild
+from app.PropertiesPanel import PropertiesPanel
 
 
 class MainWindowRebuild(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
 
-        #Set Window Title and start Maximized
+        # Set Window Title and start Maximized
         self.setWindowTitle("SDM-Spice")
         self.showMaximized()
 
-        #Setup Menubar
+        # Setup Menubar
         self.__init_menubar()
 
-        #Setup View
+        # Setup View
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QtWidgets.QHBoxLayout(central_widget)
 
-        #Setup Component Palette
+        # Setup Component Palette
         left_panel = QtWidgets.QVBoxLayout()
         self.components = ComponentPalette()
         left_panel.addWidget(self.components)
         main_layout.addLayout(left_panel)
 
-        #Setup Canvas and Results
+        # Setup Canvas and Results
         center_panel = QtWidgets.QVBoxLayout()
-        center_panel.addWidget(QtWidgets.QLabel("Canvas"))
+        canvas = CircuitCanvasViewRebuild()
+        center_panel.addWidget(canvas)
         center_panel.addWidget(QtWidgets.QLabel("Results Page"))
         main_layout.addLayout(center_panel)
 
-        #Setup Properties Panel
+        # Setup Properties Panel
         right_panel = QtWidgets.QVBoxLayout()
         self.propertiesPanel = PropertiesPanel()
         right_panel.addWidget(self.propertiesPanel)
@@ -101,6 +100,7 @@ class MainWindowRebuild(QtWidgets.QMainWindow):
         about_sdm_spice_action = QAction("&About SDM-Spice", self)
         help_menu.addAction(about_sdm_spice_action)
 
+
 class MyWidgetRebuild(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -131,7 +131,7 @@ class MyWidgetRebuild(QtWidgets.QWidget):
         self.move(desktopScreen.topLeft())
 
 
-#def main():
+# def main():
 #    app = QtWidgets.QApplication([])
 #
 #    window = MainWindow()
@@ -146,4 +146,4 @@ class MyWidgetRebuild(QtWidgets.QWidget):
 #
 #    sys.exit(app.exec())
 #
-#main()
+# main()

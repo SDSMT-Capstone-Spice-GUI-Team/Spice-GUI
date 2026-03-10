@@ -1,0 +1,694 @@
+"""Tests for CircuitModel central data store."""
+
+import pytest
+from models.circuit import CircuitModel
+from models.component import ComponentData
+from models.node import reset_node_counter
+from models.wire import WireData
+
+
+def _resistor(comp_id="R1", pos=(0.0, 0.0)):
+    return ComponentData(
+        component_id=comp_id,
+        component_type="Resistor",
+        value="1k",
+        position=pos,
+    )
+
+
+def _voltage_source(comp_id="V1", pos=(0.0, 0.0)):
+    return ComponentData(
+        component_id=comp_id,
+        component_type="Voltage Source",
+        value="5V",
+        position=pos,
+    )
+
+
+def _ground(comp_id="GND1", pos=(0.0, 0.0)):
+    return ComponentData(
+        component_id=comp_id,
+        component_type="Ground",
+        value="0V",
+        position=pos,
+    )
+
+
+def _wire(start_id, start_term, end_id, end_term):
+    return WireData(
+        start_component_id=start_id,
+        start_terminal=start_term,
+        end_component_id=end_id,
+        end_terminal=end_term,
+    )
+
+
+class TestAddRemoveComponents:
+    def test_add_component(self):
+        model = CircuitModel()
+        r1 = _resistor("R1")
+        model.add_component(r1)
+        assert "R1" in model.components
+        assert model.components["R1"] is r1
+
+    def test_remove_component_returns_connected_wire_indices(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        indices = model.remove_component("R1")
+        assert indices == [0]
+
+    def test_remove_nonexistent_component(self):
+        model = CircuitModel()
+        assert model.remove_component("R999") == []
+
+    def test_add_ground_creates_ground_node(self):
+        model = CircuitModel()
+        model.add_component(_ground("GND1"))
+        assert len(model.nodes) == 1
+        assert model.nodes[0].is_ground
+        assert ("GND1", 0) in model.terminal_to_node
+
+
+class TestAddRemoveWires:
+    def test_add_wire_creates_node(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        assert len(model.nodes) == 1
+        node = model.nodes[0]
+        assert ("R1", 1) in node.terminals
+        assert ("R2", 0) in node.terminals
+
+    def test_add_wire_merges_nodes(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        # R1[1] -- R2[0] creates node A
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        # R2[1] -- R3[0] creates node B
+        model.add_wire(_wire("R2", 1, "R3", 0))
+        # Now R1[0] -- R3[1] are in separate nodes (or no node)
+        # Connecting R1[0] -- R2[1] should merge nodes
+        assert len(model.nodes) == 2
+
+    def test_add_wire_extends_existing_node(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        # R2[0] is already in a node; adding R2[0]'s node to R3[0]
+        model.add_wire(_wire("R2", 0, "R3", 0))
+        assert len(model.nodes) == 1
+        node = model.nodes[0]
+        assert ("R1", 1) in node.terminals
+        assert ("R2", 0) in node.terminals
+        assert ("R3", 0) in node.terminals
+
+    def test_remove_wire_rebuilds_nodes(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        assert len(model.nodes) == 1
+        model.remove_wire(0)
+        assert len(model.wires) == 0
+        # After rebuild, only ground-less nodes = 0
+        assert len(model.nodes) == 0
+
+    def test_wire_to_ground_creates_ground_node(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_ground("GND1"))
+        model.add_wire(_wire("R1", 0, "GND1", 0))
+        ground_nodes = [n for n in model.nodes if n.is_ground]
+        assert len(ground_nodes) == 1
+        assert ("R1", 0) in ground_nodes[0].terminals
+
+
+class TestNodeGraph:
+    def test_rebuild_nodes_clears_and_rebuilds(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        assert len(model.nodes) == 1
+        model.rebuild_nodes()
+        assert len(model.nodes) == 1
+        assert ("R1", 1) in model.nodes[0].terminals
+
+    def test_ground_propagates_through_merge(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_ground("GND1"))
+        model.add_component(_resistor("R2"))
+        # Wire R1 to GND
+        model.add_wire(_wire("R1", 0, "GND1", 0))
+        # Wire R2 to R1 (same terminal as GND)
+        model.add_wire(_wire("R2", 0, "R1", 0))
+        # R2[0] should now be in the ground node
+        node = model.terminal_to_node.get(("R2", 0))
+        assert node is not None
+        assert node.is_ground
+
+
+class TestClear:
+    def test_clear_empties_everything(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_ground("GND1"))
+        model.add_wire(_wire("R1", 0, "GND1", 0))
+        model.component_counter = {"R": 1, "GND": 1}
+        model.analysis_type = "Transient"
+        model.analysis_params = {"step": "1m", "duration": "10m"}
+        model.clear()
+        assert len(model.components) == 0
+        assert len(model.wires) == 0
+        assert len(model.nodes) == 0
+        assert len(model.terminal_to_node) == 0
+        assert len(model.component_counter) == 0
+        assert model.analysis_type == "DC Operating Point"
+        assert model.analysis_params == {}
+
+
+class TestSerialization:
+    def test_to_dict_matches_format(self):
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(100.0, 200.0)))
+        model.add_component(_voltage_source("V1", pos=(50.0, 50.0)))
+        model.add_wire(_wire("R1", 1, "V1", 0))
+        model.component_counter = {"R": 1, "V": 1}
+
+        data = model.to_dict()
+        assert "components" in data
+        assert "wires" in data
+        assert "counters" in data
+        assert len(data["components"]) == 2
+        assert len(data["wires"]) == 1
+        assert data["counters"] == {"R": 1, "V": 1}
+
+    def test_from_dict_restores_state(self):
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 100.0, "y": 200.0},
+                    "rotation": 0,
+                },
+                {
+                    "type": "VoltageSource",
+                    "id": "V1",
+                    "value": "5V",
+                    "pos": {"x": 50.0, "y": 50.0},
+                    "rotation": 0,
+                },
+            ],
+            "wires": [
+                {"start_comp": "R1", "start_term": 1, "end_comp": "V1", "end_term": 0},
+            ],
+            "counters": {"R": 1, "V": 1},
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.components) == 2
+        assert "R1" in model.components
+        assert "V1" in model.components
+        assert model.components["V1"].component_type == "Voltage Source"
+        assert len(model.wires) == 1
+        assert model.component_counter == {"R": 1, "V": 1}
+        # Nodes should have been rebuilt
+        assert len(model.nodes) == 1
+
+    def test_round_trip_produces_identical_json(self):
+        """Save → load → save should produce identical output."""
+        model1 = CircuitModel()
+        model1.add_component(_resistor("R1", pos=(100.0, 200.0)))
+        model1.add_component(_voltage_source("V1", pos=(50.0, 50.0)))
+        model1.add_component(_ground("GND1", pos=(0.0, 0.0)))
+        model1.add_wire(_wire("R1", 1, "V1", 0))
+        model1.add_wire(_wire("V1", 1, "GND1", 0))
+        model1.component_counter = {"R": 1, "V": 1, "GND": 1}
+
+        data1 = model1.to_dict()
+
+        reset_node_counter()
+        model2 = CircuitModel.from_dict(data1)
+        data2 = model2.to_dict()
+
+        assert data1 == data2
+
+    def test_empty_circuit_round_trip(self):
+        model = CircuitModel()
+        data = model.to_dict()
+        assert data == {"components": [], "wires": [], "counters": {}}
+
+        reset_node_counter()
+        model2 = CircuitModel.from_dict(data)
+        assert model2.to_dict() == data
+
+    def test_analysis_settings_persisted(self):
+        """Analysis type and params survive save/load round-trip."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(0.0, 0.0)))
+        model.analysis_type = "Transient"
+        model.analysis_params = {"step": "1m", "duration": "10m", "start": 0}
+
+        data = model.to_dict()
+        assert data["analysis_type"] == "Transient"
+        assert data["analysis_params"] == {"step": "1m", "duration": "10m", "start": 0}
+
+        reset_node_counter()
+        model2 = CircuitModel.from_dict(data)
+        assert model2.analysis_type == "Transient"
+        assert model2.analysis_params == {"step": "1m", "duration": "10m", "start": 0}
+
+    def test_default_analysis_omitted_from_dict(self):
+        """Default DC Operating Point should not bloat the JSON."""
+        model = CircuitModel()
+        data = model.to_dict()
+        assert "analysis_type" not in data
+        assert "analysis_params" not in data
+
+    def test_from_dict_without_analysis_uses_defaults(self):
+        """Loading old circuit files without analysis fields uses defaults."""
+        data = {
+            "components": [],
+            "wires": [],
+            "counters": {},
+        }
+        model = CircuitModel.from_dict(data)
+        assert model.analysis_type == "DC Operating Point"
+        assert model.analysis_params == {}
+
+    def test_net_names_round_trip(self):
+        """Custom net names survive save/load round-trip."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(100.0, 200.0)))
+        model.add_component(_voltage_source("V1", pos=(50.0, 50.0)))
+        model.add_wire(_wire("R1", 1, "V1", 0))
+        model.component_counter = {"R": 1, "V": 1}
+
+        # Set a custom net name on the node
+        node = model.nodes[0]
+        node.set_custom_label("Vout")
+        assert node.get_label() == "Vout"
+
+        data = model.to_dict()
+        assert "net_names" in data
+        assert len(data["net_names"]) == 1
+
+        reset_node_counter()
+        model2 = CircuitModel.from_dict(data)
+        # The node should have the custom label restored
+        assert len(model2.nodes) == 1
+        assert model2.nodes[0].custom_label == "Vout"
+        assert model2.nodes[0].get_label() == "Vout"
+
+    def test_net_names_multiple_labels(self):
+        """Multiple net names are all persisted and restored."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(0.0, 0.0)))
+        model.add_component(_resistor("R2", pos=(100.0, 0.0)))
+        model.add_component(_voltage_source("V1", pos=(50.0, 50.0)))
+        model.add_wire(_wire("R1", 1, "R2", 0))  # node between R1 and R2
+        model.add_wire(_wire("V1", 0, "R1", 0))  # node between V1 and R1
+        model.component_counter = {"R": 2, "V": 1}
+
+        # Name both nodes
+        node_between_r1_r2 = model.terminal_to_node[("R1", 1)]
+        node_between_v1_r1 = model.terminal_to_node[("V1", 0)]
+        node_between_r1_r2.set_custom_label("Vmid")
+        node_between_v1_r1.set_custom_label("Vin")
+
+        data = model.to_dict()
+        assert len(data["net_names"]) == 2
+
+        reset_node_counter()
+        model2 = CircuitModel.from_dict(data)
+        restored_mid = model2.terminal_to_node[("R1", 1)]
+        restored_in = model2.terminal_to_node[("V1", 0)]
+        assert restored_mid.custom_label == "Vmid"
+        assert restored_in.custom_label == "Vin"
+
+    def test_net_names_omitted_when_none(self):
+        """net_names key is omitted from JSON when no custom labels exist."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(0.0, 0.0)))
+        model.add_component(_resistor("R2", pos=(100.0, 0.0)))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        model.component_counter = {"R": 2}
+
+        data = model.to_dict()
+        assert "net_names" not in data
+
+    def test_net_names_cleared_label_not_persisted(self):
+        """A label set then cleared (None) is not saved."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1", pos=(0.0, 0.0)))
+        model.add_component(_resistor("R2", pos=(100.0, 0.0)))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+
+        node = model.nodes[0]
+        node.set_custom_label("Vout")
+        node.set_custom_label(None)  # Clear it
+
+        data = model.to_dict()
+        assert "net_names" not in data
+
+    def test_old_files_without_net_names_load_fine(self):
+        """Circuit files from before net names feature load without error."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0.0, "y": 0.0},
+                    "rotation": 0,
+                },
+            ],
+            "wires": [],
+            "counters": {"R": 1},
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.components) == 1
+        # No custom labels should be set
+        for node in model.nodes:
+            assert node.custom_label is None
+
+    def test_no_pyqt_imports(self):
+        """Verify CircuitModel has no Qt dependencies."""
+        import models.circuit as mod
+
+        source = open(mod.__file__).read()
+        assert "PyQt" not in source
+        assert "QtCore" not in source
+        assert "QtWidgets" not in source
+
+
+class TestFromDictResilience:
+    """Issue #488: from_dict must skip corrupt items instead of crashing."""
+
+    def test_corrupt_component_skipped(self):
+        """A single corrupt component should not crash the entire load."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {"type": "Capacitor"},  # Missing id, value, pos
+                {
+                    "type": "Resistor",
+                    "id": "R2",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
+            ],
+            "wires": [],
+            "counters": {"R": 2},
+        }
+        model = CircuitModel.from_dict(data)
+        assert "R1" in model.components
+        assert "R2" in model.components
+        assert len(model.components) == 2
+
+    def test_corrupt_wire_skipped(self):
+        """A single corrupt wire should not crash the entire load."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R2",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
+            ],
+            "wires": [
+                {"start_comp": "R1", "start_term": 1, "end_comp": "R2", "end_term": 0},
+                {"bad": "wire data"},  # Corrupt
+                {"start_comp": "R1", "start_term": 0, "end_comp": "R2", "end_term": 1},
+            ],
+            "counters": {"R": 2},
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.wires) == 2
+        assert len(model.components) == 2
+
+    def test_wire_referencing_missing_component_skipped(self):
+        """A wire referencing a non-existent component should be skipped."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+            ],
+            "wires": [
+                {
+                    "start_comp": "R1",
+                    "start_term": 0,
+                    "end_comp": "GHOST",
+                    "end_term": 0,
+                },
+            ],
+            "counters": {"R": 1},
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.components) == 1
+        assert len(model.wires) == 0
+
+    def test_all_components_corrupt_returns_empty(self):
+        """If every component is corrupt, the model should be empty but not crash."""
+        data = {
+            "components": [
+                {"bad": "data"},
+                {},
+            ],
+            "wires": [],
+            "counters": {},
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.components) == 0
+        assert len(model.wires) == 0
+
+    def test_corrupt_annotation_skipped(self):
+        """A corrupt annotation should not crash the load."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+            ],
+            "wires": [],
+            "counters": {},
+            "annotations": [
+                {"text": "Hello", "x": 10, "y": 20},
+                None,  # Corrupt
+            ],
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.annotations) == 1
+        assert model.annotations[0].text == "Hello"
+
+    def test_corrupt_net_name_skipped(self):
+        """A corrupt net name entry should not crash the load."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R2",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
+            ],
+            "wires": [
+                {"start_comp": "R1", "start_term": 1, "end_comp": "R2", "end_term": 0},
+            ],
+            "counters": {},
+            "net_names": {
+                "R1:1": "Vout",
+                "bad_key": "broken",  # No colon separator
+            },
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.components) == 2
+
+
+class TestIncrementalWireRemoval:
+    """Tests for incremental node updates on wire deletion (#159)."""
+
+    def test_remove_wire_splits_node(self):
+        """Removing a bridge wire should split the node into two."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        # Both wires share R2[0], forming one node: {R1[1], R2[0], R3[0]}
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 0
+        model.add_wire(_wire("R3", 0, "R2", 0))  # wire 1
+        assert len(model.nodes) == 1
+
+        model.remove_wire(0)  # Remove R1-R2 bridge
+
+        # R1[1] is orphaned; remaining node: {R3[0], R2[0]}
+        assert len(model.nodes) == 1
+        remaining_node = model.nodes[0]
+        assert ("R2", 0) in remaining_node.terminals
+        assert ("R3", 0) in remaining_node.terminals
+        assert ("R1", 1) not in remaining_node.terminals
+
+    def test_remove_wire_preserves_unrelated_nodes(self):
+        """Removing a wire should not affect unrelated nodes."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        model.add_component(_resistor("R4"))
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 0: node A
+        model.add_wire(_wire("R3", 1, "R4", 0))  # wire 1: node B
+        assert len(model.nodes) == 2
+
+        # Save node B's terminals for comparison
+        node_b_terms = set(model.terminal_to_node[("R3", 1)].terminals)
+
+        model.remove_wire(0)  # Remove wire in node A
+
+        # Node B should still exist with same terminals
+        assert len(model.nodes) == 1
+        remaining = model.nodes[0]
+        assert remaining.terminals == node_b_terms
+
+    def test_remove_wire_updates_indices(self):
+        """Wire indices in nodes must be shifted after removal."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        model.add_component(_resistor("R4"))
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 0
+        model.add_wire(_wire("R3", 1, "R4", 0))  # wire 1
+
+        model.remove_wire(0)  # Remove wire 0; wire 1 becomes wire 0
+
+        remaining_node = model.terminal_to_node[("R3", 1)]
+        assert 0 in remaining_node.wire_indices
+        assert 1 not in remaining_node.wire_indices
+
+    def test_remove_wire_preserves_ground_node(self):
+        """Removing a non-ground wire preserves the ground node."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_ground("GND1"))
+        model.add_wire(_wire("R1", 0, "GND1", 0))  # wire 0: ground connection
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 1: non-ground
+        assert any(n.is_ground for n in model.nodes)
+
+        model.remove_wire(1)  # Remove non-ground wire
+
+        ground_nodes = [n for n in model.nodes if n.is_ground]
+        assert len(ground_nodes) == 1
+        assert ("R1", 0) in ground_nodes[0].terminals
+        assert ("GND1", 0) in ground_nodes[0].terminals
+
+    def test_remove_last_wire_empties_node(self):
+        """Removing the only wire should remove the node entirely."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_wire(_wire("R1", 1, "R2", 0))
+        assert len(model.nodes) == 1
+
+        model.remove_wire(0)
+
+        assert len(model.nodes) == 0
+        assert len(model.terminal_to_node) == 0
+
+    def test_incremental_matches_full_rebuild(self):
+        """Incremental removal must produce identical state to a full rebuild."""
+        # Build a circuit: GND1-R1[0], R1[1]-R2[0], R2[0]-R3[0]
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        model.add_component(_ground("GND1"))
+        model.add_wire(_wire("R1", 0, "GND1", 0))  # wire 0
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 1
+        model.add_wire(_wire("R3", 0, "R2", 0))  # wire 2 (shares R2[0] with wire 1)
+
+        # Incremental removal of wire 1 (R1[1]-R2[0])
+        model.remove_wire(1)
+
+        # Build reference model with same components and remaining wires
+        ref = CircuitModel()
+        ref.add_component(_resistor("R1"))
+        ref.add_component(_resistor("R2"))
+        ref.add_component(_resistor("R3"))
+        ref.add_component(_ground("GND1"))
+        ref.add_wire(_wire("R1", 0, "GND1", 0))
+        ref.add_wire(_wire("R3", 0, "R2", 0))
+
+        # Compare node structure
+        assert len(model.nodes) == len(ref.nodes)
+        for ref_node in ref.nodes:
+            matching = [n for n in model.nodes if n.terminals == ref_node.terminals]
+            assert len(matching) == 1, f"No match for terminals {ref_node.terminals}"
+            assert matching[0].is_ground == ref_node.is_ground
+
+    def test_remove_wire_preserves_custom_label(self):
+        """Custom net labels should survive incremental wire removal."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_resistor("R2"))
+        model.add_component(_resistor("R3"))
+        # All share R2[0]: one node {R1[1], R2[0], R3[0]}
+        model.add_wire(_wire("R1", 1, "R2", 0))  # wire 0
+        model.add_wire(_wire("R3", 0, "R2", 0))  # wire 1
+        assert len(model.nodes) == 1
+
+        model.nodes[0].set_custom_label("Vmid")
+
+        model.remove_wire(0)  # Remove R1-R2; remaining: {R2[0], R3[0]}
+
+        remaining = model.terminal_to_node.get(("R2", 0))
+        assert remaining is not None
+        assert remaining.custom_label == "Vmid"
+
+    def test_remove_ground_wire_keeps_ground_standalone(self):
+        """Removing a wire to ground should leave the ground node intact."""
+        model = CircuitModel()
+        model.add_component(_resistor("R1"))
+        model.add_component(_ground("GND1"))
+        model.add_wire(_wire("R1", 0, "GND1", 0))
+
+        model.remove_wire(0)
+
+        # Ground node should still exist (ground components always have a node)
+        ground_nodes = [n for n in model.nodes if n.is_ground]
+        assert len(ground_nodes) == 1
+        assert ("GND1", 0) in ground_nodes[0].terminals

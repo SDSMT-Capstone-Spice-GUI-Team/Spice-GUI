@@ -124,5 +124,3 @@ location: Veteran Center (temporary) — targeting EP 241
 - Discovery (draft): _(add link)_  
 - Reqs/Specs v1: _(add link)_  
 - Demo circuits & scope captures: _(add links)_
-
-

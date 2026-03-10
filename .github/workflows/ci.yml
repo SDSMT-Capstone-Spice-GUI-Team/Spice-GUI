@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'epic/**']
+  pull_request:
+    branches: [main, develop, 'epic/**']
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lint tools
+        run: pip install -r app/requirements-dev.txt
+
+      # Check order matches make format: ruff lint → isort → ruff-format → black
+      - name: Run ruff check
+        run: ruff check app/ --output-format=github
+
+      - name: Run isort check
+        run: isort --check-only --profile=black --line-length=120 app/
+
+      - name: Run ruff format check
+        run: ruff format --check app/
+
+      - name: Run black check
+        run: black --check --line-length=120 app/
+
+  security:
+    name: Security Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install bandit
+        run: pip install bandit>=1.8.0
+
+      - name: Run bandit
+        run: bandit -r app/ -x app/tests --severity-level medium
+
+  test:
+    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install system dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 xvfb
+
+      - name: Install dependencies
+        run: pip install -r app/requirements.txt -r app/requirements-dev.txt
+
+      - name: Run tests with coverage (Linux)
+        if: runner.os == 'Linux'
+        working-directory: app
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: xvfb-run python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
+
+      - name: Run tests with coverage (Windows)
+        if: runner.os == 'Windows'
+        working-directory: app
+        run: python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
+
+  integration:
+    name: Integration (ngspice)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y ngspice libegl1 xvfb
+
+      - name: Install dependencies
+        run: pip install -r app/requirements.txt -r app/requirements-dev.txt
+
+      - name: Run integration tests
+        working-directory: app
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          rc=0
+          xvfb-run python -m pytest tests/integration/ -v --tb=short -m ngspice || rc=$?
+          # exit code 5 = no tests collected (suite may be empty initially)
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 5 ]; then exit "$rc"; fi
+
+  import-check:
+    name: Import Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r app/requirements.txt
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libegl1 xvfb
+
+      - name: Verify application imports
+        working-directory: app
+        run: xvfb-run python -c "from GUI.main_window import MainWindow; print('Import OK')"

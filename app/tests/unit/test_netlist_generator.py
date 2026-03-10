@@ -1,0 +1,453 @@
+"""
+Tests for simulation/netlist_generator.py — SPICE netlist generation.
+"""
+
+import pytest
+from models.component import ComponentData
+from models.node import NodeData
+from models.wire import WireData
+from simulation.netlist_generator import NetlistGenerator, generate_analysis_command
+
+
+class TestGenerateAnalysisCommand:
+    """Tests for the standalone generate_analysis_command function (#576)."""
+
+    def test_dc_op(self):
+        assert generate_analysis_command("DC Operating Point", {}) == ".op"
+
+    def test_dc_sweep(self):
+        cmd = generate_analysis_command("DC Sweep", {"source": "V1", "min": 0, "max": 5, "step": 0.1})
+        assert cmd == ".dc V1 0 5 0.1"
+
+    def test_ac_sweep_with_camelcase_key(self):
+        cmd = generate_analysis_command("AC Sweep", {"fStart": 1, "fStop": 1e6, "points": 100, "sweepType": "dec"})
+        assert cmd == ".ac dec 100 1 1000000.0"
+
+    def test_ac_sweep_with_underscore_key(self):
+        cmd = generate_analysis_command("AC Sweep", {"fStart": 1, "fStop": 1e6, "points": 100, "sweep_type": "lin"})
+        assert cmd == ".ac lin 100 1 1000000.0"
+
+    def test_transient(self):
+        cmd = generate_analysis_command("Transient", {"step": 1e-6, "duration": 0.01, "startTime": 0})
+        assert cmd.startswith(".tran")
+
+    def test_temperature_sweep(self):
+        cmd = generate_analysis_command("Temperature Sweep", {"tempStart": -40, "tempStop": 85, "tempStep": 25})
+        assert cmd == ".step temp -40 85 25"
+
+    def test_noise(self):
+        cmd = generate_analysis_command(
+            "Noise",
+            {
+                "output_node": "out",
+                "source": "V1",
+                "fStart": 1,
+                "fStop": 1e6,
+                "points": 100,
+                "sweepType": "dec",
+            },
+        )
+        assert cmd.startswith(".noise v(out) V1")
+
+    def test_sensitivity(self):
+        cmd = generate_analysis_command("Sensitivity", {"output_node": "out"})
+        assert cmd == ".sens v(out)"
+
+    def test_transfer_function(self):
+        cmd = generate_analysis_command("Transfer Function", {"output_var": "v(out)", "input_source": "V1"})
+        assert cmd == ".tf v(out) V1"
+
+    def test_pole_zero(self):
+        cmd = generate_analysis_command(
+            "Pole-Zero",
+            {
+                "input_pos": "1",
+                "input_neg": "0",
+                "output_pos": "2",
+                "output_neg": "0",
+                "transfer_type": "vol",
+                "pz_type": "pz",
+            },
+        )
+        assert cmd == ".pz 1 0 2 0 vol pz"
+
+    def test_unknown_type_returns_empty(self):
+        assert generate_analysis_command("Unknown", {}) == ""
+
+
+def _generate(
+    components,
+    wires,
+    nodes,
+    terminal_to_node,
+    analysis_type="DC Operating Point",
+    analysis_params=None,
+):
+    """Helper to generate a netlist string from circuit data."""
+    gen = NetlistGenerator(
+        components=components,
+        wires=wires,
+        nodes=nodes,
+        terminal_to_node=terminal_to_node,
+        analysis_type=analysis_type,
+        analysis_params=analysis_params or {},
+    )
+    return gen.generate()
+
+
+class TestResistor:
+    def test_resistor_line(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "R1" in netlist
+        assert "1k" in netlist
+
+    def test_voltage_source_dc(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "V1" in netlist
+        assert "DC" in netlist
+        assert "5V" in netlist
+
+
+class TestGroundNode:
+    def test_ground_maps_to_zero(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(components, wires, nodes, t2n)
+        # Ground component itself should not appear as a netlist line
+        assert "GND1" not in netlist
+
+
+class TestAnalysisCommands:
+    def test_op_analysis(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(components, wires, nodes, t2n, analysis_type="DC Operating Point")
+        assert ".op" in netlist
+
+    def test_dc_sweep(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Sweep",
+            analysis_params={"min": "0", "max": "10", "step": "0.1"},
+        )
+        assert ".dc" in netlist
+        assert "V1" in netlist
+
+    def test_dc_sweep_uses_selected_source(self):
+        """DC Sweep must use the source specified in params, not always the first (#512)."""
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "V2": make_component("Voltage Source", "V2", "12V", (200, 0)),
+            "R1": make_component("Resistor", "R1", "1k", (100, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "V2", 0),
+            make_wire("V1", 1, "GND1", 0),
+            make_wire("V2", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_b = NodeData(
+            terminals={("R1", 1), ("V2", 0)},
+            wire_indices={1},
+            auto_label="nodeB",
+        )
+        node_gnd = NodeData(
+            terminals={("V1", 1), ("V2", 1), ("GND1", 0)},
+            wire_indices={2, 3},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_b, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_b,
+            ("V2", 0): node_b,
+            ("V1", 1): node_gnd,
+            ("V2", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+        }
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Sweep",
+            analysis_params={"source": "V2", "min": "0", "max": "15", "step": "0.5"},
+        )
+        # Should use V2, not V1
+        assert ".dc V2 0 15 0.5" in netlist
+
+    def test_dc_sweep_fallback_without_source_param(self, simple_resistor_circuit):
+        """Without 'source' in params, DC Sweep should fall back to first voltage source."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Sweep",
+            analysis_params={"min": "0", "max": "10", "step": "0.1"},
+        )
+        assert ".dc V1" in netlist
+
+    def test_ac_sweep(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
+        )
+        assert ".ac" in netlist
+
+    def test_transient(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="Transient",
+            analysis_params={"step": "1u", "duration": "10m", "start": "0"},
+        )
+        assert ".tran" in netlist
+
+    def test_temperature_sweep(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="Temperature Sweep",
+            analysis_params={
+                "tempStart": -40,
+                "tempStop": 85,
+                "tempStep": 25,
+            },
+        )
+        assert ".op" in netlist
+        assert ".step temp -40 85 25" in netlist
+
+    def test_temperature_sweep_custom_range(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="Temperature Sweep",
+            analysis_params={
+                "tempStart": 0,
+                "tempStop": 100,
+                "tempStep": 10,
+            },
+        )
+        assert ".step temp 0 100 10" in netlist
+
+
+class TestOpAmp:
+    def test_opamp_subcircuit(self):
+        """Op-Amp should produce .subckt definition and X-prefixed instance."""
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "OA1": make_component("Op-Amp", "OA1", "Ideal", (0, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("OA1", 0, "GND1", 0),
+            make_wire("OA1", 1, "GND1", 0),
+            make_wire("OA1", 2, "GND1", 0),
+        ]
+        node_gnd = NodeData(
+            terminals={("OA1", 0), ("OA1", 1), ("OA1", 2), ("GND1", 0)},
+            wire_indices={0, 1, 2},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_gnd]
+        t2n = {
+            ("OA1", 0): node_gnd,
+            ("OA1", 1): node_gnd,
+            ("OA1", 2): node_gnd,
+            ("GND1", 0): node_gnd,
+        }
+        netlist = _generate(components, wires, nodes, t2n)
+        assert ".subckt OPAMP_IDEAL" in netlist
+        assert "XOA1" in netlist
+
+
+class TestDependentSources:
+    def _make_4term_circuit(self, comp_type, comp_id, value):
+        """Helper: 4-terminal dependent source wired to ground."""
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            comp_id: make_component(comp_type, comp_id, value, (0, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+            "V1": make_component("Voltage Source", "V1", "5V", (-100, 0)),
+        }
+        wires = [
+            make_wire(comp_id, 0, "V1", 0),  # ctrl+ to V1+
+            make_wire(comp_id, 1, "GND1", 0),  # ctrl- to GND
+            make_wire(comp_id, 2, "V1", 0),  # out+ to V1+
+            make_wire(comp_id, 3, "GND1", 0),  # out- to GND
+            make_wire("V1", 1, "GND1", 0),  # V1- to GND
+        ]
+        node_a = NodeData(
+            terminals={(comp_id, 0), (comp_id, 2), ("V1", 0)},
+            wire_indices={0, 2},
+            auto_label="nodeA",
+        )
+        node_gnd = NodeData(
+            terminals={(comp_id, 1), (comp_id, 3), ("GND1", 0), ("V1", 1)},
+            wire_indices={1, 3, 4},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_gnd]
+        t2n = {
+            (comp_id, 0): node_a,
+            (comp_id, 2): node_a,
+            ("V1", 0): node_a,
+            (comp_id, 1): node_gnd,
+            (comp_id, 3): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        return components, wires, nodes, t2n
+
+    def test_vcvs(self):
+        components, wires, nodes, t2n = self._make_4term_circuit("VCVS", "E1", "2")
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "E1" in netlist
+        assert "2" in netlist
+
+    def test_vccs(self):
+        components, wires, nodes, t2n = self._make_4term_circuit("VCCS", "G1", "1m")
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "G1" in netlist
+
+    def test_ccvs_hidden_vsense(self):
+        components, wires, nodes, t2n = self._make_4term_circuit("CCVS", "H1", "1k")
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "Vsense_H1" in netlist
+        assert "H1" in netlist
+
+    def test_cccs_hidden_vsense(self):
+        components, wires, nodes, t2n = self._make_4term_circuit("CCCS", "F1", "1")
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "Vsense_F1" in netlist
+        assert "F1" in netlist
+
+
+class TestUnconnectedTerminal:
+    """Unconnected terminals must raise ValueError instead of defaulting to node 999 (#506)."""
+
+    def test_unconnected_terminal_raises(self):
+        """A resistor with one terminal unwired should raise ValueError."""
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "R1": make_component("Resistor", "R1", "1k", (0, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        # Only connect terminal 0 of R1 — terminal 1 is dangling
+        wires = [make_wire("R1", 0, "GND1", 0)]
+        node_gnd = NodeData(
+            terminals={("R1", 0), ("GND1", 0)},
+            wire_indices={0},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_gnd]
+        t2n = {("R1", 0): node_gnd, ("GND1", 0): node_gnd}
+
+        with pytest.raises(ValueError, match="Unconnected terminal.*R1 terminal 1"):
+            _generate(components, wires, nodes, t2n)
+
+    def test_fully_connected_circuit_succeeds(self, simple_resistor_circuit):
+        """A fully connected circuit should generate without error."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "999" not in netlist
+
+
+class TestResistorDivider:
+    def test_two_nodes_labeled(self, resistor_divider_circuit):
+        components, wires, nodes, t2n = resistor_divider_circuit
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "R1" in netlist
+        assert "R2" in netlist
+        assert "V1" in netlist
+
+
+class TestWrdataPathCrossPlatform:
+    """Verify wrdata file paths use forward slashes for ngspice compatibility."""
+
+    def test_backslashes_converted_to_forward_slashes(self, simple_resistor_circuit):
+        """On Windows, os.path.join produces backslashes; ngspice needs forward slashes."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        gen = NetlistGenerator(
+            components=components,
+            wires=wires,
+            nodes=nodes,
+            terminal_to_node=t2n,
+            analysis_type="Transient",
+            analysis_params={"duration": 0.01, "step": 1e-5, "startTime": 0},
+            wrdata_filepath=r"simulation_output\wrdata_20260210.txt",
+        )
+        netlist = gen.generate()
+        assert "simulation_output/wrdata_20260210.txt" in netlist
+        assert "\\" not in netlist.split("wrdata ")[1].split("\n")[0]
+
+    def test_forward_slashes_preserved(self, simple_resistor_circuit):
+        """Unix paths with forward slashes should pass through unchanged."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        gen = NetlistGenerator(
+            components=components,
+            wires=wires,
+            nodes=nodes,
+            terminal_to_node=t2n,
+            analysis_type="Transient",
+            analysis_params={"duration": 0.01, "step": 1e-5, "startTime": 0},
+            wrdata_filepath="simulation_output/wrdata_20260210.txt",
+        )
+        netlist = gen.generate()
+        assert "simulation_output/wrdata_20260210.txt" in netlist
+
+    def test_windows_absolute_path(self, simple_resistor_circuit):
+        """Windows absolute paths should be converted."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        gen = NetlistGenerator(
+            components=components,
+            wires=wires,
+            nodes=nodes,
+            terminal_to_node=t2n,
+            analysis_type="Transient",
+            analysis_params={"duration": 0.01, "step": 1e-5, "startTime": 0},
+            wrdata_filepath=r"C:\Users\test\AppData\Local\wrdata.txt",
+        )
+        netlist = gen.generate()
+        assert "C:/Users/test/AppData/Local/wrdata.txt" in netlist

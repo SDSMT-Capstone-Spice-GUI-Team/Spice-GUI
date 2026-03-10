@@ -1,0 +1,850 @@
+import math
+import os
+import sys
+
+from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
+from PyQt6.QtGui import QBrush  # QPainterPath imported locally where needed
+from PyQt6.QtGui import QColor, QPen
+from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from models.component import DEFAULT_VALUES, ComponentData
+from utils.format_utils import validate_component_value
+
+from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
+
+
+class ComponentGraphicsItem(QGraphicsItem):
+    """Base class for graphical components on the canvas.
+
+    Each ComponentGraphicsItem holds a reference to a ComponentData model object.
+    Data properties (component_id, component_type, value, rotation) are
+    delegated to the model. Drawing and Qt interaction stay in this class.
+    """
+
+    # Class attribute for subclass type identification
+    type_name = "Unknown"
+
+    def __init__(self, component_id, component_type="Unknown", model=None):
+        super().__init__()
+
+        # Create or accept a ComponentData backing object
+        if model is not None:
+            self.model = model
+        else:
+            self.model = ComponentData(
+                component_id=component_id,
+                component_type=component_type,
+                value=DEFAULT_VALUES.get(component_type, "1u"),
+                position=(0.0, 0.0),
+            )
+
+        self.canvas = None  # Injected by CircuitCanvasView after creation
+
+        self.terminals = []  # List[QPointF] - Qt rendering positions
+        self.connections = []  # Store wire connections
+        self.is_being_dragged = False
+        self._group_moving = False  # Guard against recursive group moves
+        self._drag_start_positions = {}  # {comp_id: (x, y)} for undo
+        self._locked = False  # Whether this component is locked (non-editable)
+
+        # Grading overlay state (temporary, not persisted)
+        self._grading_state = None  # "passed", "failed", or None
+        self._grading_feedback = ""
+
+        # Phase 5: Debounced position updates to controller
+        self._position_update_timer = None
+        self._pending_position = None
+
+        self._hovered = False
+
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+        self.setAcceptHoverEvents(True)
+
+        # Create terminals
+        self.update_terminals()
+
+    # --- Data delegation properties ---
+
+    @property
+    def component_id(self):
+        return self.model.component_id
+
+    @property
+    def component_type(self):
+        return self.model.component_type
+
+    @property
+    def value(self):
+        return self.model.value
+
+    @property
+    def rotation_angle(self):
+        return self.model.rotation
+
+    @property
+    def initial_condition(self):
+        return self.model.initial_condition
+
+    def sync_from_data(self, component_data) -> None:
+        """Sync the graphics item's local model from authoritative controller data.
+
+        Called by observer callbacks to propagate model changes without
+        the graphics item performing direct model mutations.  Updates
+        visual-relevant fields and refreshes the graphics.
+        """
+        self.model.rotation = component_data.rotation
+        self.model.flip_h = component_data.flip_h
+        self.model.flip_v = component_data.flip_v
+        self.model.value = component_data.value
+        self.model.waveform_type = component_data.waveform_type
+        self.model.waveform_params = component_data.waveform_params
+        self.model.initial_condition = component_data.initial_condition
+        self.model.position = component_data.position
+
+    # --- Event handlers ---
+
+    def set_locked(self, locked: bool) -> None:
+        """Set the locked state of this component."""
+        self._locked = locked
+        if locked:
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        else:
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+        self.update()
+
+    def mousePressEvent(self, event):
+        """Track when dragging starts and record start positions for undo."""
+        if self._locked:
+            event.accept()
+            return
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_being_dragged = True
+            # Record start positions for undo (self + all selected items)
+            self._drag_start_positions = {}
+            self._drag_start_positions[self.component_id] = (
+                self.pos().x(),
+                self.pos().y(),
+            )
+            if self.scene():
+                for item in self.scene().selectedItems():
+                    if item is not self and isinstance(item, ComponentGraphicsItem):
+                        self._drag_start_positions[item.component_id] = (
+                            item.pos().x(),
+                            item.pos().y(),
+                        )
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Handle drag end — push move commands to undo stack."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_being_dragged = False
+            self._commit_drag_to_undo()
+        super().mouseReleaseEvent(event)
+
+    def _commit_drag_to_undo(self):
+        """Create undo command(s) for the completed drag operation."""
+        if not hasattr(self, "_drag_start_positions") or not self._drag_start_positions:
+            return
+
+        if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
+            self._drag_start_positions = {}
+            return
+
+        from controllers.commands import CompoundCommand, MoveComponentCommand
+
+        controller = self.canvas.controller
+        move_commands = []
+
+        for comp_id, old_pos in self._drag_start_positions.items():
+            component = controller.get_component(comp_id)
+            if component is None:
+                continue
+            new_pos = component.position
+            # Only create a command if the component actually moved
+            if old_pos[0] != new_pos[0] or old_pos[1] != new_pos[1]:
+                cmd = MoveComponentCommand(controller, comp_id, new_pos, old_position=old_pos)
+                move_commands.append(cmd)
+
+        self._drag_start_positions = {}
+
+        if not move_commands:
+            return
+
+        if len(move_commands) == 1:
+            # Push directly to undo stack (move already happened during drag)
+            controller.push_already_executed(move_commands[0])
+        else:
+            compound = CompoundCommand(move_commands, f"Move {len(move_commands)} components")
+            controller.push_already_executed(compound)
+
+    def hoverEnterEvent(self, event):
+        """Show visual feedback when the mouse enters the component."""
+        self._hovered = True
+        self.update()
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        """Remove visual feedback when the mouse leaves the component."""
+        self._hovered = False
+        self.update()
+        super().hoverLeaveEvent(event)
+
+    def hoverMoveEvent(self, event):
+        """Update cursor based on whether hovering over terminal"""
+        if event is None:
+            return
+
+        hover_pos = event.pos()
+        near_terminal = False
+
+        # Check if hovering near a terminal
+        for terminal in self.terminals:
+            distance = (terminal - hover_pos).manhattanLength()
+            if distance < TERMINAL_HOVER_RADIUS:
+                near_terminal = True
+                break
+
+        # Change cursor based on position
+        if near_terminal:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+        elif self.is_being_dragged:
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        else:
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+
+        super().hoverMoveEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        """Open a dialog to edit component value on double-click"""
+        if self._locked:
+            QMessageBox.information(
+                None,
+                "Locked Component",
+                f"{self.component_id} is locked and cannot be modified.",
+            )
+            return
+        if self.component_type in ("Ground", "Op-Amp"):
+            return
+
+        if self.component_type == "Waveform Source":
+            QMessageBox.information(
+                None,
+                "Waveform Source",
+                "Use the 'Configure Waveform...' button in the Properties panel.",
+            )
+            return
+
+        current_value = self.value
+        new_value, ok = QInputDialog.getText(
+            None,
+            f"Edit Value for {self.component_id}",
+            "Enter new value (e.g. 10k, 100n, 4.7M):",
+            QLineEdit.EchoMode.Normal,
+            current_value,
+        )
+
+        if ok and new_value:
+            is_valid, error_msg = validate_component_value(new_value, self.component_type)
+            if not is_valid:
+                QMessageBox.warning(None, "Invalid Value", error_msg)
+                return
+
+            # Route through controller; observer callback syncs the local model
+            if self.canvas and hasattr(self.canvas, "controller") and self.canvas.controller:
+                self.canvas.controller.update_component_value(self.component_id, new_value)
+
+    # --- Geometry ---
+
+    def boundingRect(self):
+        return QRectF(-40, -30, 80, 60)
+
+    def get_obstacle_shape(self):
+        """Return the obstacle boundary for pathfinding, respecting symbol style.
+
+        Delegates to the registered renderer for the current symbol style.
+
+        Returns:
+            List of (x, y) tuples forming a closed polygon in local coords.
+        """
+        from .renderers import get_renderer
+
+        renderer = get_renderer(self.component_type, theme_manager.symbol_style)
+        return renderer.get_obstacle_shape(self)
+
+    def update_terminals(self):
+        """Update terminal positions based on flip and rotation, sourced from model geometry."""
+        base = self.model.get_base_terminal_positions()
+
+        rad = math.radians(self.rotation_angle)
+        cos_a = math.cos(rad)
+        sin_a = math.sin(rad)
+
+        self.terminals = []
+        for tx, ty in base:
+            if self.model.flip_h:
+                tx = -tx
+            if self.model.flip_v:
+                ty = -ty
+            new_x = tx * cos_a - ty * sin_a
+            new_y = tx * sin_a + ty * cos_a
+            self.terminals.append(QPointF(new_x, new_y))
+
+    def set_grading_state(self, state, feedback=""):
+        """Set the grading overlay state for this component.
+
+        Args:
+            state: "passed", "failed", or None to clear.
+            feedback: Tooltip text shown on hover.
+        """
+        self._grading_state = state
+        self._grading_feedback = feedback
+        self.setToolTip(feedback if feedback else "")
+        self.update()
+
+    def clear_grading_state(self):
+        """Remove grading overlay from this component."""
+        self._grading_state = None
+        self._grading_feedback = ""
+        self.setToolTip("")
+        self.update()
+
+    def draw_component_body(self, painter):
+        """Dispatch to the registered renderer for the current symbol style."""
+        from .renderers import get_renderer
+
+        renderer = get_renderer(self.component_type, theme_manager.symbol_style)
+        renderer.draw(painter, self)
+
+    def paint(self, painter, option=None, widget=None):
+        if painter is None:
+            return
+
+        # Get component color from theme
+        color = theme_manager.get_component_color(self.component_type)
+
+        # Save painter state
+        painter.save()
+
+        # Apply rotation, then flip (flip is applied first in local coords)
+        painter.rotate(self.rotation_angle)
+        sx = -1 if self.model.flip_h else 1
+        sy = -1 if self.model.flip_v else 1
+        if sx != 1 or sy != 1:
+            painter.scale(sx, sy)
+
+        # Highlight if selected
+        if self.isSelected():
+            painter.setPen(theme_manager.pen("component_selected"))
+            painter.drawRect(QRectF(-40, -20, 80, 40))
+        elif self._hovered:
+            hover_pen = QPen(color.lighter(130), 1.5, Qt.PenStyle.DashLine)
+            painter.setPen(hover_pen)
+            painter.drawRect(QRectF(-40, -20, 80, 40))
+
+        # Draw locked indicator (dimmed border with lock icon)
+        if getattr(self, "_locked", False):
+            lock_pen = QPen(QBrush(Qt.GlobalColor.gray), 1.5, Qt.PenStyle.DashLine)
+            painter.setPen(lock_pen)
+            painter.drawRect(QRectF(-42, -22, 84, 44))
+        # Grading overlay (temporary visual feedback)
+        if self._grading_state == "passed":
+            painter.setPen(QPen(QColor(0, 200, 0, 200), 3))
+            painter.setBrush(QBrush(QColor(0, 200, 0, 40)))
+            painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
+        elif self._grading_state == "failed":
+            painter.setPen(QPen(QColor(220, 0, 0, 200), 3))
+            painter.setBrush(QBrush(QColor(220, 0, 0, 40)))
+            painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
+
+        # Draw component body
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(QBrush(color.lighter(150)))
+        self.draw_component_body(painter)
+
+        # Draw label (check canvas visibility settings via injected reference)
+        show_label = (
+            self.canvas.show_component_labels if self.canvas and hasattr(self.canvas, "show_component_labels") else True
+        )
+        show_value = (
+            self.canvas.show_component_values if self.canvas and hasattr(self.canvas, "show_component_values") else True
+        )
+
+        if show_label or show_value:
+            painter.setPen(QPen(color))
+            if show_label and show_value:
+                painter.drawText(-20, -25, f"{self.component_id} ({self.value})")
+            elif show_label:
+                painter.drawText(-20, -25, self.component_id)
+            elif show_value:
+                painter.drawText(-20, -25, f"({self.value})")
+
+        # Restore painter state
+        painter.restore()
+
+        # Draw terminals in scene coordinates (not rotated)
+        painter.setPen(theme_manager.pen("terminal"))
+        for terminal in self.terminals:
+            painter.drawEllipse(terminal, 3, 3)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
+            # Snap to grid
+            new_pos = value
+            grid_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
+            grid_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
+            snapped_pos = QPointF(grid_x, grid_y)
+
+            # Move other selected items by the same delta (group drag)
+            if not self._group_moving:
+                snapped_delta = snapped_pos - self.pos()
+                if snapped_delta.x() != 0 or snapped_delta.y() != 0:
+                    # Use raw (unsnapped) delta so each follower snaps
+                    # independently to its nearest grid point (#193).
+                    raw_delta = new_pos - self.pos()
+                    for item in self.scene().selectedItems():
+                        if item is not self and isinstance(item, ComponentGraphicsItem):
+                            item._group_moving = True
+                            item.setPos(item.pos() + raw_delta)
+                            item._group_moving = False
+
+            # Phase 5: Schedule debounced controller update instead of direct model write
+            self._pending_position = (grid_x, grid_y)
+            self._schedule_controller_update()
+
+            return snapped_pos
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            # Show straight-line preview for connected wires during drag
+            # (full pathfinding runs after drag ends via debounced timer)
+            self.update()
+            # Skip wire preview for followers during group drag to avoid
+            # tearing artifacts from rapid forced scene repaints (#442).
+            if not self._group_moving and self.canvas and hasattr(self.canvas, "wires"):
+                for wire in self.canvas.wires:
+                    if wire.start_comp is self or wire.end_comp is self:
+                        wire.show_drag_preview()
+
+        return super().itemChange(change, value)
+
+    def _schedule_controller_update(self):
+        """Sync local model position immediately, debounce wire rerouting (Phase 5)"""
+        if self._position_update_timer:
+            self._position_update_timer.stop()
+        if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
+            return
+
+        # Sync the *local rendering copy* of position immediately so
+        # paint/terminal queries stay consistent during drag.  The
+        # authoritative controller model is updated via the debounced
+        # _notify_controller_position → controller.move_component() call.
+        if self._pending_position:
+            self.model.position = self._pending_position
+
+        # Debounce observer notification (triggers expensive wire rerouting).
+        # Reuse a single timer to avoid QTimer object churn (#194).
+        if self._position_update_timer is None:
+            self._position_update_timer = QTimer()
+            self._position_update_timer.setSingleShot(True)
+            self._position_update_timer.timeout.connect(self._notify_controller_position)
+        self._position_update_timer.start(50)  # 50ms debounce
+
+    def _notify_controller_position(self):
+        """Notify controller of final position after debounce (Phase 5)"""
+        if not self._pending_position:
+            return
+
+        if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
+            return
+
+        # Notify controller - observer will update wires
+        self.canvas.controller.move_component(self.component_id, self._pending_position)
+        self._pending_position = None
+
+    def get_terminal_pos(self, index):
+        """Get global position of terminal"""
+        return self.pos() + self.terminals[index]
+
+    def to_dict(self):
+        """Serialize component to dictionary via the model.
+
+        Reads the authoritative Qt position for serialization without
+        mutating the model object (model is owned by the controller).
+        """
+        d = self.model.to_dict()
+        d["pos"] = {"x": self.pos().x(), "y": self.pos().y()}
+        return d
+
+    @staticmethod
+    def from_dict(data_dict):
+        """Deserialize component from dictionary"""
+        # Create model first
+        comp_data = ComponentData.from_dict(data_dict)
+
+        # Find the right GUI class
+        component_class = COMPONENT_CLASSES.get(comp_data.component_type)
+        if component_class is None:
+            raise ValueError(f"Unknown component type: {comp_data.component_type}")
+
+        # Create GUI component backed by the model
+        comp = component_class(comp_data.component_id, model=comp_data)
+        comp.setPos(comp_data.position[0], comp_data.position[1])
+        comp.update_terminals()
+
+        return comp
+
+
+class Resistor(ComponentGraphicsItem):
+    """Resistor component"""
+
+    type_name = "Resistor"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class Capacitor(ComponentGraphicsItem):
+    """Capacitor component"""
+
+    type_name = "Capacitor"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class Inductor(ComponentGraphicsItem):
+    """Inductor component"""
+
+    type_name = "Inductor"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class VoltageSource(ComponentGraphicsItem):
+    """Voltage source component"""
+
+    type_name = "Voltage Source"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class CurrentSource(ComponentGraphicsItem):
+    """Current source component"""
+
+    type_name = "Current Source"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class WaveformVoltageSource(ComponentGraphicsItem):
+    """Waveform voltage source component (sine, pulse, PWL, etc.)"""
+
+    type_name = "Waveform Source"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    # Waveform properties delegated to model (read-only; mutations go through controller)
+    @property
+    def waveform_type(self):
+        return self.model.waveform_type
+
+    @property
+    def waveform_params(self):
+        return self.model.waveform_params
+
+    def get_spice_value(self):
+        """Generate SPICE waveform specification (delegates to model)"""
+        return self.model.get_spice_value()
+
+
+class Ground(ComponentGraphicsItem):
+    """Ground component"""
+
+    type_name = "Ground"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def paint(self, painter, option=None, widget=None):
+        if painter is None:
+            return
+
+        color = theme_manager.get_component_color(self.component_type)
+
+        painter.save()
+        painter.rotate(self.rotation_angle)
+        sx = -1 if self.model.flip_h else 1
+        sy = -1 if self.model.flip_v else 1
+        if sx != 1 or sy != 1:
+            painter.scale(sx, sy)
+
+        if self.isSelected():
+            painter.setPen(theme_manager.pen("component_selected"))
+            painter.drawRect(QRectF(-40, -20, 80, 40))
+
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(QBrush(color.lighter(150)))
+        self.draw_component_body(painter)
+
+        show_label = (
+            self.canvas.show_component_labels if self.canvas and hasattr(self.canvas, "show_component_labels") else True
+        )
+        show_value = (
+            self.canvas.show_component_values if self.canvas and hasattr(self.canvas, "show_component_values") else True
+        )
+
+        if show_label or show_value:
+            painter.setPen(QPen(color))
+            if show_label and show_value:
+                painter.drawText(-20, -25, "GND (0V)")
+            elif show_label:
+                painter.drawText(-20, -25, "GND")
+            elif show_value:
+                painter.drawText(-20, -25, "(0V)")
+
+        painter.restore()
+
+        painter.setPen(theme_manager.pen("terminal"))
+        for terminal in self.terminals:
+            painter.drawEllipse(terminal, 3, 3)
+
+
+class OpAmp(ComponentGraphicsItem):
+    """Operational Amplifier component"""
+
+    type_name = "Op-Amp"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-30, -25, 60, 50)
+
+
+class VCVS(ComponentGraphicsItem):
+    """Voltage-Controlled Voltage Source (E element)"""
+
+    type_name = "VCVS"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+
+class CCVS(ComponentGraphicsItem):
+    """Current-Controlled Voltage Source (H element)"""
+
+    type_name = "CCVS"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+
+class VCCS(ComponentGraphicsItem):
+    """Voltage-Controlled Current Source (G element)"""
+
+    type_name = "VCCS"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+
+class CCCS(ComponentGraphicsItem):
+    """Current-Controlled Current Source (F element)"""
+
+    type_name = "CCCS"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+
+class BJTNPN(ComponentGraphicsItem):
+    """NPN Bipolar Junction Transistor"""
+
+    type_name = "BJT NPN"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-30, -30, 60, 60)
+
+
+class BJTPNP(ComponentGraphicsItem):
+    """PNP Bipolar Junction Transistor"""
+
+    type_name = "BJT PNP"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-30, -30, 60, 60)
+
+
+class MOSFETNMOS(ComponentGraphicsItem):
+    """N-Channel MOSFET (M element)"""
+
+    type_name = "MOSFET NMOS"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class MOSFETPMOS(ComponentGraphicsItem):
+    """P-Channel MOSFET (M element)"""
+
+    type_name = "MOSFET PMOS"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class VCSwitch(ComponentGraphicsItem):
+    """Voltage-Controlled Switch (S element)"""
+
+    type_name = "VC Switch"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+
+class Diode(ComponentGraphicsItem):
+    """Standard Diode (D element)"""
+
+    type_name = "Diode"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class LEDComponent(ComponentGraphicsItem):
+    """Light Emitting Diode (D element with LED model)"""
+
+    type_name = "LED"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class ZenerDiode(ComponentGraphicsItem):
+    """Zener Diode (D element with breakdown voltage)"""
+
+    type_name = "Zener Diode"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class Transformer(ComponentGraphicsItem):
+    """Transformer — two coupled inductors (K element)"""
+
+    type_name = "Transformer"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+    def boundingRect(self):
+        return QRectF(-40, -25, 80, 50)
+
+    def draw_component_body(self, painter):
+        # Terminal connection lines
+        if self.scene() is not None:
+            painter.drawLine(-30, -10, -18, -10)  # Primary +
+            painter.drawLine(-30, 10, -18, 10)  # Primary -
+            painter.drawLine(18, -10, 30, -10)  # Secondary +
+            painter.drawLine(18, 10, 30, 10)  # Secondary -
+
+        # Primary coil (left, 3 arcs)
+        for y in range(-10, 8, 6):
+            painter.drawArc(-18, y, 10, 6, 0, 180 * 16)
+
+        # Secondary coil (right, 3 arcs)
+        for y in range(-10, 8, 6):
+            painter.drawArc(8, y, 10, 6, 0, -180 * 16)
+
+        # Core lines (two vertical lines between coils)
+        painter.drawLine(-3, -12, -3, 12)
+        painter.drawLine(3, -12, 3, 12)
+
+        # Dot convention (polarity markers)
+        painter.setBrush(painter.pen().color())
+        painter.drawEllipse(-16, -14, 3, 3)  # Primary dot
+        painter.drawEllipse(13, -14, 3, 3)  # Secondary dot
+
+    def get_obstacle_shape(self):
+        return [(-20.0, -18.0), (20.0, -18.0), (20.0, 18.0), (-20.0, 18.0)]
+
+
+# Component registry for factory pattern
+COMPONENT_CLASSES = {
+    "Resistor": Resistor,
+    "Capacitor": Capacitor,
+    "Inductor": Inductor,
+    "VoltageSource": VoltageSource,
+    "CurrentSource": CurrentSource,
+    "Voltage Source": VoltageSource,
+    "Current Source": CurrentSource,
+    "WaveformVoltageSource": WaveformVoltageSource,
+    "Waveform Source": WaveformVoltageSource,
+    "Ground": Ground,
+    "OpAmp": OpAmp,
+    "Op-Amp": OpAmp,
+    "VCVS": VCVS,
+    "VoltageControlledVoltageSource": VCVS,
+    "CCVS": CCVS,
+    "CurrentControlledVoltageSource": CCVS,
+    "VCCS": VCCS,
+    "VoltageControlledCurrentSource": VCCS,
+    "CCCS": CCCS,
+    "CurrentControlledCurrentSource": CCCS,
+    "BJT NPN": BJTNPN,
+    "BJT PNP": BJTPNP,
+    "MOSFET NMOS": MOSFETNMOS,
+    "MOSFETNMOS": MOSFETNMOS,
+    "MOSFET PMOS": MOSFETPMOS,
+    "MOSFETPMOS": MOSFETPMOS,
+    "VC Switch": VCSwitch,
+    "VCSwitch": VCSwitch,
+    "Diode": Diode,
+    "LED": LEDComponent,
+    "Zener Diode": ZenerDiode,
+    "ZenerDiode": ZenerDiode,
+    "Transformer": Transformer,
+}
+
+
+def create_component(component_type, component_id):
+    """Factory function to create components with a backing ComponentData model"""
+    component_class = COMPONENT_CLASSES.get(component_type)
+    if component_class is None:
+        raise ValueError(f"Unknown component type: {component_type}")
+
+    comp_model = ComponentData(
+        component_id=component_id,
+        component_type=component_type,
+        value=DEFAULT_VALUES.get(component_type, "1u"),
+        position=(0.0, 0.0),
+    )
+    return component_class(component_id, model=comp_model)

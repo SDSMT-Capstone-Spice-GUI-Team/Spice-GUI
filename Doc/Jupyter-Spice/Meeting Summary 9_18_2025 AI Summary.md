@@ -101,23 +101,21 @@ The one we will be looking for will be **`.op` (DC operating point)**, not **DC 
 ## Tiny glossary (even plainer)
 
 - **GitHub Project board**: our shared to-do list with cards you drag from “To Do” to “Done.”
-    
+
 - **Repo (repository)**: the shared code folder on GitHub.
-    
+
 - **Qt**: a toolkit to make app windows, buttons, and the draggable canvas.
-    
+
 - **Canvas**: the blank area where we drop parts.
-    
+
 - **Ground / node 0**: the universal “zero volts” reference point in circuits.
-    
+
 - **Labeling pins**: typing the same name on two pins means “these are connected.”
-    
+
 - **Netlist**: a simple text file that lists each part and which pins are connected to which names.
-    
+
 - **ngspice**: the calculator program that reads the netlist and outputs voltages/currents.
-    
+
 - **Voltage divider**: two resistors in a row; the middle point has a fraction of the battery voltage.
-    
+
 - **MVP**: the smallest, simplest app that does something genuinely useful end-to-end.
-
-

@@ -1,0 +1,602 @@
+"""
+CircuitController - Orchestrates component and wire CRUD operations.
+
+This module contains no Qt dependencies. It manages the CircuitModel
+and notifies views of changes through an observer pattern.
+"""
+
+import logging
+from typing import Any, Callable, Optional
+
+from controllers.undo_manager import UndoManager
+from models.annotation import AnnotationData
+from models.circuit import CircuitModel
+from models.clipboard import ClipboardData
+from models.component import DEFAULT_VALUES, SPICE_SYMBOLS, ComponentData
+from models.wire import WireData
+
+logger = logging.getLogger(__name__)
+
+
+class CircuitController:
+    """
+    Controller for circuit component and wire operations.
+
+    Manages the CircuitModel and notifies registered observers when
+    the model changes. Views register callbacks to stay in sync.
+
+    Observer events:
+        component_added (ComponentData) - A new component was added
+        component_removed (str) - A component was removed (by ID)
+        component_rotated (ComponentData) - A component was rotated
+        component_flipped (ComponentData) - A component was flipped/mirrored
+        component_moved (ComponentData) - A component was moved
+        component_value_changed (ComponentData) - A component's value changed
+        wire_added (WireData) - A new wire was added
+        wire_removed (int) - A wire was removed (by index)
+        wire_routed (tuple[int, WireData]) - A wire's waypoints were updated
+        circuit_cleared (None) - The entire circuit was cleared
+        nodes_rebuilt (None) - The node graph was rebuilt
+        model_loaded (None) - Circuit loaded from file
+        model_saved (None) - Circuit saved to file
+        simulation_started (None) - Simulation began
+        simulation_completed (SimulationResult) - Simulation finished
+    """
+
+    def __init__(self, model: Optional[CircuitModel] = None, max_undo_depth: int = 100):
+        self.model = model or CircuitModel()
+        self._observers: list[Callable[[str, Any], None]] = []
+        self._clipboard = ClipboardData()
+        self.undo_manager = UndoManager(max_depth=max_undo_depth)
+        self._locked_components: set[str] = set()
+
+    def add_observer(self, callback: Callable[[str, Any], None]) -> None:
+        """Register a callback for model change events."""
+        if callback not in self._observers:
+            self._observers.append(callback)
+
+    def remove_observer(self, callback: Callable[[str, Any], None]) -> None:
+        """Unregister a previously registered callback."""
+        if callback in self._observers:
+            self._observers.remove(callback)
+
+    def _notify(self, event: str, data: Any) -> None:
+        """Notify all observers of a model change."""
+        for observer in self._observers:
+            try:
+                observer(event, data)
+            except (TypeError, AttributeError, RuntimeError) as e:
+                logger.error("Error notifying observer: %s", e)
+
+    # --- Component operations ---
+
+    def add_component(self, component_type: str, position: tuple[float, float]) -> ComponentData:
+        """
+        Create and add a new component to the circuit.
+
+        Generates a unique ID using the component counter (R1, R2, V1, etc.).
+
+        Returns:
+            The newly created ComponentData.
+        """
+        symbol = SPICE_SYMBOLS.get(component_type, "X")
+        count = self.model.component_counter.get(symbol, 0) + 1
+        self.model.component_counter[symbol] = count
+        component_id = f"{symbol}{count}"
+
+        component = ComponentData(
+            component_id=component_id,
+            component_type=component_type,
+            value=DEFAULT_VALUES.get(component_type, "1"),
+            position=position,
+        )
+        self.model.add_component(component)
+        self._notify("component_added", component)
+        return component
+
+    def remove_component(self, component_id: str) -> None:
+        """
+        Remove a component and all connected wires.
+
+        Wires are removed in reverse index order to preserve indices.
+        Locked components cannot be removed.
+        """
+        if self.is_component_locked(component_id):
+            logger.info("Cannot remove locked component: %s", component_id)
+            return
+        wire_indices = self.model.remove_component(component_id)
+        for idx in sorted(wire_indices, reverse=True):
+            self.model.remove_wire(idx)
+            self._notify("wire_removed", idx)
+        self._notify("component_removed", component_id)
+
+    def rotate_component(self, component_id: str, clockwise: bool = True) -> None:
+        """Rotate a component 90 degrees. Locked components cannot be rotated."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        delta = 90 if clockwise else -90
+        component.rotation = (component.rotation + delta) % 360
+        self._notify("component_rotated", component)
+
+    def set_component_rotation(self, component_id: str, rotation: int) -> None:
+        """Set a component's rotation to an exact value. Locked components cannot be rotated."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.rotation = rotation % 360
+        self._notify("component_rotated", component)
+
+    def flip_component(self, component_id: str, horizontal: bool = True) -> None:
+        """Flip (mirror) a component. Locked components cannot be flipped."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        if horizontal:
+            component.flip_h = not component.flip_h
+        else:
+            component.flip_v = not component.flip_v
+        self._notify("component_flipped", component)
+
+    def update_component_value(self, component_id: str, value: str) -> None:
+        """Update a component's value. Locked components cannot be changed."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.value = value
+        self._notify("component_value_changed", component)
+
+    def update_component_waveform(self, component_id: str, waveform_type: str, params: dict) -> None:
+        """Update a component's waveform configuration. Locked components cannot be changed."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.waveform_type = waveform_type
+        if component.waveform_params is None:
+            component.waveform_params = {}
+        component.waveform_params[waveform_type] = params
+        component.value = component.get_spice_value()
+        self._notify("component_value_changed", component)
+
+    def update_component_initial_condition(self, component_id: str, initial_condition: Optional[str]) -> None:
+        """Update a component's initial condition. Locked components cannot be changed."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.initial_condition = initial_condition
+        self._notify("component_value_changed", component)
+
+    def move_component(self, component_id: str, position: tuple[float, float]) -> None:
+        """Move a component to a new position. Locked components cannot be moved."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.position = position
+        self._notify("component_moved", component)
+
+    # --- Locked component management ---
+
+    def set_locked_components(self, component_ids: list[str]) -> None:
+        """Set which components are locked (non-editable by students)."""
+        self._locked_components = set(component_ids)
+        self._notify("locked_components_changed", list(self._locked_components))
+
+    def is_component_locked(self, component_id: str) -> bool:
+        """Check if a component is locked."""
+        return component_id in self._locked_components
+
+    def get_locked_components(self) -> set[str]:
+        """Return the set of locked component IDs."""
+        return set(self._locked_components)
+
+    def clear_locked_components(self) -> None:
+        """Remove all component locks."""
+        self._locked_components.clear()
+        self._notify("locked_components_changed", [])
+
+    # --- Wire operations ---
+
+    def has_duplicate_wire(
+        self,
+        start_comp_id: str,
+        start_term: int,
+        end_comp_id: str,
+        end_term: int,
+    ) -> bool:
+        """Check if a wire already exists between the given terminal pair."""
+        for wire in self.model.wires:
+            same_fwd = (
+                wire.start_component_id == start_comp_id
+                and wire.start_terminal == start_term
+                and wire.end_component_id == end_comp_id
+                and wire.end_terminal == end_term
+            )
+            same_rev = (
+                wire.start_component_id == end_comp_id
+                and wire.start_terminal == end_term
+                and wire.end_component_id == start_comp_id
+                and wire.end_terminal == start_term
+            )
+            if same_fwd or same_rev:
+                return True
+        return False
+
+    def add_wire(
+        self,
+        start_comp_id: str,
+        start_term: int,
+        end_comp_id: str,
+        end_term: int,
+        waypoints: Optional[list[tuple[float, float]]] = None,
+    ) -> Optional[WireData]:
+        """
+        Create and add a new wire connection.
+
+        Returns:
+            The newly created WireData, or None if a duplicate wire exists.
+        """
+        if self.has_duplicate_wire(start_comp_id, start_term, end_comp_id, end_term):
+            logger.info(
+                "Duplicate wire rejected: %s[%s] -> %s[%s]",
+                start_comp_id,
+                start_term,
+                end_comp_id,
+                end_term,
+            )
+            return None
+
+        wire = WireData(
+            start_component_id=start_comp_id,
+            start_terminal=start_term,
+            end_component_id=end_comp_id,
+            end_terminal=end_term,
+            waypoints=waypoints or [],
+        )
+        self.model.add_wire(wire)
+        self._notify("wire_added", wire)
+        return wire
+
+    def remove_wire(self, wire_index: int) -> None:
+        """Remove a wire by index."""
+        if 0 <= wire_index < len(self.model.wires):
+            self.model.remove_wire(wire_index)
+            self._notify("wire_removed", wire_index)
+
+    def update_wire_waypoints(self, wire_index: int, waypoints: list[tuple[float, float]]) -> None:
+        """Update a wire's routing path."""
+        if 0 <= wire_index < len(self.model.wires):
+            wire = self.model.wires[wire_index]
+            wire.waypoints = waypoints
+            self._notify("wire_routed", (wire_index, wire))
+
+    def update_wire_routing_result(
+        self,
+        wire_index: int,
+        waypoints: list[tuple[float, float]],
+        runtime: float = 0.0,
+        iterations: int = 0,
+        routing_failed: bool = False,
+    ) -> None:
+        """Store pathfinding results for a wire.
+
+        Called after the view runs pathfinding so routing metadata
+        is persisted through the controller rather than via direct model writes.
+        """
+        if 0 <= wire_index < len(self.model.wires):
+            wire = self.model.wires[wire_index]
+            wire.waypoints = waypoints
+            wire.runtime = runtime
+            wire.iterations = iterations
+            wire.routing_failed = routing_failed
+            self._notify("wire_routed", (wire_index, wire))
+
+    def set_wire_locked(self, wire_index: int, locked: bool) -> None:
+        """Set whether a wire's path is locked (skip auto-reroute)."""
+        if 0 <= wire_index < len(self.model.wires):
+            wire = self.model.wires[wire_index]
+            wire.locked = locked
+            self._notify("wire_lock_changed", (wire_index, wire))
+
+    # --- Circuit operations ---
+
+    def clear_circuit(self) -> None:
+        """Clear the entire circuit."""
+        self.model.clear()
+        self._notify("circuit_cleared", None)
+
+    def rebuild_nodes(self) -> None:
+        """Rebuild the node graph from current wires."""
+        self.model.rebuild_nodes()
+        self._notify("nodes_rebuilt", None)
+
+    def get_nodes_and_terminal_map(self) -> tuple[list, dict]:
+        """Return (nodes, terminal_to_node) from the model.
+
+        Returns copies so callers cannot mutate the model's internal state.
+        """
+        return list(self.model.nodes), dict(self.model.terminal_to_node)
+
+    def find_node_for_terminal(self, comp_id: str, term_idx: int):
+        """Look up the node for a given terminal, or None."""
+        return self.model.terminal_to_node.get((comp_id, term_idx))
+
+    def get_component_counter(self) -> dict:
+        """Return a copy of the component counter."""
+        return dict(self.model.component_counter)
+
+    def set_net_name(self, node, label) -> None:
+        """Set a custom net name on a node and notify observers."""
+        node.set_custom_label(label)
+        self._notify("net_name_changed", node)
+
+    def to_dict(self) -> dict:
+        """Serialize the circuit model to a dictionary."""
+        return self.model.to_dict()
+
+    def set_recommended_components(self, components: list[str]) -> None:
+        """Update the file-level recommended components list."""
+        self.model.recommended_components = list(components)
+        self._notify("recommended_components_changed", self.model.recommended_components)
+
+    # --- Annotation operations ---
+
+    def add_annotation(self, annotation: AnnotationData) -> int:
+        """Add an annotation to the model and notify observers.
+
+        Returns:
+            The index of the newly added annotation.
+        """
+        self.model.annotations.append(annotation)
+        idx = len(self.model.annotations) - 1
+        self._notify("annotation_added", annotation)
+        return idx
+
+    def remove_annotation(self, index: int) -> None:
+        """Remove an annotation by index."""
+        if 0 <= index < len(self.model.annotations):
+            del self.model.annotations[index]
+            self._notify("annotation_removed", index)
+
+    def update_annotation_text(self, index: int, text: str) -> None:
+        """Update the text of an annotation."""
+        if 0 <= index < len(self.model.annotations):
+            self.model.annotations[index].text = text
+            self._notify("annotation_updated", self.model.annotations[index])
+
+    # --- Clipboard operations ---
+
+    def copy_components(self, component_ids: list[str]) -> bool:
+        """
+        Copy selected components and their internal wires to the clipboard.
+
+        Only wires where BOTH endpoints are in the selection are copied.
+        Returns True if anything was copied.
+        """
+        if not component_ids:
+            return False
+
+        selected_set = set(component_ids)
+
+        comp_dicts = []
+        for comp_id in component_ids:
+            comp = self.model.components.get(comp_id)
+            if comp is not None:
+                comp_dicts.append(comp.to_dict())
+
+        if not comp_dicts:
+            return False
+
+        wire_dicts = []
+        for wire in self.model.wires:
+            if wire.start_component_id in selected_set and wire.end_component_id in selected_set:
+                wire_dicts.append(wire.to_dict())
+
+        self._clipboard = ClipboardData(
+            components=comp_dicts,
+            wires=wire_dicts,
+            paste_count=0,
+        )
+        return True
+
+    def paste_components(
+        self,
+        offset: tuple[float, float] = (40.0, 40.0),
+    ) -> tuple[list[ComponentData], list[WireData]]:
+        """
+        Paste clipboard contents into the circuit with new unique IDs.
+
+        Each paste increments the paste_count so successive pastes
+        are offset further from the original position.
+
+        Returns:
+            Tuple of (new_components, new_wires) that were added.
+        """
+        if self._clipboard.is_empty():
+            return ([], [])
+
+        self._clipboard.paste_count += 1
+        multiplier = self._clipboard.paste_count
+        dx = offset[0] * multiplier
+        dy = offset[1] * multiplier
+
+        id_map: dict[str, str] = {}
+        new_components: list[ComponentData] = []
+
+        for comp_dict in self._clipboard.components:
+            comp_data = ComponentData.from_dict(comp_dict)
+
+            symbol = SPICE_SYMBOLS.get(comp_data.component_type, "X")
+            count = self.model.component_counter.get(symbol, 0) + 1
+            self.model.component_counter[symbol] = count
+            new_id = f"{symbol}{count}"
+
+            old_id = comp_data.component_id
+            id_map[old_id] = new_id
+
+            new_comp = ComponentData(
+                component_id=new_id,
+                component_type=comp_data.component_type,
+                value=comp_data.value,
+                position=(comp_data.position[0] + dx, comp_data.position[1] + dy),
+                rotation=comp_data.rotation,
+                waveform_type=comp_data.waveform_type,
+                waveform_params=(comp_data.waveform_params.copy() if comp_data.waveform_params else None),
+            )
+            self.model.add_component(new_comp)
+            self._notify("component_added", new_comp)
+            new_components.append(new_comp)
+
+        new_wires: list[WireData] = []
+        for wire_dict in self._clipboard.wires:
+            new_start = id_map.get(wire_dict["start_comp"])
+            new_end = id_map.get(wire_dict["end_comp"])
+
+            if new_start is None or new_end is None:
+                continue
+
+            wire = WireData(
+                start_component_id=new_start,
+                start_terminal=wire_dict["start_term"],
+                end_component_id=new_end,
+                end_terminal=wire_dict["end_term"],
+            )
+            self.model.add_wire(wire)
+            self._notify("wire_added", wire)
+            new_wires.append(wire)
+
+        return (new_components, new_wires)
+
+    def cut_components(self, component_ids: list[str]) -> bool:
+        """Cut selected components: copy to clipboard, then delete."""
+        copied = self.copy_components(component_ids)
+        if copied:
+            for comp_id in list(component_ids):
+                if comp_id in self.model.components:
+                    self.remove_component(comp_id)
+        return copied
+
+    def has_clipboard_content(self) -> bool:
+        """Return whether the clipboard has content to paste."""
+        return not self._clipboard.is_empty()
+
+    def set_clipboard(self, clipboard: ClipboardData) -> None:
+        """Replace the controller's clipboard with the given data."""
+        self._clipboard = clipboard
+
+    def get_clipboard_paste_count(self) -> int:
+        """Return the current clipboard paste count."""
+        return self._clipboard.paste_count
+
+    # --- Undo/Redo operations ---
+
+    def execute_command(self, command) -> None:
+        """
+        Execute a command through the undo manager.
+
+        This makes the command undoable. Commands executed this way
+        are added to the undo stack.
+
+        Args:
+            command: A Command instance to execute
+        """
+        self.undo_manager.execute(command)
+
+    def push_already_executed(self, command) -> None:
+        """Push a pre-executed command onto the undo stack.
+
+        Used when an action has already been applied (e.g. during a drag)
+        and only needs to be recorded for undo/redo.
+        """
+        self.undo_manager._undo_stack.append(command)
+        self.undo_manager._redo_stack.clear()
+
+    def undo(self) -> bool:
+        """
+        Undo the last command.
+
+        Returns:
+            True if an action was undone, False otherwise
+        """
+        return self.undo_manager.undo()
+
+    def redo(self) -> bool:
+        """
+        Redo the last undone command.
+
+        Returns:
+            True if an action was redone, False otherwise
+        """
+        return self.undo_manager.redo()
+
+    def can_undo(self) -> bool:
+        """Return whether there are commands to undo."""
+        return self.undo_manager.can_undo()
+
+    def can_redo(self) -> bool:
+        """Return whether there are commands to redo."""
+        return self.undo_manager.can_redo()
+
+    def get_undo_description(self) -> Optional[str]:
+        """Get description of the command that would be undone."""
+        return self.undo_manager.get_undo_description()
+
+    def get_redo_description(self) -> Optional[str]:
+        """Get description of the command that would be redone."""
+        return self.undo_manager.get_redo_description()
+
+    def clear_undo_history(self) -> None:
+        """Clear the undo/redo history."""
+        self.undo_manager.clear()
+
+    # --- Read-only query methods ---
+    # Views should use these instead of accessing self.model directly.
+
+    def get_component(self, component_id: str) -> Optional[ComponentData]:
+        """Return a single component by ID, or None."""
+        return self.model.components.get(component_id)
+
+    def get_components(self) -> dict[str, ComponentData]:
+        """Return a copy of the components dict."""
+        return dict(self.model.components)
+
+    def get_component_count(self) -> int:
+        """Return the number of components in the circuit."""
+        return len(self.model.components)
+
+    def get_wires(self) -> list[WireData]:
+        """Return a copy of the wires list."""
+        return list(self.model.wires)
+
+    def get_wire_count(self) -> int:
+        """Return the number of wires in the circuit."""
+        return len(self.model.wires)
+
+    def get_nodes(self) -> list:
+        """Return a copy of the nodes list."""
+        return list(self.model.nodes)
+
+    def get_annotations(self) -> list[AnnotationData]:
+        """Return a copy of the annotations list."""
+        return list(self.model.annotations)
+
+    def has_ground(self) -> bool:
+        """Return whether the circuit has a ground component."""
+        return any(n.is_ground for n in self.model.nodes)
+
+    def get_terminal_to_node(self) -> dict:
+        """Return a copy of the terminal-to-node mapping."""
+        return dict(self.model.terminal_to_node)

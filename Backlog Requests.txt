@@ -1,6 +1,0 @@
-how to layout a an unorganized netlist
-consider kdence? jitx
-
-input a netlist and auto routing
-
-ml component placement model.

@@ -1,0 +1,103 @@
+"""
+WireData - Pure Python data model for circuit wires.
+
+This module contains no Qt dependencies. Waypoints are stored as
+tuples (x, y) rather than QPointF.
+"""
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class WireData:
+    """
+    Pure Python data class representing a wire connection between two component terminals.
+
+    This class stores connection information and routing data without any Qt dependencies.
+    """
+
+    start_component_id: str
+    start_terminal: int
+    end_component_id: str
+    end_terminal: int
+
+    # Routing data (populated after pathfinding)
+    waypoints: list[tuple[float, float]] = field(default_factory=list)
+    algorithm: str = "idastar"
+    runtime: float = 0.0  # Time taken to route (seconds)
+    iterations: int = 0  # Pathfinding iterations
+    routing_failed: bool = False  # True when pathfinding fell back to straight line
+    locked: bool = False  # True when wire path is locked (skip auto-reroute)
+
+    def get_terminals(self) -> list[tuple[str, int]]:
+        """
+        Get both terminal identifiers for this wire.
+
+        Returns:
+            List of two (component_id, terminal_index) tuples.
+        """
+        return [
+            (self.start_component_id, self.start_terminal),
+            (self.end_component_id, self.end_terminal),
+        ]
+
+    def connects_component(self, component_id: str) -> bool:
+        """Check if this wire connects to the given component."""
+        return self.start_component_id == component_id or self.end_component_id == component_id
+
+    def connects_terminal(self, component_id: str, terminal: int) -> bool:
+        """Check if this wire connects to the given terminal."""
+        return (self.start_component_id == component_id and self.start_terminal == terminal) or (
+            self.end_component_id == component_id and self.end_terminal == terminal
+        )
+
+    def to_dict(self) -> dict:
+        """
+        Serialize wire to dictionary.
+
+        Format matches the existing JSON circuit file format for compatibility.
+        Waypoints are persisted so wire layouts survive save/load.
+        """
+        data = {
+            "start_comp": self.start_component_id,
+            "start_term": self.start_terminal,
+            "end_comp": self.end_component_id,
+            "end_term": self.end_terminal,
+        }
+        if self.waypoints:
+            data["waypoints"] = [[x, y] for x, y in self.waypoints]
+        if self.locked:
+            data["locked"] = True
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "WireData":
+        """
+        Deserialize wire from dictionary.
+
+        Handles both old format (no waypoints) and new format (with waypoints).
+
+        Raises:
+            ValueError: If required fields are missing or have wrong types.
+        """
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected dict, got {type(data).__name__}")
+        for key in ("start_comp", "start_term", "end_comp", "end_term"):
+            if key not in data:
+                raise ValueError(f"Missing required field '{key}' in wire data")
+        wire = cls(
+            start_component_id=data["start_comp"],
+            start_terminal=data["start_term"],
+            end_component_id=data["end_comp"],
+            end_terminal=data["end_term"],
+            locked=data.get("locked", False),
+        )
+        if "waypoints" in data:
+            wire.waypoints = [(float(x), float(y)) for x, y in data["waypoints"]]
+        return wire
+
+    def __repr__(self) -> str:
+        return (
+            f"WireData({self.start_component_id}[{self.start_terminal}] -> "
+            f"{self.end_component_id}[{self.end_terminal}])"
+        )

@@ -1,0 +1,30 @@
+Full Wave Rectifier With Smoothing Capacitor
+
+*the purpoce of this circuit was to test a bridge rectifier with a smoothing capacitor. Element parameters were selected to give a completely smooth output.
+
+Vin 2 1 AC sin(0 100 60 0 0 90)
+*voltage source Vin is connected to nodes 2 and 1 with AC voltage defined by a sine function with 0 DC offset, 100v magnitude, 60Hz frequency, 0 time delay, 0 damping factor, and 90 degree phase shift.
+
+D1 0 2 DMOD
+D2 0 1 DMOD
+D3 2 3 DMOD
+D4 1 3 DMOD
+*diodes D1-D4 are connected in a bridge configuration with model DMOD
+
+R1 3 0 10k
+C1 3 0 250u
+
+.model DMOD D
+*defines model DMOD as a diode with default characteristics
+
+.tran 0.1ms 0.1s
+*selects transient analysis with 0.1ms timestep and 0.1s run time
+
+.control
+run
+
+plot v(2)-v(1) v(3)
+*plots voltage at node 3 and voltage difference between nodes 2 and 1 i.e. voltage across Vin
+
+.endc
+.end
