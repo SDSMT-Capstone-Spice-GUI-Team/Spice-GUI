@@ -16,10 +16,8 @@ This prototype implements:
 
 import sys
 
-from GUI.main_window import MainWindow
+from GUI.main_window import MainWindow, SplashScreen
 from PyQt6.QtWidgets import QApplication
-
-from app.GUI.main_window import SplashScreen
 
 
 def main():
