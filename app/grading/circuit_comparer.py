@@ -9,7 +9,7 @@ No Qt dependencies — pure Python module.
 from dataclasses import dataclass, field
 
 from models.circuit import CircuitModel
-from simulation.monte_carlo import parse_spice_value
+from utils.format_utils import parse_spice_value
 
 
 @dataclass
