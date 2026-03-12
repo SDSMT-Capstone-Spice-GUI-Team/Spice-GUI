@@ -27,7 +27,7 @@ from utils.format_utils import format_value, parse_value
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .plot_utils import apply_mpl_theme as _apply_mpl_theme
-from .styles import SCROLL_LOAD_COUNT
+from .styles import SCROLL_LOAD_COUNT, theme_manager
 
 # Get colors from the 'Paired' colormap for color-blind friendliness
 cmap = plt.get_cmap("Paired")

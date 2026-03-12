@@ -768,3 +768,62 @@ class TestAtomicWrites:
 
         # Original auto-save file must still be intact
         assert Path(autosave_file).read_text() == original_content
+
+
+class TestFileSizeValidation:
+    """Issue #766: reject oversized files before loading."""
+
+    def test_load_circuit_rejects_oversized_file(self, tmp_path):
+        """load_circuit should raise ValueError for files exceeding MAX_FILE_SIZE."""
+        from controllers.file_controller import check_file_size
+
+        filepath = tmp_path / "huge.json"
+        filepath.write_text("{}")
+
+        # Patch getsize to report a huge file
+        with patch(
+            "controllers.file_controller.os.path.getsize",
+            return_value=100 * 1024 * 1024,
+        ):
+            with pytest.raises(ValueError, match="too large"):
+                check_file_size(filepath)
+
+    def test_load_circuit_accepts_normal_file(self, tmp_path):
+        """load_circuit should accept files within the size limit."""
+        from controllers.file_controller import check_file_size
+
+        filepath = tmp_path / "normal.json"
+        filepath.write_text("{}")
+
+        # Should not raise
+        check_file_size(filepath)
+
+    def test_load_circuit_error_message_includes_size(self, tmp_path):
+        """Error message should include the actual and maximum file size."""
+        from controllers.file_controller import check_file_size
+
+        filepath = tmp_path / "big.json"
+        filepath.write_text("{}")
+
+        with patch("controllers.file_controller.os.path.getsize", return_value=60 * 1024 * 1024):
+            with pytest.raises(ValueError, match="60.0 MB.*50 MB"):
+                check_file_size(filepath)
+
+    def test_load_circuit_with_oversized_file_preserves_model(self, tmp_path):
+        """Model should remain intact when oversized file is rejected."""
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        original_ids = set(model.components.keys())
+
+        filepath = tmp_path / "huge.json"
+        filepath.write_text('{"components": [], "wires": []}')
+
+        with patch(
+            "controllers.file_controller.os.path.getsize",
+            return_value=100 * 1024 * 1024,
+        ):
+            with pytest.raises(ValueError, match="too large"):
+                ctrl.load_circuit(filepath)
+
+        # Original circuit must still be intact
+        assert set(ctrl.model.components.keys()) == original_ids
