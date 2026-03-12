@@ -17,8 +17,7 @@ def _source_uses_name(func, name):
     """Check if a function's source contains a reference to the given name."""
     tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
     return any(
-        (isinstance(node, ast.Name) and node.id == name)
-        or (isinstance(node, ast.Attribute) and node.attr == name)
+        (isinstance(node, ast.Name) and node.id == name) or (isinstance(node, ast.Attribute) and node.attr == name)
         for node in ast.walk(tree)
     )
 
@@ -41,25 +40,19 @@ class TestBatchRerouteInfrastructure:
         """CircuitCanvasView.__init__ should initialize _pending_reroute_components."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        assert _source_uses_name(
-            CircuitCanvasView.__init__, "_pending_reroute_components"
-        )
+        assert _source_uses_name(CircuitCanvasView.__init__, "_pending_reroute_components")
 
     def test_handle_component_moved_does_not_call_reroute_directly(self):
         """_handle_component_moved should NOT call reroute_connected_wires directly."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        assert _source_not_uses_name(
-            CircuitCanvasView._handle_component_moved, "reroute_connected_wires"
-        )
+        assert _source_not_uses_name(CircuitCanvasView._handle_component_moved, "reroute_connected_wires")
 
     def test_handle_component_moved_schedules_batch(self):
         """_handle_component_moved should call _schedule_batch_reroute."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        assert _source_uses_name(
-            CircuitCanvasView._handle_component_moved, "_schedule_batch_reroute"
-        )
+        assert _source_uses_name(CircuitCanvasView._handle_component_moved, "_schedule_batch_reroute")
 
     def test_do_batch_reroute_method_exists(self):
         """CircuitCanvasView should have _do_batch_reroute method."""
@@ -86,11 +79,7 @@ class TestObserverMoveDedup:
         r2 = ctrl.add_component("Resistor", (100, 0))
 
         events = []
-        ctrl.add_observer(
-            lambda e, d: (
-                events.append((e, d.component_id)) if e == "component_moved" else None
-            )
-        )
+        ctrl.add_observer(lambda e, d: events.append((e, d.component_id)) if e == "component_moved" else None)
 
         # Simulate group drag: both components move
         ctrl.move_component(r1.component_id, (50, 50))
@@ -125,13 +114,9 @@ class TestObserverMoveDedup:
         from GUI.circuit_canvas import CircuitCanvasView
 
         # Should reference the pending set (to clear it)
-        assert _source_uses_name(
-            CircuitCanvasView._do_batch_reroute, "_pending_reroute_components"
-        )
+        assert _source_uses_name(CircuitCanvasView._do_batch_reroute, "_pending_reroute_components")
         # Should reference the timer (to reset it)
-        assert _source_uses_name(
-            CircuitCanvasView._do_batch_reroute, "_batch_reroute_timer"
-        )
+        assert _source_uses_name(CircuitCanvasView._do_batch_reroute, "_batch_reroute_timer")
 
     def test_schedule_batch_reroute_is_idempotent(self):
         """Calling _schedule_batch_reroute multiple times should not stack timers."""
@@ -139,14 +124,9 @@ class TestObserverMoveDedup:
 
         # Should check if timer already exists before creating — look for
         # a comparison (is not None) or an early return in the AST
-        tree = ast.parse(
-            textwrap.dedent(
-                inspect.getsource(CircuitCanvasView._schedule_batch_reroute)
-            )
-        )
+        tree = ast.parse(textwrap.dedent(inspect.getsource(CircuitCanvasView._schedule_batch_reroute)))
         has_compare = any(isinstance(node, ast.Compare) for node in ast.walk(tree))
         has_return = any(isinstance(node, ast.Return) for node in ast.walk(tree))
         has_if = any(isinstance(node, ast.If) for node in ast.walk(tree))
-        assert (
-            has_compare or has_return or has_if
-        ), "_schedule_batch_reroute should have a guard (comparison, return, or if)"
+        msg = "_schedule_batch_reroute should have a guard (comparison, return, or if)"
+        assert has_compare or has_return or has_if, msg
