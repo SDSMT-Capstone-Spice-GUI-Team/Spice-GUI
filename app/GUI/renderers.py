@@ -274,32 +274,50 @@ class IEEECCCS(ComponentRenderer):
 
 class IEEEBJTNPN(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-20, 0, -8, 0)
+        # Enclosing circle (IEEE standard)
+        painter.drawEllipse(-12, -15, 30, 30)
+        # Base lead (left, into circle)
+        painter.drawLine(-20, 0, -6, 0)
+        # Vertical base bar
+        painter.drawLine(-6, -10, -6, 10)
+        # Collector line (base bar to circle edge)
+        painter.drawLine(-6, -6, 8, -12)
+        # Emitter line (base bar to circle edge)
+        painter.drawLine(-6, 6, 8, 12)
+        # Collector lead (circle to terminal)
         painter.drawLine(8, -12, 20, -20)
+        # Emitter lead (circle to terminal)
         painter.drawLine(8, 12, 20, 20)
-        painter.drawLine(-8, -12, -8, 12)
-        painter.drawLine(-8, -6, 8, -12)
-        painter.drawLine(-8, 6, 8, 12)
+        # Arrow on emitter pointing OUTWARD (away from base bar)
         painter.drawLine(8, 12, 4, 7)
         painter.drawLine(8, 12, 3, 12)
 
     def get_obstacle_shape(self, component):
-        return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
+        return [(-14.0, -17.0), (20.0, -17.0), (20.0, 17.0), (-14.0, 17.0)]
 
 
 class IEEEBJTPNP(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-20, 0, -8, 0)
+        # Enclosing circle (IEEE standard)
+        painter.drawEllipse(-12, -15, 30, 30)
+        # Base lead (left, into circle)
+        painter.drawLine(-20, 0, -6, 0)
+        # Vertical base bar
+        painter.drawLine(-6, -10, -6, 10)
+        # Collector line (base bar to circle edge)
+        painter.drawLine(-6, -6, 8, -12)
+        # Emitter line (base bar to circle edge)
+        painter.drawLine(-6, 6, 8, 12)
+        # Collector lead (circle to terminal)
         painter.drawLine(8, -12, 20, -20)
+        # Emitter lead (circle to terminal)
         painter.drawLine(8, 12, 20, 20)
-        painter.drawLine(-8, -12, -8, 12)
-        painter.drawLine(-8, -6, 8, -12)
-        painter.drawLine(-8, 6, 8, 12)
-        painter.drawLine(-8, 6, -3, 2)
-        painter.drawLine(-8, 6, -3, 7)
+        # Arrow on emitter pointing INWARD (toward base bar)
+        painter.drawLine(-6, 6, -1, 2)
+        painter.drawLine(-6, 6, -1, 7)
 
     def get_obstacle_shape(self, component):
-        return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
+        return [(-14.0, -17.0), (20.0, -17.0), (20.0, 17.0), (-14.0, 17.0)]
 
 
 class IEEEMOSFETNMOS(ComponentRenderer):

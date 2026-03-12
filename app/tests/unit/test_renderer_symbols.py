@@ -7,7 +7,16 @@ Structural tests verify that renderers draw the expected primitives
 
 from unittest.mock import MagicMock, call
 
-from GUI.renderers import IEEEMOSFETNMOS, IEEEMOSFETPMOS, IEEECurrentSource, IEEEOpAmp, IEEEVoltageSource, get_renderer
+from GUI.renderers import (
+    IEEEBJTNPN,
+    IEEEBJTPNP,
+    IEEEMOSFETNMOS,
+    IEEEMOSFETPMOS,
+    IEEECurrentSource,
+    IEEEOpAmp,
+    IEEEVoltageSource,
+    get_renderer,
+)
 from PyQt6.QtGui import QColor, QPen
 
 
@@ -225,3 +234,79 @@ class TestRendererRegistration:
                 assert r is not None
             except KeyError:
                 pass
+
+
+class TestBJTStandardSymbol:
+    """#675: BJT NPN/PNP should render with enclosing circle per IEEE standard."""
+
+    def test_npn_has_enclosing_circle(self):
+        renderer = IEEEBJTNPN()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        painter.drawEllipse.assert_called_once_with(-12, -15, 30, 30)
+
+    def test_pnp_has_enclosing_circle(self):
+        renderer = IEEEBJTPNP()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        painter.drawEllipse.assert_called_once_with(-12, -15, 30, 30)
+
+    def test_npn_has_base_bar(self):
+        renderer = IEEEBJTNPN()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        line_calls = painter.drawLine.call_args_list
+        assert call(-6, -10, -6, 10) in line_calls
+
+    def test_pnp_has_base_bar(self):
+        renderer = IEEEBJTPNP()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        line_calls = painter.drawLine.call_args_list
+        assert call(-6, -10, -6, 10) in line_calls
+
+    def test_npn_arrow_points_outward(self):
+        """NPN emitter arrow should point away from the base bar."""
+        renderer = IEEEBJTNPN()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        line_calls = painter.drawLine.call_args_list
+        # Arrow tip at (8, 12) with barbs at (4, 7) and (3, 12)
+        assert call(8, 12, 4, 7) in line_calls
+        assert call(8, 12, 3, 12) in line_calls
+
+    def test_pnp_arrow_points_inward(self):
+        """PNP emitter arrow should point toward the base bar."""
+        renderer = IEEEBJTPNP()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        line_calls = painter.drawLine.call_args_list
+        # Arrow tip at (-6, 6) with barbs at (-1, 2) and (-1, 7)
+        assert call(-6, 6, -1, 2) in line_calls
+        assert call(-6, 6, -1, 7) in line_calls
+
+    def test_npn_has_collector_and_emitter_leads(self):
+        """NPN should have leads connecting circle to terminal positions."""
+        renderer = IEEEBJTNPN()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        line_calls = painter.drawLine.call_args_list
+        assert call(8, -12, 20, -20) in line_calls  # Collector lead
+        assert call(8, 12, 20, 20) in line_calls  # Emitter lead
+
+    def test_pnp_has_collector_and_emitter_leads(self):
+        """PNP should have leads connecting circle to terminal positions."""
+        renderer = IEEEBJTPNP()
+        painter = _make_mock_painter()
+        comp = _make_mock_component(in_scene=False)
+        renderer.draw(painter, comp)
+        line_calls = painter.drawLine.call_args_list
+        assert call(8, -12, 20, -20) in line_calls  # Collector lead
+        assert call(8, 12, 20, 20) in line_calls  # Emitter lead
