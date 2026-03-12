@@ -479,7 +479,7 @@ QTreeWidget::branch {
 QScrollBar:vertical {
     background-color: @background_primary@;
     width: 12px;
-    margin: 0;
+    margin: 2px 2px 2px 4px;
     border: none;
     border-radius: 6px;
 }
