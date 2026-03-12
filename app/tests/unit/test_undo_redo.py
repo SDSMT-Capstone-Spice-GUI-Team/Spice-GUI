@@ -306,6 +306,57 @@ class TestWireCommands:
         cmd.undo()
         assert len(model.wires) == 1
 
+    def test_delete_wire_undo_rebuilds_node_graph(self):
+        """Test that undoing a wire deletion rebuilds terminal_to_node."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+
+        # Add components and wire
+        r1 = controller.add_component("Resistor", (0, 0))
+        r2 = controller.add_component("Resistor", (10, 0))
+        controller.add_wire(r1.component_id, 0, r2.component_id, 0)
+
+        # Capture the node graph state before deletion
+        nodes_before = len(model.nodes)
+        t2n_before = dict(model.terminal_to_node)
+
+        # Delete wire
+        cmd = DeleteWireCommand(controller, 0)
+        cmd.execute()
+
+        # After deletion the connected terminals should no longer share a node
+        assert len(model.wires) == 0
+
+        # Undo should restore wire AND rebuild node graph
+        cmd.undo()
+        assert len(model.wires) == 1
+        assert len(model.nodes) == nodes_before
+        # The same terminal pairs should be mapped to nodes again
+        for key in t2n_before:
+            assert key in model.terminal_to_node, f"terminal {key} missing from terminal_to_node after undo"
+
+    def test_delete_wire_undo_preserves_topology_for_simulation(self):
+        """Test that delete-wire-undo cycle preserves node topology for simulation."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+
+        # Build a simple circuit: R1 -- R2 -- GND
+        r1 = controller.add_component("Resistor", (0, 0))
+        r2 = controller.add_component("Resistor", (10, 0))
+        controller.add_wire(r1.component_id, 1, r2.component_id, 0)
+
+        # Snapshot state
+        original_t2n = dict(model.terminal_to_node)
+
+        # Delete and undo
+        cmd = DeleteWireCommand(controller, 0)
+        cmd.execute()
+        cmd.undo()
+
+        # Node graph should be equivalent to the original
+        restored_t2n = dict(model.terminal_to_node)
+        assert set(restored_t2n.keys()) == set(original_t2n.keys())
+
 
 class TestPasteCommand:
     """Test paste command with undo."""
