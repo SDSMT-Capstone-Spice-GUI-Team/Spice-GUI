@@ -121,6 +121,9 @@ class BatchGrader:
     @staticmethod
     def _load_circuit(filepath: Path) -> CircuitModel:
         """Load a circuit from a .json or .spice-template file."""
+        from controllers.file_controller import check_file_size
+
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             data = json.load(f)
 

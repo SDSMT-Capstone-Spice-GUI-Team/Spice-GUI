@@ -143,7 +143,10 @@ def load_rubric(filepath) -> Rubric:
         ValueError: If rubric structure is invalid.
         OSError: If the file cannot be read.
     """
+    from controllers.file_controller import check_file_size
+
     filepath = Path(filepath)
+    check_file_size(filepath)
     with open(filepath, "r") as f:
         data = json.load(f)
     validate_rubric(data)

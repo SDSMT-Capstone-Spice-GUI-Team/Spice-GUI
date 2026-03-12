@@ -20,6 +20,16 @@ from models.circuit import CircuitModel
 SESSION_FILE = "last_session.txt"
 AUTOSAVE_FILE = ".autosave_recovery.json"
 MAX_RECENT_FILES = 10
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+
+
+def check_file_size(filepath: Path, max_size: int = MAX_FILE_SIZE) -> None:
+    """Raise ValueError if *filepath* exceeds *max_size* bytes."""
+    size = os.path.getsize(filepath)
+    if size > max_size:
+        mb = size / (1024 * 1024)
+        limit_mb = max_size / (1024 * 1024)
+        raise ValueError(f"File is too large ({mb:.1f} MB). Maximum allowed size is {limit_mb:.0f} MB.")
 
 
 from models.circuit_schema_validator import validate_circuit_data  # noqa: F401 — re-exported for compatibility
@@ -130,6 +140,7 @@ class FileController:
             OSError: If the file cannot be read.
         """
         filepath = Path(filepath)
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             data = json.load(f)
 
@@ -322,6 +333,7 @@ class FileController:
         from simulation.netlist_parser import import_netlist
 
         filepath = Path(filepath)
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             text = f.read()
 
@@ -359,6 +371,7 @@ class FileController:
         from simulation.asc_parser import import_asc
 
         filepath = Path(filepath)
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             text = f.read()
 
@@ -398,6 +411,7 @@ class FileController:
         from simulation.circuitikz_parser import import_circuitikz
 
         filepath = Path(filepath)
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             text = f.read()
 
