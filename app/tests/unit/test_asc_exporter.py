@@ -1,5 +1,7 @@
 """Tests for LTspice .asc schematic export."""
 
+from pathlib import Path
+
 import pytest
 from models.circuit import CircuitModel
 from models.component import ComponentData
@@ -242,6 +244,6 @@ class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import simulation.asc_exporter as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source

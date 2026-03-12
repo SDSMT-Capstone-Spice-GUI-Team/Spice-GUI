@@ -664,7 +664,7 @@ class TestQtDependencies:
         """FileController uses centralized SettingsService for persistence (#598)."""
         import controllers.file_controller as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         # Should use centralized settings service, not QSettings directly
         assert "settings_service" in source
         assert "QSettings" not in source
