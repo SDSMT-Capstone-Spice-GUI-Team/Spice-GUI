@@ -524,7 +524,6 @@ def import_netlist(text):
     # Phase 4: Rebuild node graph
     model.rebuild_nodes()
 
-    # Phase 5: Set analysis type if parsed
     if analysis:
         model.analysis_type = analysis["type"]
         model.analysis_params = analysis["params"]

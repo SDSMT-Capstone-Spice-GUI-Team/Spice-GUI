@@ -118,7 +118,6 @@ class CircuitCanvasView(QGraphicsView):
         # Connect scene selection changes to our signal
         self.scene.selectionChanged.connect(self.on_selection_changed)
 
-        # Register as observer of controller events (Phase 5)
         if self.controller:
             self.controller.add_observer(self._on_model_changed)
 
@@ -130,7 +129,7 @@ class CircuitCanvasView(QGraphicsView):
             self._grid_drawn = True
 
     # ===================================================================
-    # Observer Pattern (Phase 5)
+    # Observer Pattern
     # ===================================================================
 
     def _on_model_changed(self, event: str, data) -> None:
@@ -459,11 +458,6 @@ class CircuitCanvasView(QGraphicsView):
     # End Observer Pattern Handlers
     # ===================================================================
 
-    # unsuccessful attempt to get rid of red squiggles
-    # def views(self) -> list | None:
-    #     views = super().views() if super().views() else None
-    #     return views
-
     def refresh_theme(self):
         """Redraw grid and repaint all items to reflect the current theme."""
         if self.scene is None:
@@ -605,7 +599,7 @@ class CircuitCanvasView(QGraphicsView):
         event.acceptProposedAction()
 
     def dropEvent(self, event):
-        """Handle component drop from palette - Phase 5: uses controller"""
+        """Handle component drop from palette."""
         if event is None:
             return
         if not self.controller:
@@ -630,7 +624,7 @@ class CircuitCanvasView(QGraphicsView):
             event.acceptProposedAction()
 
     def add_component_at_center(self, component_type):
-        """Add a component at the center of the visible canvas area - Phase 5: uses controller"""
+        """Add a component at the center of the visible canvas area."""
         if component_type not in COMPONENTS:
             return
         if not self.controller:
@@ -1120,7 +1114,7 @@ class CircuitCanvasView(QGraphicsView):
             self.controller.execute_command(compound)
 
     def rotate_component(self, component, clockwise=True):
-        """Rotate a single component - Phase 5: uses controller"""
+        """Rotate a single component."""
         if component is None or not isinstance(component, ComponentGraphicsItem):
             return
         if not self.controller:

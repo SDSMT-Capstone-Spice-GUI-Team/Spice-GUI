@@ -48,7 +48,7 @@ class SimulationController:
         preset_manager=None,
     ):
         self.model = model or CircuitModel()
-        self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
+        self.circuit_ctrl = circuit_ctrl
         self._runner = None
         self._preset_manager = preset_manager
 
@@ -126,14 +126,12 @@ class SimulationController:
 
         Steps: validate -> generate netlist -> find ngspice -> run -> parse
         """
-        # Phase 5: Notify simulation started
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("simulation_started", None)
 
         # 1. Validate
         validation = self.validate_circuit()
         if not validation.success:
-            # Phase 5: Notify even on failure
             if self.circuit_ctrl:
                 self.circuit_ctrl._notify("simulation_completed", validation)
             return validation
@@ -154,7 +152,6 @@ class SimulationController:
                 success=False,
                 error=f"Netlist generation failed: {e}",
             )
-            # Phase 5: Notify even on failure
             if self.circuit_ctrl:
                 self.circuit_ctrl._notify("simulation_completed", result)
             return result
@@ -167,7 +164,6 @@ class SimulationController:
                 error="ngspice executable not found. Please install ngspice.",
                 netlist=netlist,
             )
-            # Phase 5: Notify even on failure
             if self.circuit_ctrl:
                 self.circuit_ctrl._notify("simulation_completed", result)
             return result
@@ -213,7 +209,6 @@ class SimulationController:
                 netlist=netlist,
                 raw_output=stdout,
             )
-            # Phase 5: Notify even on failure
             if self.circuit_ctrl:
                 self.circuit_ctrl._notify("simulation_completed", result)
             return result
@@ -227,7 +222,6 @@ class SimulationController:
             warnings=validation.warnings,
         )
 
-        # Phase 5: Notify simulation completed
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("simulation_completed", result)
 

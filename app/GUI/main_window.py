@@ -82,7 +82,7 @@ class MainWindow(
         # Create model (single source of truth)
         self.model = CircuitModel()
 
-        # Create controllers (Phase 5: wire them together)
+        # Create controllers
         self._circuit_ctrl = CircuitController(self.model)
         self._file_ctrl = FileController(self.model, self._circuit_ctrl)
         self._simulation_ctrl = SimulationController(self.model, self._circuit_ctrl)
@@ -209,7 +209,6 @@ class MainWindow(
         canvas_toolbar.addWidget(btn_zoom_fit)
         canvas_layout.addLayout(canvas_toolbar)
 
-        # Phase 5: Pass controller to canvas for observer pattern
         self.canvas = CircuitCanvasView(self.circuit_ctrl)
         btn_zoom_in.clicked.connect(lambda: self.canvas.zoom_in())
         btn_zoom_out.clicked.connect(lambda: self.canvas.zoom_out())

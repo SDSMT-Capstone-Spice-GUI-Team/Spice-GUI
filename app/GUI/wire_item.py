@@ -1,8 +1,5 @@
 import logging
-import os
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # path_finding imported lazily in update_position() for faster startup
 from models.wire import WireData
 from PyQt6.QtCore import QPointF, Qt

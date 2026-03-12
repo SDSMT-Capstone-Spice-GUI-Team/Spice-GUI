@@ -509,7 +509,6 @@ def import_asc(text):
         if root in ground_points:
             ground_roots.add(root)
 
-    # Phase 5: Create wires between component terminals sharing the same net
     # Group terminals by their net (union-find root)
     net_to_terminals = {}
     for pt, terminal_list in pin_map.items():

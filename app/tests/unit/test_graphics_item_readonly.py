@@ -5,12 +5,7 @@ as read-only and never bypass the controller to mutate the model directly.
 See issue #579.
 """
 
-import os
-import sys
-
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 # ---------------------------------------------------------------------------
 # ComponentGraphicsItem property-setter removal

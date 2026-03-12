@@ -1,14 +1,10 @@
 import math
-import os
-import sys
 
+from models.component import DEFAULT_VALUES, ComponentData
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import QBrush  # QPainterPath imported locally where needed
 from PyQt6.QtGui import QColor, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from models.component import DEFAULT_VALUES, ComponentData
 from utils.format_utils import validate_component_value
 
 from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
@@ -52,7 +48,6 @@ class ComponentGraphicsItem(QGraphicsItem):
         self._grading_state = None  # "passed", "failed", or None
         self._grading_feedback = ""
 
-        # Phase 5: Debounced position updates to controller
         self._position_update_timer = None
         self._pending_position = None
 
@@ -412,7 +407,6 @@ class ComponentGraphicsItem(QGraphicsItem):
                             item.setPos(item.pos() + raw_delta)
                             item._group_moving = False
 
-            # Phase 5: Schedule debounced controller update instead of direct model write
             self._pending_position = (grid_x, grid_y)
             self._schedule_controller_update()
 
@@ -431,7 +425,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         return super().itemChange(change, value)
 
     def _schedule_controller_update(self):
-        """Sync local model position immediately, debounce wire rerouting (Phase 5)"""
+        """Sync local model position immediately, debounce wire rerouting."""
         if self._position_update_timer:
             self._position_update_timer.stop()
         if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
@@ -453,7 +447,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         self._position_update_timer.start(50)  # 50ms debounce
 
     def _notify_controller_position(self):
-        """Notify controller of final position after debounce (Phase 5)"""
+        """Notify controller of final position after debounce."""
         if not self._pending_position:
             return
 
