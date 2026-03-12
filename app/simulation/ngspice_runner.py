@@ -17,10 +17,41 @@ from utils.constants import SIMULATION_TIMEOUT
 class NgspiceRunner:
     """Runs ngspice simulations and manages output files"""
 
+    #: Environment variable that, when set to a truthy value (1/true/yes),
+    #: suppresses automatic cleanup of temp simulation files.  Useful for
+    #: debugging ngspice output by hand.
+    KEEP_FILES_ENV_VAR = "SPICE_KEEP_SIM_OUTPUT"
+
     def __init__(self, output_dir="simulation_output"):
         self.output_dir = validate_output_dir(output_dir)
         os.makedirs(self.output_dir, exist_ok=True)
         self.ngspice_cmd = None
+        # When True, temp files are never deleted (controlled by env var).
+        self._keep_files: bool = os.environ.get(self.KEEP_FILES_ENV_VAR, "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        # Paths written during the most-recently completed run; cleaned up at
+        # the start of the next run so that results remain readable until then.
+        self._prev_run_files: list[str] = []
+
+    def _cleanup_prev_run(self) -> None:
+        """Remove temp files written by the previous simulation run.
+
+        Skipped when *SPICE_KEEP_SIM_OUTPUT* is set.  Uses best-effort
+        deletion: missing or un-deletable files are silently ignored so that
+        a stale path never prevents a new simulation from starting.
+        """
+        if self._keep_files:
+            return
+        for path in self._prev_run_files:
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except OSError:
+                pass
+        self._prev_run_files = []
 
     def find_ngspice(self):
         """Find ngspice executable on the system"""
@@ -68,6 +99,9 @@ class NgspiceRunner:
         Returns:
             tuple: (success: bool, output_file: str, stdout: str, stderr: str)
         """
+        # Clean up temp files from the previous run before starting a new one.
+        self._cleanup_prev_run()
+
         # Find ngspice if not already found
         if self.ngspice_cmd is None:
             ngspice_path = self.find_ngspice()
@@ -97,8 +131,12 @@ class NgspiceRunner:
 
             # Check if output file was created and is non-empty
             if os.path.exists(output_filename) and os.path.getsize(output_filename) > 0:
+                # Track both files so the next run can clean them up.
+                self._prev_run_files = [netlist_filename, output_filename]
                 return True, output_filename, result.stdout, result.stderr
             else:
+                # Track the netlist for cleanup; output was not produced.
+                self._prev_run_files = [netlist_filename]
                 return (
                     False,
                     None,
@@ -107,6 +145,7 @@ class NgspiceRunner:
                 )
 
         except subprocess.TimeoutExpired:
+            self._prev_run_files = [netlist_filename]
             return (
                 False,
                 None,
@@ -114,6 +153,7 @@ class NgspiceRunner:
                 f"Simulation timed out (>{SIMULATION_TIMEOUT} seconds)",
             )
         except (OSError, subprocess.SubprocessError) as e:
+            self._prev_run_files = [netlist_filename]
             return False, None, "", f"Simulation error: {str(e)}"
 
     def read_output(self, output_filename):
