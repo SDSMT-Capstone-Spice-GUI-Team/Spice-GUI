@@ -75,7 +75,7 @@ class PrintExportMixin:
             QMessageBox.information(self, "Print", "Nothing to print — the canvas is empty.")
             return
 
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer = QPrinter(QPrinter.PrinterMode.ScreenResolution)
         dialog = QPrintDialog(printer, self)
         dialog.setWindowTitle("Print Circuit")
         if dialog.exec() == QPrintDialog.DialogCode.Accepted:
@@ -90,7 +90,7 @@ class PrintExportMixin:
             QMessageBox.information(self, "Print Preview", "Nothing to preview — the canvas is empty.")
             return
 
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer = QPrinter(QPrinter.PrinterMode.ScreenResolution)
         preview = QPrintPreviewDialog(printer, self)
         preview.setWindowTitle("Print Preview — Circuit Schematic")
         preview.paintRequested.connect(self._render_to_printer)
@@ -111,7 +111,7 @@ class PrintExportMixin:
         if not filename.lower().endswith(".pdf"):
             filename += ".pdf"
 
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer = QPrinter(QPrinter.PrinterMode.ScreenResolution)
         printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
         printer.setOutputFileName(filename)
 
