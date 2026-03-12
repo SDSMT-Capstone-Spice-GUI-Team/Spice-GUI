@@ -157,35 +157,9 @@ class ParameterSweepDialog(QDialog):
 
     def _build_base_form(self):
         """Build form fields for the selected base analysis type."""
-        # Clear existing
-        while self._base_form.count():
-            item = self._base_form.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self._base_field_widgets.clear()
+        from .plot_utils import build_analysis_base_form
 
-        from .analysis_dialog import AnalysisDialog
-
-        analysis_type = self.analysis_combo.currentText()
-        config = AnalysisDialog.ANALYSIS_CONFIGS.get(analysis_type, {})
-
-        tooltips = config.get("tooltips", {})
-        for field_config in config.get("fields", []):
-            if field_config[2] == "combo":
-                label, key, _, options, default = field_config
-                widget = QComboBox()
-                widget.addItems(options)
-                widget.setCurrentText(default)
-            else:
-                label, key, field_type, default = field_config
-                widget = QLineEdit(str(default))
-
-            tooltip = tooltips.get(key)
-            if tooltip:
-                widget.setToolTip(tooltip)
-
-            self._base_field_widgets[key] = (widget, field_config[2])
-            self._base_form.addRow(f"{label}:", widget)
+        build_analysis_base_form(self._base_form, self._base_field_widgets, self.analysis_combo)
 
     def _on_accept(self):
         """Validate fields before accepting the dialog."""
