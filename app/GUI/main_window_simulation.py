@@ -20,7 +20,6 @@ class SimulationMixin:
     def generate_netlist(self):
         """Generate SPICE netlist"""
         try:
-            # Phase 5: No sync needed - model always up to date
             netlist = self.simulation_ctrl.generate_netlist()
             self.results_panel.display_text("SPICE Netlist:\n\n" + netlist)
             self.results_panel.set_netlist_preview(netlist)
@@ -65,7 +64,6 @@ class SimulationMixin:
             elif self.model.analysis_type == "Monte Carlo":
                 result = self._run_monte_carlo()
             else:
-                # Phase 5: No sync needed - model always up to date
                 result = self.simulation_ctrl.run_simulation()
 
             # Display results via ResultsPanel (delegates to _display_simulation_results).

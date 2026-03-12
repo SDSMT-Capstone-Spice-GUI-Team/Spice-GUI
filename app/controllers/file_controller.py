@@ -51,7 +51,7 @@ class FileController:
         autosave_file: str = AUTOSAVE_FILE,
     ):
         self.model = model or CircuitModel()
-        self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
+        self.circuit_ctrl = circuit_ctrl
         self.current_file: Optional[Path] = None
         self._session_file = session_file
         self._autosave_file = Path(__file__).resolve().parent.parent / autosave_file
@@ -120,7 +120,6 @@ class FileController:
         self._save_session()
         self.add_recent_file(filepath)  # Track in recent files
 
-        # Phase 5: Notify observers of save
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("model_saved", None)
 

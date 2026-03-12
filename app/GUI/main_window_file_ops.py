@@ -26,7 +26,6 @@ class FileOperationsMixin:
                 return
 
         self.file_ctrl.new_circuit()
-        # Phase 5: No sync needed - observer pattern handles canvas update
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.results_text.clear()
         self._apply_default_zoom()
@@ -155,7 +154,6 @@ class FileOperationsMixin:
         """Quick save to current file"""
         if self.file_ctrl.current_file:
             try:
-                # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(self.file_ctrl.current_file)
                 self.file_ctrl.clear_auto_save()
                 self._set_dirty(False)
@@ -172,7 +170,6 @@ class FileOperationsMixin:
         path = self.dialogs.ask_save_file("Save Circuit", "JSON Files (*.json);;All Files (*)")
         if path:
             try:
-                # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(path)
                 self.file_ctrl.clear_auto_save()
                 self._set_dirty(False)
@@ -186,7 +183,6 @@ class FileOperationsMixin:
         if path:
             try:
                 self.file_ctrl.load_circuit(path)
-                # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {path}")
                 self._sync_analysis_menu()
                 self._apply_default_zoom()
@@ -481,7 +477,6 @@ class FileOperationsMixin:
         if last_file and last_file.exists():
             try:
                 self.file_ctrl.load_circuit(last_file)
-                # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {last_file}")
                 self._sync_analysis_menu()
             except (OSError, json.JSONDecodeError, ValueError) as e:
