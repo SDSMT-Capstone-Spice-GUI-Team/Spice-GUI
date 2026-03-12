@@ -145,6 +145,7 @@ class PresetManager:
 
     # --- Persistence ---
 
+    # AUDIT(security): user preset file path is derived from Path.home() which is safe, but loaded JSON is not schema-validated; malformed presets could cause runtime errors
     def _load(self):
         """Load user presets from disk."""
         if not self._preset_file.exists():

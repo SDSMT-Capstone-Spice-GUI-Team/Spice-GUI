@@ -39,6 +39,7 @@ def create_bundle(
     """
     included = []
 
+    # AUDIT(security): zip archive creation does not set a maximum size limit; large simulation outputs could create unexpectedly large archives
     with zipfile.ZipFile(filepath, "w", zipfile.ZIP_DEFLATED) as zf:
         # Circuit JSON (native format for re-import)
         if circuit_json is not None:

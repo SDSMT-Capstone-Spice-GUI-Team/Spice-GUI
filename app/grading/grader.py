@@ -87,6 +87,7 @@ class CircuitGrader:
         reference: Optional[CircuitModel],
     ) -> CheckGradeResult:
         """Execute a single rubric check and return the graded result."""
+        # AUDIT(quality): _CHECK_HANDLERS is a module-level dict mapping strings to unbound methods; consider using a registry pattern or @singledispatch for extensibility
         handler = _CHECK_HANDLERS.get(check.check_type)
         if handler is None:
             return CheckGradeResult(

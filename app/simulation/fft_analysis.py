@@ -7,6 +7,7 @@ Includes magnitude/phase spectrum computation, windowing, and THD calculation.
 
 from typing import Optional
 
+# AUDIT(architecture): numpy and scipy imported eagerly; consider lazy import since FFT analysis is an optional feature
 import numpy as np
 
 

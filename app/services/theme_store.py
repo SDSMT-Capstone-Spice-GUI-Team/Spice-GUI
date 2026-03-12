@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# AUDIT(quality): hardcoded home directory path; consider using XDG_CONFIG_HOME on Linux or platformdirs for cross-platform config directory conventions
 _THEMES_DIR = Path.home() / ".spice-gui" / "themes"
 _SCHEMA_VERSION = 1
 

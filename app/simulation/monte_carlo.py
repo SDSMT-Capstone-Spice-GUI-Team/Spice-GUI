@@ -7,6 +7,7 @@ No Qt dependencies — pure computation module.
 
 import logging
 
+# AUDIT(architecture): numpy is a heavy dependency imported at module level; consider lazy import since monte_carlo is only used on-demand
 import numpy as np
 
 logger = logging.getLogger(__name__)

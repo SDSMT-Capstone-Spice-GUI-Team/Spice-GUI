@@ -128,6 +128,7 @@ def validate_rubric(data: dict) -> None:
         raise ValueError(f"Check points sum to {points_sum}, but total_points is {data['total_points']}.")
 
 
+# AUDIT(security): file path is not validated before writing; ensure callers pass sanitized paths to prevent path traversal
 def save_rubric(rubric: Rubric, filepath) -> None:
     """Save a rubric to a .spice-rubric JSON file."""
     filepath = Path(filepath)
@@ -135,6 +136,7 @@ def save_rubric(rubric: Rubric, filepath) -> None:
         json.dump(rubric.to_dict(), f, indent=2)
 
 
+# AUDIT(security): rubric JSON is loaded from an arbitrary file path; malformed JSON could cause crashes — consider wrapping in try/except at call sites
 def load_rubric(filepath) -> Rubric:
     """Load and validate a rubric from a .spice-rubric JSON file.
 

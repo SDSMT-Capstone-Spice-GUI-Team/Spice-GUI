@@ -78,6 +78,7 @@ def export_gradebook_csv(result: BatchGradingResult, filepath: str) -> None:
 
         analytics = compute_check_analytics(result)
         if analytics:
+            # AUDIT(quality): file is opened three times (write, append analytics, append errors) — consolidate into a single write pass for atomicity and performance
             with open(filepath, "a", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([])

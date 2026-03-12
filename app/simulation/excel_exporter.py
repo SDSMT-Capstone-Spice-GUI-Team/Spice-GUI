@@ -7,6 +7,7 @@ No Qt dependencies — file dialog is the view's responsibility.
 
 from datetime import datetime
 
+# AUDIT(quality): openpyxl import failure produces a generic error message; consider checking for ImportError explicitly and suggesting 'pip install openpyxl'
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 

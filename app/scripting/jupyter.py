@@ -189,6 +189,7 @@ def plot_result(result, title: Optional[str] = None):
         or the result has no plottable data.
     """
     try:
+        # AUDIT(quality): matplotlib.pyplot is stateful and can cause issues in non-interactive environments; consider using the object-oriented API (matplotlib.figure.Figure) consistently
         import matplotlib.pyplot as plt
     except ImportError:
         return None

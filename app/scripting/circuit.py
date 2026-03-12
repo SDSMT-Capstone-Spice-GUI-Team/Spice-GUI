@@ -49,9 +49,11 @@ class Circuit:
             ValueError: If the JSON structure is invalid.
         """
         path = Path(path)
+        # AUDIT(security): file loaded from user-supplied path without size validation; very large files could exhaust memory
         with open(path, "r") as f:
             data = json.load(f)
 
+        # AUDIT(architecture): lazy import from controllers layer inside a scripting module; this creates an implicit dependency that could break if controllers are refactored
         from controllers.file_controller import validate_circuit_data
 
         validate_circuit_data(data)
@@ -230,6 +232,7 @@ class Circuit:
         path = Path(path)
         data = self._model.to_dict()
         with open(path, "w") as f:
+            # AUDIT(quality): no atomic write (write-to-temp-then-rename); a crash mid-write could corrupt the saved circuit file
             json.dump(data, f, indent=2)
 
     # --- Properties ---

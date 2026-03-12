@@ -80,6 +80,7 @@ class ThemeManager:
     _show_junction_dots: bool
     _routing_mode: str
 
+    # AUDIT(architecture): singleton via __new__ makes testing difficult — consider using a module-level instance with a reset method for test isolation
     def __new__(cls) -> "ThemeManager":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -224,6 +225,7 @@ class ThemeManager:
             try:
                 callback(self._theme)
             except (TypeError, AttributeError, RuntimeError) as e:
+                # AUDIT(quality): silently catching and logging listener errors could mask bugs; consider re-raising after logging in debug mode
                 logger.error("Error notifying theme listener: %s", e)
 
     # ===== Custom theme support =====
@@ -266,6 +268,7 @@ class ThemeManager:
 
         theme = self._theme
         if isinstance(theme, CustomTheme):
+            # AUDIT(quality): accessing private function _filename_safe from theme_store breaks encapsulation; make it public or add a public accessor
             stem = theme_store._filename_safe(theme.name)
             return f"custom:{stem}"
         elif theme.name == "Dark Theme":

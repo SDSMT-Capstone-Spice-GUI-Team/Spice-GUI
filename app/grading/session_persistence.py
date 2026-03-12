@@ -142,6 +142,7 @@ def batch_result_to_session(
 # ---------------------------------------------------------------------------
 
 
+# AUDIT(quality): no atomic write (write-to-temp-then-rename); a crash mid-write could corrupt the session file
 def save_grading_session(filepath, session: GradingSessionData) -> None:
     """Save a grading session to a .spice-grades JSON file.
 

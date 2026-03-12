@@ -32,6 +32,7 @@ def generate_analysis_command(analysis_type: str, params: dict) -> str:
         start = params.get("min", 0)
         stop = params.get("max", 10)
         step = params.get("step", 0.1)
+        # AUDIT(security): component values and source names are interpolated into SPICE directives without sanitization; malicious values could inject SPICE commands
         return f".dc {source} {start} {stop} {step}"
 
     if analysis_type == "AC Sweep":
@@ -129,6 +130,7 @@ class NetlistGenerator:
         lines = ["My Test Circuit", "* Generated netlist", ""]
 
         # Add op-amp subcircuit definitions for each model used
+        # AUDIT(quality): lazy import inside method body; move to module-level or __init__ to improve clarity and catch import errors early
         from models.component import OPAMP_SUBCIRCUITS
 
         opamp_models_used = set()
@@ -216,6 +218,7 @@ class NetlistGenerator:
                 continue
 
             comp_id = comp.component_id
+            # AUDIT(quality): local variable 'nodes' shadows self.nodes attribute — rename to 'comp_nodes' or 'terminal_nodes' for clarity
             nodes = []
             for i in range(comp.get_terminal_count()):
                 key = (comp_id, i)
@@ -227,6 +230,7 @@ class NetlistGenerator:
                 node_str = node_labels.get(node_num, str(node_num))
                 nodes.append(node_str)
 
+            # AUDIT(quality): long elif chain (~90 lines) mapping component types to netlist lines; refactor into a dispatch dict or visitor pattern for maintainability
             if comp.component_type == "Resistor":
                 lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
             elif comp.component_type == "Capacitor":
@@ -505,6 +509,7 @@ class NetlistGenerator:
             lines.append("* Save to file (for backup)")
             lines.append("set wr_vecnames")
             lines.append("set wr_singlescale")
+            # AUDIT(security): wrdata_filepath is interpolated into ngspice control block without sanitization; a crafted filepath could inject ngspice commands
             wrdata_path = self.wrdata_filepath.replace("\\", "/")
             lines.append(f"wrdata {wrdata_path} onoise_spectrum inoise_spectrum")
         else:

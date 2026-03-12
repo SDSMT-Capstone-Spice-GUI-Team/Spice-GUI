@@ -9,7 +9,9 @@ No Qt dependencies — pure Python module.
 from dataclasses import dataclass, field
 
 from models.circuit import CircuitModel
-from simulation.monte_carlo import parse_spice_value
+from simulation.monte_carlo import (
+    parse_spice_value,  # AUDIT(architecture): grading module imports parse_spice_value from simulation.monte_carlo — cross-layer dependency; extract parse_spice_value into a shared utility module
+)
 
 
 @dataclass

@@ -38,6 +38,7 @@ class ResultParser:
 
         for i, line in enumerate(lines):
             # Pattern 1: v(nodename) = voltage
+            # AUDIT(quality): regex pattern does not match all valid scientific notation forms (e.g. '1.5E+03'); consider using a more robust numeric pattern like r'[-+]?[\d.]+(?:[eE][-+]?\d+)?'
             match = re.search(r"v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE)
             if match:
                 try:
@@ -65,6 +66,7 @@ class ResultParser:
 
             # Pattern 2: Node/Voltage table
             if "node" in line.lower() and "voltage" in line.lower():
+                # AUDIT(quality): hard-coded 50-line lookahead window for voltage table parsing could miss data in large outputs; consider scanning until a clear terminator
                 for j in range(i + 1, min(i + 50, len(lines))):
                     result_line = lines[j].strip()
                     if not result_line or result_line.startswith("-"):
@@ -429,6 +431,7 @@ class ResultParser:
         except (ValueError, IndexError, AttributeError) as e:
             raise ResultParseError(f"Error parsing PZ results: {e}") from e
 
+    # AUDIT(architecture): parse_transient_results reads from a file path while all other parse methods accept string input — inconsistent interface
     @staticmethod
     def parse_transient_results(filepath):
         """

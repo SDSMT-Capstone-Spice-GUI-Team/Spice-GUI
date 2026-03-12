@@ -16,6 +16,7 @@ from utils.constants import SIMULATION_TIMEOUT
 class NgspiceRunner:
     """Runs ngspice simulations and manages output files"""
 
+    # AUDIT(security): output_dir is caller-controlled with no path traversal validation; ensure callers pass safe paths
     def __init__(self, output_dir="simulation_output"):
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
@@ -74,6 +75,7 @@ class NgspiceRunner:
                 return False, None, "", "ngspice executable not found"
 
         # Create timestamped filenames
+        # AUDIT(quality): simulation files accumulate in output_dir with no cleanup mechanism; add a max-age or max-count purge strategy
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         netlist_filename = os.path.join(self.output_dir, f"netlist_{timestamp}.cir")
         output_filename = os.path.join(self.output_dir, f"output_{timestamp}.txt")
@@ -87,6 +89,7 @@ class NgspiceRunner:
 
         # Run ngspice
         try:
+            # AUDIT(security): netlist_content is written to disk and executed by ngspice without sanitization; a malicious netlist could embed shell commands via .system directive
             result = subprocess.run(
                 [self.ngspice_cmd, "-b", netlist_filename, "-o", output_filename],
                 capture_output=True,

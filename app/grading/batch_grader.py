@@ -108,6 +108,7 @@ class BatchGrader:
                 )
                 result.results.append(grade_result)
                 result.successful += 1
+            # AUDIT(quality): broad 'except Exception' swallows all errors including programming bugs; consider catching only expected exceptions (json.JSONDecodeError, ValueError, OSError)
             except Exception as e:
                 logger.warning("Failed to grade %s: %s", filename, e)
                 result.errors.append((filename, str(e)))
@@ -118,6 +119,7 @@ class BatchGrader:
 
         return result
 
+    # AUDIT(security): student submission files are loaded and deserialized from untrusted paths; validate file size before loading to prevent memory exhaustion from very large files
     @staticmethod
     def _load_circuit(filepath: Path) -> CircuitModel:
         """Load a circuit from a .json or .spice-template file."""
