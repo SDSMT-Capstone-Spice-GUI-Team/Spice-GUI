@@ -1,5 +1,7 @@
 """Tests for copy/paste/cut functionality in CircuitController."""
 
+from pathlib import Path
+
 import pytest
 from controllers.circuit_controller import CircuitController
 from models.clipboard import ClipboardData
@@ -239,13 +241,13 @@ class TestNoQtDependencies:
     def test_clipboard_no_pyqt(self):
         import models.clipboard as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
 
     def test_controller_no_pyqt(self):
         import controllers.circuit_controller as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source

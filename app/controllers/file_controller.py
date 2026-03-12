@@ -110,7 +110,7 @@ class FileController:
         data = self.model.to_dict()
         fd, tmp = tempfile.mkstemp(dir=filepath.parent, suffix=".tmp")
         try:
-            with os.fdopen(fd, "w") as f:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             os.replace(tmp, filepath)
         except BaseException:
@@ -141,7 +141,7 @@ class FileController:
         """
         filepath = Path(filepath)
         check_file_size(filepath)
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         validate_circuit_data(data)
@@ -185,7 +185,7 @@ class FileController:
             content = os.path.abspath(str(self.current_file)) if self.current_file else ""
             fd, tmp = tempfile.mkstemp(dir=session_path.parent, suffix=".tmp")
             try:
-                with os.fdopen(fd, "w") as f:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
                     f.write(content)
                 os.replace(tmp, session_path)
             except BaseException:
@@ -204,7 +204,7 @@ class FileController:
         if not os.path.exists(self._session_file):
             return None
         try:
-            with open(self._session_file, "r") as f:
+            with open(self._session_file, "r", encoding="utf-8") as f:
                 path_str = f.read().strip()
                 if path_str:
                     path = Path(path_str)
@@ -274,7 +274,7 @@ class FileController:
             data["_autosave_source"] = str(self.current_file) if self.current_file else ""
             fd, tmp = tempfile.mkstemp(dir=self._autosave_file.parent, suffix=".tmp")
             try:
-                with os.fdopen(fd, "w") as f:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2)
                 os.replace(tmp, self._autosave_file)
             except BaseException:
@@ -296,7 +296,7 @@ class FileController:
             on failure.
         """
         try:
-            with open(self._autosave_file, "r") as f:
+            with open(self._autosave_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             source_path = data.pop("_autosave_source", "")
@@ -334,7 +334,7 @@ class FileController:
 
         filepath = Path(filepath)
         check_file_size(filepath)
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             text = f.read()
 
         new_model, analysis = import_netlist(text)
@@ -372,7 +372,7 @@ class FileController:
 
         filepath = Path(filepath)
         check_file_size(filepath)
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             text = f.read()
 
         new_model, analysis, warnings = import_asc(text)
@@ -412,7 +412,7 @@ class FileController:
 
         filepath = Path(filepath)
         check_file_size(filepath)
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             text = f.read()
 
         new_model, warnings = import_circuitikz(text)

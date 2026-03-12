@@ -1,5 +1,6 @@
 """Tests for SimulationController."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -304,7 +305,7 @@ class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.simulation_controller as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source

@@ -1,5 +1,7 @@
 """Tests for CircuiTikZ LaTeX parser."""
 
+from pathlib import Path
+
 import pytest
 from simulation.circuitikz_parser import CircuitikzParseError, import_circuitikz
 
@@ -399,7 +401,7 @@ class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import simulation.circuitikz_parser as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source
