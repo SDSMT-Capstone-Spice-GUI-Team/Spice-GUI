@@ -15,8 +15,11 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Default persistence directory
-_DEFAULT_LIBRARY_DIR = Path.home() / ".spice-gui" / "library"
+
+# Default persistence directory — evaluated lazily to avoid module-level I/O.
+def _default_library_dir() -> Path:
+    """Return the default subcircuit library directory (deferred until needed)."""
+    return Path.home() / ".spice-gui" / "library"
 
 
 @dataclass
@@ -111,7 +114,7 @@ class SubcircuitLibrary:
     """
 
     def __init__(self, library_dir: str | Path | None = None):
-        self._library_dir = Path(library_dir) if library_dir else _DEFAULT_LIBRARY_DIR
+        self._library_dir = Path(library_dir) if library_dir else _default_library_dir()
         self._definitions: dict[str, SubcircuitDefinition] = {}
         self._load()
         self._load_builtins()

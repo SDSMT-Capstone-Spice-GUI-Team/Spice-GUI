@@ -328,13 +328,13 @@ class TestSubcircuitNetlist:
         # Monkey-patch the library lookup to use our temp library
         import models.subcircuit_library as sl_mod
 
-        orig_default = sl_mod._DEFAULT_LIBRARY_DIR
-        sl_mod._DEFAULT_LIBRARY_DIR = tmp_path / "lib"
+        orig_fn = sl_mod._default_library_dir
+        sl_mod._default_library_dir = lambda: tmp_path / "lib"
         try:
             gen = NetlistGenerator(components, wires, nodes, t2n, "DC Operating Point", {})
             netlist = gen.generate()
         finally:
-            sl_mod._DEFAULT_LIBRARY_DIR = orig_default
+            sl_mod._default_library_dir = orig_fn
 
         assert ".subckt DEFTEST_237 a b" in netlist
         assert ".ends" in netlist
