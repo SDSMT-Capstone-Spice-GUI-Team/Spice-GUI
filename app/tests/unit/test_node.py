@@ -88,6 +88,27 @@ class TestNodeLabelGenerator:
         assert gen.next_label() == "nodeAB"
 
 
+class TestLabelUniqueness:
+    """Verify label generation produces unique labels for large circuits."""
+
+    def test_labels_unique_up_to_1000(self):
+        labels = [_generate_label(i) for i in range(1000)]
+        assert len(labels) == len(set(labels))
+
+    def test_labels_beyond_702_are_triple_letter(self):
+        """After nodeZZ (index 701), labels should continue with nodeAAA."""
+        assert _generate_label(701) == "nodeZZ"
+        assert _generate_label(702) == "nodeAAA"
+        assert _generate_label(703) == "nodeAAB"
+
+    def test_labels_are_all_alpha(self):
+        """All generated labels should consist of 'node' + uppercase letters."""
+        for i in range(1000):
+            label = _generate_label(i)
+            suffix = label[4:]  # strip 'node' prefix
+            assert suffix.isalpha() and suffix.isupper(), f"Bad label at index {i}: {label}"
+
+
 class TestNodeMerge:
     def test_merge_preserves_custom_label(self):
         node1 = NodeData(auto_label="nodeA")
