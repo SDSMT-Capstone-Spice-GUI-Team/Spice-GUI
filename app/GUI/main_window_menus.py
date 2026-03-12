@@ -129,6 +129,10 @@ class MenuBarMixin:
         re_export_action.triggered.connect(self._on_re_export_last)
         file_menu.addAction(re_export_action)
 
+        self._recent_files_menu = QMenu("Recent &Files", self)
+        file_menu.addMenu(self._recent_files_menu)
+        self._recent_files_menu.aboutToShow.connect(self._populate_recent_files_menu)
+
         self._recent_exports_menu = QMenu("Recent E&xports", self)
         file_menu.addMenu(self._recent_exports_menu)
         self._recent_exports_menu.aboutToShow.connect(self._populate_recent_exports_menu)

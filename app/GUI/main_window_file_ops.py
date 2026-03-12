@@ -699,6 +699,53 @@ class FileOperationsMixin:
             QMessageBox.critical(self, "Error", f"Failed to load example: {e}")
 
     # ------------------------------------------------------------------
+    # Recent files menu
+    # ------------------------------------------------------------------
+
+    def _populate_recent_files_menu(self):
+        """Rebuild the Recent Files submenu from the file controller."""
+        menu = self._recent_files_menu
+        menu.clear()
+        recent = self.file_ctrl.get_recent_files()
+
+        if not recent:
+            empty = menu.addAction("(no recent files)")
+            empty.setEnabled(False)
+            return
+
+        for filepath_str in recent:
+            label = Path(filepath_str).name
+            action = menu.addAction(label)
+            action.setToolTip(filepath_str)
+            action.triggered.connect(lambda checked=False, p=filepath_str: self._open_recent_file(p))
+
+        menu.addSeparator()
+        clear_action = menu.addAction("Clear Recent Files")
+        clear_action.triggered.connect(self._clear_recent_files)
+
+    def _open_recent_file(self, filepath_str):
+        """Open a file from the Recent Files menu."""
+        path = Path(filepath_str)
+        if not path.exists():
+            QMessageBox.warning(
+                self,
+                "File Not Found",
+                f"The file no longer exists:\n{filepath_str}",
+            )
+            return
+        try:
+            self.file_ctrl.load_circuit(path)
+            self.setWindowTitle(f"Circuit Design GUI - {path}")
+            self._sync_analysis_menu()
+            self._apply_default_zoom()
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load: {e}")
+
+    def _clear_recent_files(self):
+        """Clear the recent files list."""
+        self.file_ctrl.clear_recent_files()
+
+    # ------------------------------------------------------------------
     # Recent exports tracking and re-export
     # ------------------------------------------------------------------
 
