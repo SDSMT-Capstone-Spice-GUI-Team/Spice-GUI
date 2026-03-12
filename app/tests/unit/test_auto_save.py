@@ -5,67 +5,19 @@ from pathlib import Path
 
 import pytest
 from controllers.file_controller import FileController
-from models.circuit import CircuitModel
-from models.component import ComponentData
-from models.wire import WireData
-
-
-def _build_simple_circuit():
-    """Build a simple V1-R1-GND circuit model."""
-    model = CircuitModel()
-    model.components["V1"] = ComponentData(
-        component_id="V1",
-        component_type="Voltage Source",
-        value="5V",
-        position=(0.0, 0.0),
-    )
-    model.components["R1"] = ComponentData(
-        component_id="R1",
-        component_type="Resistor",
-        value="1k",
-        position=(100.0, 0.0),
-    )
-    model.components["GND1"] = ComponentData(
-        component_id="GND1",
-        component_type="Ground",
-        value="0V",
-        position=(0.0, 100.0),
-    )
-    model.wires = [
-        WireData(
-            start_component_id="V1",
-            start_terminal=1,
-            end_component_id="R1",
-            end_terminal=0,
-        ),
-        WireData(
-            start_component_id="R1",
-            start_terminal=1,
-            end_component_id="GND1",
-            end_terminal=0,
-        ),
-        WireData(
-            start_component_id="V1",
-            start_terminal=0,
-            end_component_id="GND1",
-            end_terminal=0,
-        ),
-    ]
-    model.component_counter = {"V": 1, "R": 1, "GND": 1}
-    model.rebuild_nodes()
-    return model
+from tests.conftest import build_simple_circuit
 
 
 class TestAutoSave:
     def test_auto_save_creates_file(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
         assert Path(autosave).exists()
 
     def test_auto_save_writes_valid_json(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
         data = json.loads(Path(autosave).read_text())
         assert "components" in data
@@ -73,7 +25,7 @@ class TestAutoSave:
 
     def test_auto_save_includes_source_path(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         source = tmp_path / "my_circuit.json"
         ctrl.current_file = source
         ctrl.auto_save()
@@ -82,21 +34,21 @@ class TestAutoSave:
 
     def test_auto_save_empty_source_when_no_file(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
         data = json.loads(Path(autosave).read_text())
         assert data["_autosave_source"] == ""
 
     def test_auto_save_does_not_update_current_file(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         assert ctrl.current_file is None
         ctrl.auto_save()
         assert ctrl.current_file is None
 
     def test_auto_save_preserves_analysis_settings(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         model.analysis_type = "Transient"
         model.analysis_params = {"duration": 0.01, "step": 1e-5}
         ctrl = FileController(model, autosave_file=autosave)
@@ -114,7 +66,7 @@ class TestHasAutoSave:
 
     def test_has_auto_save_true_after_save(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
         assert ctrl.has_auto_save()
 
@@ -122,7 +74,7 @@ class TestHasAutoSave:
 class TestClearAutoSave:
     def test_clear_removes_file(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
         assert Path(autosave).exists()
         ctrl.clear_auto_save()
@@ -137,7 +89,7 @@ class TestClearAutoSave:
 class TestLoadAutoSave:
     def test_load_restores_components(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
 
         # Load into fresh controller
@@ -150,7 +102,7 @@ class TestLoadAutoSave:
 
     def test_load_restores_wires(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
 
         ctrl2 = FileController(autosave_file=autosave)
@@ -159,7 +111,7 @@ class TestLoadAutoSave:
 
     def test_load_returns_source_path(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         source_file = tmp_path / "my_circuit.json"
         ctrl.current_file = source_file
         ctrl.auto_save()
@@ -170,7 +122,7 @@ class TestLoadAutoSave:
 
     def test_load_returns_empty_string_for_unsaved(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
 
         ctrl2 = FileController(autosave_file=autosave)
@@ -179,7 +131,7 @@ class TestLoadAutoSave:
 
     def test_load_sets_current_file_from_source(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         source_file = tmp_path / "my_circuit.json"
         ctrl.current_file = source_file
         ctrl.auto_save()
@@ -201,7 +153,7 @@ class TestLoadAutoSave:
 
     def test_load_restores_analysis_settings(self, tmp_path):
         autosave = str(tmp_path / "recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         model.analysis_type = "AC Sweep"
         model.analysis_params = {"fStart": 1, "fStop": 1e6}
         ctrl = FileController(model, autosave_file=autosave)
@@ -216,7 +168,7 @@ class TestLoadAutoSave:
         from unittest.mock import MagicMock
 
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
 
         ctrl2 = FileController(autosave_file=autosave)
@@ -228,7 +180,7 @@ class TestLoadAutoSave:
     def test_autosave_source_not_in_model_data(self, tmp_path):
         """The _autosave_source metadata should not leak into the model."""
         autosave = str(tmp_path / "recovery.json")
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.current_file = tmp_path / "my_circuit.json"
         ctrl.auto_save()
 
@@ -247,7 +199,7 @@ class TestAutoSaveIntegrationWithSave:
         Clearing is MainWindow's responsibility."""
         autosave = str(tmp_path / "recovery.json")
         circuit_file = tmp_path / "circuit.json"
-        ctrl = FileController(_build_simple_circuit(), autosave_file=autosave)
+        ctrl = FileController(build_simple_circuit(), autosave_file=autosave)
         ctrl.auto_save()
         assert ctrl.has_auto_save()
         ctrl.save_circuit(circuit_file)

@@ -12,16 +12,7 @@ from controllers.simulation_controller import SimulationController, SimulationRe
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
-
-
-def _make_controller(model=None, circuit_ctrl=None):
-    """Create a SimulationController with a mocked runner."""
-    ctrl = SimulationController(model=model or CircuitModel(), circuit_ctrl=circuit_ctrl)
-    runner = MagicMock()
-    runner.output_dir = "/tmp/test_output"
-    runner.find_ngspice.return_value = "/usr/bin/ngspice"
-    ctrl._runner = runner
-    return ctrl, runner
+from tests.conftest import make_simulation_controller
 
 
 def _build_circuit(ctrl):
@@ -76,7 +67,7 @@ def _build_circuit(ctrl):
 class TestRunSimulationNetlistError:
     def test_netlist_generation_value_error(self):
         """Lines 152-160: ValueError during netlist generation returns failure."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -91,7 +82,7 @@ class TestRunSimulationNetlistError:
 
     def test_netlist_generation_key_error(self):
         """Lines 152-160: KeyError during netlist generation returns failure."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -105,7 +96,7 @@ class TestRunSimulationNetlistError:
 
     def test_netlist_generation_type_error(self):
         """Lines 152-160: TypeError during netlist generation returns failure."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -120,7 +111,7 @@ class TestRunSimulationNetlistError:
     def test_netlist_error_notifies_circuit_ctrl(self):
         """Lines 158-159: circuit_ctrl notified on netlist failure."""
         cc = MagicMock()
-        ctrl, runner = _make_controller(circuit_ctrl=cc)
+        ctrl, runner = make_simulation_controller(circuit_ctrl=cc)
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -143,7 +134,7 @@ class TestNgspiceNotFoundNotify:
     def test_ngspice_not_found_notifies_circuit_ctrl(self):
         """Line 172: circuit_ctrl notified when ngspice not found."""
         cc = MagicMock()
-        ctrl, runner = _make_controller(circuit_ctrl=cc)
+        ctrl, runner = make_simulation_controller(circuit_ctrl=cc)
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
         runner.find_ngspice.return_value = None
@@ -165,7 +156,7 @@ class TestNgspiceNotFoundNotify:
 class TestRetryNetlistFails:
     def test_retry_netlist_generation_fails(self):
         """Lines 191-192: retry netlist generation raises exception, falls through."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -215,7 +206,7 @@ class TestRetrySuccessNotify:
     def test_convergence_retry_success_notifies_circuit_ctrl(self):
         """Line 207: circuit_ctrl notified after successful convergence retry."""
         cc = MagicMock()
-        ctrl, runner = _make_controller(circuit_ctrl=cc)
+        ctrl, runner = make_simulation_controller(circuit_ctrl=cc)
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -263,7 +254,7 @@ class TestSimFailureNotify:
     def test_simulation_failure_notifies_circuit_ctrl(self):
         """Line 218: circuit_ctrl notified on simulation failure (non-retriable)."""
         cc = MagicMock()
-        ctrl, runner = _make_controller(circuit_ctrl=cc)
+        ctrl, runner = make_simulation_controller(circuit_ctrl=cc)
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -294,7 +285,7 @@ class TestSimFailureNotify:
 class TestParameterSweepComponentNotFound:
     def test_sweep_component_not_found(self):
         """Line 332: component_id not in circuit returns failure."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -319,7 +310,7 @@ class TestParameterSweepComponentNotFound:
 class TestParameterSweepNgspiceNotFound:
     def test_sweep_ngspice_not_found(self):
         """Lines 354-355: ngspice not found restores analysis and returns failure."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("AC Sweep", {"fstart": "1", "fstop": "1Meg"})
         runner.find_ngspice.return_value = None
@@ -348,7 +339,7 @@ class TestParameterSweepNgspiceNotFound:
 class TestParameterSweepCancellation:
     def test_sweep_cancelled_by_callback(self):
         """Lines 375-376: progress_callback returning False cancels sweep."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -374,7 +365,7 @@ class TestParameterSweepCancellation:
 class TestParameterSweepSimFailure:
     def test_sweep_step_sim_failure(self):
         """Lines 394-403: simulation failure at a sweep step records error."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -404,7 +395,7 @@ class TestParameterSweepSimFailure:
 class TestParameterSweepValidationFailure:
     def test_sweep_validation_failure_restores_analysis(self):
         """Lines 348-349: validation failure restores original analysis type."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("AC Sweep", {"fstart": "1", "fstop": "1Meg"})
 
@@ -432,7 +423,7 @@ class TestParameterSweepValidationFailure:
 class TestParameterSweepNetlistFailure:
     def test_sweep_step_netlist_failure(self):
         """Lines 386-389: netlist generation failure at a sweep step."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -460,7 +451,7 @@ class TestParameterSweepNetlistFailure:
 class TestParameterSweepParseFailure:
     def test_sweep_step_parse_failure_records_error(self):
         """Line 416: parse result failure at a sweep step records error."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -493,7 +484,7 @@ class TestParameterSweepParseFailure:
 class TestMonteCarloValidationFailure:
     def test_mc_validation_failure_restores_analysis(self):
         """Lines 483-484: validation failure restores original analysis type."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("AC Sweep", {"fstart": "1", "fstop": "1Meg"})
 
@@ -518,7 +509,7 @@ class TestMonteCarloValidationFailure:
 class TestMonteCarloNgspiceNotFound:
     def test_mc_ngspice_not_found(self):
         """Lines 488-489: ngspice not found restores analysis and returns failure."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("AC Sweep", {"fstart": "1", "fstop": "1Meg"})
         runner.find_ngspice.return_value = None
@@ -544,7 +535,7 @@ class TestMonteCarloNgspiceNotFound:
 class TestMonteCarloCancellation:
     def test_mc_cancelled_by_callback(self):
         """Lines 503-504: progress_callback returning False cancels MC."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -572,7 +563,7 @@ class TestMonteCarloComponentNone:
         R1 passes the invalid_ids filter (line 467) and original_values (line 473),
         then the progress_callback removes it so components.get returns None at line 508.
         """
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -609,7 +600,7 @@ class TestMonteCarloComponentNone:
 class TestMonteCarloNetlistFailure:
     def test_mc_step_netlist_failure(self):
         """Lines 527-530: netlist generation failure at a Monte Carlo step."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -636,7 +627,7 @@ class TestMonteCarloNetlistFailure:
 class TestMonteCarloSimFailure:
     def test_mc_step_simulation_failure(self):
         """Lines 534-542: simulation fails at a Monte Carlo step."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -665,7 +656,7 @@ class TestMonteCarloSimFailure:
 class TestMonteCarloParseFailure:
     def test_mc_step_parse_failure_records_error(self):
         """Line 553: parse result failure in MC step records error."""
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
 
@@ -697,7 +688,7 @@ class TestMonteCarloParseFailure:
 class TestGenerateCircuitikz:
     def test_generate_circuitikz(self):
         """Lines 823-826: generate_circuitikz delegates to exporter."""
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         _build_circuit(ctrl)
 
         with patch(
@@ -743,7 +734,7 @@ class TestCreateBundle:
 class TestPresetManagerLazyInit:
     def test_preset_manager_creates_instance(self):
         """Lines 657-659: preset_manager lazy-creates PresetManager."""
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         assert ctrl._preset_manager is None
         with patch("simulation.preset_manager.PresetManager") as mock_pm_cls:
             mock_pm_cls.return_value = MagicMock()

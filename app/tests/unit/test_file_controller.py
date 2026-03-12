@@ -7,72 +7,26 @@ from unittest.mock import MagicMock, patch
 import pytest
 from controllers.file_controller import FileController, validate_circuit_data
 from models.circuit import CircuitModel
-from models.component import ComponentData
 from models.wire import WireData
-
-
-def _build_simple_circuit():
-    """Build a simple V1-R1-GND circuit model."""
-    model = CircuitModel()
-    model.components["V1"] = ComponentData(
-        component_id="V1",
-        component_type="Voltage Source",
-        value="5V",
-        position=(0.0, 0.0),
-    )
-    model.components["R1"] = ComponentData(
-        component_id="R1",
-        component_type="Resistor",
-        value="1k",
-        position=(100.0, 0.0),
-    )
-    model.components["GND1"] = ComponentData(
-        component_id="GND1",
-        component_type="Ground",
-        value="0V",
-        position=(0.0, 100.0),
-    )
-    model.wires = [
-        WireData(
-            start_component_id="V1",
-            start_terminal=1,
-            end_component_id="R1",
-            end_terminal=0,
-        ),
-        WireData(
-            start_component_id="R1",
-            start_terminal=1,
-            end_component_id="GND1",
-            end_terminal=0,
-        ),
-        WireData(
-            start_component_id="V1",
-            start_terminal=0,
-            end_component_id="GND1",
-            end_terminal=0,
-        ),
-    ]
-    model.component_counter = {"V": 1, "R": 1, "GND": 1}
-    model.rebuild_nodes()
-    return model
+from tests.conftest import build_simple_circuit
 
 
 class TestSaveLoad:
     def test_save_creates_file(self, tmp_path):
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
         assert filepath.exists()
 
     def test_save_updates_current_file(self, tmp_path):
-        ctrl = FileController(_build_simple_circuit())
+        ctrl = FileController(build_simple_circuit())
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
         assert ctrl.current_file == filepath
 
     def test_save_writes_valid_json(self, tmp_path):
-        ctrl = FileController(_build_simple_circuit())
+        ctrl = FileController(build_simple_circuit())
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
         data = json.loads(filepath.read_text())
@@ -80,7 +34,7 @@ class TestSaveLoad:
         assert "wires" in data
 
     def test_load_restores_components(self, tmp_path):
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
@@ -93,7 +47,7 @@ class TestSaveLoad:
         assert "GND1" in ctrl2.model.components
 
     def test_load_restores_wires(self, tmp_path):
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
@@ -103,7 +57,7 @@ class TestSaveLoad:
         assert len(ctrl2.model.wires) == 3
 
     def test_load_rebuilds_nodes(self, tmp_path):
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
@@ -113,7 +67,7 @@ class TestSaveLoad:
         assert len(ctrl2.model.nodes) > 0
 
     def test_load_restores_counters(self, tmp_path):
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
@@ -124,7 +78,7 @@ class TestSaveLoad:
         assert ctrl2.model.component_counter.get("R") == 1
 
     def test_round_trip_preserves_data(self, tmp_path):
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
@@ -139,7 +93,7 @@ class TestSaveLoad:
 
     def test_load_updates_model_in_place(self, tmp_path):
         """Loading should update the existing model reference, not replace it."""
-        ctrl = FileController(_build_simple_circuit())
+        ctrl = FileController(build_simple_circuit())
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
 
@@ -149,7 +103,7 @@ class TestSaveLoad:
 
     def test_load_restores_analysis_settings(self, tmp_path):
         """Loading should restore analysis_type and analysis_params from JSON."""
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         model.analysis_type = "Transient"
         model.analysis_params = {"duration": 0.01, "step": 1e-5, "startTime": 0.0}
         ctrl = FileController(model)
@@ -193,7 +147,7 @@ class TestLoadErrors:
 
 class TestNewCircuit:
     def test_new_clears_model(self):
-        ctrl = FileController(_build_simple_circuit())
+        ctrl = FileController(build_simple_circuit())
         ctrl.current_file = Path("some_file.json")
         ctrl.new_circuit()
         assert len(ctrl.model.components) == 0
@@ -204,14 +158,14 @@ class TestNewCircuit:
 class TestSessionPersistence:
     def test_save_creates_session_file(self, tmp_path):
         session_file = str(tmp_path / "session.txt")
-        ctrl = FileController(_build_simple_circuit(), session_file=session_file)
+        ctrl = FileController(build_simple_circuit(), session_file=session_file)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
         assert Path(session_file).exists()
 
     def test_load_last_session_returns_path(self, tmp_path):
         session_file = str(tmp_path / "session.txt")
-        ctrl = FileController(_build_simple_circuit(), session_file=session_file)
+        ctrl = FileController(build_simple_circuit(), session_file=session_file)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
 
@@ -227,7 +181,7 @@ class TestSessionPersistence:
 
     def test_load_last_session_returns_none_when_file_deleted(self, tmp_path):
         session_file = str(tmp_path / "session.txt")
-        ctrl = FileController(_build_simple_circuit(), session_file=session_file)
+        ctrl = FileController(build_simple_circuit(), session_file=session_file)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
         filepath.unlink()  # Delete the circuit file
@@ -242,7 +196,7 @@ class TestWindowTitle:
         assert ctrl.get_window_title() == "Circuit Design GUI"
 
     def test_title_with_file(self, tmp_path):
-        ctrl = FileController(_build_simple_circuit())
+        ctrl = FileController(build_simple_circuit())
         filepath = tmp_path / "my_circuit.json"
         ctrl.save_circuit(filepath)
         assert "my_circuit.json" in ctrl.get_window_title()
@@ -258,7 +212,7 @@ class TestHasFile:
         assert not ctrl.has_file()
 
     def test_has_file_true_after_save(self, tmp_path):
-        ctrl = FileController(_build_simple_circuit())
+        ctrl = FileController(build_simple_circuit())
         ctrl.save_circuit(tmp_path / "test.json")
         assert ctrl.has_file()
 
@@ -397,7 +351,7 @@ class TestRecentFiles:
         """save_circuit should add file to recent files list."""
         mock_settings.get_list.return_value = []
 
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
@@ -410,7 +364,7 @@ class TestRecentFiles:
     def test_load_circuit_updates_recent_files(self, mock_settings, tmp_path):
         """load_circuit should add file to recent files list."""
         # First save a circuit
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         filepath = tmp_path / "test.json"
 
         mock_settings.get_list.return_value = []
@@ -448,13 +402,13 @@ class TestImportPreservesCircuitOnFailure:
         filepath = tmp_path / "valid.json"
         filepath.write_text(json.dumps(bad_data))
 
-        ctrl = FileController(_build_simple_circuit())
+        ctrl = FileController(build_simple_circuit())
         ctrl.load_circuit(filepath)
         assert "R1" in ctrl.model.components
 
     def test_import_netlist_preserves_model_on_parse_error(self, tmp_path):
         """If the parser raises, the original circuit must survive."""
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         original_ids = set(model.components.keys())
 
@@ -469,7 +423,7 @@ class TestImportPreservesCircuitOnFailure:
 
     def test_load_from_dict_skips_corrupt_components(self):
         """load_from_dict must skip corrupt components gracefully (issue #488)."""
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
 
         # A corrupt component dict (missing 'pos') is silently skipped
@@ -485,7 +439,7 @@ class TestImportPreservesCircuitOnFailure:
 
     def test_replace_model_validates_before_clearing(self):
         """_replace_model must validate the new model before touching the old one."""
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         original_ids = set(model.components.keys())
 
@@ -514,7 +468,7 @@ class TestAnnotationsAndRecommendedComponents:
         """Build a circuit with annotations and recommended_components."""
         from models.annotation import AnnotationData
 
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         model.annotations = [
             AnnotationData(
                 text="Test note",
@@ -575,7 +529,7 @@ class TestAnnotationsAndRecommendedComponents:
         """Save and load a model with all fields — nothing should be lost."""
         from models.annotation import AnnotationData
 
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         model.annotations = [
             AnnotationData(text="A", x=10, y=20),
             AnnotationData(text="B", x=30, y=40, bold=True),
@@ -601,7 +555,7 @@ class TestExportBom:
 
     @patch("controllers.file_controller.settings")
     def test_export_bom_csv(self, mock_settings, tmp_path):
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "bom.csv"
         ctrl.export_bom(str(filepath), circuit_name="test")
@@ -611,7 +565,7 @@ class TestExportBom:
 
     @patch("controllers.file_controller.settings")
     def test_export_bom_excel(self, mock_settings, tmp_path):
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "bom.xlsx"
         ctrl.export_bom(str(filepath), circuit_name="test")
@@ -623,7 +577,7 @@ class TestExportAsc:
 
     @patch("controllers.file_controller.settings")
     def test_export_asc_writes_file(self, mock_settings, tmp_path):
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "circuit.asc"
         ctrl.export_asc(str(filepath))
@@ -723,7 +677,7 @@ class TestAtomicWrites:
 
     def test_save_circuit_atomic_no_corruption_on_error(self, tmp_path):
         """If json.dump raises, the original file must remain intact."""
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "circuit.json"
 
@@ -741,7 +695,7 @@ class TestAtomicWrites:
 
     def test_save_circuit_no_temp_files_left(self, tmp_path):
         """After a successful save, no temp files should remain."""
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "circuit.json"
 
@@ -754,7 +708,7 @@ class TestAtomicWrites:
 
     def test_auto_save_atomic_no_corruption_on_error(self, tmp_path):
         """If auto_save fails mid-write, the previous auto-save stays intact."""
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         autosave_file = str(tmp_path / ".autosave_recovery.json")
         ctrl = FileController(model, autosave_file=autosave_file)
 
@@ -811,7 +765,7 @@ class TestFileSizeValidation:
 
     def test_load_circuit_with_oversized_file_preserves_model(self, tmp_path):
         """Model should remain intact when oversized file is rejected."""
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         original_ids = set(model.components.keys())
 
