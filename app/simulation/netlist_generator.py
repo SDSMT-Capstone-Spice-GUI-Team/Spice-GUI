@@ -6,6 +6,8 @@ Handles SPICE netlist generation from circuit data
 
 import logging
 
+from simulation.spice_sanitizer import sanitize_netlist_text, sanitize_spice_value, validate_wrdata_filepath
+
 logger = logging.getLogger(__name__)
 
 
@@ -120,9 +122,13 @@ class NetlistGenerator:
         self.terminal_to_node = terminal_to_node
         self.analysis_type = analysis_type
         self.analysis_params = analysis_params
-        self.wrdata_filepath = wrdata_filepath
+        self.wrdata_filepath = validate_wrdata_filepath(wrdata_filepath)
         self.spice_options = spice_options or {}
         self.measurements = measurements or []
+
+    def _sanitize_value(self, value: str) -> str:
+        """Sanitize a component value before interpolation into the netlist."""
+        return sanitize_spice_value(value)
 
     def generate(self):
         """Generate complete SPICE netlist"""
@@ -228,23 +234,28 @@ class NetlistGenerator:
                 nodes.append(node_str)
 
             if comp.component_type == "Resistor":
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} {val}")
             elif comp.component_type == "Capacitor":
+                val = self._sanitize_value(comp.value)
                 ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
+                lines.append(f"{comp_id} {' '.join(nodes)} {val}{ic}")
             elif comp.component_type == "Inductor":
+                val = self._sanitize_value(comp.value)
                 ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
+                lines.append(f"{comp_id} {' '.join(nodes)} {val}{ic}")
             elif comp.component_type == "Voltage Source":
-                lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
             elif comp.component_type == "Current Source":
-                lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
             elif comp.component_type == "Waveform Source":
                 # Use get_spice_value() method if available, otherwise use value
                 if hasattr(comp, "get_spice_value"):
-                    spice_value = comp.get_spice_value()
+                    spice_value = self._sanitize_value(comp.get_spice_value())
                 else:
-                    spice_value = comp.value
+                    spice_value = self._sanitize_value(comp.value)
                 lines.append(f"{comp_id} {' '.join(nodes)} {spice_value}")
             elif comp.component_type == "Op-Amp":
                 # Map terminals to subcircuit nodes: inp, inn, out
@@ -256,37 +267,44 @@ class NetlistGenerator:
             elif comp.component_type == "VCVS":
                 # E<name> out+ out- ctrl+ ctrl- gain
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {val}")
             elif comp.component_type == "VCCS":
                 # G<name> out+ out- ctrl+ ctrl- transconductance
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {val}")
             elif comp.component_type == "CCVS":
                 # H<name> out+ out- Vname transresistance
                 # Insert hidden 0V voltage source for current sensing
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+                val = self._sanitize_value(comp.value)
                 sense_name = f"Vsense_{comp_id}"
                 lines.append(f"{sense_name} {nodes[0]} {nodes[1]} 0")
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}")
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {val}")
             elif comp.component_type == "CCCS":
                 # F<name> out+ out- Vname gain
                 # Insert hidden 0V voltage source for current sensing
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+                val = self._sanitize_value(comp.value)
                 sense_name = f"Vsense_{comp_id}"
                 lines.append(f"{sense_name} {nodes[0]} {nodes[1]} 0")
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}")
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {val}")
             elif comp.component_type == "BJT NPN":
                 # Q<name> collector base emitter model_name
                 # Terminals: 0=collector, 1=base, 2=emitter
-                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {val}")
             elif comp.component_type == "BJT PNP":
                 # Q<name> collector base emitter model_name
-                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {val}")
             elif comp.component_type in ("MOSFET NMOS", "MOSFET PMOS"):
                 # M<name> drain gate source bulk model_name
                 # Terminals: 0=drain, 1=gate, 2=source
                 # Bulk (body) tied to source for simplicity
-                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {nodes[2]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {nodes[2]} {val}")
             elif comp.component_type == "VC Switch":
                 # S<name> switch+ switch- ctrl+ ctrl- model_name
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=switch+, 3=switch-
@@ -301,7 +319,8 @@ class NetlistGenerator:
                 # Transformer modeled as two coupled inductors + K coupling
                 # value = "Lprimary Lsecondary coupling" e.g. "10mH 10mH 0.99"
                 # Terminals: 0=prim+, 1=prim-, 2=sec+, 3=sec-
-                parts = comp.value.split()
+                sanitized_val = self._sanitize_value(comp.value)
+                parts = sanitized_val.split()
                 l_prim = parts[0] if len(parts) > 0 else "10mH"
                 l_sec = parts[1] if len(parts) > 1 else "10mH"
                 coupling = parts[2] if len(parts) > 2 else "0.99"
@@ -399,7 +418,8 @@ class NetlistGenerator:
         lines.append("")
         lines.append(".end")
 
-        return "\n".join(lines)
+        # Defence-in-depth: scan final netlist for dangerous directives
+        return sanitize_netlist_text("\n".join(lines))
 
     def _inject_subcircuit_definitions(self, lines):
         """Inject .subckt definitions for any subcircuit-library components used."""
