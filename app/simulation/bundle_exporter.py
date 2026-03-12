@@ -7,6 +7,8 @@ artifacts (schematic PNG, report PDF) and passing them as bytes/strings.
 """
 
 import json
+import os
+import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -38,38 +40,47 @@ def create_bundle(
         list[str]: names of files included in the bundle.
     """
     included = []
+    filepath = Path(filepath)
 
-    with zipfile.ZipFile(filepath, "w", zipfile.ZIP_DEFLATED) as zf:
-        # Circuit JSON (native format for re-import)
-        if circuit_json is not None:
-            content = circuit_json if isinstance(circuit_json, str) else json.dumps(circuit_json, indent=2)
-            zf.writestr("circuit.json", content)
-            included.append("circuit.json")
+    fd, tmp = tempfile.mkstemp(dir=filepath.parent, suffix=".tmp")
+    os.close(fd)
+    try:
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zf:
+            # Circuit JSON (native format for re-import)
+            if circuit_json is not None:
+                content = circuit_json if isinstance(circuit_json, str) else json.dumps(circuit_json, indent=2)
+                zf.writestr("circuit.json", content)
+                included.append("circuit.json")
 
-        # SPICE netlist
-        if netlist:
-            zf.writestr("netlist.cir", netlist)
-            included.append("netlist.cir")
+            # SPICE netlist
+            if netlist:
+                zf.writestr("netlist.cir", netlist)
+                included.append("netlist.cir")
 
-        # Schematic image
-        if schematic_png:
-            zf.writestr("schematic.png", schematic_png)
-            included.append("schematic.png")
+            # Schematic image
+            if schematic_png:
+                zf.writestr("schematic.png", schematic_png)
+                included.append("schematic.png")
 
-        # Simulation results CSV
-        if results_csv:
-            zf.writestr("results.csv", results_csv)
-            included.append("results.csv")
+            # Simulation results CSV
+            if results_csv:
+                zf.writestr("results.csv", results_csv)
+                included.append("results.csv")
 
-        # Simulation results Excel
-        if results_xlsx_path and Path(results_xlsx_path).exists():
-            zf.write(results_xlsx_path, "results.xlsx")
-            included.append("results.xlsx")
+            # Simulation results Excel
+            if results_xlsx_path and Path(results_xlsx_path).exists():
+                zf.write(results_xlsx_path, "results.xlsx")
+                included.append("results.xlsx")
 
-        # PDF report
-        if report_pdf:
-            zf.writestr("report.pdf", report_pdf)
-            included.append("report.pdf")
+            # PDF report
+            if report_pdf:
+                zf.writestr("report.pdf", report_pdf)
+                included.append("report.pdf")
+
+        os.replace(tmp, filepath)
+    except BaseException:
+        os.unlink(tmp)
+        raise
 
     return included
 

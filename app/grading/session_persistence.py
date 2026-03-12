@@ -8,6 +8,8 @@ No Qt dependencies -- pure Python module.
 
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -149,8 +151,14 @@ def save_grading_session(filepath, session: GradingSessionData) -> None:
         OSError: If the file cannot be written.
     """
     filepath = Path(filepath)
-    with open(filepath, "w") as f:
-        json.dump(session.to_dict(), f, indent=2)
+    fd, tmp = tempfile.mkstemp(dir=filepath.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(session.to_dict(), f, indent=2)
+        os.replace(tmp, filepath)
+    except BaseException:
+        os.unlink(tmp)
+        raise
 
 
 def load_grading_session(filepath) -> GradingSessionData:

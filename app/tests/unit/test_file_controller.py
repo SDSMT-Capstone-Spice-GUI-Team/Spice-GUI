@@ -716,3 +716,55 @@ class TestQtDependencies:
         assert "QSettings" not in source
         # But no QtWidgets (stays out of view layer)
         assert "QtWidgets" not in source
+
+
+class TestAtomicWrites:
+    """Issue #765: file writes should be atomic (write-to-temp-then-rename)."""
+
+    def test_save_circuit_atomic_no_corruption_on_error(self, tmp_path):
+        """If json.dump raises, the original file must remain intact."""
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        filepath = tmp_path / "circuit.json"
+
+        # Save a valid circuit first
+        ctrl.save_circuit(filepath)
+        original_content = filepath.read_text()
+
+        # Now make json.dump raise mid-write
+        with patch("controllers.file_controller.json.dump", side_effect=OSError("disk full")):
+            with pytest.raises(OSError, match="disk full"):
+                ctrl.save_circuit(filepath)
+
+        # Original file must still be intact
+        assert filepath.read_text() == original_content
+
+    def test_save_circuit_no_temp_files_left(self, tmp_path):
+        """After a successful save, no temp files should remain."""
+        model = _build_simple_circuit()
+        ctrl = FileController(model)
+        filepath = tmp_path / "circuit.json"
+
+        ctrl.save_circuit(filepath)
+
+        # Only the target file should exist
+        files = list(tmp_path.iterdir())
+        assert len(files) == 1
+        assert files[0].name == "circuit.json"
+
+    def test_auto_save_atomic_no_corruption_on_error(self, tmp_path):
+        """If auto_save fails mid-write, the previous auto-save stays intact."""
+        model = _build_simple_circuit()
+        autosave_file = str(tmp_path / ".autosave_recovery.json")
+        ctrl = FileController(model, autosave_file=autosave_file)
+
+        # First auto-save succeeds
+        ctrl.auto_save()
+        original_content = Path(autosave_file).read_text()
+
+        # Second auto-save fails mid-write — file should not be corrupted
+        with patch("controllers.file_controller.json.dump", side_effect=OSError("disk full")):
+            ctrl.auto_save()  # Swallows the error internally
+
+        # Original auto-save file must still be intact
+        assert Path(autosave_file).read_text() == original_content
