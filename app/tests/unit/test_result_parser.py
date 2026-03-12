@@ -71,6 +71,40 @@ class TestParseOpResults:
         assert result["node_voltages"]["nodeC"] == pytest.approx(2.5)
         assert "nodeB" not in result["node_voltages"]
 
+    # ── scientific notation edge cases (issue #779) ───────────────────
+
+    def test_scientific_notation_fractional_no_leading_digit(self):
+        """.5e3 (no leading digit before decimal) is valid scientific notation."""
+        output = "v(a) = .5e3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["a"] == pytest.approx(500.0)
+
+    def test_scientific_notation_positive_exponent_uppercase_e(self):
+        """+1.5E+3 (positive sign, uppercase E) must parse correctly."""
+        output = "v(b) = +1.5E+3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["b"] == pytest.approx(1500.0)
+
+    def test_scientific_notation_negative_exponent(self):
+        """1.5e-3 remains parseable after regex tightening."""
+        output = "v(c) = 1.5e-3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["c"] == pytest.approx(0.0015)
+
+    def test_scientific_notation_print_format_variants(self):
+        """Pattern 3 (print format) handles scientific notation variants."""
+        output = "  V(x)   .5e3\n  V(y)   +1.5E+3\n  V(z)   1.5e-3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["x"] == pytest.approx(500.0)
+        assert result["node_voltages"]["y"] == pytest.approx(1500.0)
+        assert result["node_voltages"]["z"] == pytest.approx(0.0015)
+
+    def test_branch_current_scientific_notation(self):
+        """Branch current regex also handles scientific notation variants."""
+        output = "i(v1) = .5e-3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["branch_currents"]["v1"] == pytest.approx(0.0005)
+
 
 # ── parse_dc_results ─────────────────────────────────────────────────
 
