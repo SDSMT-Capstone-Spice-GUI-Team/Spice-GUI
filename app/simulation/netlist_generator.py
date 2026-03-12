@@ -533,11 +533,19 @@ class NetlistGenerator:
             nodes_to_print.discard(0)
             labeled_nodes_to_print = {num: label for num, label in node_labels.items() if num != 0}
 
+            is_ac = self.analysis_type == "AC Sweep"
+
             all_print_vars = []
             if labeled_nodes_to_print:
-                all_print_vars.extend([f"v({label})" for label in sorted(labeled_nodes_to_print.values())])
+                for label in sorted(labeled_nodes_to_print.values()):
+                    all_print_vars.append(f"v({label})")
+                    if is_ac:
+                        all_print_vars.append(f"vp({label})")
             elif nodes_to_print:
-                all_print_vars.extend([f"v({node})" for node in sorted(list(nodes_to_print))])
+                for node in sorted(list(nodes_to_print)):
+                    all_print_vars.append(f"v({node})")
+                    if is_ac:
+                        all_print_vars.append(f"vp({node})")
 
             # Add resistor voltages to the print list
             all_print_vars.extend(resistor_voltages_print)

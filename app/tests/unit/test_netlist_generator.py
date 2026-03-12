@@ -220,6 +220,66 @@ class TestAnalysisCommands:
         )
         assert ".ac" in netlist
 
+    def test_ac_sweep_includes_phase_variables(self, simple_resistor_circuit):
+        """AC Sweep print commands must include vp() for phase data (#738)."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
+        )
+        assert "vp(" in netlist, "AC Sweep netlist must include vp() phase variables"
+
+    def test_ac_sweep_pairs_v_and_vp(self, simple_resistor_circuit):
+        """Each v(node) in AC Sweep must have a matching vp(node) (#738)."""
+        import re
+
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
+        )
+        # Extract print line
+        for line in netlist.splitlines():
+            if line.strip().startswith("print "):
+                # Find all v(X) tokens that are NOT preceded by a letter
+                # (i.e. standalone v(), not vp())
+                v_nodes = set(re.findall(r"(?<![a-zA-Z])v\(([^)]+)\)", line))
+                vp_nodes = set(re.findall(r"\bvp\(([^)]+)\)", line))
+                assert v_nodes, "No v() variables found in print line"
+                assert vp_nodes, "No vp() variables found in print line"
+                assert v_nodes == vp_nodes, f"Mismatched v/vp nodes: v={v_nodes}, vp={vp_nodes}"
+                break
+
+    def test_non_ac_sweep_excludes_vp(self, simple_resistor_circuit):
+        """Non-AC analysis types must NOT include vp() variables."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Operating Point",
+        )
+        assert "vp(" not in netlist
+
     def test_transient(self, simple_resistor_circuit):
         components, wires, nodes, t2n = simple_resistor_circuit
         netlist = _generate(
