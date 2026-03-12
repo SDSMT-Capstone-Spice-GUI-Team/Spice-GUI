@@ -10,6 +10,7 @@ import shutil
 import subprocess
 from datetime import datetime
 
+from simulation.spice_sanitizer import validate_output_dir
 from utils.constants import SIMULATION_TIMEOUT
 
 
@@ -17,7 +18,7 @@ class NgspiceRunner:
     """Runs ngspice simulations and manages output files"""
 
     def __init__(self, output_dir="simulation_output"):
-        self.output_dir = output_dir
+        self.output_dir = validate_output_dir(output_dir)
         os.makedirs(self.output_dir, exist_ok=True)
         self.ngspice_cmd = None
 
