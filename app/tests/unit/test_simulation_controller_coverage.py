@@ -9,16 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from controllers.simulation_controller import SimulationController, SimulationResult
 from models.circuit import CircuitModel
-
-
-def _make_controller(model=None):
-    """Create a SimulationController with a mocked runner."""
-    ctrl = SimulationController(model=model or CircuitModel())
-    runner = MagicMock()
-    runner.output_dir = "/tmp/test_output"
-    runner.find_ngspice.return_value = "/usr/bin/ngspice"
-    ctrl._runner = runner
-    return ctrl, runner
+from tests.conftest import make_simulation_controller
 
 
 def _build_simple_circuit(ctrl):
@@ -94,19 +85,19 @@ class TestSimulationResult:
 
 class TestAnalysisConfig:
     def test_set_and_get_analysis(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         ctrl.set_analysis("Transient", {"tstep": "1u", "tstop": "1m"})
         assert ctrl.get_analysis_type() == "Transient"
         params = ctrl.get_analysis_params()
         assert params["tstep"] == "1u"
 
     def test_set_analysis_none_params(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         ctrl.set_analysis("DC Operating Point", None)
         assert ctrl.get_analysis_params() == {}
 
     def test_get_params_returns_copy(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         ctrl.set_analysis("AC Sweep", {"fstart": "1", "fstop": "1Meg"})
         p1 = ctrl.get_analysis_params()
         p1["extra"] = "X"
@@ -115,7 +106,7 @@ class TestAnalysisConfig:
 
 class TestRunSimulationNgspiceNotFound:
     def test_ngspice_not_found(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_simple_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
         runner.find_ngspice.return_value = None
@@ -128,7 +119,7 @@ class TestRunSimulationNgspiceNotFound:
 
 class TestRunSimulationValidationFailure:
     def test_validation_failure_returns_errors(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         ctrl.set_analysis("DC Operating Point")
 
         with patch("simulation.validate_circuit", return_value=(False, ["No ground"], ["warn"])):
@@ -139,7 +130,7 @@ class TestRunSimulationValidationFailure:
 
 class TestRunSimulationNotify:
     def test_notifies_on_start_and_complete(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_simple_circuit(ctrl)
         ctrl.set_analysis("DC Operating Point")
         cc = MagicMock()
@@ -159,7 +150,7 @@ class TestRunSimulationNotify:
         cc._notify.assert_any_call("simulation_started", None)
 
     def test_notifies_on_validation_failure(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         ctrl.set_analysis("DC Operating Point")
         cc = MagicMock()
         ctrl.circuit_ctrl = cc
@@ -171,7 +162,7 @@ class TestRunSimulationNotify:
 
 class TestRunSimulationConvergenceRetry:
     def test_retry_with_relaxed_tolerances(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         _build_simple_circuit(ctrl)
         ctrl.set_analysis("Transient", {"tstep": "1u", "tstop": "1m"})
 
@@ -236,58 +227,58 @@ class TestParseResultsBranches:
                 )
 
     def test_dc_op(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "DC Operating Point")
         assert result.success is True
 
     def test_dc_sweep(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "DC Sweep")
         assert result.success is True
 
     def test_ac_sweep(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "AC Sweep")
         assert result.success is True
 
     def test_transient(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "Transient")
         assert result.success is True
 
     def test_temperature_sweep(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "Temperature Sweep")
         assert result.success is True
 
     def test_noise(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "Noise")
         assert result.success is True
 
     def test_sensitivity(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "Sensitivity")
         assert result.success is True
 
     def test_transfer_function(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "Transfer Function")
         assert result.success is True
 
     def test_pole_zero(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "Pole-Zero")
         assert result.success is True
 
     def test_unknown_type(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         result = self._run_parse(ctrl, runner, "UnknownAnalysis")
         assert result.success is False
         assert "Unknown" in result.error
 
     def test_parse_error_handled(self):
-        ctrl, runner = _make_controller()
+        ctrl, runner = make_simulation_controller()
         ctrl.model.analysis_type = "DC Operating Point"
         runner.read_output.return_value = "output"
 
@@ -338,13 +329,13 @@ class TestStaticHelpers:
 
 class TestPresetManagement:
     def test_preset_manager_lazy(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         mock_pm = MagicMock()
         ctrl._preset_manager = mock_pm
         assert ctrl.preset_manager is mock_pm
 
     def test_get_presets(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         mock_pm = MagicMock()
         mock_pm.get_presets.return_value = [{"name": "default"}]
         ctrl._preset_manager = mock_pm
@@ -352,21 +343,21 @@ class TestPresetManagement:
         mock_pm.get_presets.assert_called_once_with("Transient")
 
     def test_get_preset_by_name(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         mock_pm = MagicMock()
         ctrl._preset_manager = mock_pm
         ctrl.get_preset_by_name("fast", "Transient")
         mock_pm.get_preset_by_name.assert_called_once_with("fast", "Transient")
 
     def test_save_preset(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         mock_pm = MagicMock()
         ctrl._preset_manager = mock_pm
         ctrl.save_preset("my_preset", "AC Sweep", {"fstart": "1"})
         mock_pm.save_preset.assert_called_once()
 
     def test_delete_preset(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         mock_pm = MagicMock()
         ctrl._preset_manager = mock_pm
         ctrl.delete_preset("old_preset")
@@ -414,6 +405,6 @@ class TestExportHelpers:
                 assert summary == ""
 
     def test_generate_results_csv_unknown_type(self):
-        ctrl, _ = _make_controller()
+        ctrl, _ = make_simulation_controller()
         result = ctrl.generate_results_csv({"data": 1}, "Unknown Type", "test")
         assert result is None

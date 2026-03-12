@@ -10,37 +10,12 @@ Covers:
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass, field
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from grading.histogram import compute_score_bins
-
-# ---------------------------------------------------------------------------
-# Lightweight stand-in so we don't need to import the full grading chain
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class _FakeGradingResult:
-    percentage: float = 0.0
-
-
-@dataclass
-class _FakeBatchResult:
-    results: list = field(default_factory=list)
-    total_students: int = 0
-    successful: int = 0
-    failed: int = 0
-    rubric_title: str = "Test"
-
-    @property
-    def mean_score(self):
-        if not self.results:
-            return 0.0
-        return sum(r.percentage for r in self.results) / len(self.results)
-
+from tests.unit.grading_fakes import FakeBatchResult, FakeGradingResult
 
 # ---------------------------------------------------------------------------
 # compute_score_bins
@@ -51,40 +26,40 @@ class TestComputeScoreBins:
     """Tests for the pure-Python bin computation."""
 
     def test_empty_results(self):
-        result = _FakeBatchResult()
+        result = FakeBatchResult()
         labels, counts = compute_score_bins(result)
         assert len(labels) == 10
         assert all(c == 0 for c in counts)
 
     def test_all_perfect_scores(self):
-        result = _FakeBatchResult(results=[_FakeGradingResult(100.0) for _ in range(5)])
+        result = FakeBatchResult(results=[FakeGradingResult(100.0) for _ in range(5)])
         labels, counts = compute_score_bins(result)
         # 100% should go into the last bin (90-100%)
         assert counts[-1] == 5
         assert sum(counts) == 5
 
     def test_all_zero_scores(self):
-        result = _FakeBatchResult(results=[_FakeGradingResult(0.0) for _ in range(3)])
+        result = FakeBatchResult(results=[FakeGradingResult(0.0) for _ in range(3)])
         labels, counts = compute_score_bins(result)
         assert counts[0] == 3
         assert sum(counts) == 3
 
     def test_spread_across_bins(self):
         scores = [5, 15, 25, 35, 45, 55, 65, 75, 85, 95]
-        result = _FakeBatchResult(results=[_FakeGradingResult(s) for s in scores])
+        result = FakeBatchResult(results=[FakeGradingResult(s) for s in scores])
         labels, counts = compute_score_bins(result)
         # Each bin should have exactly 1 student
         assert counts == [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
     def test_boundary_values(self):
         """Test bin boundaries: 10 goes into 10-20%, 20 into 20-30%, etc."""
-        result = _FakeBatchResult(
+        result = FakeBatchResult(
             results=[
-                _FakeGradingResult(0.0),
-                _FakeGradingResult(10.0),
-                _FakeGradingResult(50.0),
-                _FakeGradingResult(90.0),
-                _FakeGradingResult(100.0),
+                FakeGradingResult(0.0),
+                FakeGradingResult(10.0),
+                FakeGradingResult(50.0),
+                FakeGradingResult(90.0),
+                FakeGradingResult(100.0),
             ]
         )
         labels, counts = compute_score_bins(result)
@@ -94,7 +69,7 @@ class TestComputeScoreBins:
         assert counts[9] == 2  # 90% and 100%
 
     def test_custom_num_bins(self):
-        result = _FakeBatchResult(results=[_FakeGradingResult(50.0)])
+        result = FakeBatchResult(results=[FakeGradingResult(50.0)])
         labels, counts = compute_score_bins(result, num_bins=5)
         assert len(labels) == 5
         assert len(counts) == 5
@@ -102,26 +77,26 @@ class TestComputeScoreBins:
         assert counts[2] == 1
 
     def test_label_format(self):
-        result = _FakeBatchResult()
+        result = FakeBatchResult()
         labels, _ = compute_score_bins(result)
         assert labels[0] == "0-10%"
         assert labels[4] == "40-50%"
         assert labels[9] == "90-100%"
 
     def test_clamps_negative_scores(self):
-        result = _FakeBatchResult(results=[_FakeGradingResult(-5.0)])
+        result = FakeBatchResult(results=[FakeGradingResult(-5.0)])
         labels, counts = compute_score_bins(result)
         assert counts[0] == 1
 
     def test_clamps_over_100(self):
-        result = _FakeBatchResult(results=[_FakeGradingResult(110.0)])
+        result = FakeBatchResult(results=[FakeGradingResult(110.0)])
         labels, counts = compute_score_bins(result)
         assert counts[9] == 1
 
     def test_realistic_class_distribution(self):
         """Simulate a typical class with various scores."""
         scores = [42, 55, 67, 72, 75, 78, 80, 82, 85, 88, 90, 91, 95, 98, 100]
-        result = _FakeBatchResult(results=[_FakeGradingResult(s) for s in scores])
+        result = FakeBatchResult(results=[FakeGradingResult(s) for s in scores])
         labels, counts = compute_score_bins(result)
         assert sum(counts) == 15
         # Check some bins
@@ -144,7 +119,7 @@ class TestCreateHistogramFigure:
         except ImportError:
             pytest.skip("matplotlib not available")
 
-        result = _FakeBatchResult(results=[_FakeGradingResult(s) for s in [50, 60, 70, 80, 90]])
+        result = FakeBatchResult(results=[FakeGradingResult(s) for s in [50, 60, 70, 80, 90]])
         fig = create_histogram_figure(result)
         assert fig is not None
         # Should have one axes
@@ -156,7 +131,7 @@ class TestCreateHistogramFigure:
         except ImportError:
             pytest.skip("matplotlib not available")
 
-        result = _FakeBatchResult(results=[_FakeGradingResult(75.0)])
+        result = FakeBatchResult(results=[FakeGradingResult(75.0)])
         fig = create_histogram_figure(result)
         ax = fig.axes[0]
         assert ax.get_title() == "Score Distribution"
@@ -167,7 +142,7 @@ class TestCreateHistogramFigure:
         except ImportError:
             pytest.skip("matplotlib not available")
 
-        result = _FakeBatchResult(results=[_FakeGradingResult(50.0)])
+        result = FakeBatchResult(results=[FakeGradingResult(50.0)])
         fig = create_histogram_figure(result, num_bins=10)
         ax = fig.axes[0]
         # Should have 10 bar patches
@@ -188,7 +163,7 @@ class TestSaveHistogramPng:
         except ImportError:
             pytest.skip("matplotlib not available")
 
-        result = _FakeBatchResult(results=[_FakeGradingResult(s) for s in [50, 60, 70]])
+        result = FakeBatchResult(results=[FakeGradingResult(s) for s in [50, 60, 70]])
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             filepath = Path(f.name)
         try:

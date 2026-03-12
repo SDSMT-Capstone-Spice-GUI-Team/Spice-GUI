@@ -9,50 +9,11 @@ Covers:
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 from grading.feedback_exporter import export_student_reports, generate_student_report_html
-
-# ---------------------------------------------------------------------------
-# Lightweight test doubles
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class _FakeCheckResult:
-    check_id: str = "check_1"
-    passed: bool = True
-    points_earned: int = 10
-    points_possible: int = 10
-    feedback: str = ""
-
-
-@dataclass
-class _FakeGradingResult:
-    student_file: str = "student.json"
-    rubric_title: str = "Test Rubric"
-    total_points: int = 100
-    earned_points: int = 80
-    check_results: list = field(default_factory=list)
-
-    @property
-    def percentage(self) -> float:
-        if self.total_points == 0:
-            return 0.0
-        return (self.earned_points / self.total_points) * 100.0
-
-
-@dataclass
-class _FakeBatchResult:
-    rubric_title: str = "Test"
-    total_students: int = 0
-    successful: int = 0
-    failed: int = 0
-    results: list = field(default_factory=list)
-    errors: list = field(default_factory=list)
-
+from tests.unit.grading_fakes import FakeBatchResult, FakeCheckResult, FakeGradingResult
 
 # ---------------------------------------------------------------------------
 # generate_student_report_html
@@ -61,14 +22,14 @@ class _FakeBatchResult:
 
 class TestGenerateStudentReportHtml:
     def test_basic_report(self):
-        result = _FakeGradingResult(
+        result = FakeGradingResult(
             student_file="alice.json",
             rubric_title="Lab 1",
             total_points=100,
             earned_points=85,
             check_results=[
-                _FakeCheckResult(check_id="R1_exists", passed=True, feedback="Found R1"),
-                _FakeCheckResult(
+                FakeCheckResult(check_id="R1_exists", passed=True, feedback="Found R1"),
+                FakeCheckResult(
                     check_id="R1_value",
                     passed=False,
                     points_earned=0,
@@ -87,7 +48,7 @@ class TestGenerateStudentReportHtml:
         assert "Expected 1k, got 2k" in html
 
     def test_html_structure(self):
-        result = _FakeGradingResult()
+        result = FakeGradingResult()
         html = generate_student_report_html(result)
         assert "<!DOCTYPE html>" in html
         assert "<html" in html
@@ -95,10 +56,10 @@ class TestGenerateStudentReportHtml:
         assert "<table>" in html
 
     def test_pass_fail_classes(self):
-        result = _FakeGradingResult(
+        result = FakeGradingResult(
             check_results=[
-                _FakeCheckResult(check_id="c1", passed=True),
-                _FakeCheckResult(check_id="c2", passed=False),
+                FakeCheckResult(check_id="c1", passed=True),
+                FakeCheckResult(check_id="c2", passed=False),
             ]
         )
         html = generate_student_report_html(result)
@@ -108,10 +69,10 @@ class TestGenerateStudentReportHtml:
         assert ">Fail<" in html
 
     def test_html_escapes_special_chars(self):
-        result = _FakeGradingResult(
+        result = FakeGradingResult(
             student_file='<script>alert("xss")</script>.json',
             check_results=[
-                _FakeCheckResult(check_id="check_1", feedback='Value is <b>"wrong"</b> & bad'),
+                FakeCheckResult(check_id="check_1", feedback='Value is <b>"wrong"</b> & bad'),
             ],
         )
         html = generate_student_report_html(result)
@@ -120,19 +81,19 @@ class TestGenerateStudentReportHtml:
         assert "&amp;" in html
 
     def test_empty_check_results(self):
-        result = _FakeGradingResult(check_results=[])
+        result = FakeGradingResult(check_results=[])
         html = generate_student_report_html(result)
         assert "student.json" in html
         assert "<tbody>" in html
 
     def test_zero_total_points(self):
-        result = _FakeGradingResult(total_points=0, earned_points=0)
+        result = FakeGradingResult(total_points=0, earned_points=0)
         html = generate_student_report_html(result)
         assert "0/0" in html
         assert "0.0%" in html
 
     def test_empty_feedback(self):
-        result = _FakeGradingResult(check_results=[_FakeCheckResult(check_id="c1", feedback="")])
+        result = FakeGradingResult(check_results=[FakeCheckResult(check_id="c1", feedback="")])
         html = generate_student_report_html(result)
         assert "c1" in html
 
@@ -145,16 +106,16 @@ class TestGenerateStudentReportHtml:
 class TestExportStudentReports:
     def test_creates_files(self):
         results = [
-            _FakeGradingResult(
+            FakeGradingResult(
                 student_file="alice.json",
-                check_results=[_FakeCheckResult(check_id="c1")],
+                check_results=[FakeCheckResult(check_id="c1")],
             ),
-            _FakeGradingResult(
+            FakeGradingResult(
                 student_file="bob.json",
-                check_results=[_FakeCheckResult(check_id="c1")],
+                check_results=[FakeCheckResult(check_id="c1")],
             ),
         ]
-        batch = _FakeBatchResult(results=results)
+        batch = FakeBatchResult(results=results)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             created = export_student_reports(batch, tmpdir)
@@ -168,17 +129,17 @@ class TestExportStudentReports:
 
     def test_report_content(self):
         results = [
-            _FakeGradingResult(
+            FakeGradingResult(
                 student_file="charlie.json",
                 rubric_title="Final",
                 total_points=50,
                 earned_points=40,
                 check_results=[
-                    _FakeCheckResult(check_id="c1", passed=True, feedback="OK"),
+                    FakeCheckResult(check_id="c1", passed=True, feedback="OK"),
                 ],
             ),
         ]
-        batch = _FakeBatchResult(results=results)
+        batch = FakeBatchResult(results=results)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             created = export_student_reports(batch, tmpdir)
@@ -188,19 +149,19 @@ class TestExportStudentReports:
             assert "40/50" in content
 
     def test_empty_results(self):
-        batch = _FakeBatchResult(results=[])
+        batch = FakeBatchResult(results=[])
         with tempfile.TemporaryDirectory() as tmpdir:
             created = export_student_reports(batch, tmpdir)
             assert created == []
 
     def test_creates_output_dir(self):
         results = [
-            _FakeGradingResult(
+            FakeGradingResult(
                 student_file="test.json",
-                check_results=[_FakeCheckResult()],
+                check_results=[FakeCheckResult()],
             ),
         ]
-        batch = _FakeBatchResult(results=results)
+        batch = FakeBatchResult(results=results)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "reports" / "subdir"
@@ -210,12 +171,12 @@ class TestExportStudentReports:
 
     def test_handles_student_file_with_path(self):
         results = [
-            _FakeGradingResult(
+            FakeGradingResult(
                 student_file="submissions/student1.json",
-                check_results=[_FakeCheckResult()],
+                check_results=[FakeCheckResult()],
             ),
         ]
-        batch = _FakeBatchResult(results=results)
+        batch = FakeBatchResult(results=results)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             created = export_student_reports(batch, tmpdir)
