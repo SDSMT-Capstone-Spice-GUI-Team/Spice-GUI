@@ -341,7 +341,10 @@ class TestImportAsc:
 
     def test_rotated_components(self):
         model, _analysis, _warnings = import_asc(ROTATED_COMPONENTS)
-        assert model.components["R1"].rotation == 90
+        # LTspice R90 -> Spice-GUI 0° for bipoles (R0=vertical, 0°=horizontal)
+        assert model.components["R1"].rotation == 0
+        # LTspice M0 -> Spice-GUI 90° with flip_h for bipoles
+        assert model.components["C1"].rotation == 90
         assert model.components["C1"].flip_h is True
 
     def test_multiple_grounds(self):
@@ -386,6 +389,108 @@ class TestTransformPin:
 
     def test_none_defaults_to_r0(self):
         assert _transform_pin(10, 20, None) == (10, 20)
+
+
+class TestRotationMapping:
+    """Tests for the LTspice <-> Spice-GUI rotation conversion."""
+
+    def test_r0_bipole_maps_to_90(self):
+        """LTspice R0 (vertical) -> Spice-GUI 90° (vertical)."""
+        from simulation.asc_parser import _rotation_to_degrees
+
+        deg, flip = _rotation_to_degrees("R0", is_bipole=True)
+        assert deg == 90
+        assert flip is False
+
+    def test_r90_bipole_maps_to_0(self):
+        """LTspice R90 (horizontal) -> Spice-GUI 0° (horizontal)."""
+        from simulation.asc_parser import _rotation_to_degrees
+
+        deg, flip = _rotation_to_degrees("R90", is_bipole=True)
+        assert deg == 0
+        assert flip is False
+
+    def test_r180_bipole_maps_to_270(self):
+        from simulation.asc_parser import _rotation_to_degrees
+
+        deg, flip = _rotation_to_degrees("R180", is_bipole=True)
+        assert deg == 270
+        assert flip is False
+
+    def test_r270_bipole_maps_to_180(self):
+        from simulation.asc_parser import _rotation_to_degrees
+
+        deg, flip = _rotation_to_degrees("R270", is_bipole=True)
+        assert deg == 180
+        assert flip is False
+
+    def test_multipole_no_offset(self):
+        """Multi-terminal components keep rotation angle unchanged."""
+        from simulation.asc_parser import _rotation_to_degrees
+
+        deg, flip = _rotation_to_degrees("R90", is_bipole=False)
+        assert deg == 90
+        assert flip is False
+
+    def test_m0_bipole_mirror(self):
+        """LTspice M0 -> Spice-GUI 90° with flip_h."""
+        from simulation.asc_parser import _rotation_to_degrees
+
+        deg, flip = _rotation_to_degrees("M0", is_bipole=True)
+        assert deg == 90
+        assert flip is True
+
+
+class TestRoundTrip:
+    """Test import then export produces equivalent LTspice data."""
+
+    PROPER_VD = """\
+Version 4
+SHEET 1 880 680
+WIRE 176 64 80 64
+WIRE 176 256 80 256
+WIRE 80 176 80 256
+FLAG 80 256 0
+SYMBOL res 176 64 R0
+SYMATTR InstName R1
+SYMATTR Value 10k
+SYMBOL res 176 160 R0
+SYMATTR InstName R2
+SYMATTR Value 10k
+SYMBOL voltage 80 64 R0
+SYMATTR InstName V1
+SYMATTR Value 5V
+"""
+
+    def test_round_trip_preserves_positions(self):
+        """Import then export should recover the same SYMBOL positions."""
+        from simulation.asc_exporter import export_asc
+
+        model, _analysis, _warnings = import_asc(self.PROPER_VD)
+        exported = export_asc(model)
+
+        # Check key lines are present
+        assert "SYMBOL res 176 64 R0" in exported
+        assert "SYMBOL res 176 160 R0" in exported
+        assert "SYMBOL voltage 80 64 R0" in exported
+
+    def test_round_trip_preserves_connectivity(self):
+        """Import should create the correct wire connections."""
+        model, _analysis, _warnings = import_asc(self.PROPER_VD)
+
+        # R1 top connects to V1 top (same node)
+        wire_pairs = {(w.start_component_id, w.end_component_id) for w in model.wires} | {
+            (w.end_component_id, w.start_component_id) for w in model.wires
+        }
+        assert ("R1", "V1") in wire_pairs
+        assert ("R1", "R2") in wire_pairs
+
+    def test_round_trip_rotation_is_vertical(self):
+        """All R0 bipoles should be imported with rotation=90 (vertical)."""
+        model, _analysis, _warnings = import_asc(self.PROPER_VD)
+        assert model.components["R1"].rotation == 90
+        assert model.components["R2"].rotation == 90
+        assert model.components["V1"].rotation == 90
 
 
 class TestFileControllerIntegration:
