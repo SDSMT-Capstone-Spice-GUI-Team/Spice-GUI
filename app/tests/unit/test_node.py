@@ -329,6 +329,8 @@ class TestSetNetNamePublicAPI:
         assert node.custom_label is None
         assert node.get_label() == "nodeA"
 
+    # AUDIT(testing): inspect.getsource() string match for "_notify" is fragile—any variable or comment containing "_notify" triggers a false positive; use a mock-based behavioral test instead
+    # AUDIT(architecture): this test verifies canvas behavior and belongs in a canvas or integration test file, not test_node.py
     def test_canvas_does_not_call_private_notify(self):
         """Verify the canvas code no longer calls controller._notify directly."""
         import inspect

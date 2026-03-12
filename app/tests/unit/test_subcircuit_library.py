@@ -195,6 +195,7 @@ class TestSubcircuitLibrary:
 # ---------------------------------------------------------------------------
 
 
+# AUDIT(testing): test_register_adds_to_component_system and test_register_idempotent modify global mutable state (COMPONENT_TYPES, SPICE_SYMBOLS, etc.) without teardown; add setup/teardown to save and restore global dicts as done in test_subcircuit_library_coverage.py
 class TestSubcircuitRegistration:
     def test_register_adds_to_component_system(self, tmp_path):
         from models.component import (

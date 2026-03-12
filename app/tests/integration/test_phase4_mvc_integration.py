@@ -80,6 +80,7 @@ class TestMVCFileOperations:
         assert len(model.wires) == 0
         assert file_ctrl.current_file is None
 
+    # AUDIT(testing): session file uses relative path "test_session.txt" in CWD; use tmp_path fixture to avoid polluting the workspace and ensure CI/parallel-execution safety
     def test_session_persistence(self):
         """Test that session file is saved and restored"""
         # Create model and controller
@@ -168,6 +169,7 @@ class TestMVCSimulationFlow:
             assert model.analysis_params == params
 
 
+# AUDIT(architecture): most tests in this file (TestMVCCircuitOperations, TestMVCDataFlow, TestMVCSimulationFlow) do no I/O or ngspice work but are skipped when ngspice is absent because they are in integration/; move to unit/ or remove from require_ngspice guard
 class TestMVCCircuitOperations:
     """Test circuit operations through CircuitController"""
 
@@ -195,6 +197,7 @@ class TestMVCCircuitOperations:
         # Verify component was removed
         assert "R1" not in model.components
 
+    # AUDIT(testing): test bypasses CircuitController entirely—directly mutates model.components["R1"].value instead of calling ctrl.update_component_value(); rename to test_direct_model_mutation or use the controller API
     def test_update_component_through_controller(self):
         """Test updating component through CircuitController"""
         model = CircuitModel()
@@ -322,6 +325,7 @@ class TestMVCErrorPropagation:
         result = sim_ctrl.run_simulation()
 
         # Verify validation error is reported
+        # AUDIT(testing): 'or' assertion is too permissive—a sim that "succeeds" with errors passes; assert both conditions independently
         assert result.success is False or len(result.errors) > 0
 
 

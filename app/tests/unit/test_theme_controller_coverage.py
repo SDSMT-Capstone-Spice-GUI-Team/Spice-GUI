@@ -44,6 +44,7 @@ except (ImportError, RuntimeError):
     import controllers.theme_controller as _tc_mod  # noqa: E402
 
 
+# AUDIT(quality): TestThemeControllerDelegation is nearly identical to TestThemeControllerWrappers in test_theme_controller.py; remove the duplicate and keep only the one with proper stub handling
 class TestThemeControllerDelegation:
     """Verify every ThemeController method delegates to theme_manager."""
 

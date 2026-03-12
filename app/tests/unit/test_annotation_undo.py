@@ -155,6 +155,7 @@ class TestEditAnnotationCommand:
         assert "annotation_updated" in events
 
 
+# AUDIT(testing): all tests below use inspect.getsource() to assert on source code strings—these are structural grep tests, not behavioral tests; replace with actual invocation tests or mock-based integration tests
 class TestAnnotationDoubleClickDelegation:
     """mouseDoubleClickEvent should delegate to canvas._edit_annotation."""
 

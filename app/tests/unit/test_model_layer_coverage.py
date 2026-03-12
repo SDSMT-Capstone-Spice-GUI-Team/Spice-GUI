@@ -1,3 +1,4 @@
+# AUDIT(quality): file name "model_layer_coverage" is misleading—it also tests controllers (circuit_controller.py, keybindings.py, recent_exports.py); rename to reflect actual scope
 """Tests closing remaining model-layer coverage gaps.
 
 Covers missing lines in circuit_controller.py, node.py, wire.py,

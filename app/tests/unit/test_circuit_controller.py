@@ -504,6 +504,8 @@ class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.circuit_controller as mod
 
+        # AUDIT(security): open() without with-statement leaks file handle; use Path.read_text(encoding="utf-8") instead
+        # AUDIT(testing): source-level substring matching for "PyQt" is brittle (comments/strings trigger false positives); use AST-based import checking as done in test_theme_controller.py
         source = open(mod.__file__).read()
         assert "PyQt" not in source
         assert "QtCore" not in source

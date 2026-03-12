@@ -385,6 +385,7 @@ class TestSerialization:
         """Verify CircuitModel has no Qt dependencies."""
         import models.circuit as mod
 
+        # AUDIT(security): open() without with-statement leaks file handle; use Path.read_text(encoding="utf-8")
         source = open(mod.__file__).read()
         assert "PyQt" not in source
         assert "QtCore" not in source

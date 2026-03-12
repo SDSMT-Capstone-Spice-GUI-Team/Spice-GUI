@@ -14,6 +14,7 @@ import pytest
 from controllers.settings_service import SettingsService, settings
 
 
+# AUDIT(testing): _clean fixture uses the real global settings singleton, which modifies process-wide state; use an isolated SettingsService(path=tmp_path/...) instance per test to avoid cross-test contamination
 class TestSettingsServiceTypedHelpers:
     """Test the typed helper methods."""
 

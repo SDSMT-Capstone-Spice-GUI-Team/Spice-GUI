@@ -244,6 +244,7 @@ class TestExportNetlist:
 
 
 class TestExportResultsCSV:
+    # AUDIT(testing): 'or' assertion is too permissive—passes if only one substring appears even if CSV format is broken; assert both or check CSV structure
     def test_generate_results_csv_returns_content_for_op(self):
         ctrl = SimulationController()
         op_results = {"v(1)": 5.0, "v(2)": 3.3}

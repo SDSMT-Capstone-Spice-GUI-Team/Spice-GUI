@@ -526,6 +526,7 @@ class TestDiodeModelDeduplication:
         assert "D3 nodeC 0 D_Ideal" in netlist
 
         # Only one model directive
+        # AUDIT(cleanup): variable name `l` shadows built-in; rename to `line` per PEP 8 (also at L576, L594, L618)
         model_lines = [l for l in netlist.split("\n") if l.startswith(".model D_Ideal")]
         assert len(model_lines) == 1
         assert model_lines[0] == ".model D_Ideal D(IS=1e-14 N=1)"

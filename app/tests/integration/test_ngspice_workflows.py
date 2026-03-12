@@ -99,6 +99,7 @@ class TestDCOperatingPoint:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             sim = SimulationController(model=model, circuit_ctrl=ctrl)
+            # AUDIT(testing): accessing private attribute sim._runner couples tests to internal implementation; inject runner via constructor parameter or public setter instead
             sim._runner = NgspiceRunner(output_dir=tmpdir)
 
             sim.set_analysis("DC Operating Point")
@@ -166,6 +167,7 @@ class TestDCSweep:
 class TestTransientAnalysis:
     """Test transient analysis through the full pipeline."""
 
+    # AUDIT(testing): test builds a resistor divider (no capacitor) but docstring says "RC circuit with step input"; likely copy-paste error—should call _build_rc_circuit() to exercise meaningful transient behavior
     def test_rc_transient_step_response(self):
         """RC circuit with a step input should produce time-domain data."""
         model, ctrl = _build_resistor_divider()
@@ -233,5 +235,6 @@ class TestACSweep:
             assert result.data is not None
             assert isinstance(result.data, dict)
 
+            # AUDIT(testing): DC sweep and AC sweep assertions only check data is non-empty; add value-level checks (e.g., verify passband gain ≈ 1 and stopband attenuation for AC, verify sweep point count for DC) to catch result parser regressions
             # At minimum, the data dict should not be empty
             assert len(result.data) > 0, "AC sweep data is empty"

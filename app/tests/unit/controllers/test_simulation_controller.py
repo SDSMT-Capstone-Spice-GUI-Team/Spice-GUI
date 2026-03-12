@@ -14,6 +14,7 @@ from models.component import ComponentData
 from models.wire import WireData
 
 
+# AUDIT(quality): _make_controller() and _build_circuit() are duplicated across 3 simulation controller test files; consolidate into a shared fixture in controllers/conftest.py
 def _make_controller(model=None, circuit_ctrl=None):
     """Create a SimulationController with a mocked runner."""
     ctrl = SimulationController(model=model or CircuitModel(), circuit_ctrl=circuit_ctrl)

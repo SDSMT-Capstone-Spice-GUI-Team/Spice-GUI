@@ -235,6 +235,7 @@ class TestCutComponents:
         assert len(ctrl.model.wires) == 0
 
 
+# AUDIT(security): open() without with-statement leaks file handles in both tests below; use Path.read_text(encoding="utf-8")
 class TestNoQtDependencies:
     def test_clipboard_no_pyqt(self):
         import models.clipboard as mod

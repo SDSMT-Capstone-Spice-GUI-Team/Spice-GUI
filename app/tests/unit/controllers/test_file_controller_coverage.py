@@ -1,3 +1,5 @@
+# AUDIT(quality): _build_simple_circuit() helper on L30 is duplicated verbatim in test_file_controller.py and 4+ other test files; extract into a shared conftest fixture
+# AUDIT(testing): tests named *_is_logged (L197, L341, L349) assert no exception is raised but never verify the log message via caplog; add caplog assertions to match the test names
 """Tests to increase file_controller.py coverage to 95%+.
 
 Covers:

@@ -11,6 +11,8 @@ from controllers.simulation_controller import SimulationController, SimulationRe
 from models.circuit import CircuitModel
 
 
+# AUDIT(quality): _make_controller() and _build_simple_circuit() are duplicated from controllers/test_simulation_controller.py; consolidate into shared conftest
+# AUDIT(testing): TestRunSimulationConvergenceRetry.test_retry_with_relaxed_tolerances has 9 levels of nested `with patch(...)` context managers; refactor to @patch decorators or mock.patch.multiple for readability
 def _make_controller(model=None):
     """Create a SimulationController with a mocked runner."""
     ctrl = SimulationController(model=model or CircuitModel())

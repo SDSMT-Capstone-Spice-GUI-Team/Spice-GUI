@@ -727,6 +727,7 @@ class TestFileControllerOperations:
         filepath = tmp_path / "valid.json"
         ctrl.save_circuit(filepath)
 
+        # AUDIT(quality): open() without explicit encoding="utf-8" may fail on non-UTF-8 default locales
         with open(filepath) as f:
             data = json.load(f)
         assert "components" in data

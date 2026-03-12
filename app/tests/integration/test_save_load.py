@@ -7,6 +7,9 @@ Tests ComponentData and WireData without any Qt dependencies.
 import json
 
 import pytest
+
+# AUDIT(cleanup): _CLASS_TO_DISPLAY, _DISPLAY_TO_CLASS, and COMPONENT_TYPES are imported but never used; remove dead imports
+# AUDIT(architecture): this file tests pure model serialization (no I/O, no ngspice) but is under integration/ and gets skipped when ngspice is absent; move to unit/
 from models.component import _CLASS_TO_DISPLAY, _DISPLAY_TO_CLASS, COMPONENT_TYPES, DEFAULT_VALUES, ComponentData
 from models.wire import WireData
 from tests.conftest import make_component, make_wire

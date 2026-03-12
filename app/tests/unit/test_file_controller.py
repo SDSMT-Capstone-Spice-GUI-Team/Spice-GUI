@@ -461,6 +461,7 @@ class TestImportPreservesCircuitOnFailure:
         filepath = tmp_path / "bad.cir"
         filepath.write_text("this is not a valid netlist")
 
+        # AUDIT(testing): catching bare Exception is overly broad; assert the specific exception type (ValueError, ParseError, etc.) raised by import_netlist for invalid input
         with pytest.raises(Exception):
             ctrl.import_netlist(filepath)
 
