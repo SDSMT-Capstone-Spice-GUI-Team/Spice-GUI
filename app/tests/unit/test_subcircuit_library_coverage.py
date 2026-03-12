@@ -9,12 +9,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from GUI.subcircuit_gui_registration import _register_graphics, _register_subcircuit_renderer
 from models.subcircuit_library import (
     SubcircuitDefinition,
     SubcircuitLibrary,
     _generate_terminal_geometry,
-    _register_graphics,
-    _register_subcircuit_renderer,
     parse_subckt,
     register_subcircuit_component,
 )
@@ -133,7 +132,7 @@ class TestRegisterSubcircuitComponent:
             spice_definition=".subckt TestSub IN OUT GND\n.ends",
         )
         # Mock GUI imports to avoid Qt
-        with patch("models.subcircuit_library._register_graphics"):
+        with patch("GUI.subcircuit_gui_registration._register_graphics"):
             register_subcircuit_component(defn)
 
         assert "TestSub" in COMPONENT_TYPES
@@ -149,7 +148,7 @@ class TestRegisterSubcircuitComponent:
             spice_definition=".subckt TestSub2 A B\n.ends",
         )
         SPICE_SYMBOLS["TestSub2"] = "X"  # pretend already registered
-        with patch("models.subcircuit_library._register_graphics"):
+        with patch("GUI.subcircuit_gui_registration._register_graphics"):
             register_subcircuit_component(defn)
         # Should not have changed anything else (early return)
 
@@ -161,7 +160,7 @@ class TestRegisterSubcircuitComponent:
             terminals=["A", "B"],
             spice_definition=".subckt NewCat A B\n.ends",
         )
-        with patch("models.subcircuit_library._register_graphics"):
+        with patch("GUI.subcircuit_gui_registration._register_graphics"):
             register_subcircuit_component(defn)
         assert "Subcircuits" in COMPONENT_CATEGORIES
         assert "NewCat" in COMPONENT_CATEGORIES["Subcircuits"]
@@ -424,7 +423,7 @@ class TestRegisterSubcircuitComponentStylesFailure:
             spice_definition=".subckt StylesFail A B\n.ends",
         )
         with (
-            patch("models.subcircuit_library._register_graphics"),
+            patch("GUI.subcircuit_gui_registration._register_graphics"),
             patch.dict("sys.modules", {"GUI.styles.constants": None}),
         ):
             register_subcircuit_component(defn)

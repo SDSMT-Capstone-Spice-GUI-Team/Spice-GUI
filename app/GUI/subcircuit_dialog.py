@@ -1,5 +1,6 @@
 """Dialog for importing, browsing, and managing the subcircuit library."""
 
+from GUI.subcircuit_gui_registration import register_subcircuit_gui
 from models.subcircuit_library import SubcircuitLibrary, register_subcircuit_component
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -95,6 +96,7 @@ class SubcircuitLibraryDialog(QDialog):
                 defs = self._library.import_file(path)
                 for d in defs:
                     register_subcircuit_component(d)
+                    register_subcircuit_gui(d)
                 imported.extend(defs)
             except Exception as exc:
                 errors.append(f"{path}: {exc}")

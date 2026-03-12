@@ -284,7 +284,7 @@ class ComponentData:
     def __post_init__(self):
         """Initialize waveform parameters for waveform sources."""
         if self.component_type == "Waveform Source" and self.waveform_params is None:
-            from simulation.waveform_utils import DEFAULT_WAVEFORM_TYPE, default_waveform_params
+            from models.waveform_defaults import DEFAULT_WAVEFORM_TYPE, default_waveform_params
 
             self.waveform_type = DEFAULT_WAVEFORM_TYPE
             self.waveform_params = default_waveform_params()
@@ -358,7 +358,7 @@ class ComponentData:
         if self.component_type != "Waveform Source":
             return self.value
 
-        from simulation.waveform_utils import format_waveform_spice_value
+        from models.waveform_defaults import format_waveform_spice_value
 
         return format_waveform_spice_value(self.waveform_type, self.waveform_params, self.value)
 
