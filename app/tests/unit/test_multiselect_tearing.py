@@ -25,6 +25,7 @@ def _add_resistor(scene, comp_id, x, y):
 class TestWirePreviewSuppression:
     """Verify that followers skip wire preview during group drag (#442)."""
 
+    # AUDIT(testing): inspect.getsource() string matching on itemChange is an implementation test — tests will break on variable rename even if behavior is correct
     def test_group_moving_guard_in_position_has_changed(self):
         """ItemPositionHasChanged handler must check _group_moving before wire preview."""
         source = inspect.getsource(ComponentGraphicsItem.itemChange)

@@ -8,6 +8,7 @@ import os
 import sys
 from pathlib import Path
 
+# AUDIT(architecture): monkeypatching matplotlib.use at conftest import time is a global side effect that could mask real import errors in production; consider using pytest-qt's built-in offscreen handling or a dedicated fixture instead
 # Prevent matplotlib.use("QtAgg") from failing in headless environments.
 # The monte_carlo_results_dialog module calls matplotlib.use("QtAgg") at
 # import time which raises ImportError when Qt's offscreen platform is active.
@@ -69,6 +70,7 @@ def make_wire(start_id, start_term, end_id, end_term):
     )
 
 
+# AUDIT(quality): _build_simple_circuit() / _build_rc_filter() helper functions are duplicated in 15+ test files (test_auto_save, test_file_controller, test_batch_grading, test_grading_panel, test_rubric_grader, test_simulation_controller, etc.); consolidate these into shared conftest fixtures here
 @pytest.fixture
 def simple_resistor_circuit():
     """

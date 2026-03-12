@@ -65,6 +65,7 @@ class TestTimerPathRemoved:
 
         assert not hasattr(ComponentGraphicsItem, "update_wires_after_drag")
 
+    # AUDIT(testing): negative string assertions on source code are fragile; use hasattr(instance, 'update_timer') after construction instead
     def test_no_wire_update_timer_attribute(self):
         """ComponentGraphicsItem should not have self.update_timer in init."""
         import inspect

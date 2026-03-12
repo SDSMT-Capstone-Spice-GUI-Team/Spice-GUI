@@ -14,6 +14,7 @@ from models.circuit import CircuitModel
 class TestBatchRerouteInfrastructure:
     """Verify batch reroute attributes exist on the canvas class."""
 
+    # AUDIT(testing): inspect.getsource() tests are fragile — they break on refactors that preserve behavior; test observable behavior instead (e.g., instantiate and check attribute exists)
     def test_canvas_has_batch_reroute_timer_attr(self):
         """CircuitCanvasView.__init__ should initialize _batch_reroute_timer."""
         from GUI.circuit_canvas import CircuitCanvasView
@@ -97,6 +98,7 @@ class TestObserverMoveDedup:
         assert w.start_component_id == r1.component_id
         assert w.end_component_id == r2.component_id
 
+    # AUDIT(testing): source-code string matching is implementation coupling — these tests will break if the variable is renamed even though behavior is unchanged
     def test_do_batch_reroute_clears_pending_set(self):
         """_do_batch_reroute should clear _pending_reroute_components."""
         from GUI.circuit_canvas import CircuitCanvasView

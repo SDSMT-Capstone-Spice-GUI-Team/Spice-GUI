@@ -38,6 +38,7 @@ def _make_mock_theme(name="Mock Theme"):
 # Try the real import first.  Only seed stubs when Qt is unavailable.
 # This avoids contaminating sys.modules for other test files in CI.
 # ---------------------------------------------------------------------------
+# AUDIT(quality): complex sys.modules patching (50+ lines) duplicates functionality already present in test_symbol_style.py autouse fixture; extract shared theme/Qt mocking infrastructure into a conftest fixture
 try:
     import services.theme_manager as _tm_mod  # works when Qt is available
 except (ImportError, RuntimeError):

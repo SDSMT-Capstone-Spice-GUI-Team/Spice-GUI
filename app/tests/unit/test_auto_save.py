@@ -212,6 +212,7 @@ class TestLoadAutoSave:
         assert ctrl2.model.analysis_type == "AC Sweep"
         assert ctrl2.model.analysis_params["fStart"] == 1
 
+    # AUDIT(architecture): test calls private method _notify directly via mock assertion — this couples the test to the controller's internal notification API; prefer asserting on observable state changes
     def test_load_notifies_observers(self, tmp_path):
         from unittest.mock import MagicMock
 

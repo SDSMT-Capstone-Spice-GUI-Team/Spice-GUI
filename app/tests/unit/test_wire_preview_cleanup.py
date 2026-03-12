@@ -95,7 +95,7 @@ class TestFocusOutCancelsWireDrawing:
         # The focusOutEvent method should exist
         assert hasattr(CircuitCanvasView, "focusOutEvent")
 
-        # Verify it calls cancel_wire_drawing (source inspection)
+        # AUDIT(testing): source inspection is fragile — use a mock-based test that simulates focusOutEvent and asserts cancel_wire_drawing was called
         import inspect
 
         source = inspect.getsource(CircuitCanvasView.focusOutEvent)

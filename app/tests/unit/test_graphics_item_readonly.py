@@ -10,6 +10,7 @@ import sys
 
 import pytest
 
+# AUDIT(cleanup): sys.path.insert is unnecessary — conftest.py already adds app/ to sys.path; remove this line
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 # ---------------------------------------------------------------------------

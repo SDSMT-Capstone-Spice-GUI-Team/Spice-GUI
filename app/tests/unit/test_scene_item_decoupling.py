@@ -63,6 +63,7 @@ class TestComponentItemCanvasInjection:
         # Should have synced position via canvas.controller
         mock_controller.model.components["R1"].__setattr__("position", (100, 200))
 
+    # AUDIT(testing): negative source-code grep assertions are brittle and do not test behavior; consider integration tests that verify the canvas reference is used correctly instead
     def test_no_hierarchy_climbing_in_source(self):
         """Verify no scene().views()[0] patterns remain in component_item.py."""
         import inspect

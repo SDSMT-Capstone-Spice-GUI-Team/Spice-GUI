@@ -1,3 +1,4 @@
+# AUDIT(testing): pixel-level draw call assertions (e.g., call(5, -4, 8, 0)) are extremely brittle — any coordinate tweak breaks tests even if visual output is correct; consider snapshot/image-diff testing instead
 """
 Tests for renderer symbol correctness (#431, #433).
 

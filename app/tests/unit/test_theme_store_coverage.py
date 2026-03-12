@@ -27,6 +27,7 @@ def _make_custom_theme(name="Test Theme", base="light", colors=None, is_dark=Fal
 # ---- _filename_safe ----
 
 
+# AUDIT(quality): TestFilenameSafe is fully duplicated in test_theme_store.py; consolidate into one location to reduce maintenance burden
 class TestFilenameSafe:
     def test_basic(self):
         assert _filename_safe("My Theme") == "my-theme"

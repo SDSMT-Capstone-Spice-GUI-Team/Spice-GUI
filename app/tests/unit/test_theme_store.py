@@ -124,12 +124,14 @@ class TestCanonicalLocation:
 
         assert "services" in tm.__file__
 
+    # AUDIT(security): open(ts.__file__).read() leaks a file handle — use 'with open(...) as f:' or Path.read_text() instead
     def test_theme_store_no_qt_imports(self):
         import services.theme_store as ts
 
         source = open(ts.__file__).read()
         assert "PyQt" not in source
 
+    # AUDIT(security): open(ts.__file__).read() leaks a file handle — use 'with open(...) as f:' or Path.read_text() instead
     def test_theme_manager_no_qt_imports(self):
         import services.theme_manager as ts
 

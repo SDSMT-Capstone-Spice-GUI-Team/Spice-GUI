@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import QGraphicsScene
 class TestSVGExportInfrastructure:
     """Verify SVG export infrastructure is in place."""
 
+    # AUDIT(testing): inspect.getsource() string matching is fragile — tests will break on rename/refactor even if behavior is preserved; prefer functional tests or mock-based verification
     def test_export_image_dialog_offers_svg(self):
         """Export image dialog should include SVG as a format option."""
         from GUI.main_window_view import ViewOperationsMixin

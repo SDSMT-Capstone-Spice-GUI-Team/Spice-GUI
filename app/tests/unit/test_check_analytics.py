@@ -303,6 +303,7 @@ class TestCsvExportAnalytics:
 # ---------------------------------------------------------------------------
 
 
+# AUDIT(testing): these structural tests read source files as text and grep for string patterns — they will break silently if the attribute is renamed; prefer importing the class and checking with hasattr() or instantiating in a fixture
 class TestBatchGradingDialogAnalytics:
     def test_dialog_has_analytics_table(self):
         source = Path(__file__).parents[2] / "GUI" / "batch_grading_dialog.py"

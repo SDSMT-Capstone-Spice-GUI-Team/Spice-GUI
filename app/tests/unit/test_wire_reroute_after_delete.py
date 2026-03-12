@@ -12,6 +12,7 @@ import pytest
 class TestRerouteWiresNearComponents:
     """_reroute_wires_near_components should reroute affected wires only."""
 
+    # AUDIT(testing): binding a real unbound method onto a MagicMock is fragile — any change to _reroute_wires_near_components signature or self-references may silently break the test; prefer creating a minimal real instance or using spec= with patch
     def _make_canvas(self):
         """Create a minimal mock canvas with the real _reroute method."""
         from GUI.circuit_canvas import CircuitCanvasView

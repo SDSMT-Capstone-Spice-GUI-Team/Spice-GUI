@@ -28,6 +28,7 @@ def _add_resistor(scene, comp_id, x, y):
 class TestRawDeltaSourceInspection:
     """Verify the itemChange source uses raw delta, not snapped delta."""
 
+    # AUDIT(testing): all three tests below use inspect.getsource() string matching — they test implementation details (variable names) rather than behavior; replace with functional tests that verify group drag snap correctness
     def test_itemchange_uses_raw_delta(self):
         """itemChange should compute raw_delta from new_pos, not snapped_pos."""
         source = inspect.getsource(ComponentGraphicsItem.itemChange)

@@ -22,6 +22,7 @@ from grading.histogram import compute_score_bins
 # ---------------------------------------------------------------------------
 
 
+# AUDIT(quality): _FakeGradingResult and _FakeBatchResult are duplicated in test_check_analytics.py and test_feedback_exporter.py; extract shared test doubles into conftest.py or a tests/helpers module
 @dataclass
 class _FakeGradingResult:
     percentage: float = 0.0
@@ -207,6 +208,7 @@ class TestSaveHistogramPng:
 class TestBatchGradingDialogHistogram:
     """Structural tests for histogram integration in the dialog."""
 
+    # AUDIT(testing): reading production source files as text and asserting string presence is fragile and tests implementation, not behavior; prefer importing the class and using hasattr() or instantiation
     def test_dialog_has_histogram_canvas_attr(self):
         """Verify the dialog stores a histogram canvas reference."""
         source = Path(__file__).parents[2] / "GUI" / "batch_grading_dialog.py"

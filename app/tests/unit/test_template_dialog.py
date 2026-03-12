@@ -128,6 +128,7 @@ class TestNewFromTemplateDialogDelete:
         dlg.template_list.setCurrentRow(4)
 
         # Monkeypatch QMessageBox to auto-confirm
+        # AUDIT(quality): QMessageBox.question is monkeypatched twice redundantly — remove the first patch or the duplicate below
         monkeypatch.setattr(
             "GUI.template_dialog.QMessageBox.question",
             lambda *a, **kw: QMessageBox.StandardButton.Yes,
