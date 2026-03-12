@@ -38,7 +38,7 @@ class ResultParser:
 
         for i, line in enumerate(lines):
             # Pattern 1: v(nodename) = voltage
-            match = re.search(r"v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE)
+            match = re.search(r"v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)", line, re.IGNORECASE)
             if match:
                 try:
                     node_name = match.group(1)
@@ -50,7 +50,7 @@ class ResultParser:
 
             # Branch current patterns: i(device) = current or @device[current]
             i_match = re.search(
-                r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)",
+                r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)",
                 line,
                 re.IGNORECASE,
             )
@@ -88,7 +88,7 @@ class ResultParser:
         # Pattern 3: ngspice print output format
         for line in lines:
             # Voltages: " V(5)   1.000000e-06 "
-            match = re.match(r"^\s*V\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
+            match = re.match(r"^\s*V\((\w+)\)\s+([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*", line, re.IGNORECASE)
             if match:
                 try:
                     node_name = match.group(1)
@@ -98,7 +98,7 @@ class ResultParser:
                     logger.debug("Skipping unparseable OP print line: %s", line)
                 continue
             # Currents: " I(v1)   -2.100000e-03 "
-            i_match = re.match(r"^\s*I\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
+            i_match = re.match(r"^\s*I\((\w+)\)\s+([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*", line, re.IGNORECASE)
             if i_match:
                 try:
                     device = i_match.group(1)

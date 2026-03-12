@@ -30,6 +30,16 @@ class TestParseValue:
     def test_meg_suffix(self):
         assert parse_value("4.7MEG") == pytest.approx(4_700_000.0)
 
+    def test_meg_lowercase(self):
+        assert parse_value("10meg") == pytest.approx(10_000_000.0)
+
+    def test_omega_does_not_match_meg(self):
+        # "OMEGA" contains "MEG" as a substring; must not trigger the MEG path.
+        # After the fix the string reaches the normal SI-prefix regex and "m"
+        # (milli) is found inside "omega", returning 100e-3.
+        result = parse_value("100omega")
+        assert result == pytest.approx(0.1)
+
     def test_bare_number(self):
         assert parse_value("100") == 100.0
 

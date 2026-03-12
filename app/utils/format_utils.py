@@ -57,8 +57,9 @@ def parse_value(s: str) -> float:
 
     s = s.strip()
 
-    # Check for SPICE 'MEG' variant first
-    if "MEG" in s.upper():
+    # Check for SPICE 'MEG' variant first — use endswith to avoid matching
+    # substrings like "OMEGA" which contains "MEG" as a substring.
+    if s.upper().endswith("MEG"):
         num_part = s[:-3]
         multiplier = SI_PREFIX_MULTIPLIERS["MEG"]
         try:
