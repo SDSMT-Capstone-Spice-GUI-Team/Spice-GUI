@@ -4,13 +4,33 @@ Verifies that the SVG export produces valid output and that the
 menu infrastructure supports SVG as an export format.
 """
 
+import ast
 import inspect
+import textwrap
 import xml.etree.ElementTree as ET
 
 import pytest
 from GUI.component_item import ComponentGraphicsItem, Resistor, VoltageSource
 from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtWidgets import QGraphicsScene
+
+
+def _source_uses_name(func, name):
+    """Check if a function's source contains a reference to the given name."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    return any(
+        (isinstance(node, ast.Name) and node.id == name) or (isinstance(node, ast.Attribute) and node.attr == name)
+        for node in ast.walk(tree)
+    )
+
+
+def _source_has_string_literal(func, substr):
+    """Check if a function's source contains a string literal containing substr."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    return any(
+        isinstance(node, ast.Constant) and isinstance(node.value, str) and substr in node.value
+        for node in ast.walk(tree)
+    )
 
 
 class TestSVGExportInfrastructure:
@@ -20,8 +40,7 @@ class TestSVGExportInfrastructure:
         """Export image dialog should include SVG as a format option."""
         from GUI.main_window_view import ViewOperationsMixin
 
-        source = inspect.getsource(ViewOperationsMixin.export_image)
-        assert "*.svg" in source
+        assert _source_has_string_literal(ViewOperationsMixin.export_image, "*.svg")
 
     def test_canvas_has_export_svg_method(self):
         """CircuitCanvasView should have _export_svg method."""
@@ -33,23 +52,20 @@ class TestSVGExportInfrastructure:
         """_export_svg should use QSvgGenerator."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        source = inspect.getsource(CircuitCanvasView._export_svg)
-        assert "QSvgGenerator" in source
+        assert _source_uses_name(CircuitCanvasView._export_svg, "QSvgGenerator")
 
     def test_canvas_export_image_routes_svg(self):
         """canvas.export_image should detect .svg and call _export_svg."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        source = inspect.getsource(CircuitCanvasView.export_image)
-        assert '".svg"' in source or "'.svg'" in source
-        assert "_export_svg" in source
+        assert _source_has_string_literal(CircuitCanvasView.export_image, ".svg")
+        assert _source_uses_name(CircuitCanvasView.export_image, "_export_svg")
 
     def test_export_svg_sets_title(self):
         """SVG export should set a document title."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        source = inspect.getsource(CircuitCanvasView._export_svg)
-        assert "setTitle" in source
+        assert _source_uses_name(CircuitCanvasView._export_svg, "setTitle")
 
 
 class TestSVGFileOutput:

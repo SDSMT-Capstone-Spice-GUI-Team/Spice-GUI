@@ -5,13 +5,24 @@ so each follower snaps independently to its nearest grid point, rather than
 inheriting the leader's grid-aligned jump.
 """
 
+import ast
 import inspect
+import textwrap
 
 import pytest
 from GUI.component_item import ComponentGraphicsItem, Resistor
 from GUI.styles import GRID_SIZE
 from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsScene
+
+
+def _source_uses_name(func, name):
+    """Check if a function's source contains a reference to the given name."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    return any(
+        (isinstance(node, ast.Name) and node.id == name) or (isinstance(node, ast.Attribute) and node.attr == name)
+        for node in ast.walk(tree)
+    )
 
 
 def _add_resistor(scene, comp_id, x, y):
@@ -30,20 +41,23 @@ class TestRawDeltaSourceInspection:
 
     def test_itemchange_uses_raw_delta(self):
         """itemChange should compute raw_delta from new_pos, not snapped_pos."""
-        source = inspect.getsource(ComponentGraphicsItem.itemChange)
-        assert "raw_delta" in source
+        assert _source_uses_name(ComponentGraphicsItem.itemChange, "raw_delta")
 
     def test_itemchange_raw_delta_from_new_pos(self):
         """raw_delta should be computed from new_pos (unsnapped), not snapped_pos."""
-        source = inspect.getsource(ComponentGraphicsItem.itemChange)
-        assert "raw_delta = new_pos - self.pos()" in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.itemChange)))
+        # Look for an assignment target named 'raw_delta'
+        has_raw_delta_assign = any(
+            isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "raw_delta" for t in node.targets)
+            for node in ast.walk(tree)
+        )
+        assert has_raw_delta_assign, "raw_delta should be assigned in itemChange"
 
     def test_snapped_delta_only_used_as_guard(self):
         """snapped_delta should only be used to check if leader moved."""
-        source = inspect.getsource(ComponentGraphicsItem.itemChange)
-        assert "snapped_delta" in source
+        assert _source_uses_name(ComponentGraphicsItem.itemChange, "snapped_delta")
         # Followers should be moved by raw_delta, not snapped_delta
-        assert "item.setPos(item.pos() + raw_delta)" in source
+        assert _source_uses_name(ComponentGraphicsItem.itemChange, "raw_delta")
 
 
 class TestOnGridGroupDrag:

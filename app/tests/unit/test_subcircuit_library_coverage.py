@@ -128,7 +128,9 @@ class TestRegisterSubcircuitComponent:
         from models.component import COMPONENT_TYPES, SPICE_SYMBOLS, TERMINAL_COUNTS
 
         defn = SubcircuitDefinition(
-            name="TestSub", terminals=["IN", "OUT", "GND"], spice_definition=".subckt TestSub IN OUT GND\n.ends"
+            name="TestSub",
+            terminals=["IN", "OUT", "GND"],
+            spice_definition=".subckt TestSub IN OUT GND\n.ends",
         )
         # Mock GUI imports to avoid Qt
         with patch("models.subcircuit_library._register_graphics"):
@@ -142,7 +144,9 @@ class TestRegisterSubcircuitComponent:
         from models.component import SPICE_SYMBOLS
 
         defn = SubcircuitDefinition(
-            name="TestSub2", terminals=["A", "B"], spice_definition=".subckt TestSub2 A B\n.ends"
+            name="TestSub2",
+            terminals=["A", "B"],
+            spice_definition=".subckt TestSub2 A B\n.ends",
         )
         SPICE_SYMBOLS["TestSub2"] = "X"  # pretend already registered
         with patch("models.subcircuit_library._register_graphics"):
@@ -152,7 +156,11 @@ class TestRegisterSubcircuitComponent:
     def test_subcircuits_category_created(self):
         from models.component import COMPONENT_CATEGORIES
 
-        defn = SubcircuitDefinition(name="NewCat", terminals=["A", "B"], spice_definition=".subckt NewCat A B\n.ends")
+        defn = SubcircuitDefinition(
+            name="NewCat",
+            terminals=["A", "B"],
+            spice_definition=".subckt NewCat A B\n.ends",
+        )
         with patch("models.subcircuit_library._register_graphics"):
             register_subcircuit_component(defn)
         assert "Subcircuits" in COMPONENT_CATEGORIES
@@ -170,7 +178,11 @@ class TestSubcircuitLibraryPersistence:
 
     def test_add_and_get(self, tmp_path):
         lib = SubcircuitLibrary(library_dir=tmp_path)
-        defn = SubcircuitDefinition(name="MySub", terminals=["A", "B"], spice_definition=".subckt MySub A B\n.ends")
+        defn = SubcircuitDefinition(
+            name="MySub",
+            terminals=["A", "B"],
+            spice_definition=".subckt MySub A B\n.ends",
+        )
         lib.add(defn)
         assert lib.get("MySub") is defn
         assert "MySub" in lib.names()
@@ -185,7 +197,11 @@ class TestSubcircuitLibraryPersistence:
     def test_add_no_persist(self, tmp_path):
         lib = SubcircuitLibrary(library_dir=tmp_path)
         initial_files = set(tmp_path.glob("*.json"))
-        defn = SubcircuitDefinition(name="NoPersist", terminals=["X"], spice_definition=".subckt NoPersist X\n.ends")
+        defn = SubcircuitDefinition(
+            name="NoPersist",
+            terminals=["X"],
+            spice_definition=".subckt NoPersist X\n.ends",
+        )
         lib.add(defn, persist=False)
         new_files = set(tmp_path.glob("*.json")) - initial_files
         assert len(new_files) == 0
@@ -197,7 +213,10 @@ class TestSubcircuitLibraryPersistence:
     def test_remove_builtin_fails(self, tmp_path):
         lib = SubcircuitLibrary(library_dir=tmp_path)
         defn = SubcircuitDefinition(
-            name="BuiltinSub", terminals=["A"], spice_definition=".subckt BuiltinSub A\n.ends", builtin=True
+            name="BuiltinSub",
+            terminals=["A"],
+            spice_definition=".subckt BuiltinSub A\n.ends",
+            builtin=True,
         )
         lib.add(defn, persist=False)
         assert lib.remove("BuiltinSub") is False
@@ -205,7 +224,11 @@ class TestSubcircuitLibraryPersistence:
 
     def test_remove_user_subcircuit(self, tmp_path):
         lib = SubcircuitLibrary(library_dir=tmp_path)
-        defn = SubcircuitDefinition(name="UserSub", terminals=["A", "B"], spice_definition=".subckt UserSub A B\n.ends")
+        defn = SubcircuitDefinition(
+            name="UserSub",
+            terminals=["A", "B"],
+            spice_definition=".subckt UserSub A B\n.ends",
+        )
         lib.add(defn)
         assert lib.remove("UserSub") is True
         assert lib.get("UserSub") is None
@@ -247,7 +270,11 @@ class TestSubcircuitLibraryPersistence:
 
     def test_register_all(self, tmp_path):
         lib = SubcircuitLibrary(library_dir=tmp_path)
-        defn = SubcircuitDefinition(name="RegAll", terminals=["A", "B"], spice_definition=".subckt RegAll A B\n.ends")
+        defn = SubcircuitDefinition(
+            name="RegAll",
+            terminals=["A", "B"],
+            spice_definition=".subckt RegAll A B\n.ends",
+        )
         lib.add(defn, persist=False)
         with patch("models.subcircuit_library.register_subcircuit_component") as mock_reg:
             lib.register_all()
@@ -261,7 +288,10 @@ class TestSubcircuitLibraryPersistence:
 class TestSubcircuitDefinitionSerialization:
     def test_to_dict(self):
         defn = SubcircuitDefinition(
-            name="S1", terminals=["A", "B"], spice_definition=".subckt S1 A B\n.ends", description="test"
+            name="S1",
+            terminals=["A", "B"],
+            spice_definition=".subckt S1 A B\n.ends",
+            description="test",
         )
         d = defn.to_dict()
         assert d["name"] == "S1"
@@ -389,7 +419,9 @@ class TestRegisterSubcircuitComponentStylesFailure:
     def test_styles_import_failure_silenced(self):
         """When GUI.styles.constants import fails, registration still completes."""
         defn = SubcircuitDefinition(
-            name="StylesFail", terminals=["A", "B"], spice_definition=".subckt StylesFail A B\n.ends"
+            name="StylesFail",
+            terminals=["A", "B"],
+            spice_definition=".subckt StylesFail A B\n.ends",
         )
         with (
             patch("models.subcircuit_library._register_graphics"),
@@ -408,7 +440,9 @@ class TestRegisterGraphicsExceptions:
     def test_component_item_import_failure(self):
         """When GUI.component_item import fails, _register_graphics silently passes."""
         defn = SubcircuitDefinition(
-            name="GfxFail1", terminals=["A", "B"], spice_definition=".subckt GfxFail1 A B\n.ends"
+            name="GfxFail1",
+            terminals=["A", "B"],
+            spice_definition=".subckt GfxFail1 A B\n.ends",
         )
         with patch.dict("sys.modules", {"GUI.component_item": None}):
             # Should not raise
@@ -417,7 +451,9 @@ class TestRegisterGraphicsExceptions:
     def test_renderers_import_failure(self):
         """When GUI.renderers import fails, _register_graphics silently passes."""
         defn = SubcircuitDefinition(
-            name="GfxFail2", terminals=["A", "B"], spice_definition=".subckt GfxFail2 A B\n.ends"
+            name="GfxFail2",
+            terminals=["A", "B"],
+            spice_definition=".subckt GfxFail2 A B\n.ends",
         )
         with patch.dict("sys.modules", {"GUI.renderers": None}):
             _register_graphics("GfxFail2", defn)
@@ -507,7 +543,11 @@ class TestRegisterRendererException:
         """When register_fn raises, _register_subcircuit_renderer silently passes."""
         from GUI.renderers import ComponentRenderer, _bounding_rect_obstacle
 
-        defn = SubcircuitDefinition(name="RegFail", terminals=["A", "B"], spice_definition=".subckt RegFail A B\n.ends")
+        defn = SubcircuitDefinition(
+            name="RegFail",
+            terminals=["A", "B"],
+            spice_definition=".subckt RegFail A B\n.ends",
+        )
 
         def failing_register(name, style, renderer):
             raise RuntimeError("registration failed")

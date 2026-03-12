@@ -352,9 +352,13 @@ class TestSetNetNamePublicAPI:
 
     def test_canvas_does_not_call_private_notify(self):
         """Verify the canvas code no longer calls controller._notify directly."""
+        import ast
         import inspect
+        import textwrap
 
         from GUI.circuit_canvas import CircuitCanvas
 
-        source = inspect.getsource(CircuitCanvas.label_node)
-        assert "_notify" not in source, "label_node still calls _notify directly — use set_net_name instead"
+        tree = ast.parse(textwrap.dedent(inspect.getsource(CircuitCanvas.label_node)))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "_notify":
+                raise AssertionError("label_node still calls _notify directly -- use set_net_name instead")
