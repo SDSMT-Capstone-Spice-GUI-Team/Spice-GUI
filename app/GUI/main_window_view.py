@@ -316,7 +316,7 @@ class ViewOperationsMixin:
             return
         # Open or raise the waveform dialog
         if self._waveform_dialog is None or not self._waveform_dialog.isVisible():
-            self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.sim_ctrl)
+            self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.simulation_ctrl)
             self._waveform_dialog.show()
         self._waveform_dialog.raise_()
         self._waveform_dialog.activateWindow()
@@ -339,7 +339,7 @@ class ViewOperationsMixin:
         if not ac_data:
             return
         if self._plot_dialog is None or not self._plot_dialog.isVisible():
-            self._show_plot_dialog(ACSweepPlotDialog(ac_data, self, sim_ctrl=self.sim_ctrl))
+            self._show_plot_dialog(ACSweepPlotDialog(ac_data, self, sim_ctrl=self.simulation_ctrl))
         self._plot_dialog.raise_()
         self._plot_dialog.activateWindow()
         self.statusBar().showMessage(f"Opened AC sweep plot for {signal_name}.", 2000)
@@ -433,7 +433,7 @@ class ViewOperationsMixin:
         opts = dialog.get_options()
 
         try:
-            tikz_code = self.sim_ctrl.generate_circuitikz(
+            tikz_code = self.simulation_ctrl.generate_circuitikz(
                 standalone=opts["standalone"],
                 circuit_name=(os.path.basename(self.file_ctrl.current_file) if self.file_ctrl.current_file else ""),
                 scale=opts["scale"],
@@ -479,7 +479,7 @@ class ViewOperationsMixin:
             return
 
         try:
-            tikz_code = self.sim_ctrl.generate_circuitikz(standalone=False)
+            tikz_code = self.simulation_ctrl.generate_circuitikz(standalone=False)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
             return
