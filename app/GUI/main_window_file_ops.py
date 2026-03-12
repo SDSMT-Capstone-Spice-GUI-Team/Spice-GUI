@@ -297,7 +297,7 @@ class FileOperationsMixin:
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"BOM exported to {filename}", 3000)
-        except (OSError, Exception) as e:
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to export BOM: {e}")
 
     def _on_export_asc(self):
@@ -320,7 +320,7 @@ class FileOperationsMixin:
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"LTspice schematic exported to {filename}", 3000)
-        except (OSError, Exception) as e:
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to export LTspice schematic: {e}")
 
     def _on_generate_report(self):
@@ -353,7 +353,7 @@ class FileOperationsMixin:
         if config.include_netlist:
             try:
                 netlist = self.simulation_ctrl.generate_netlist()
-            except Exception:
+            except (OSError, ValueError, RuntimeError):
                 netlist = "(Netlist generation failed)"
 
         results_text = ""
@@ -369,7 +369,8 @@ class FileOperationsMixin:
                 "Report Generated",
                 f"Circuit report saved to:\n{filename}",
             )
-        except (OSError, Exception) as e:
+        except (OSError, ValueError) as e:
+            logger.error("Report generation failed", exc_info=True)
             QMessageBox.critical(self, "Report Error", f"Failed to generate report:\n{e}")
 
     def _on_export_bundle(self):
@@ -407,7 +408,7 @@ class FileOperationsMixin:
             netlist = None
             try:
                 netlist = self.simulation_ctrl.generate_netlist()
-            except Exception:
+            except (OSError, ValueError, RuntimeError):
                 logger.warning("Bundle export: netlist generation failed", exc_info=True)
 
             # Schematic PNG (rendered at 2x via canvas)
@@ -419,7 +420,7 @@ class FileOperationsMixin:
                 self.canvas.export_image(tmp_img_path, include_grid=False)
                 with open(tmp_img_path, "rb") as f:
                     schematic_png = f.read()
-            except Exception:
+            except (OSError, ValueError, RuntimeError):
                 logger.warning("Bundle export: schematic PNG export failed", exc_info=True)
 
             # Results CSV (only if simulation was run)
@@ -430,7 +431,7 @@ class FileOperationsMixin:
                     results_csv = self.simulation_ctrl.generate_results_csv(
                         self._last_results, self._last_results_type, cn
                     )
-                except Exception:
+                except (OSError, ValueError, RuntimeError):
                     logger.warning("Bundle export: CSV results export failed", exc_info=True)
 
             # Results Excel (only if simulation was run)
@@ -445,7 +446,7 @@ class FileOperationsMixin:
                         self._last_results, self._last_results_type, tmp_xlsx_path, cn
                     )
                     results_xlsx_path = tmp_xlsx_path
-                except Exception:
+                except (OSError, ValueError, RuntimeError):
                     logger.warning("Bundle export: Excel results export failed", exc_info=True)
 
             included = self.simulation_ctrl.create_bundle(
@@ -463,8 +464,9 @@ class FileOperationsMixin:
                 "Bundle Exported",
                 f"Lab bundle saved to {Path(filename).name}\n\nIncludes: {', '.join(included)}",
             )
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to export bundle: {e}")
+        except (OSError, ValueError, RuntimeError) as e:
+            logger.error("Bundle export failed", exc_info=True)
+            QMessageBox.critical(self, "Error", f"Failed to export bundle:\n{e}")
         finally:
             for path in (tmp_img_path, tmp_xlsx_path):
                 if path:
@@ -482,7 +484,7 @@ class FileOperationsMixin:
                 # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {last_file}")
                 self._sync_analysis_menu()
-            except Exception as e:
+            except (OSError, json.JSONDecodeError, ValueError) as e:
                 logger.error("Error loading last session: %s", e)
 
     def _populate_examples_menu(self):
@@ -778,7 +780,8 @@ class FileOperationsMixin:
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Re-exported to {Path(path).name}", 3000)
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
+            logger.error("Re-export failed", exc_info=True)
             QMessageBox.critical(self, "Re-export Error", f"Failed to re-export:\n{e}")
 
     def _re_export_results_csv(self, path):
