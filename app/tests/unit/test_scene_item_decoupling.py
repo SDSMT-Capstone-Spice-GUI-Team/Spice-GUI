@@ -65,12 +65,21 @@ class TestComponentItemCanvasInjection:
 
     def test_no_hierarchy_climbing_in_source(self):
         """Verify no scene().views()[0] patterns remain in component_item.py."""
+        import ast
         import inspect
 
         from GUI import component_item
 
-        source = inspect.getsource(component_item)
-        assert "scene().views()[0]" not in source
+        tree = ast.parse(inspect.getsource(component_item))
+        # Walk the AST looking for chained calls: scene().views()[0]
+        # This pattern appears as a Subscript(Call(Attribute(Call(...),'views')), 0)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "views":
+                # Check if the value is a call to scene()
+                if isinstance(node.value, ast.Call):
+                    inner = node.value.func
+                    if isinstance(inner, ast.Attribute) and inner.attr == "scene":
+                        raise AssertionError("Found scene().views() pattern in component_item.py")
 
 
 class TestAnnotationItemCanvasInjection:
@@ -99,12 +108,18 @@ class TestAnnotationItemCanvasInjection:
 
     def test_no_hierarchy_climbing_in_source(self):
         """Verify no scene().views()[0] patterns remain in annotation_item.py."""
+        import ast
         import inspect
 
         from GUI import annotation_item
 
-        source = inspect.getsource(annotation_item)
-        assert "scene().views()[0]" not in source
+        tree = ast.parse(inspect.getsource(annotation_item))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "views":
+                if isinstance(node.value, ast.Call):
+                    inner = node.value.func
+                    if isinstance(inner, ast.Attribute) and inner.attr == "scene":
+                        raise AssertionError("Found scene().views() pattern in annotation_item.py")
 
 
 class TestWireItemDecoupling:
@@ -153,22 +168,36 @@ class TestWireItemDecoupling:
 
     def test_no_window_statusbar_access_in_source(self):
         """Verify no window().statusBar() patterns remain in wire_item.py."""
+        import ast
         import inspect
 
         from GUI import wire_item
 
-        source = inspect.getsource(wire_item)
-        assert "window()" not in source
-        assert "statusBar()" not in source
+        tree = ast.parse(inspect.getsource(wire_item))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "statusBar":
+                raise AssertionError("Found statusBar() reference in wire_item.py")
+            # Check for standalone window() calls as attribute access
+            if isinstance(node, ast.Call):
+                func = node.func
+                if isinstance(func, ast.Attribute) and func.attr == "window":
+                    raise AssertionError("Found window() call in wire_item.py")
+                if isinstance(func, ast.Name) and func.id == "window":
+                    raise AssertionError("Found window() call in wire_item.py")
 
     def test_no_private_notify_in_source(self):
         """Verify no controller._notify() calls remain in wire_item.py."""
+        import ast
         import inspect
 
         from GUI import wire_item
 
-        source = inspect.getsource(wire_item)
-        assert "controller._notify" not in source
+        tree = ast.parse(inspect.getsource(wire_item))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "_notify":
+                # Check if accessed on something named 'controller'
+                if isinstance(node.value, ast.Attribute) and node.value.attr == "controller":
+                    raise AssertionError("Found controller._notify in wire_item.py")
 
 
 class TestCanvasInjectsReferences:

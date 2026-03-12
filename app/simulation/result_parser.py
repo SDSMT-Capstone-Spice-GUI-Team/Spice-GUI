@@ -79,7 +79,10 @@ class ResultParser:
                             voltage = float(parts[1])
                             node_voltages[node_name] = voltage
                         except (ValueError, IndexError):
-                            logger.debug("Skipping unparseable voltage table line: %s", result_line)
+                            logger.debug(
+                                "Skipping unparseable voltage table line: %s",
+                                result_line,
+                            )
                             continue
 
         # Pattern 3: ngspice print output format

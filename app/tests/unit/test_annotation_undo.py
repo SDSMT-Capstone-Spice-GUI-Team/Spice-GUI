@@ -5,12 +5,23 @@ These tests validate the model-layer command pattern where commands operate
 through the CircuitController rather than directly on the canvas.
 """
 
+import ast
 import inspect
+import textwrap
 
 from controllers.circuit_controller import CircuitController
 from controllers.commands import AddAnnotationCommand, DeleteAnnotationCommand, EditAnnotationCommand
 from models.annotation import AnnotationData
 from models.circuit import CircuitModel
+
+
+def _source_uses_name(func, name):
+    """Check if a function's source contains a reference to the given name."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    return any(
+        (isinstance(node, ast.Name) and node.id == name) or (isinstance(node, ast.Attribute) and node.attr == name)
+        for node in ast.walk(tree)
+    )
 
 
 def _make_controller():
@@ -162,15 +173,13 @@ class TestAnnotationDoubleClickDelegation:
         """Double-click should call canvas._edit_annotation if available."""
         from GUI.annotation_item import AnnotationItem
 
-        source = inspect.getsource(AnnotationItem.mouseDoubleClickEvent)
-        assert "_edit_annotation" in source
+        assert _source_uses_name(AnnotationItem.mouseDoubleClickEvent, "_edit_annotation")
 
     def test_canvas_edit_method_uses_undo_command(self):
         """Canvas._edit_annotation should use EditAnnotationCommand."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        source = inspect.getsource(CircuitCanvasView._edit_annotation)
-        assert "EditAnnotationCommand" in source
+        assert _source_uses_name(CircuitCanvasView._edit_annotation, "EditAnnotationCommand")
 
 
 class TestCanvasAnnotationUndoIntegration:
@@ -180,19 +189,16 @@ class TestCanvasAnnotationUndoIntegration:
         """add_annotation should use AddAnnotationCommand."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        source = inspect.getsource(CircuitCanvasView.add_annotation)
-        assert "AddAnnotationCommand" in source
+        assert _source_uses_name(CircuitCanvasView.add_annotation, "AddAnnotationCommand")
 
     def test_delete_annotation_uses_command(self):
         """_delete_annotation should use DeleteAnnotationCommand."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        source = inspect.getsource(CircuitCanvasView._delete_annotation)
-        assert "DeleteAnnotationCommand" in source
+        assert _source_uses_name(CircuitCanvasView._delete_annotation, "DeleteAnnotationCommand")
 
     def test_delete_selected_delegates_to_delete_annotation(self):
         """delete_selected should call _delete_annotation for annotations."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        source = inspect.getsource(CircuitCanvasView.delete_selected)
-        assert "_delete_annotation" in source
+        assert _source_uses_name(CircuitCanvasView.delete_selected, "_delete_annotation")

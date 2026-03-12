@@ -4,7 +4,9 @@ Verifies that the generated netlist can be written to a file,
 that keybindings are registered, and that the menu infrastructure exists.
 """
 
+import ast
 import inspect
+import textwrap
 
 import pytest
 from controllers.circuit_controller import CircuitController
@@ -12,6 +14,24 @@ from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 from models.component import ComponentData
 from models.wire import WireData
+
+
+def _source_uses_name(func, name):
+    """Check if a function's source contains a reference to the given name."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    return any(
+        (isinstance(node, ast.Name) and node.id == name) or (isinstance(node, ast.Attribute) and node.attr == name)
+        for node in ast.walk(tree)
+    )
+
+
+def _source_has_string_literal(func, substr):
+    """Check if a function's source contains a string literal containing substr."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    return any(
+        isinstance(node, ast.Constant) and isinstance(node.value, str) and substr in node.value
+        for node in ast.walk(tree)
+    )
 
 
 class TestNetlistGeneration:
@@ -204,42 +224,50 @@ class TestExportNetlistMenuInfrastructure:
         """export_netlist should use QFileDialog for file selection."""
         from GUI.main_window_simulation import SimulationMixin
 
-        source = inspect.getsource(SimulationMixin.export_netlist)
-        assert "QFileDialog" in source
-        assert "getSaveFileName" in source
+        assert _source_uses_name(SimulationMixin.export_netlist, "QFileDialog")
+        assert _source_uses_name(SimulationMixin.export_netlist, "getSaveFileName")
 
     def test_export_netlist_writes_cir_extension(self):
         """export_netlist should default to .cir extension."""
         from GUI.main_window_simulation import SimulationMixin
 
-        source = inspect.getsource(SimulationMixin.export_netlist)
-        assert ".cir" in source
+        assert _source_has_string_literal(SimulationMixin.export_netlist, ".cir")
 
     def test_menu_has_export_netlist_action(self):
         """MenuBarMixin should include an Export Netlist action."""
         from GUI.main_window_menus import MenuBarMixin
 
-        source = inspect.getsource(MenuBarMixin.create_menu_bar)
-        assert "export_netlist" in source
-        assert "Export" in source
+        assert _source_uses_name(MenuBarMixin.create_menu_bar, "export_netlist")
+        assert _source_has_string_literal(MenuBarMixin.create_menu_bar, "Export")
 
     def test_export_handles_os_error(self):
         """export_netlist should handle OSError when writing."""
         from GUI.main_window_simulation import SimulationMixin
 
-        source = inspect.getsource(SimulationMixin.export_netlist)
-        assert "OSError" in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(SimulationMixin.export_netlist)))
+        # Look for an ExceptHandler that catches OSError
+        found = any(
+            isinstance(node, ast.ExceptHandler)
+            and node.type is not None
+            and (
+                (isinstance(node.type, ast.Name) and node.type.id == "OSError")
+                or (
+                    isinstance(node.type, ast.Tuple)
+                    and any(isinstance(e, ast.Name) and e.id == "OSError" for e in node.type.elts)
+                )
+            )
+            for node in ast.walk(tree)
+        )
+        assert found, "export_netlist should handle OSError"
 
     def test_bound_actions_includes_export_netlist(self):
         """_bound_actions dict should include file.export_netlist."""
         from GUI.main_window_menus import MenuBarMixin
 
-        source = inspect.getsource(MenuBarMixin.create_menu_bar)
-        assert '"file.export_netlist"' in source
+        assert _source_has_string_literal(MenuBarMixin.create_menu_bar, "file.export_netlist")
 
     def test_menu_connects_to_export_netlist(self):
         """export_netlist_action should connect to export_netlist."""
         from GUI.main_window_menus import MenuBarMixin
 
-        source = inspect.getsource(MenuBarMixin.create_menu_bar)
-        assert "export_netlist" in source
+        assert _source_uses_name(MenuBarMixin.create_menu_bar, "export_netlist")

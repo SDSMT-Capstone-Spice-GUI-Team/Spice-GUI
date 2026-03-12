@@ -27,12 +27,47 @@ def _build_simple_circuit(ctrl):
     from models.wire import WireData
 
     m = ctrl.model
-    m.add_component(ComponentData(component_id="V1", component_type="Voltage Source", value="5V", position=(0, 0)))
+    m.add_component(
+        ComponentData(
+            component_id="V1",
+            component_type="Voltage Source",
+            value="5V",
+            position=(0, 0),
+        )
+    )
     m.add_component(ComponentData(component_id="R1", component_type="Resistor", value="1k", position=(100, 0)))
-    m.add_component(ComponentData(component_id="GND1", component_type="Ground", value="0V", position=(100, 100)))
-    m.add_wire(WireData(start_component_id="V1", start_terminal=0, end_component_id="R1", end_terminal=0))
-    m.add_wire(WireData(start_component_id="R1", start_terminal=1, end_component_id="GND1", end_terminal=0))
-    m.add_wire(WireData(start_component_id="V1", start_terminal=1, end_component_id="GND1", end_terminal=0))
+    m.add_component(
+        ComponentData(
+            component_id="GND1",
+            component_type="Ground",
+            value="0V",
+            position=(100, 100),
+        )
+    )
+    m.add_wire(
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="R1",
+            end_terminal=0,
+        )
+    )
+    m.add_wire(
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        )
+    )
+    m.add_wire(
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        )
+    )
 
 
 class TestSimulationResult:
@@ -152,13 +187,22 @@ class TestRunSimulationConvergenceRetry:
             with patch("simulation.NetlistGenerator") as mock_gen:
                 mock_gen.return_value.generate.return_value = "* netlist"
                 with patch("simulation.convergence.diagnose_error", return_value=mock_diagnosis):
-                    with patch("simulation.convergence.format_user_message", return_value="Convergence error"):
+                    with patch(
+                        "simulation.convergence.format_user_message",
+                        return_value="Convergence error",
+                    ):
                         with patch("simulation.convergence.is_retriable", return_value=True):
-                            with patch("simulation.convergence.RELAXED_OPTIONS", {"reltol": "0.01"}):
+                            with patch(
+                                "simulation.convergence.RELAXED_OPTIONS",
+                                {"reltol": "0.01"},
+                            ):
                                 with patch("simulation.ResultParser") as mock_rp:
                                     mock_rp.parse_transient_results.return_value = {"time": [0]}
                                     mock_rp.parse_measurement_results.return_value = {}
-                                    with patch("simulation.result_parser.ResultParseError", Exception):
+                                    with patch(
+                                        "simulation.result_parser.ResultParseError",
+                                        Exception,
+                                    ):
                                         runner.read_output.return_value = ""
                                         result = ctrl.run_simulation()
 
@@ -284,7 +328,10 @@ class TestStaticHelpers:
             assert result == {"bw": 1000}
 
     def test_compute_signal_fft(self):
-        with patch("simulation.fft_analysis.analyze_signal_spectrum", return_value={"freqs": [1]}):
+        with patch(
+            "simulation.fft_analysis.analyze_signal_spectrum",
+            return_value={"freqs": [1]},
+        ):
             result = SimulationController.compute_signal_fft([0, 1], [0, 1], "v1")
             assert result == {"freqs": [1]}
 
@@ -326,7 +373,10 @@ class TestPresetManagement:
         mock_pm.delete_preset.assert_called_once()
 
     def test_generate_analysis_command(self):
-        with patch("simulation.netlist_generator.generate_analysis_command", return_value=".tran 1u 1m"):
+        with patch(
+            "simulation.netlist_generator.generate_analysis_command",
+            return_value=".tran 1u 1m",
+        ):
             result = SimulationController.generate_analysis_command("Transient", {"tstep": "1u", "tstop": "1m"})
             assert result == ".tran 1u 1m"
 
@@ -347,7 +397,10 @@ class TestExportHelpers:
 
     def test_compute_power_metrics(self):
         mock_metrics = [{"component": "R1", "avg_power": 0.005}]
-        with patch("simulation.power_metrics.compute_transient_power_metrics", return_value=mock_metrics):
+        with patch(
+            "simulation.power_metrics.compute_transient_power_metrics",
+            return_value=mock_metrics,
+        ):
             with patch("simulation.power_metrics.format_power_summary", return_value="R1: 5mW"):
                 metrics, summary = SimulationController.compute_power_metrics({"data": 1}, {})
                 assert len(metrics) == 1

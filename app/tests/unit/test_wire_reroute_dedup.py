@@ -5,6 +5,9 @@ path (the observer/controller path) instead of two (observer + timer),
 and that co-selected wires are only rerouted once.
 """
 
+import ast
+import inspect
+import textwrap
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -67,21 +70,23 @@ class TestTimerPathRemoved:
 
     def test_no_wire_update_timer_attribute(self):
         """ComponentGraphicsItem should not have self.update_timer in init."""
-        import inspect
-
         from GUI.component_item import ComponentGraphicsItem
 
-        source = inspect.getsource(ComponentGraphicsItem.__init__)
-        assert "self.update_timer" not in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.__init__)))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "update_timer":
+                raise AssertionError("Found update_timer reference in ComponentGraphicsItem.__init__")
 
     def test_no_last_position_attribute(self):
         """ComponentGraphicsItem should not reference last_position in init."""
-        import inspect
-
         from GUI.component_item import ComponentGraphicsItem
 
-        source = inspect.getsource(ComponentGraphicsItem.__init__)
-        assert "last_position" not in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.__init__)))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "last_position":
+                raise AssertionError("Found last_position reference in ComponentGraphicsItem.__init__")
+            if isinstance(node, ast.Name) and node.id == "last_position":
+                raise AssertionError("Found last_position reference in ComponentGraphicsItem.__init__")
 
 
 class TestSingleReroutePath:
@@ -89,21 +94,26 @@ class TestSingleReroutePath:
 
     def test_itemchange_does_not_call_schedule_wire_update(self):
         """itemChange source should not reference schedule_wire_update."""
-        import inspect
-
         from GUI.component_item import ComponentGraphicsItem
 
-        source = inspect.getsource(ComponentGraphicsItem.itemChange)
-        assert "schedule_wire_update" not in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.itemChange)))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "schedule_wire_update":
+                raise AssertionError("Found schedule_wire_update in itemChange")
+            if isinstance(node, ast.Name) and node.id == "schedule_wire_update":
+                raise AssertionError("Found schedule_wire_update in itemChange")
 
     def test_itemchange_schedules_controller_update(self):
         """itemChange source should still schedule controller updates."""
-        import inspect
-
         from GUI.component_item import ComponentGraphicsItem
 
-        source = inspect.getsource(ComponentGraphicsItem.itemChange)
-        assert "_schedule_controller_update" in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.itemChange)))
+        found = any(
+            (isinstance(node, ast.Attribute) and node.attr == "_schedule_controller_update")
+            or (isinstance(node, ast.Name) and node.id == "_schedule_controller_update")
+            for node in ast.walk(tree)
+        )
+        assert found, "_schedule_controller_update not found in itemChange"
 
 
 class TestCoSelectedRerouteDedup:
@@ -111,21 +121,27 @@ class TestCoSelectedRerouteDedup:
 
     def test_reroute_checks_isSelected(self):
         """reroute_connected_wires should check isSelected on other endpoint."""
-        import inspect
-
         from GUI.circuit_canvas import CircuitCanvasView
 
-        source = inspect.getsource(CircuitCanvasView.reroute_connected_wires)
-        assert "isSelected" in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(CircuitCanvasView.reroute_connected_wires)))
+        found = any(
+            (isinstance(node, ast.Attribute) and node.attr == "isSelected")
+            or (isinstance(node, ast.Name) and node.id == "isSelected")
+            for node in ast.walk(tree)
+        )
+        assert found, "isSelected not found in reroute_connected_wires"
 
     def test_reroute_uses_component_id_tiebreaker(self):
         """Deterministic tiebreaker: lower component_id handles the wire."""
-        import inspect
-
         from GUI.circuit_canvas import CircuitCanvasView
 
-        source = inspect.getsource(CircuitCanvasView.reroute_connected_wires)
-        assert "component_id" in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(CircuitCanvasView.reroute_connected_wires)))
+        found = any(
+            (isinstance(node, ast.Attribute) and node.attr == "component_id")
+            or (isinstance(node, ast.Name) and node.id == "component_id")
+            for node in ast.walk(tree)
+        )
+        assert found, "component_id not found in reroute_connected_wires"
 
     def test_reroute_skips_when_other_has_lower_id(self):
         """Wire should not be rerouted if other endpoint has lower ID and is selected."""

@@ -5,12 +5,32 @@ netlist generation, result parsing, display routing, menu
 infrastructure, preset availability, and CSV export.
 """
 
+import ast
 import inspect
+import textwrap
 
 import pytest
 from controllers.simulation_controller import SimulationController
 from GUI.analysis_dialog import AnalysisDialog
 from models.circuit import CircuitModel
+
+
+def _source_uses_name(func, name):
+    """Check if a function's source contains a reference to the given name."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    return any(
+        (isinstance(node, ast.Name) and node.id == name) or (isinstance(node, ast.Attribute) and node.attr == name)
+        for node in ast.walk(tree)
+    )
+
+
+def _source_has_string_literal(func, substr):
+    """Check if a function's source contains a string literal containing substr."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    return any(
+        isinstance(node, ast.Constant) and isinstance(node.value, str) and substr in node.value
+        for node in ast.walk(tree)
+    )
 
 
 class TestNoiseAnalysisDialog:
@@ -250,8 +270,7 @@ class TestNoiseSimulationController:
 
     def test_parse_results_has_noise_branch(self):
         """_parse_results should handle 'Noise' analysis type."""
-        source = inspect.getsource(SimulationController._parse_results)
-        assert '"Noise"' in source
+        assert _source_has_string_literal(SimulationController._parse_results, "Noise")
 
 
 class TestNoiseMenuIntegration:
@@ -261,9 +280,8 @@ class TestNoiseMenuIntegration:
         """MenuBarMixin should create a noise_action."""
         from GUI.main_window_menus import MenuBarMixin
 
-        source = inspect.getsource(MenuBarMixin.create_menu_bar)
-        assert "noise_action" in source
-        assert "set_analysis_noise" in source
+        assert _source_uses_name(MenuBarMixin.create_menu_bar, "noise_action")
+        assert _source_uses_name(MenuBarMixin.create_menu_bar, "set_analysis_noise")
 
     def test_analysis_settings_has_noise_method(self):
         """AnalysisSettingsMixin should have set_analysis_noise."""
@@ -275,16 +293,14 @@ class TestNoiseMenuIntegration:
         """_sync_analysis_menu should check for 'Noise' type."""
         from GUI.main_window_analysis import AnalysisSettingsMixin
 
-        source = inspect.getsource(AnalysisSettingsMixin._sync_analysis_menu)
-        assert '"Noise"' in source
+        assert _source_has_string_literal(AnalysisSettingsMixin._sync_analysis_menu, "Noise")
 
     def test_display_handlers_include_noise(self):
         """SimulationMixin handlers dict should include Noise."""
         from GUI.main_window_simulation import SimulationMixin
 
-        source = inspect.getsource(SimulationMixin._display_simulation_results)
-        assert '"Noise"' in source
-        assert "_display_noise_results" in source
+        assert _source_has_string_literal(SimulationMixin._display_simulation_results, "Noise")
+        assert _source_uses_name(SimulationMixin._display_simulation_results, "_display_noise_results")
 
     def test_display_noise_results_method_exists(self):
         """SimulationMixin should have _display_noise_results method."""
@@ -349,9 +365,8 @@ class TestNoiseCSVExport:
         """SimulationController CSV dispatch should route Noise results."""
         from controllers.simulation_controller import SimulationController
 
-        source = inspect.getsource(SimulationController.generate_results_csv)
-        assert "export_noise_results" in source
-        assert '"Noise"' in source
+        assert _source_uses_name(SimulationController.generate_results_csv, "export_noise_results")
+        assert _source_has_string_literal(SimulationController.generate_results_csv, "Noise")
 
 
 class TestNoiseModelSerialization:

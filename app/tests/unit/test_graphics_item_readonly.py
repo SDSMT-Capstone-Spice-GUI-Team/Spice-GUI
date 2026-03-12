@@ -95,11 +95,16 @@ class TestWireGraphicsItemNoFallback:
         except (ImportError, RuntimeError):
             pytest.skip("PyQt6 not available in this environment")
 
+        import ast
         import inspect
+        import textwrap
 
-        source = inspect.getsource(WireGraphicsItem._persist_routing_result)
-        # The method should NOT contain direct model mutations
-        assert "self.model.waypoints" not in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(WireGraphicsItem._persist_routing_result)))
+        # The method should NOT contain direct model mutations like self.model.waypoints
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "waypoints":
+                if isinstance(node.value, ast.Attribute) and node.value.attr == "model":
+                    raise AssertionError("Found self.model.waypoints in _persist_routing_result")
 
     def test_finish_waypoint_drag_no_fallback(self):
         """_finish_waypoint_drag should not contain direct model mutation fallback."""
@@ -108,8 +113,12 @@ class TestWireGraphicsItemNoFallback:
         except (ImportError, RuntimeError):
             pytest.skip("PyQt6 not available in this environment")
 
+        import ast
         import inspect
+        import textwrap
 
-        source = inspect.getsource(WireGraphicsItem._finish_waypoint_drag)
-        assert "self.model.waypoints" not in source
-        assert "self.model.locked" not in source
+        tree = ast.parse(textwrap.dedent(inspect.getsource(WireGraphicsItem._finish_waypoint_drag)))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr in ("waypoints", "locked"):
+                if isinstance(node.value, ast.Attribute) and node.value.attr == "model":
+                    raise AssertionError(f"Found self.model.{node.attr} in _finish_waypoint_drag")
