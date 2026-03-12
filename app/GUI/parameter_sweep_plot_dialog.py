@@ -5,15 +5,13 @@ from sweeping a component parameter across a range of values.
 
 import logging
 
-import matplotlib
+import GUI.plot_utils  # noqa: F401  — ensures matplotlib backend is configured
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout
 
 from .results_plot_dialog import save_plot
-
-matplotlib.use("QtAgg")
 
 logger = logging.getLogger(__name__)
 

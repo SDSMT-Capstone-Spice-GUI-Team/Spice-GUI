@@ -186,100 +186,90 @@ class IEEEOpAmp(ComponentRenderer):
         return _bounding_rect_obstacle(component)
 
 
+def _draw_dependent_source_leads(painter):
+    """Draw the four lead lines shared by all IEEE dependent-source renderers."""
+    painter.drawLine(-30, -10, -15, -10)
+    painter.drawLine(-30, 10, -15, 10)
+    painter.drawLine(15, -10, 30, -10)
+    painter.drawLine(15, 10, 30, 10)
+
+
+def _draw_diamond(painter):
+    """Draw the diamond shape shared by all IEEE dependent-source renderers."""
+    painter.drawLine(-15, 0, 0, -15)
+    painter.drawLine(0, -15, 15, 0)
+    painter.drawLine(15, 0, 0, 15)
+    painter.drawLine(0, 15, -15, 0)
+
+
+def _draw_polarity_markers(painter):
+    """+/- polarity markers inside the diamond (voltage sources)."""
+    cur_color = painter.pen().color()
+    painter.setPen(QPen(cur_color, 2))
+    painter.drawLine(5, -6, 9, -6)
+    painter.drawLine(7, -8, 7, -4)
+    painter.drawLine(5, 6, 9, 6)
+
+
+def _draw_current_arrow(painter):
+    """Arrow inside the diamond (current sources)."""
+    cur_color = painter.pen().color()
+    painter.setPen(QPen(cur_color, 2))
+    painter.drawLine(4, 6, 4, -6)
+    painter.drawLine(2, -4, 4, -6)
+    painter.drawLine(6, -4, 4, -6)
+
+
+def _draw_control_arrow(painter):
+    """Arrow on the control side (current-controlled sources)."""
+    painter.drawLine(-12, -2, -8, -2)
+    painter.drawLine(-9, -4, -8, -2)
+    painter.drawLine(-9, 0, -8, -2)
+
+
+_DEPENDENT_SOURCE_OBSTACLE = [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
 class IEEEVCVS(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-30, -10, -15, -10)
-        painter.drawLine(-30, 10, -15, 10)
-        painter.drawLine(15, -10, 30, -10)
-        painter.drawLine(15, 10, 30, 10)
-        # Diamond shape
-        painter.drawLine(-15, 0, 0, -15)
-        painter.drawLine(0, -15, 15, 0)
-        painter.drawLine(15, 0, 0, 15)
-        painter.drawLine(0, 15, -15, 0)
-        # +/- polarity markers (use current pen color for theme compatibility)
-        cur_color = painter.pen().color()
-        painter.setPen(QPen(cur_color, 2))
-        painter.drawLine(5, -6, 9, -6)
-        painter.drawLine(7, -8, 7, -4)
-        painter.drawLine(5, 6, 9, 6)
+        _draw_dependent_source_leads(painter)
+        _draw_diamond(painter)
+        _draw_polarity_markers(painter)
 
     def get_obstacle_shape(self, component):
-        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+        return _DEPENDENT_SOURCE_OBSTACLE
 
 
 class IEEECCVS(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-30, -10, -15, -10)
-        painter.drawLine(-30, 10, -15, 10)
-        painter.drawLine(15, -10, 30, -10)
-        painter.drawLine(15, 10, 30, 10)
-        # Diamond shape
-        painter.drawLine(-15, 0, 0, -15)
-        painter.drawLine(0, -15, 15, 0)
-        painter.drawLine(15, 0, 0, 15)
-        painter.drawLine(0, 15, -15, 0)
-        # +/- polarity markers (use current pen color for theme compatibility)
-        cur_color = painter.pen().color()
-        painter.setPen(QPen(cur_color, 2))
-        painter.drawLine(5, -6, 9, -6)
-        painter.drawLine(7, -8, 7, -4)
-        painter.drawLine(5, 6, 9, 6)
-        # Arrow on control side
-        painter.drawLine(-12, -2, -8, -2)
-        painter.drawLine(-9, -4, -8, -2)
-        painter.drawLine(-9, 0, -8, -2)
+        _draw_dependent_source_leads(painter)
+        _draw_diamond(painter)
+        _draw_polarity_markers(painter)
+        _draw_control_arrow(painter)
 
     def get_obstacle_shape(self, component):
-        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+        return _DEPENDENT_SOURCE_OBSTACLE
 
 
 class IEEEVCCS(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-30, -10, -15, -10)
-        painter.drawLine(-30, 10, -15, 10)
-        painter.drawLine(15, -10, 30, -10)
-        painter.drawLine(15, 10, 30, 10)
-        # Diamond shape
-        painter.drawLine(-15, 0, 0, -15)
-        painter.drawLine(0, -15, 15, 0)
-        painter.drawLine(15, 0, 0, 15)
-        painter.drawLine(0, 15, -15, 0)
-        # Arrow inside diamond (use current pen color for theme compatibility)
-        cur_color = painter.pen().color()
-        painter.setPen(QPen(cur_color, 2))
-        painter.drawLine(4, 6, 4, -6)
-        painter.drawLine(2, -4, 4, -6)
-        painter.drawLine(6, -4, 4, -6)
+        _draw_dependent_source_leads(painter)
+        _draw_diamond(painter)
+        _draw_current_arrow(painter)
 
     def get_obstacle_shape(self, component):
-        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+        return _DEPENDENT_SOURCE_OBSTACLE
 
 
 class IEEECCCS(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-30, -10, -15, -10)
-        painter.drawLine(-30, 10, -15, 10)
-        painter.drawLine(15, -10, 30, -10)
-        painter.drawLine(15, 10, 30, 10)
-        # Diamond shape
-        painter.drawLine(-15, 0, 0, -15)
-        painter.drawLine(0, -15, 15, 0)
-        painter.drawLine(15, 0, 0, 15)
-        painter.drawLine(0, 15, -15, 0)
-        # Arrow inside diamond (use current pen color for theme compatibility)
-        cur_color = painter.pen().color()
-        painter.setPen(QPen(cur_color, 2))
-        painter.drawLine(4, 6, 4, -6)
-        painter.drawLine(2, -4, 4, -6)
-        painter.drawLine(6, -4, 4, -6)
-        # Arrow on control side
-        painter.drawLine(-12, -2, -8, -2)
-        painter.drawLine(-9, -4, -8, -2)
-        painter.drawLine(-9, 0, -8, -2)
+        _draw_dependent_source_leads(painter)
+        _draw_diamond(painter)
+        _draw_current_arrow(painter)
+        _draw_control_arrow(painter)
 
     def get_obstacle_shape(self, component):
-        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+        return _DEPENDENT_SOURCE_OBSTACLE
 
 
 class IEEEBJTNPN(ComponentRenderer):
