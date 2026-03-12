@@ -157,5 +157,31 @@ class SettingsService:
         return val
 
 
+class _LazySettingsProxy:
+    """Defers SettingsService construction (and its disk I/O) until first use.
+
+    All attribute access is forwarded to the underlying SettingsService
+    instance.  Use ``settings.reset()`` in tests to discard the cached
+    instance and force a fresh load on the next access.
+    """
+
+    def __init__(self) -> None:
+        object.__setattr__(self, "_instance", None)
+
+    def _get(self) -> "SettingsService":
+        instance = object.__getattribute__(self, "_instance")
+        if instance is None:
+            instance = SettingsService()
+            object.__setattr__(self, "_instance", instance)
+        return instance
+
+    def reset(self) -> None:
+        """Discard the cached instance (useful in tests for isolation)."""
+        object.__setattr__(self, "_instance", None)
+
+    def __getattr__(self, name: str):
+        return getattr(self._get(), name)
+
+
 # Module-level singleton — importable as ``from controllers.settings_service import settings``
-settings = SettingsService()
+settings = _LazySettingsProxy()

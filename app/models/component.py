@@ -257,6 +257,43 @@ _DISPLAY_TO_CLASS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Test-isolation helpers
+# ---------------------------------------------------------------------------
+
+# Snapshots of the original built-in component registry state, taken once at
+# module load time.  reset_component_registry() uses these to undo subcircuit
+# registrations so tests can run in isolation.
+_ORIGINAL_COMPONENT_TYPES: list[str] = list(COMPONENT_TYPES)
+_ORIGINAL_SPICE_SYMBOLS: dict = dict(SPICE_SYMBOLS)
+_ORIGINAL_TERMINAL_COUNTS: dict = dict(TERMINAL_COUNTS)
+_ORIGINAL_DEFAULT_VALUES: dict = dict(DEFAULT_VALUES)
+_ORIGINAL_COMPONENT_COLORS: dict = dict(COMPONENT_COLORS)
+_ORIGINAL_TERMINAL_GEOMETRY: dict = dict(TERMINAL_GEOMETRY)
+_ORIGINAL_COMPONENT_CATEGORIES: dict = {k: list(v) for k, v in COMPONENT_CATEGORIES.items()}
+
+
+def reset_component_registry() -> None:
+    """Restore all component registry dicts to their built-in state.
+
+    Removes any dynamically registered subcircuit components so tests can
+    start from a clean, predictable registry without inter-test interference.
+    """
+    COMPONENT_TYPES[:] = _ORIGINAL_COMPONENT_TYPES
+    SPICE_SYMBOLS.clear()
+    SPICE_SYMBOLS.update(_ORIGINAL_SPICE_SYMBOLS)
+    TERMINAL_COUNTS.clear()
+    TERMINAL_COUNTS.update(_ORIGINAL_TERMINAL_COUNTS)
+    DEFAULT_VALUES.clear()
+    DEFAULT_VALUES.update(_ORIGINAL_DEFAULT_VALUES)
+    COMPONENT_COLORS.clear()
+    COMPONENT_COLORS.update(_ORIGINAL_COMPONENT_COLORS)
+    TERMINAL_GEOMETRY.clear()
+    TERMINAL_GEOMETRY.update(_ORIGINAL_TERMINAL_GEOMETRY)
+    COMPONENT_CATEGORIES.clear()
+    COMPONENT_CATEGORIES.update({k: list(v) for k, v in _ORIGINAL_COMPONENT_CATEGORIES.items()})
+
+
 @dataclass
 class ComponentData:
     """
