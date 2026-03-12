@@ -35,11 +35,19 @@ class TestValidateAssignmentData:
         validate_assignment_data({"template": {}})
 
     def test_accepts_rubric_only(self):
-        rubric = {"title": "T", "total_points": 10, "checks": []}
+        rubric = {
+            "title": "T",
+            "total_points": 10,
+            "checks": [{"check_id": "c1", "check_type": "ground", "points": 10, "params": {}}],
+        }
         validate_assignment_data({"rubric": rubric})
 
     def test_accepts_both_template_and_rubric(self):
-        rubric = {"title": "T", "total_points": 5, "checks": []}
+        rubric = {
+            "title": "T",
+            "total_points": 5,
+            "checks": [{"check_id": "c1", "check_type": "ground", "points": 5, "params": {}}],
+        }
         validate_assignment_data({"template": {}, "rubric": rubric})
 
     def test_none_rubric_skips_rubric_validation(self):
@@ -56,7 +64,11 @@ class TestSaveLoadRoundTrip:
     def _make_bundle(self) -> AssignmentBundle:
         meta = TemplateMetadata(title="Lab 1", author="Prof", tags=["RC"])
         template = TemplateData(metadata=meta, instructions="Build a circuit.")
-        rubric = {"title": "Lab 1 Rubric", "total_points": 100, "checks": []}
+        rubric = {
+            "title": "Lab 1 Rubric",
+            "total_points": 100,
+            "checks": [{"check_id": "c1", "check_type": "ground", "points": 100, "params": {}}],
+        }
         return AssignmentBundle(template=template, rubric=rubric)
 
     def test_save_creates_file(self, tmp_path):
