@@ -146,9 +146,7 @@ class TestSubcircuitLibraryLazyDir:
         """_DEFAULT_LIBRARY_DIR constant no longer exists at module level."""
         import models.subcircuit_library as mod
 
-        assert not hasattr(
-            mod, "_DEFAULT_LIBRARY_DIR"
-        ), "_DEFAULT_LIBRARY_DIR should be replaced by _default_library_dir() function"
+        assert not hasattr(mod, "_DEFAULT_LIBRARY_DIR")
 
     def test_default_dir_function_returns_path(self):
         """_default_library_dir() returns a Path under home directory."""
