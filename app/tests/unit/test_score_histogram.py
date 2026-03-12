@@ -10,12 +10,33 @@ Covers:
 from __future__ import annotations
 
 import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from grading.histogram import compute_score_bins
-from tests.unit.grading_fakes import FakeBatchResult, FakeGradingResult
+
+
+@dataclass
+class FakeGradingResult:
+    percentage: float = 0.0
+
+
+@dataclass
+class FakeBatchResult:
+    results: list = field(default_factory=list)
+    total_students: int = 0
+    successful: int = 0
+    failed: int = 0
+    rubric_title: str = "Test"
+
+    @property
+    def mean_score(self):
+        if not self.results:
+            return 0.0
+        return sum(r.percentage for r in self.results) / len(self.results)
+
 
 # ---------------------------------------------------------------------------
 # compute_score_bins
