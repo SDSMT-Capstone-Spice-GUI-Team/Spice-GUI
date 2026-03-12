@@ -139,6 +139,7 @@ class KeybindingsRegistry:
         try:
             with open(self._config_path) as f:
                 overrides = json.load(f)
+            # AUDIT(security): user keybinding overrides from the JSON file are not validated — a malicious or corrupt config could inject arbitrary shortcut strings; add allowlist validation for shortcut format
             for key, value in overrides.items():
                 if key in self._bindings:
                     self._bindings[key] = value

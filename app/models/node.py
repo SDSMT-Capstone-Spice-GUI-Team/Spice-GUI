@@ -46,12 +46,14 @@ def _generate_label(index: int) -> str:
     if index < 26:
         return "node" + chr(ord("A") + index)
     else:
+        # AUDIT(quality): label scheme overflows at 702 nodes (26 + 26*26) — chr(ord("A") + first) will produce non-letter characters when first >= 26; unlikely but add a guard or use a general base-26 encoder
         # For more than 26 nodes, use AA, AB, AC...
         first = (index // 26) - 1
         second = index % 26
         return "node" + chr(ord("A") + first) + chr(ord("A") + second)
 
 
+# AUDIT(architecture): module-level mutable singleton makes NodeData label generation implicitly stateful; concurrent circuits or tests that forget to call reset_node_counter() will produce surprising labels — consider passing a generator instance explicitly
 # Default module-level generator used by NodeData.__post_init__
 _default_generator = NodeLabelGenerator()
 

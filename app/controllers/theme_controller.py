@@ -52,5 +52,6 @@ class ThemeController:
         theme_manager.set_routing_mode(mode)
 
 
+# AUDIT(architecture): module-level singleton triggers import of services.theme_manager at import time — any import of this module will fail if theme_manager's dependencies (e.g. GUI styles) are unavailable, hurting testability
 # Module-level singleton
 theme_ctrl = ThemeController()

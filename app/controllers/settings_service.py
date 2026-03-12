@@ -157,5 +157,6 @@ class SettingsService:
         return val
 
 
+# AUDIT(architecture): module-level singleton instantiation triggers disk I/O (JSON load) at import time — this can fail silently on import and makes testing harder; consider lazy initialization
 # Module-level singleton — importable as ``from controllers.settings_service import settings``
 settings = SettingsService()

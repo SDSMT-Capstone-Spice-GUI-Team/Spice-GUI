@@ -22,6 +22,7 @@ def validate_circuit_data(data) -> None:
     if "wires" not in data or not isinstance(data["wires"], list):
         raise ValueError("Missing or invalid 'wires' list.")
 
+    # AUDIT(security): component IDs from untrusted JSON are not checked for type (must be str) or uniqueness; duplicate IDs would silently overwrite earlier components during deserialization
     comp_ids = set()
     for i, comp in enumerate(data["components"]):
         for key in ("id", "type", "value", "pos"):

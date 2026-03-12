@@ -86,6 +86,7 @@ class SimulationController:
         from simulation import validate_circuit
 
         is_valid, errors, warnings = validate_circuit(
+            # AUDIT(quality): list comprehension `[w for w in self.model.wires]` is equivalent to `list(self.model.wires)` — use the simpler form
             self.model.components,
             [w for w in self.model.wires],
             self.model.analysis_type,
@@ -806,6 +807,7 @@ class SimulationController:
             return None
         return func(results, circuit_name)
 
+    # AUDIT(quality): this method has the same name as generate_results_markdown above (defined at line 784) — Python allows this but the second definition shadows the first, making generate_results_markdown unreachable; rename one of them
     def export_results_markdown(self, results, results_type: str, filepath: str, circuit_name: str = "") -> None:
         """Export simulation results to a Markdown file.
 

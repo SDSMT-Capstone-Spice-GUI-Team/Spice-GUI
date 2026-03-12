@@ -283,6 +283,7 @@ class ComponentData:
 
     def __post_init__(self):
         """Initialize waveform parameters for waveform sources."""
+        # AUDIT(architecture): lazy import of simulation layer inside a model dataclass creates a hidden upward dependency (models → simulation); consider moving waveform defaults into models or injecting them
         if self.component_type == "Waveform Source" and self.waveform_params is None:
             from simulation.waveform_utils import DEFAULT_WAVEFORM_TYPE, default_waveform_params
 
@@ -358,6 +359,7 @@ class ComponentData:
         if self.component_type != "Waveform Source":
             return self.value
 
+        # AUDIT(architecture): second lazy import of simulation layer from models; same upward dependency concern as __post_init__
         from simulation.waveform_utils import format_waveform_spice_value
 
         return format_waveform_spice_value(self.waveform_type, self.waveform_params, self.value)

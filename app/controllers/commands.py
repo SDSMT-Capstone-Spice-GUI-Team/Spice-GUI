@@ -324,6 +324,7 @@ class DeleteWireCommand(Command):
         if not self.wire_data:
             return
         model = self.controller.model
+        # AUDIT(quality): undo inserts the wire at its original index but does not call model.remove_wire's inverse — the node graph is not updated on undo, leaving terminal_to_node stale; should call model.add_wire or rebuild_nodes
         if (
             self.wire_data.start_component_id not in model.components
             or self.wire_data.end_component_id not in model.components

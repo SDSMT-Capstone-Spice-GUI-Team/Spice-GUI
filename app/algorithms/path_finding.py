@@ -336,6 +336,7 @@ class IDAStarPathfinder(WeightedPathfinder):
         self.last_iterations = iterations
         return [start_pos, end_pos], True
 
+    # AUDIT(quality): _idastar_search is recursive with no depth limit beyond max_iterations on the outer loop — deeply nested circuits can hit Python's default recursion limit (1000); consider an iterative approach or setting sys.setrecursionlimit
     def _idastar_search(
         self,
         current,
@@ -501,6 +502,7 @@ def polygon_to_grid_filled(
 
     # Scanline fill algorithm in WORLD space
     # For each grid row, check which grid cells are inside the polygon
+    # AUDIT(cleanup): debug_first flag and its associated no-op conditional block (lines 531-533) are leftover debug scaffolding — remove them
     debug_first = True
     for grid_y in range(min_grid_y, max_grid_y + 1):
         # Scanline at the CENTER of the grid cell to match round() behavior
@@ -567,6 +569,7 @@ def polygon_to_grid_filled(
     return obstacles
 
 
+# AUDIT(quality): polygon_to_grid_frame duplicates the polygon rotation/inset logic from polygon_to_grid_filled above; extract the shared world-coordinate transform into a helper to reduce duplication
 def polygon_to_grid_frame(
     polygon_points,
     position,

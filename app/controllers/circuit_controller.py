@@ -62,6 +62,7 @@ class CircuitController:
 
     def _notify(self, event: str, data: Any) -> None:
         """Notify all observers of a model change."""
+        # AUDIT(quality): a failing observer is silently swallowed — consider re-raising after logging, or at minimum logging a traceback (exc_info=True) so bugs in observers are diagnosable
         for observer in self._observers:
             try:
                 observer(event, data)
@@ -521,6 +522,7 @@ class CircuitController:
         Used when an action has already been applied (e.g. during a drag)
         and only needs to be recorded for undo/redo.
         """
+        # AUDIT(quality): accesses private members _undo_stack and _redo_stack directly, bypassing UndoManager's max_depth enforcement; add a public method on UndoManager for this pattern
         self.undo_manager._undo_stack.append(command)
         self.undo_manager._redo_stack.clear()
 

@@ -208,6 +208,7 @@ def rebuild_all_nodes(
         if comp.component_type == "Ground":
             handle_ground_added(nodes, terminal_to_node, comp)
 
+    # AUDIT(quality): wire_index is not passed to update_nodes_for_wire during rebuild — node.wire_indices will remain empty after a full rebuild, which may cause stale data in incremental operations that rely on wire_indices
     for wire in wires:
         update_nodes_for_wire(nodes, terminal_to_node, components, wire)
 

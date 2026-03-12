@@ -57,6 +57,7 @@ def parse_value(s: str) -> float:
 
     s = s.strip()
 
+    # AUDIT(quality): "MEG" check uses s.upper() but slices the last 3 chars unconditionally — input like "omega" contains "MEG" and would produce wrong result; match only as a suffix or as a standalone token
     # Check for SPICE 'MEG' variant first
     if "MEG" in s.upper():
         num_part = s[:-3]

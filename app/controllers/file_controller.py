@@ -97,6 +97,7 @@ class FileController:
         """
         filepath = Path(filepath)
         data = self.model.to_dict()
+        # AUDIT(security): file is written without specifying encoding — on Windows this defaults to the system locale and may corrupt non-ASCII net names; add encoding="utf-8"
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
         self.current_file = filepath
@@ -123,6 +124,7 @@ class FileController:
             OSError: If the file cannot be read.
         """
         filepath = Path(filepath)
+        # AUDIT(security): load_circuit opens user-supplied filepath without encoding — same issue as save_circuit; also no file-size limit allows memory exhaustion with very large files
         with open(filepath, "r") as f:
             data = json.load(f)
 
@@ -161,6 +163,7 @@ class FileController:
         return base
 
     def _save_session(self) -> None:
+        # AUDIT(quality): _session_file is a relative filename ("last_session.txt") — it writes to whatever the process CWD is, which is fragile; use an absolute path under the config directory
         """Save current file path for session restore."""
         try:
             with open(self._session_file, "w") as f:

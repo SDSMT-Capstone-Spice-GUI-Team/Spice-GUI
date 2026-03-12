@@ -177,6 +177,7 @@ class SubcircuitLibrary:
     # -- Persistence ---------------------------------------------------------
 
     def _path_for(self, name: str) -> Path:
+        # AUDIT(security): sanitisation replaces non-word chars but still allows ".." sequences — e.g. name="a..b" produces "a..b.json" which is benign, but consider also stripping leading dots or path separators to harden against directory traversal
         # Sanitise name for filesystem
         safe = re.sub(r"[^\w\-.]", "_", name)
         return self._library_dir / f"{safe}.json"
@@ -194,6 +195,7 @@ class SubcircuitLibrary:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 defn = SubcircuitDefinition.from_dict(data)
                 self._definitions[defn.name] = defn
+            # AUDIT(quality): bare `except Exception` swallows all errors including KeyError/TypeError from malformed JSON — consider catching (json.JSONDecodeError, KeyError, TypeError) explicitly for clearer failure modes
             except Exception:
                 logger.warning("Failed to load subcircuit from %s", path, exc_info=True)
 
@@ -246,6 +248,7 @@ def _generate_terminal_geometry(terminal_count: int):
     return (20, 10, terminals)
 
 
+# AUDIT(architecture): register_subcircuit_component mutates module-level dicts in models.component at runtime — this side-effect-heavy registration makes the component type system hard to reason about and test; consider a registry object that components query instead of mutating global dicts
 def register_subcircuit_component(defn: SubcircuitDefinition) -> None:
     """Register a SubcircuitDefinition into the component system dictionaries.
 
@@ -294,6 +297,7 @@ def register_subcircuit_component(defn: SubcircuitDefinition) -> None:
     if name not in COMPONENT_CATEGORIES["Subcircuits"]:
         COMPONENT_CATEGORIES["Subcircuits"].append(name)
 
+    # AUDIT(architecture): model-layer code reaches directly into GUI.styles.constants and GUI.component_item, violating the models-must-not-import-GUI layering rule; move GUI registration into GUI-layer init or use an event/hook
     # Update COMPONENTS dict in styles/constants
     try:
         from GUI.styles.constants import _COLOR_KEYS, COMPONENTS
