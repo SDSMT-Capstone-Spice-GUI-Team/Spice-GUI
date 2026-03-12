@@ -14,8 +14,8 @@ from simulation.monte_carlo import (
     apply_tolerance,
     compute_mc_statistics,
     format_spice_value,
-    parse_spice_value,
 )
+from utils.format_utils import parse_spice_value
 
 
 class TestParseSpiceValue:
