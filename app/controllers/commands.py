@@ -331,6 +331,7 @@ class DeleteWireCommand(Command):
             logger.warning("DeleteWireCommand.undo: endpoint component(s) no longer exist, skipping")
             return
         model.wires.insert(self.wire_index, self.wire_data)
+        model.rebuild_nodes()
         self.controller._notify("wire_added", self.wire_data)
 
     def get_description(self) -> str:
