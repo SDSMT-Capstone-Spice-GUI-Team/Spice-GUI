@@ -6,7 +6,6 @@ back, and that the UI wiring for SVG import is in place.
 
 import inspect
 import json
-import textwrap
 
 import pytest
 from models.circuit import CircuitModel
@@ -54,13 +53,11 @@ def _make_simple_circuit():
     return model
 
 
-_MINIMAL_SVG = textwrap.dedent(
-    """\
-    <?xml version="1.0" encoding="UTF-8"?>
-    <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-    <rect x="10" y="10" width="100" height="80" fill="none" stroke="black"/>
-    </svg>
-"""
+_MINIMAL_SVG = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">\n'
+    '<rect x="10" y="10" width="100" height="80" fill="none" stroke="black"/>\n'
+    "</svg>\n"
 )
 
 
