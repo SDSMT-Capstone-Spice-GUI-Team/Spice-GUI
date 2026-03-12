@@ -48,10 +48,6 @@ class MenuBarMixin:
         save_as_action.triggered.connect(self._on_save_as)
         file_menu.addAction(save_as_action)
 
-        save_template_action = QAction("Save as Tem&plate...", self)
-        save_template_action.triggered.connect(self._on_save_as_template)
-        file_menu.addAction(save_template_action)
-
         file_menu.addSeparator()
 
         new_from_template_action = QAction("New from &Template...", self)
