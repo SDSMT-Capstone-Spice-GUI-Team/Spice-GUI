@@ -24,6 +24,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from .styles import theme_manager
+
 if TYPE_CHECKING:
     from grading.grader import GradingResult
     from grading.rubric import Rubric
@@ -57,7 +59,7 @@ class GradingPanel(QWidget):
         outer.setContentsMargins(5, 5, 5, 5)
 
         title = QLabel("Instructor Grading")
-        title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        title.setStyleSheet(theme_manager.stylesheet("heading_medium"))
         outer.addWidget(title)
 
         # --- Action buttons ---
@@ -105,7 +107,7 @@ class GradingPanel(QWidget):
 
         # --- Score display ---
         self.score_label = QLabel("")
-        self.score_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        self.score_label.setStyleSheet(theme_manager.stylesheet("score_bold"))
         self.score_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         outer.addWidget(self.score_label)
 
@@ -120,7 +122,7 @@ class GradingPanel(QWidget):
 
         self.feedback_label = QLabel("")
         self.feedback_label.setWordWrap(True)
-        self.feedback_label.setStyleSheet("padding: 4px;")
+        self.feedback_label.setStyleSheet(theme_manager.stylesheet("label_padded"))
         results_layout.addWidget(self.feedback_label)
 
         outer.addWidget(results_group)
@@ -216,11 +218,11 @@ class GradingPanel(QWidget):
         pct = result.percentage
         self.score_label.setText(f"{result.earned_points}/{result.total_points} — {pct:.0f}%")
         if pct >= 90:
-            self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: green;")
+            self.score_label.setStyleSheet(theme_manager.stylesheet("score_success"))
         elif pct >= 70:
-            self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #CC8800;")
+            self.score_label.setStyleSheet(theme_manager.stylesheet("score_warning"))
         else:
-            self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: red;")
+            self.score_label.setStyleSheet(theme_manager.stylesheet("score_error"))
 
         # Check results
         for cr in result.check_results:

@@ -85,6 +85,17 @@ class LightTheme(BaseTheme):
             "probe_current": "#006633",  # Dark green for probed currents
             "probe_bg": "#FFE0F0",  # Light pink background
             "probe_highlight": "#FF3399",  # Bright pink for probe crosshair
+            # ===== Semantic UI Colors =====
+            "error": "#DC3545",  # Red for errors/failures
+            "success": "#28A745",  # Green for success/valid
+            "warning": "#CC8800",  # Orange for warnings
+            "info": "#17A2B8",  # Teal for informational
+            "border_error": "#DC3545",  # Red border for invalid inputs
+            "border_light": "#DDDDDD",  # Light border for panels
+            "panel_bg": "#F9F9F9",  # Light panel background
+            # ===== Measurement Cursor Colors =====
+            "cursor_a": "#E74C3C",  # Red cursor
+            "cursor_b": "#2980B9",  # Blue cursor
         }
 
     def _define_pens(self):
@@ -156,4 +167,30 @@ class LightTheme(BaseTheme):
             "muted_label": "QLabel { color: #666; }",
             "title_bold": "font-weight: bold; font-size: 12pt;",
             "metrics_text": "font-family: monospace; font-size: 9pt;",
+            # --- Semantic UI stylesheets ---
+            "error_label": "color: #DC3545; font-size: 9pt;",
+            "error_label_compact": "color: #DC3545; font-size: 9pt; margin: 0; padding: 0;",
+            "error_border": "border: 1.5px solid #DC3545; border-radius: 3px;",
+            "error_border_thin": "border: 1px solid #DC3545;",
+            "status_success": "QLabel { color: #28A745; }",
+            "status_error": "QLabel { color: #DC3545; }",
+            "status_warning": "QLabel { color: #CC8800; }",
+            "status_muted": "color: gray;",
+            "muted_italic": "color: #999999; font-style: italic;",
+            "preview_monospace": "color: #999999; font-family: monospace;",
+            "heading_large": "font-weight: bold; font-size: 16px;",
+            "heading_medium": "font-weight: bold; font-size: 14px;",
+            "score_bold": "font-size: 16px; font-weight: bold;",
+            "score_success": "font-size: 16px; font-weight: bold; color: #28A745;",
+            "score_warning": "font-size: 16px; font-weight: bold; color: #CC8800;",
+            "score_error": "font-size: 16px; font-weight: bold; color: #DC3545;",
+            "label_bold": "font-weight: bold;",
+            "label_padded": "padding: 4px;",
+            "help_panel": (
+                "QLabel { background-color: #F9F9F9; padding: 8px; "
+                "border: 1px solid #DDDDDD; border-radius: 3px; font-size: 9pt; }"
+            ),
+            "ref_info": "color: #28A745;",
+            "color_swatch": "border: 1px solid #888888; border-radius: 3px;",
+            "muted_small": "color: #999999; font-size: 9pt;",
         }

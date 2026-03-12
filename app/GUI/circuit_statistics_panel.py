@@ -138,10 +138,10 @@ class CircuitStatisticsPanel(QWidget):
             self._ground_label.setStyleSheet("")
         elif has_ground:
             self._ground_label.setText("Yes")
-            self._ground_label.setStyleSheet("QLabel { color: green; }")
+            self._ground_label.setStyleSheet(theme_manager.stylesheet("status_success"))
         else:
             self._ground_label.setText("No (required for simulation)")
-            self._ground_label.setStyleSheet("QLabel { color: red; }")
+            self._ground_label.setStyleSheet(theme_manager.stylesheet("status_error"))
 
     def _update_component_breakdown(self):
         # Clear old rows
@@ -166,11 +166,11 @@ class CircuitStatisticsPanel(QWidget):
         elif floating:
             names = ", ".join(f"{cid}[{tidx}]" for cid, tidx in sorted(floating))
             self._floating_label.setText(f"{len(floating)} terminal(s)")
-            self._floating_label.setStyleSheet("QLabel { color: orange; }")
+            self._floating_label.setStyleSheet(theme_manager.stylesheet("status_warning"))
             self._floating_label.setToolTip(names)
         else:
             self._floating_label.setText("All connected")
-            self._floating_label.setStyleSheet("QLabel { color: green; }")
+            self._floating_label.setStyleSheet(theme_manager.stylesheet("status_success"))
             self._floating_label.setToolTip("")
 
     def _update_netlist_preview(self):

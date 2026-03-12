@@ -15,6 +15,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from .styles import theme_manager
+
 
 class TemplatePreviewDialog(QDialog):
     """Dialog to preview a template before loading it.
@@ -40,16 +42,16 @@ class TemplatePreviewDialog(QDialog):
         meta_layout = QVBoxLayout(meta_group)
 
         self.title_label = QLabel()
-        self.title_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.title_label.setStyleSheet(theme_manager.stylesheet("heading_large"))
         self.title_label.setWordWrap(True)
         meta_layout.addWidget(self.title_label)
 
         info_row = QHBoxLayout()
         self.author_label = QLabel()
-        self.author_label.setStyleSheet("color: gray;")
+        self.author_label.setStyleSheet(theme_manager.stylesheet("status_muted"))
         info_row.addWidget(self.author_label)
         self.date_label = QLabel()
-        self.date_label.setStyleSheet("color: gray;")
+        self.date_label.setStyleSheet(theme_manager.stylesheet("status_muted"))
         info_row.addWidget(self.date_label)
         info_row.addStretch()
         meta_layout.addLayout(info_row)
@@ -86,7 +88,7 @@ class TemplatePreviewDialog(QDialog):
         circuit_layout.addWidget(self.circuit_tree)
 
         self.circuit_summary = QLabel()
-        self.circuit_summary.setStyleSheet("color: gray; font-style: italic;")
+        self.circuit_summary.setStyleSheet(theme_manager.stylesheet("muted_italic"))
         circuit_layout.addWidget(self.circuit_summary)
 
         layout.addWidget(circuit_group)

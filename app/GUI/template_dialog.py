@@ -20,6 +20,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from .styles import theme_manager
+
 
 class NewFromTemplateDialog(QDialog):
     """Dialog for creating a new circuit from a template.
@@ -69,12 +71,12 @@ class NewFromTemplateDialog(QDialog):
         right.addWidget(QLabel("Details:"))
 
         self.name_label = QLabel("")
-        self.name_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.name_label.setStyleSheet(theme_manager.stylesheet("heading_medium"))
         self.name_label.setWordWrap(True)
         right.addWidget(self.name_label)
 
         self.category_label = QLabel("")
-        self.category_label.setStyleSheet("color: gray;")
+        self.category_label.setStyleSheet(theme_manager.stylesheet("status_muted"))
         right.addWidget(self.category_label)
 
         self.description_label = QLabel("")

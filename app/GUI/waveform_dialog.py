@@ -219,7 +219,7 @@ class WaveformDialog(QDialog):
         scroll_layout = self._toggle_scroll_content.layout()
 
         separator = QLabel(f"── {label} ──")
-        separator.setStyleSheet("color: gray; font-style: italic;")
+        separator.setStyleSheet(theme_manager.stylesheet("muted_italic"))
         scroll_layout.addWidget(separator)
 
         for key in overlay_keys:

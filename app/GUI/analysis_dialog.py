@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
 from utils.format_utils import parse_value
 
 from .meas_dialog import MeasurementDialog
+from .styles import theme_manager
 from .validation_helpers import clear_field_error, set_field_error
 
 # Analysis types that support .meas directives
@@ -228,13 +229,13 @@ class AnalysisDialog(QDialog):
         self.meas_btn.clicked.connect(self._open_meas_dialog)
         meas_layout.addWidget(self.meas_btn)
         self.meas_label = QLabel("No measurements configured")
-        self.meas_label.setStyleSheet("color: gray;")
+        self.meas_label.setStyleSheet(theme_manager.stylesheet("status_muted"))
         meas_layout.addWidget(self.meas_label, 1)
         layout.addLayout(meas_layout)
 
         # Error label for validation feedback
         self._error_label = QLabel("")
-        self._error_label.setStyleSheet("color: red; font-size: 9pt;")
+        self._error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
         self._error_label.setWordWrap(True)
         self._error_label.hide()
         layout.addWidget(self._error_label)
@@ -393,7 +394,7 @@ class AnalysisDialog(QDialog):
         count = len(self._measurements)
         if count == 0:
             self.meas_label.setText("No measurements configured")
-            self.meas_label.setStyleSheet("color: gray;")
+            self.meas_label.setStyleSheet(theme_manager.stylesheet("status_muted"))
         elif count == 1:
             self.meas_label.setText("1 measurement configured")
             self.meas_label.setStyleSheet("")

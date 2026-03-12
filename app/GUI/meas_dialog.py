@@ -32,6 +32,7 @@ build_directive = SimulationController.build_meas_directive
 # Re-export so existing imports from GUI.meas_dialog keep working.
 __all__ = ["ANALYSIS_DOMAIN_MAP", "MEAS_TYPES", "build_directive"]
 
+from .styles import theme_manager
 from .validation_helpers import clear_field_error, set_field_error
 
 
@@ -84,13 +85,13 @@ class MeasurementEntryDialog(QDialog):
         # Preview
         self.preview_label = QLabel()
         self.preview_label.setWordWrap(True)
-        self.preview_label.setStyleSheet("color: gray; font-family: monospace;")
+        self.preview_label.setStyleSheet(theme_manager.stylesheet("preview_monospace"))
         layout.addWidget(QLabel("Directive preview:"))
         layout.addWidget(self.preview_label)
 
         # Error label for validation feedback
         self._error_label = QLabel("")
-        self._error_label.setStyleSheet("color: red; font-size: 9pt;")
+        self._error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
         self._error_label.setWordWrap(True)
         self._error_label.hide()
         layout.addWidget(self._error_label)

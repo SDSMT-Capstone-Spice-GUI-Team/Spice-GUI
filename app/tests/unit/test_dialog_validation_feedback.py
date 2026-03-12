@@ -31,7 +31,7 @@ class TestValidationHelpers:
         qtbot.addWidget(parent)
 
         set_field_error(field, "bad value")
-        assert "red" in field.styleSheet()
+        assert "border" in field.styleSheet()
 
     def test_clear_field_error_removes_border(self, qtbot):
         from PyQt6.QtWidgets import QLineEdit, QVBoxLayout, QWidget
@@ -44,7 +44,7 @@ class TestValidationHelpers:
 
         set_field_error(field, "bad value")
         clear_field_error(field)
-        assert "red" not in field.styleSheet()
+        assert "border" not in field.styleSheet()
 
 
 # ===================================================================
