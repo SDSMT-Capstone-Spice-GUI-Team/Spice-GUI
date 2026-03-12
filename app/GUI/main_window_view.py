@@ -381,20 +381,29 @@ class ViewOperationsMixin:
         source_rect.adjust(-padding, -padding, padding, padding)
 
         if filename.lower().endswith(".svg"):
-            from PyQt6.QtCore import QSize
+            from PyQt6.QtCore import QRect, QRectF, QSize
             from PyQt6.QtSvg import QSvgGenerator
+
+            width = int(source_rect.width())
+            height = int(source_rect.height())
 
             generator = QSvgGenerator()
             generator.setFileName(filename)
-            generator.setSize(QSize(int(source_rect.width()), int(source_rect.height())))
-            generator.setViewBox(source_rect)
+            generator.setSize(QSize(width, height))
+            generator.setViewBox(QRect(0, 0, width, height))
             generator.setTitle("SDM Spice Circuit")
 
             from PyQt6.QtGui import QPainter
 
             painter = QPainter(generator)
-            scene.render(painter, source=source_rect)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            scene.render(painter, QRectF(0, 0, width, height), source_rect)
             painter.end()
+
+            # Embed circuit data in the SVG for shareable round-trip import
+            from simulation.svg_shareable import embed_circuit_data
+
+            embed_circuit_data(filename, self.model)
         else:
             # PNG
             from PyQt6.QtCore import QRectF, Qt

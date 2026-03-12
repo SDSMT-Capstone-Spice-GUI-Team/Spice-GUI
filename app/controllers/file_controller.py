@@ -441,6 +441,42 @@ class FileController:
             content = export_bom_csv(self.model.components, circuit_name=circuit_name)
             write_bom_csv(content, filepath)
 
+    def import_svg(self, filepath) -> None:
+        """Import a shareable SVG file that contains embedded circuit data.
+
+        Extracts the circuit JSON from the SVG metadata and replaces
+        the current model.
+
+        Args:
+            filepath: Path or string to the .svg file.
+
+        Raises:
+            OSError: If the file cannot be read.
+            ValueError: If the SVG contains no embedded circuit data
+                or the data is corrupt.
+        """
+        from simulation.svg_shareable import extract_circuit_data
+
+        filepath = Path(filepath)
+        check_file_size(filepath)
+
+        data = extract_circuit_data(filepath)
+        if data is None:
+            raise ValueError(
+                "This SVG file does not contain embedded circuit data.\n"
+                "Only SVGs exported with 'Export Image' (SVG format) from Spice-GUI can be imported."
+            )
+
+        validate_circuit_data(data)
+        new_model = CircuitModel.from_dict(data)
+        self._replace_model(new_model)
+
+        self.current_file = None
+        self.add_recent_file(filepath)
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl._notify("model_loaded", None)
+
     def export_asc(self, filepath: str) -> None:
         """Export the circuit as an LTspice .asc schematic.
 
