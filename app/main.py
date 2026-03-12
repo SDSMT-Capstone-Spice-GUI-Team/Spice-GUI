@@ -25,6 +25,7 @@ def main():
     window = MainWindow()
     window.show()
     widget = SplashScreen(main_window=window)
+    window.splash_screen = widget
     widget.show()
     sys.exit(app.exec())
 

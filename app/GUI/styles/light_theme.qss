@@ -1,0 +1,461 @@
+/* ============================================================
+   Spice-GUI Light Theme Stylesheet
+   ============================================================
+   Variables use the syntax @variable_name@ and are substituted
+   from theme color definitions at runtime.
+   ============================================================ */
+
+
+/* ------------------------------------------------------------
+   Main Window & Top-Level
+   ------------------------------------------------------------ */
+
+QMainWindow {
+    /* background-color, font-family, font-size */
+}
+
+QDialog {
+    /* background-color, font-family, font-size */
+}
+
+QWidget {
+    /* base background-color, color, font-family, font-size */
+}
+
+
+/* ------------------------------------------------------------
+   Menu & Toolbar
+   ------------------------------------------------------------ */
+
+QMenuBar {
+    /* background-color, color, font-family, font-size, padding */
+}
+
+QMenuBar::item {
+    /* padding, background-color */
+}
+
+QMenuBar::item:selected {
+    /* background-color, color */
+}
+
+QMenu {
+    /* background-color, color, border, padding */
+}
+
+QMenu::item {
+    /* padding, color */
+}
+
+QMenu::item:selected {
+    /* background-color, color */
+}
+
+QMenu::item:disabled {
+    /* color */
+}
+
+QMenu::separator {
+    /* height, background-color, margin */
+}
+
+
+/* ------------------------------------------------------------
+   Containers & Panels
+   ------------------------------------------------------------ */
+
+QGroupBox {
+    /* border, border-radius, margin-top, padding-top, font-weight */
+}
+
+QGroupBox::title {
+    /* subcontrol-origin, subcontrol-position, padding, color */
+}
+
+QTabWidget::pane {
+    /* border, background-color */
+}
+
+QTabBar::tab {
+    /* background-color, color, padding, border, min-width */
+}
+
+QTabBar::tab:selected {
+    /* background-color, color, border-bottom-color */
+}
+
+QTabBar::tab:hover {
+    /* background-color */
+}
+
+QStackedWidget {
+    /* background-color */
+}
+
+QScrollArea {
+    /* border, background-color */
+}
+
+QSplitter {
+    /* background-color */
+}
+
+QSplitter::handle {
+    /* background-color, width (vertical), height (horizontal) */
+}
+
+QSplitter::handle:hover {
+    /* background-color */
+}
+
+QFrame {
+    /* border, background-color */
+}
+
+
+/* ------------------------------------------------------------
+   Buttons
+   ------------------------------------------------------------ */
+
+QPushButton {
+    /* background-color, color, border, padding, font-size, min-width, min-height */
+}
+
+QPushButton:hover {
+    /* background-color, color */
+}
+
+QPushButton:pressed {
+    /* background-color, color */
+}
+
+QPushButton:disabled {
+    /* background-color, color */
+}
+
+QPushButton:focus {
+    /* outline, border */
+}
+
+QDialogButtonBox QPushButton {
+    /* min-width, padding — override for dialog buttons if needed */
+}
+
+
+/* ------------------------------------------------------------
+   Input Widgets
+   ------------------------------------------------------------ */
+
+QLineEdit {
+    /* background-color, color, border, border-radius, padding, font-size, selection-background-color */
+}
+
+QLineEdit:focus {
+    /* border-color */
+}
+
+QLineEdit:disabled {
+    /* background-color, color */
+}
+
+QComboBox {
+    /* background-color, color, border, border-radius, padding, min-width */
+}
+
+QComboBox:hover {
+    /* border-color */
+}
+
+QComboBox:focus {
+    /* border-color */
+}
+
+QComboBox::drop-down {
+    /* border, width, subcontrol-origin, subcontrol-position */
+}
+
+QComboBox::down-arrow {
+    /* image or border-based arrow, width, height */
+}
+
+QComboBox QAbstractItemView {
+    /* background-color, color, border, selection-background-color, selection-color */
+}
+
+QCheckBox {
+    /* spacing, color */
+}
+
+QCheckBox::indicator {
+    /* width, height, border, border-radius, background-color */
+}
+
+QCheckBox::indicator:checked {
+    /* background-color, image or border */
+}
+
+QCheckBox::indicator:unchecked {
+    /* background-color */
+}
+
+QCheckBox::indicator:hover {
+    /* border-color */
+}
+
+QCheckBox:disabled {
+    /* color */
+}
+
+QSpinBox {
+    /* background-color, color, border, border-radius, padding */
+}
+
+QSpinBox:focus {
+    /* border-color */
+}
+
+QSpinBox::up-button {
+    /* subcontrol-origin, subcontrol-position, width, border */
+}
+
+QSpinBox::down-button {
+    /* subcontrol-origin, subcontrol-position, width, border */
+}
+
+QDoubleSpinBox {
+    /* background-color, color, border, border-radius, padding */
+}
+
+QDoubleSpinBox:focus {
+    /* border-color */
+}
+
+QDoubleSpinBox::up-button {
+    /* subcontrol-origin, subcontrol-position, width, border */
+}
+
+QDoubleSpinBox::down-button {
+    /* subcontrol-origin, subcontrol-position, width, border */
+}
+
+QKeySequenceEdit {
+    /* background-color, color, border, border-radius, padding */
+}
+
+QPlainTextEdit {
+    /* background-color, color, border, border-radius, padding, font-family, font-size, selection-background-color */
+}
+
+QPlainTextEdit:focus {
+    /* border-color */
+}
+
+QTextEdit {
+    /* background-color, color, border, border-radius, padding, font-family, font-size, selection-background-color */
+}
+
+QTextEdit:focus {
+    /* border-color */
+}
+
+
+/* ------------------------------------------------------------
+   Display Widgets
+   ------------------------------------------------------------ */
+
+QLabel {
+    /* color, font-size */
+}
+
+QLabel#muted_label {
+    /* color */
+}
+
+QTextBrowser {
+    /* background-color, color, border, padding, font-family, font-size */
+}
+
+QProgressBar {
+    /* border, border-radius, background-color, text-align, color, min-height */
+}
+
+QProgressBar::chunk {
+    /* background-color, border-radius */
+}
+
+QProgressDialog {
+    /* background-color */
+}
+
+
+/* ------------------------------------------------------------
+   List / Table / Tree Widgets
+   ------------------------------------------------------------ */
+
+QListWidget {
+    /* background-color, color, border, border-radius */
+}
+
+QListWidget::item {
+    /* padding */
+}
+
+QListWidget::item:selected {
+    /* background-color, color */
+}
+
+QListWidget::item:hover {
+    /* background-color */
+}
+
+QTableWidget {
+    /* background-color, color, border, gridline-color, font-size */
+}
+
+QTableWidget::item {
+    /* padding */
+}
+
+QTableWidget::item:selected {
+    /* background-color, color */
+}
+
+QHeaderView {
+    /* background-color */
+}
+
+QHeaderView::section {
+    /* background-color, color, padding, border, font-weight */
+}
+
+QHeaderView::section:hover {
+    /* background-color */
+}
+
+QTreeWidget {
+    /* background-color, color, border, border-radius */
+}
+
+QTreeWidget::item {
+    /* padding, border */
+}
+
+QTreeWidget::item:selected {
+    /* background-color, color */
+}
+
+QTreeWidget::item:hover {
+    /* background-color */
+}
+
+QTreeWidget::branch {
+    /* background-color */
+}
+
+QTreeWidget::branch:has-children:closed {
+    /* image — collapsed arrow icon */
+}
+
+QTreeWidget::branch:has-children:open {
+    /* image — expanded arrow icon */
+}
+
+
+/* ------------------------------------------------------------
+   Scrollbars
+   ------------------------------------------------------------ */
+
+QScrollBar:vertical {
+    /* background-color, width, margin, border */
+}
+
+QScrollBar::handle:vertical {
+    /* background-color, min-height, border-radius */
+}
+
+QScrollBar::handle:vertical:hover {
+    /* background-color */
+}
+
+QScrollBar::add-line:vertical {
+    /* height, background-color */
+}
+
+QScrollBar::sub-line:vertical {
+    /* height, background-color */
+}
+
+QScrollBar:horizontal {
+    /* background-color, height, margin, border */
+}
+
+QScrollBar::handle:horizontal {
+    /* background-color, min-width, border-radius */
+}
+
+QScrollBar::handle:horizontal:hover {
+    /* background-color */
+}
+
+QScrollBar::add-line:horizontal {
+    /* width, background-color */
+}
+
+QScrollBar::sub-line:horizontal {
+    /* width, background-color */
+}
+
+
+/* ------------------------------------------------------------
+   Dialogs (override base QDialog if specific styling needed)
+   ------------------------------------------------------------ */
+
+QMessageBox {
+    /* background-color */
+}
+
+QMessageBox QLabel {
+    /* color, font-size */
+}
+
+QMessageBox QPushButton {
+    /* min-width, padding */
+}
+
+QFileDialog {
+    /* background-color */
+}
+
+QInputDialog {
+    /* background-color */
+}
+
+QColorDialog {
+    /* background-color */
+}
+
+QPrintDialog {
+    /* background-color */
+}
+
+QPrintPreviewDialog {
+    /* background-color */
+}
+
+
+/* ------------------------------------------------------------
+   Graphics View
+   ------------------------------------------------------------ */
+
+QGraphicsView {
+    /* background-color, border */
+}
+
+
+/* ------------------------------------------------------------
+   Tooltips
+   ------------------------------------------------------------ */
+
+QToolTip {
+    /* background-color, color, border, padding, font-size */
+}

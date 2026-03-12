@@ -75,6 +75,7 @@ class MainWindow(
         super().__init__()
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.setGeometry(100, 100, *DEFAULT_WINDOW_SIZE)
+        self.splash_screen = None
 
         # Keybindings registry (load before UI so shortcuts are applied)
         self.keybindings = KeybindingsRegistry()

@@ -122,6 +122,8 @@ class SettingsMixin:
         """Save settings before closing"""
         self._save_settings()
         self.file_ctrl.clear_auto_save()
+        if self.splash_screen is not None:
+            self.splash_screen.close()
         super().closeEvent(event)
 
     def start_autosave_timer(self):
