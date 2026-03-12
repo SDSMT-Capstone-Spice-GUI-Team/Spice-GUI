@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 )
 from utils.format_utils import format_value, parse_value
 
+from .styles import theme_manager
 from .validation_helpers import clear_field_error, set_field_error
 
 # Component types whose primary value can be swept
@@ -121,7 +122,7 @@ class ParameterSweepDialog(QDialog):
 
         # Error label for validation feedback
         self._error_label = QLabel("")
-        self._error_label.setStyleSheet("color: red; font-size: 9pt;")
+        self._error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
         self._error_label.setWordWrap(True)
         self._error_label.hide()
         layout.addWidget(self._error_label)

@@ -22,6 +22,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from .styles import theme_manager
+
 if TYPE_CHECKING:
     from grading.batch_grader import BatchGradingResult
     from grading.rubric import Rubric
@@ -109,7 +111,7 @@ class BatchGradingDialog(QDialog):
         # Reference circuit info
         if self._reference_circuit is not None:
             ref_label = QLabel("Reference circuit: current canvas circuit")
-            ref_label.setStyleSheet("color: green;")
+            ref_label.setStyleSheet(theme_manager.stylesheet("ref_info"))
             layout.addWidget(ref_label)
 
         # Grade button

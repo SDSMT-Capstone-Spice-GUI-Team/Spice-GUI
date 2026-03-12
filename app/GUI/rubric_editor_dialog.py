@@ -35,6 +35,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from .styles import theme_manager
+
 if TYPE_CHECKING:
     from grading.rubric import Rubric
 
@@ -69,7 +71,7 @@ class RubricEditorDialog(QDialog):
 
         # Points summary
         self.points_label = QLabel("Total Points: 0")
-        self.points_label.setStyleSheet("font-weight: bold;")
+        self.points_label.setStyleSheet(theme_manager.stylesheet("label_bold"))
         layout.addWidget(self.points_label)
 
         # Splitter: check list (left) | check editor (right)
@@ -164,7 +166,7 @@ class RubricEditorDialog(QDialog):
 
         # Validation label
         self.validation_label = QLabel("")
-        self.validation_label.setStyleSheet("color: red;")
+        self.validation_label.setStyleSheet(f"color: {theme_manager.color_hex('error')};")
         self.validation_label.setWordWrap(True)
         layout.addWidget(self.validation_label)
 

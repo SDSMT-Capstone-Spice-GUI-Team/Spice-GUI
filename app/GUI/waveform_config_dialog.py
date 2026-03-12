@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from utils.format_utils import parse_value
 
+from .styles import theme_manager
 from .validation_helpers import clear_field_error, set_field_error
 
 
@@ -56,10 +57,7 @@ class WaveformConfigDialog(QDialog):
         # Help text (must be created before on_type_changed which calls update_help_text)
         self.help_label = QLabel()
         self.help_label.setWordWrap(True)
-        self.help_label.setStyleSheet(
-            "QLabel { background-color: #f9f9f9; padding: 8px; "
-            "border: 1px solid #ddd; border-radius: 3px; font-size: 9pt; }"
-        )
+        self.help_label.setStyleSheet(theme_manager.stylesheet("help_panel"))
         layout.addWidget(self.help_label)
 
         # Update display for current waveform type
@@ -67,7 +65,7 @@ class WaveformConfigDialog(QDialog):
 
         # Error label for validation feedback
         self._error_label = QLabel("")
-        self._error_label.setStyleSheet("color: red; font-size: 9pt;")
+        self._error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
         self._error_label.setWordWrap(True)
         self._error_label.hide()
         layout.addWidget(self._error_label)

@@ -8,6 +8,8 @@ import re
 from PyQt6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextEdit, QVBoxLayout, QWidget
 
+from .styles import theme_manager
+
 
 class SpiceHighlighter(QSyntaxHighlighter):
     """Syntax highlighter for SPICE netlist text."""
@@ -86,7 +88,7 @@ class NetlistPreviewWidget(QWidget):
 
         # Status label
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: gray; font-size: 9pt;")
+        self.status_label.setStyleSheet(theme_manager.stylesheet("muted_small"))
         layout.addWidget(self.status_label)
 
     def set_netlist(self, netlist_text):
