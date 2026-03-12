@@ -108,8 +108,8 @@ class BatchGrader:
                 )
                 result.results.append(grade_result)
                 result.successful += 1
-            except Exception as e:
-                logger.warning("Failed to grade %s: %s", filename, e)
+            except (OSError, json.JSONDecodeError, ValueError, KeyError) as e:
+                logger.exception("Failed to grade %s", filename)
                 result.errors.append((filename, str(e)))
                 result.failed += 1
 
