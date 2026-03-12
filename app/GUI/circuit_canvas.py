@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 
 logger = logging.getLogger(__name__)
+# AUDIT(architecture): canvas should not directly depend on model-layer clipboard; route clipboard operations through the controller
 from models.clipboard import ClipboardData
 
 from .annotation_item import AnnotationItem
@@ -76,6 +77,7 @@ class CircuitCanvasView(QGraphicsView):
         self.show_op_annotations = True  # Toggle for OP result annotations
 
         # Probe overlay (owns probe_mode, probe_results, hit-testing)
+        # AUDIT(architecture): deferred import to avoid circular dependency; resolve the circular dep at the architecture level instead
         from GUI.canvas_probe_overlay import CanvasProbeOverlay
 
         self.probe_overlay = CanvasProbeOverlay(self)
@@ -108,6 +110,7 @@ class CircuitCanvasView(QGraphicsView):
         self._rubber_band_origin = QPoint()
 
         # Internal clipboard for copy/paste
+        # AUDIT(cleanup): legacy local clipboard field — all clipboard operations should go through controller; remove this and the backward-compat fallback path
         self._clipboard = ClipboardData()
 
         self.setAcceptDrops(True)
@@ -165,6 +168,7 @@ class CircuitCanvasView(QGraphicsView):
             try:
                 handler(data)
             except (AttributeError, KeyError, TypeError) as e:
+                # AUDIT(quality): use lazy %s formatting in logger calls instead of f-strings
                 logger.error(f"Error handling event '{event}': {e}")
         else:
             logger.debug(f"Unhandled observer event: {event}")
@@ -459,6 +463,7 @@ class CircuitCanvasView(QGraphicsView):
     # End Observer Pattern Handlers
     # ===================================================================
 
+    # AUDIT(cleanup): remove this commented-out code block (dead code from unsuccessful attempt)
     # unsuccessful attempt to get rid of red squiggles
     # def views(self) -> list | None:
     #     views = super().views() if super().views() else None
@@ -562,6 +567,7 @@ class CircuitCanvasView(QGraphicsView):
             if self.viewport():
                 self.viewport().update()
 
+        # AUDIT(architecture): canvas reaches up to main window for status bar; use the statusMessage signal instead
         # Show status message if rerouted wires
         if wire_count > 0:
             # Try to update status bar if main window is available
@@ -752,6 +758,7 @@ class CircuitCanvasView(QGraphicsView):
                                     self.wire_start_comp.component_id,
                                     clicked_component.component_id,
                                 )
+                            # AUDIT(quality): fallback wire creation bypassing controller creates inconsistent state; this path is dead code since controller is always present — remove it
                             else:
                                 # Fallback to old method if no controller (shouldn't happen)
                                 logger.warning("Wire created without controller — node graph may be stale")
@@ -904,6 +911,7 @@ class CircuitCanvasView(QGraphicsView):
             if self.probe_mode:
                 self.set_probe_mode(False)
                 self.clear_probes()
+                # AUDIT(architecture): canvas directly accesses main_window.probe_action menu structure; emit a signal instead and let the main window handle it
                 # Notify main window to uncheck the action
                 main_window = self.window()
                 if main_window and hasattr(main_window, "probe_action"):
@@ -1166,6 +1174,7 @@ class CircuitCanvasView(QGraphicsView):
         x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
         y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
 
+        # AUDIT(quality): QInputDialog.getText uses None as parent widget; dialog may appear behind other windows — pass self as parent
         text, ok = QInputDialog.getText(None, "Add Annotation", "Text:")
         if ok and text:
             if self.controller:
@@ -1588,6 +1597,7 @@ class CircuitCanvasView(QGraphicsView):
 
         return True
 
+    # AUDIT(architecture): duplicates logic of _handle_circuit_cleared; two code paths for the same operation — remove this and use the controller event
     def clear_circuit(self):
         """Clear all components, wires, and annotations"""
         self.scene.clear()
@@ -1706,5 +1716,6 @@ class CircuitCanvasView(QGraphicsView):
         self.scene.update()
 
 
+# AUDIT(cleanup): backward-compat alias; verify if any code still uses CircuitCanvas and remove if not
 # Backward compatibility alias
 CircuitCanvas = CircuitCanvasView

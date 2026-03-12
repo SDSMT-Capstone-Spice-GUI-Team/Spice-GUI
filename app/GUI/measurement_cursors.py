@@ -23,6 +23,7 @@ class MeasurementCursors:
         Callback ``(cursor_a_x, cursor_b_x)`` called whenever a cursor moves.
     """
 
+    # AUDIT(quality): hardcoded cursor colors bypass theme system; should come from theme_manager for light/dark mode adaptation
     CURSOR_A_COLOR = "#e74c3c"  # red
     CURSOR_B_COLOR = "#2980b9"  # blue
 

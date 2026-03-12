@@ -316,6 +316,7 @@ class BatchGradingDialog(QDialog):
 
         try:
             session = load_grading_session(filename)
+        # AUDIT(security): broad except Exception exposes raw error messages (may contain file paths) to users; narrow exception type and sanitize message
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load grading session:\n{e}")
             return

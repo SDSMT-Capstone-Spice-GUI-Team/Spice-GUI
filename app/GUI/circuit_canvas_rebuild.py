@@ -1,3 +1,4 @@
+# AUDIT(cleanup): entire file is a WIP prototype with commented-out code, incomplete methods, and developer notes; remove from codebase or move to a development branch
 from PyQt6.QtGui import QPainter
 from PyQt6.QtWidgets import QGraphicsScene, QGraphicsTextItem, QGraphicsView
 

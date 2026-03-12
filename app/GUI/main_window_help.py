@@ -282,6 +282,7 @@ class HelpMixin:
         dialog = HelpDialog(self)
         dialog.exec()
 
+    # AUDIT(testing): _start_tutorial uses blocking QMessageBox.information calls in a loop; untestable without mocking — separate tutorial logic from UI
     def _start_tutorial(self):
         """Run a guided step-by-step tutorial via message boxes."""
         for step in TUTORIAL_STEPS:

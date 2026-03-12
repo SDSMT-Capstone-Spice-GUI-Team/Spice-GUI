@@ -1,5 +1,6 @@
 """Dialog for importing, browsing, and managing the subcircuit library."""
 
+# AUDIT(architecture): GUI directly imports and calls model-layer register_subcircuit_component to modify global state; route through a controller
 from models.subcircuit_library import SubcircuitLibrary, register_subcircuit_component
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (

@@ -10,6 +10,7 @@ from .styles import COMPONENTS, theme_manager
 
 # Register built-in subcircuit components (voltage regulators etc.) so they
 # appear in COMPONENT_CATEGORIES["Subcircuits"] before the palette is built.
+# AUDIT(quality): module-level side effect — calling register_builtin_subcircuits() at import time couples import order to registration; move to explicit init
 register_builtin_subcircuits()
 
 # Brief descriptions for each component type
@@ -386,6 +387,7 @@ class ComponentPalette(QWidget):
             child = QTreeWidgetItem(category_item, [component_name])
             try:
                 child.setIcon(0, create_component_icon(component_name))
+                # AUDIT(quality): silent exception swallowing hides icon creation failures; log the error at minimum
             except Exception:
                 pass
             child.setToolTip(

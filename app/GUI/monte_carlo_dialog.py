@@ -144,6 +144,7 @@ class MonteCarloDialog(QDialog):
     def _on_analysis_changed(self, analysis_type):
         self._build_base_form()
 
+    # AUDIT(quality): _build_base_form is nearly identical to ParameterSweepDialog._build_base_form; extract shared logic into a common helper or mixin
     def _build_base_form(self):
         """Build form fields for the selected base analysis type."""
         while self._base_form.count():
@@ -152,6 +153,7 @@ class MonteCarloDialog(QDialog):
                 item.widget().deleteLater()
         self._base_field_widgets.clear()
 
+        # AUDIT(architecture): importing AnalysisDialog solely for ANALYSIS_CONFIGS; move ANALYSIS_CONFIGS to a shared constants module
         from .analysis_dialog import AnalysisDialog
 
         analysis_type = self.analysis_combo.currentText()

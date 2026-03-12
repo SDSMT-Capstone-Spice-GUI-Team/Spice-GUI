@@ -194,6 +194,7 @@ class FileOperationsMixin:
             except (OSError, ValueError) as e:
                 self.dialogs.show_error("Error", f"Failed to load: {e}")
 
+    # AUDIT(quality): this method is shadowed by a second _on_new_from_template defined later in this file (dead code); remove this version
     def _on_new_from_template(self):
         """Create a new circuit from an assignment template"""
         from controllers.template_controller import TEMPLATE_EXTENSION
@@ -239,6 +240,7 @@ class FileOperationsMixin:
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load template:\n{e}")
 
+    # AUDIT(quality): this method is shadowed by a second _on_save_as_template defined later in this file (dead code); remove this version
     def _on_save_as_template(self):
         """Save current circuit as an assignment template"""
         from controllers.template_controller import TEMPLATE_EXTENSION
@@ -384,6 +386,7 @@ class FileOperationsMixin:
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"BOM exported to {filename}", 3000)
+        # AUDIT(quality): catching (OSError, Exception) is redundant since Exception is a superclass of OSError; narrow to specific exceptions
         except (OSError, Exception) as e:
             QMessageBox.critical(self, "Error", f"Failed to export BOM: {e}")
 
@@ -410,6 +413,7 @@ class FileOperationsMixin:
         except (OSError, Exception) as e:
             QMessageBox.critical(self, "Error", f"Failed to export LTspice schematic: {e}")
 
+    # AUDIT(architecture): GUI mixin importing from services.report_generator creates upward dependency; delegate report generation to a controller
     def _on_generate_report(self):
         """Generate a comprehensive PDF circuit report."""
         from GUI.report_dialog import ReportDialog
@@ -603,6 +607,7 @@ class FileOperationsMixin:
                     {"name": name, "description": description, "filepath": example_file}
                 )
             except (json.JSONDecodeError, OSError) as e:
+                # AUDIT(quality): use lazy %s formatting in logger calls instead of f-strings for deferred evaluation
                 logger.warning(f"Failed to load example {example_file}: {e}")
 
         # Create menu entries organized by category

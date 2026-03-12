@@ -26,6 +26,7 @@ class ViewOperationsMixin:
     def apply_theme(self):
         """Apply the current theme to all visual elements."""
         theme = theme_manager.current_theme
+        # AUDIT(quality): generates dark stylesheet unconditionally regardless of actual theme; method name is misleading
         self.setStyleSheet(theme.generate_dark_stylesheet())
 
         # Refresh canvas (grid + components)
@@ -83,6 +84,7 @@ class ViewOperationsMixin:
         visible = not self.grading_panel.isVisible()
         self.grading_panel.setVisible(visible)
 
+    # AUDIT(architecture): instructor/grading methods belong in a separate InstructorMixin, not ViewOperationsMixin
     def _on_batch_grade(self):
         """Open the batch grading dialog."""
         from .batch_grading_dialog import BatchGradingDialog
@@ -212,6 +214,7 @@ class ViewOperationsMixin:
 
     # Dirty flag (unsaved changes indicator)
 
+    # AUDIT(architecture): dirty-flag management is a document-state concern, not a view concern; move to SettingsMixin or a dedicated mixin
     def _on_dirty_change(self, event: str, data) -> None:
         """Mark circuit as dirty on model-modifying events."""
         dirty_events = {
@@ -316,6 +319,7 @@ class ViewOperationsMixin:
             return
         # Open or raise the waveform dialog
         if self._waveform_dialog is None or not self._waveform_dialog.isVisible():
+            # AUDIT(quality): self.sim_ctrl does not exist on MainWindow — should be self.simulation_ctrl; will crash with AttributeError at runtime
             self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.sim_ctrl)
             self._waveform_dialog.show()
         self._waveform_dialog.raise_()
@@ -339,6 +343,7 @@ class ViewOperationsMixin:
         if not ac_data:
             return
         if self._plot_dialog is None or not self._plot_dialog.isVisible():
+            # AUDIT(quality): self.sim_ctrl does not exist on MainWindow — should be self.simulation_ctrl; will crash with AttributeError at runtime
             self._show_plot_dialog(ACSweepPlotDialog(ac_data, self, sim_ctrl=self.sim_ctrl))
         self._plot_dialog.raise_()
         self._plot_dialog.activateWindow()
@@ -433,6 +438,7 @@ class ViewOperationsMixin:
         opts = dialog.get_options()
 
         try:
+            # AUDIT(quality): self.sim_ctrl does not exist on MainWindow — should be self.simulation_ctrl; will crash with AttributeError at runtime
             tikz_code = self.sim_ctrl.generate_circuitikz(
                 standalone=opts["standalone"],
                 circuit_name=(os.path.basename(self.file_ctrl.current_file) if self.file_ctrl.current_file else ""),
@@ -447,6 +453,7 @@ class ViewOperationsMixin:
             return
 
         default_name = ""
+        # AUDIT(quality): unnecessary hasattr guard — file_ctrl is always defined in MainWindow.__init__ via property
         if hasattr(self, "file_ctrl") and self.file_ctrl.current_file:
             base = os.path.splitext(os.path.basename(str(self.file_ctrl.current_file)))[0]
             default_name = base + ".tex"
@@ -479,6 +486,7 @@ class ViewOperationsMixin:
             return
 
         try:
+            # AUDIT(quality): self.sim_ctrl does not exist on MainWindow — should be self.simulation_ctrl; will crash with AttributeError at runtime
             tikz_code = self.sim_ctrl.generate_circuitikz(standalone=False)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")

@@ -90,8 +90,9 @@ class SettingsMixin:
         if saved_theme_key and saved_theme_key != "light":
             theme_ctrl.set_theme_by_key(saved_theme_key)
             self.apply_theme()
-            if hasattr(self, "refresh_theme_menu"):
-                self.refresh_theme_menu()
+            # AUDIT(cleanup): unnecessary hasattr guard — refresh_theme_menu is always defined by MenuBarMixin
+        if hasattr(self, "refresh_theme_menu"):
+            self.refresh_theme_menu()
         else:
             # Legacy fallback: check old theme name
             saved_theme = settings.get("view/theme")

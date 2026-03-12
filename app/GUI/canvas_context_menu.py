@@ -45,6 +45,7 @@ def build_context_menu(canvas, scene_pos):
         _build_empty_area_menu(menu, canvas, scene_pos)
 
     # Paste action (always available when clipboard has content)
+    # AUDIT(architecture): accessing private canvas._clipboard leaks implementation detail; add a public has_clipboard_content() method
     has_clipboard = (
         canvas.controller and canvas.controller.has_clipboard_content()
     ) or not canvas._clipboard.is_empty()

@@ -36,6 +36,7 @@ class SimulationMixin:
             return
 
         default_name = ""
+        # AUDIT(quality): unnecessary hasattr guard — file_ctrl is always defined via MainWindow property
         if hasattr(self, "file_ctrl") and self.file_ctrl.current_file:
             base = os.path.splitext(os.path.basename(str(self.file_ctrl.current_file)))[0]
             default_name = base + ".cir"
@@ -95,6 +96,7 @@ class SimulationMixin:
         def on_progress(step, total):
             progress.setValue(step)
             progress.setLabelText(f"Running step {step + 1} of {total}...")
+            # AUDIT(quality): processEvents() inside loop is fragile and can cause re-entrant event handling; consider QThread or QEventLoop
             QApplication.processEvents()
             return not progress.wasCanceled()
 
@@ -132,6 +134,7 @@ class SimulationMixin:
         def on_progress(step, total):
             progress.setValue(step)
             progress.setLabelText(f"Running simulation {step + 1} of {total}...")
+            # AUDIT(quality): processEvents() inside loop is fragile and can cause re-entrant event handling; consider QThread or QEventLoop
             QApplication.processEvents()
             return not progress.wasCanceled()
 

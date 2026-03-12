@@ -11,9 +11,11 @@ from PyQt6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QTextEdit, 
 
 from .styles import theme_manager
 
+# AUDIT(quality): matplotlib.use("QtAgg") is duplicated in 4 dialog files; centralize to a single call at application startup
 matplotlib.use("QtAgg")
 
 
+# AUDIT(quality): _apply_mpl_theme is copy-pasted identically in 3 files (here, results_plot_dialog.py, waveform_dialog.py); extract to a shared GUI/plot_utils.py module
 def _apply_mpl_theme(fig):
     """Apply the current application theme colors to a matplotlib figure."""
     theme = theme_manager.current_theme

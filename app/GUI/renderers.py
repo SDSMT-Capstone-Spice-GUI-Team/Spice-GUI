@@ -138,6 +138,7 @@ class IEEEWaveformVoltageSource(ComponentRenderer):
         painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
         # Draw sine wave symbol
+        # AUDIT(architecture): importing COMPONENT_COLORS from model layer bypasses theme system; use painter's current pen color instead
         from models.component import COMPONENT_COLORS
 
         painter.setPen(QPen(QColor(COMPONENT_COLORS.get(component.component_type, "#E91E63")), 2))
@@ -186,6 +187,7 @@ class IEEEOpAmp(ComponentRenderer):
         return _bounding_rect_obstacle(component)
 
 
+# AUDIT(quality): diamond-drawing code is duplicated across VCVS, CCVS, VCCS, CCCS renderers; extract into a shared helper
 class IEEEVCVS(ComponentRenderer):
     def draw(self, painter, component):
         painter.drawLine(-30, -10, -15, -10)

@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QPushB
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .styles import theme_manager
 
+# AUDIT(quality): matplotlib.use("QtAgg") duplicated in 4 dialog files; centralize to a single call at application startup
 matplotlib.use("QtAgg")
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 _LINE_STYLES = ["-", "--", "-.", ":"]
 
 
+# AUDIT(quality): _apply_mpl_theme duplicated identically in 3 files; extract to shared GUI/plot_utils.py module
 def _apply_mpl_theme(fig):
     """Apply the current application theme colors to a matplotlib figure."""
     theme = theme_manager.current_theme
@@ -310,6 +312,7 @@ class ACSweepPlotDialog(QDialog):
         self._marker_summary.setPlaceholderText("Frequency response markers will appear here after simulation.")
         right_layout.addWidget(self._marker_summary)
 
+        # AUDIT(quality): QDialog() used as a container widget; should be QWidget() — QDialog has unwanted window behavior (modal, closes on Escape)
         right_widget = QDialog()
         right_widget.setLayout(right_layout)
         main_layout.addWidget(right_widget, 1)

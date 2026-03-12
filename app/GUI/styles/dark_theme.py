@@ -90,6 +90,7 @@ class DarkTheme(BaseTheme):
             "probe_highlight": "#FF66CC",  # Bright pink for probe crosshair
         }
 
+    # AUDIT(quality): _define_pens, _define_brushes, _define_fonts are 100% identical to LightTheme; extract shared definitions into BaseTheme
     def _define_pens(self):
         """Define all pen configurations."""
         self._pens = {

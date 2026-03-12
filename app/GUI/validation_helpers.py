@@ -4,6 +4,8 @@ Provides functions to highlight invalid fields with a red border and
 display an error label, plus a function to clear the error state.
 """
 
+# AUDIT(testing): no unit tests for validation helper functions; add tests covering set_field_error, clear_field_error, clear_all_field_errors, show_validation_error
+
 from PyQt6.QtWidgets import QLabel, QLineEdit, QWidget
 
 # Stylesheet applied to fields with validation errors

@@ -18,6 +18,7 @@ from utils.format_utils import format_value, parse_value
 
 from .validation_helpers import clear_field_error, set_field_error
 
+# AUDIT(architecture): hardcoded set of sweepable component types must be manually updated when new types are added; derive from component registry
 # Component types whose primary value can be swept
 SWEEPABLE_TYPES = {
     "Resistor",
@@ -31,6 +32,7 @@ SWEEPABLE_TYPES = {
     "CCCS",
 }
 
+# AUDIT(quality): BASE_ANALYSIS_TYPES duplicated from monte_carlo_dialog.MC_BASE_ANALYSIS_TYPES; extract to a shared constant
 # Base analysis types available for parameter sweep
 BASE_ANALYSIS_TYPES = [
     "DC Operating Point",
@@ -154,6 +156,7 @@ class ParameterSweepDialog(QDialog):
     def _on_analysis_changed(self, analysis_type):
         self._build_base_form()
 
+    # AUDIT(quality): _build_base_form is nearly identical to MonteCarloDialog._build_base_form; extract shared logic into a common helper or mixin
     def _build_base_form(self):
         """Build form fields for the selected base analysis type."""
         # Clear existing

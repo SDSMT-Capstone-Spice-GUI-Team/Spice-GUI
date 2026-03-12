@@ -25,6 +25,7 @@ class QtProgressHandle(QObject):
         # Process events so the dialog paints and cancel button responds.
         from PyQt6.QtWidgets import QApplication
 
+        # AUDIT(quality): processEvents() can cause re-entrancy; consider ExcludeUserInputEvents flag or a safer approach
         QApplication.processEvents()
         return not self._dialog.wasCanceled()
 

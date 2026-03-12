@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+# AUDIT(architecture): module-level calls to SimulationController execute controller logic at import time; consider lazy access or dependency injection
 ANALYSIS_DOMAIN_MAP = SimulationController.get_analysis_domain_map()
 MEAS_TYPES = SimulationController.get_meas_types()
 build_directive = SimulationController.build_meas_directive

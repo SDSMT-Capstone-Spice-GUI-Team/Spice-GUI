@@ -87,6 +87,7 @@ class ThemeEditorDialog(QDialog):
             self._initial_name = edit_theme.name
             self._initial_base = edit_theme.base_name
             self._initial_is_dark = edit_theme.is_dark
+            # AUDIT(architecture): accessing private _colors attribute of theme objects breaks encapsulation; add a public get_all_colors() method to theme classes
             self._colors = dict((DarkTheme() if edit_theme.base_name == "dark" else LightTheme())._colors)
             self._colors.update(edit_theme.get_color_overrides())
         else:

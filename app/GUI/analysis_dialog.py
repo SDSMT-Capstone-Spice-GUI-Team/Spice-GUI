@@ -17,6 +17,7 @@ from utils.format_utils import parse_value
 from .meas_dialog import MeasurementDialog
 from .validation_helpers import clear_field_error, set_field_error
 
+# AUDIT(architecture): module-level call to SimulationController executes controller logic at import time; use lazy loading or pass as parameter
 # Analysis types that support .meas directives
 _MEAS_SUPPORTED_TYPES = set(SimulationController.get_analysis_domain_map().keys())
 
@@ -171,6 +172,7 @@ class AnalysisDialog(QDialog):
         if simulation_ctrl is not None:
             self._ctrl = simulation_ctrl
         else:
+            # AUDIT(architecture): GUI dialog should not instantiate a controller directly; require simulation_ctrl parameter or use a factory
             # Backward compatibility: wrap a preset_manager in a controller
             from controllers.simulation_controller import SimulationController
 
@@ -233,6 +235,7 @@ class AnalysisDialog(QDialog):
         layout.addLayout(meas_layout)
 
         # Error label for validation feedback
+        # AUDIT(quality): hardcoded error label stylesheet repeated across many dialogs; extract to a factory function in validation_helpers.py
         self._error_label = QLabel("")
         self._error_label.setStyleSheet("color: red; font-size: 9pt;")
         self._error_label.setWordWrap(True)

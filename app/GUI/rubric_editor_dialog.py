@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Optional
 
+# AUDIT(architecture): direct import of grading internals into GUI; consider accessing rubric validation through a controller
 from grading.rubric_validator import (
     CHECK_TYPE_PARAMS,
     build_rubric,
@@ -435,6 +436,7 @@ class RubricEditorDialog(QDialog):
 
             save_rubric(rubric, filename)
             QMessageBox.information(self, "Saved", f"Rubric saved to {filename}")
+        # AUDIT(security): broad except Exception exposes raw error messages to users; narrow to OSError and sanitize user-facing message
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save rubric:\n{e}")
 

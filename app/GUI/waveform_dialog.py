@@ -29,6 +29,7 @@ from utils.format_utils import format_value, parse_value
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .styles import SCROLL_LOAD_COUNT, theme_manager
 
+# AUDIT(quality): matplotlib.use("QtAgg") duplicated in 4 dialog files; centralize to application startup
 matplotlib.use("QtAgg")
 
 # Get colors from the 'Paired' colormap for color-blind friendliness
@@ -36,6 +37,7 @@ cmap = plt.get_cmap("Paired")
 HIGHLIGHT_COLORS = [QColor.fromRgbF(*cmap(i)) for i in range(12)]
 
 
+# AUDIT(quality): _apply_mpl_theme duplicated identically in 3 files; extract to shared GUI/plot_utils.py module
 def _apply_mpl_theme(fig):
     """Apply the current application theme colors to a matplotlib figure."""
     theme = theme_manager.current_theme
@@ -61,6 +63,7 @@ class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
+        # AUDIT(quality): Python 2-style super() call; use super().__init__(fig) for consistency
         super(MplCanvas, self).__init__(fig)
         _apply_mpl_theme(fig)
 

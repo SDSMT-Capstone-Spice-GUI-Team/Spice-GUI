@@ -1,5 +1,6 @@
 """Backward-compatible re-export — canonical location is services.theme_store."""
 
+# AUDIT(quality): re-exporting private names (_SCHEMA_VERSION, _THEMES_DIR, _ensure_dir, _filename_safe) leaks implementation details; only re-export public API
 from services.theme_store import (
     _SCHEMA_VERSION,
     _THEMES_DIR,

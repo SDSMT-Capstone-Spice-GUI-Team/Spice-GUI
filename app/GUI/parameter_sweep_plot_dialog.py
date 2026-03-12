@@ -11,8 +11,10 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout
 
+# AUDIT(architecture): importing save_plot from another dialog creates inter-dialog coupling; move save_plot to a shared GUI/plot_utils.py module
 from .results_plot_dialog import save_plot
 
+# AUDIT(quality): matplotlib.use("QtAgg") duplicated in 4 dialog files; centralize to application startup
 matplotlib.use("QtAgg")
 
 logger = logging.getLogger(__name__)

@@ -16,6 +16,7 @@ class CustomTheme(BaseTheme):
 
         # Initialize from the base theme
         base_theme = DarkTheme() if base == "dark" else LightTheme()
+        # AUDIT(architecture): accessing private _colors, _pens, etc. of base theme breaks encapsulation; add public getter methods to BaseTheme
         self._colors = dict(base_theme._colors)
         self._pens = dict(base_theme._pens)
         self._brushes = dict(base_theme._brushes)

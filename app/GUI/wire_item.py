@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 
+# AUDIT(architecture): sys.path manipulation is fragile; configure project packaging properly instead
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # path_finding imported lazily in update_position() for faster startup
 from models.wire import WireData
@@ -107,6 +108,7 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         # Algorithm layer support
         self.algorithm = algorithm  # Which algorithm generated this wire
+        # AUDIT(quality): falsy check on QColor treats black QColor(0,0,0) as falsy; use 'is not None' instead
         self.layer_color = layer_color if layer_color else theme_manager.color("wire_default")
 
         self.waypoints = []  # List of QPointF waypoints (computed during routing)
@@ -511,5 +513,6 @@ class _WireAdapter:
         return wps
 
 
+# AUDIT(cleanup): backward-compat alias; verify if still needed and remove if all callsites use WireGraphicsItem
 # Backward compatibility alias
 WireItem = WireGraphicsItem

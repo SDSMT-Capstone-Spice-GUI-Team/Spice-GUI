@@ -17,6 +17,7 @@ class ResultsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         # Set by MainWindow after construction to wire up the complex display handler.
+        # AUDIT(architecture): mutable None-initialized delegate creates fragile dependency; require in constructor or raise explicit error when unset
         self._display_delegate = None
         # Set by MainWindow after the NetlistPreviewWidget is created.
         self._netlist_preview_widget = None

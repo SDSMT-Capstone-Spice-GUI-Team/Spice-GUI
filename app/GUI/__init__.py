@@ -1,3 +1,4 @@
+# AUDIT(architecture): re-exporting pathfinding internals from the GUI package creates coupling; consumers should import directly from algorithms
 from algorithms.path_finding import IDAStarPathfinder, get_component_obstacles, get_wire_obstacles
 
 from .analysis_dialog import AnalysisDialog
@@ -21,6 +22,7 @@ __all__ = [
     "get_component_obstacles",
     "get_wire_obstacles",
     "WireGraphicsItem",
+    # AUDIT(cleanup): verify if WireItem backward-compat alias is still needed; remove from exports if all callsites use WireGraphicsItem
     "WireItem",  # Backward compatibility
     "GRID_SIZE",
     "COMPONENTS",

@@ -39,6 +39,7 @@ class AnnotationItem(QGraphicsTextItem):
 
     def mouseDoubleClickEvent(self, event):
         """Open a dialog to edit the annotation text (via canvas for undo support)."""
+        # AUDIT(architecture): accessing private canvas._edit_annotation breaks encapsulation; define a public method or emit a signal
         if self.canvas and hasattr(self.canvas, "_edit_annotation"):
             self.canvas._edit_annotation(self)
             return

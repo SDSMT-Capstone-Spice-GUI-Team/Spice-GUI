@@ -278,6 +278,7 @@ class PreferencesDialog(QDialog):
             if theme is not None:
                 theme_store.save_theme(theme)
                 self._populate_theme_combo()
+                # AUDIT(architecture): accessing private _filename_safe() breaks encapsulation; make it a public method or add a wrapper
                 key = f"custom:{theme_store._filename_safe(theme.name)}"
                 if key in self._theme_keys:
                     self.theme_combo.setCurrentIndex(self._theme_keys.index(key))

@@ -28,6 +28,7 @@ class CircuitStatisticsPanel(QWidget):
         self._init_ui()
 
         # Register as observer for model changes
+        # AUDIT(architecture): observer registered but never unregistered; could cause errors if panel is destroyed while controller lives on
         self.circuit_ctrl.add_observer(self._on_model_changed)
 
         # Initial refresh
@@ -138,6 +139,7 @@ class CircuitStatisticsPanel(QWidget):
             self._ground_label.setStyleSheet("")
         elif has_ground:
             self._ground_label.setText("Yes")
+            # AUDIT(quality): hardcoded color stylesheet bypasses theme system; will have poor contrast on dark themes
             self._ground_label.setStyleSheet("QLabel { color: green; }")
         else:
             self._ground_label.setText("No (required for simulation)")

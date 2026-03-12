@@ -53,6 +53,7 @@ from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
 logger = logging.getLogger(__name__)
 
 
+# AUDIT(architecture): 8-mixin composition lacks interface contracts (no ABCs/Protocols); any mixin can silently depend on attributes from other mixins
 class MainWindow(
     MenuBarMixin,
     FileOperationsMixin,
@@ -82,6 +83,7 @@ class MainWindow(
         # Create model (single source of truth)
         self.model = CircuitModel()
 
+        # AUDIT(cleanup): remove stale "Phase 5" migration comments throughout the codebase (also in main_window_file_ops.py and main_window_simulation.py)
         # Create controllers (Phase 5: wire them together)
         self._circuit_ctrl = CircuitController(self.model)
         self._file_ctrl = FileController(self.model, self._circuit_ctrl)
@@ -156,6 +158,7 @@ class MainWindow(
         self.properties_panel.property_changed.connect(self.on_property_changed)
         self.circuit_ctrl.add_observer(self._on_dirty_change)
         # Wire results panel display delegate to SimulationMixin handler.
+        # AUDIT(quality): direct access to private _display_delegate violates encapsulation; add a public setter to ResultsPanel
         self.results_panel._display_delegate = self._display_simulation_results
 
     def init_ui(self):
@@ -225,6 +228,7 @@ class MainWindow(
         self.results_panel.btn_export_csv.clicked.connect(self.export_results_csv)
         self.results_panel.btn_export_excel.clicked.connect(self.export_results_excel)
         self.results_panel.btn_copy_markdown.clicked.connect(self.copy_results_markdown)
+        # AUDIT(cleanup): backward-compat aliases leak ResultsPanel internals; route all access through self.results_panel and update consumers
         # Backward-compat aliases so existing SimulationMixin code works unchanged.
         self.results_text = self.results_panel.results_text
         self.btn_export_csv = self.results_panel.btn_export_csv
@@ -239,6 +243,7 @@ class MainWindow(
         self.netlist_preview.refresh_btn.clicked.connect(self._refresh_netlist_preview)
         self.results_tabs.addTab(self.netlist_preview, "Netlist")
         # Wire netlist preview into results panel for set_netlist_preview() delegation.
+        # AUDIT(quality): direct access to private _netlist_preview_widget violates encapsulation; add a public setter to ResultsPanel
         self.results_panel._netlist_preview_widget = self.netlist_preview
 
         center_splitter.addWidget(self.results_tabs)

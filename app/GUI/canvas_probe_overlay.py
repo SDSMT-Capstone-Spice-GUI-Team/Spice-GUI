@@ -78,6 +78,7 @@ class CanvasProbeOverlay:
             for term_idx in range(len(comp.terminals)):
                 term_pos = comp.get_terminal_pos(term_idx)
                 distance = (term_pos - scene_pos).manhattanLength()
+                # AUDIT(quality): magic number 20 as terminal hit-test distance; extract as named constant
                 if distance < 20:
                     if self.canvas.controller:
                         return self.canvas.controller.find_node_for_terminal(comp_id, term_idx)

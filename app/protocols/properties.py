@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Protocol, runtime_checkable
 
+# AUDIT(architecture): runtime import of ComponentData creates coupling from protocols to models; move behind TYPE_CHECKING guard
 from models.component import ComponentData
 
 

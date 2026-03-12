@@ -142,6 +142,7 @@ class GradingPanel(QWidget):
 
         try:
             with open(filename, "r") as f:
+                # AUDIT(security): json.load on user-selected file with no size limit; a maliciously large file could cause memory exhaustion
                 data = json.load(f)
 
             # Handle template files (extract starter_circuit)
@@ -215,6 +216,7 @@ class GradingPanel(QWidget):
         # Score header
         pct = result.percentage
         self.score_label.setText(f"{result.earned_points}/{result.total_points} — {pct:.0f}%")
+        # AUDIT(quality): magic number score thresholds (90, 70) should be named constants for maintainability
         if pct >= 90:
             self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: green;")
         elif pct >= 70:

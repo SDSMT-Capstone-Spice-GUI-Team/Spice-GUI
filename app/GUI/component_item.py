@@ -7,6 +7,7 @@ from PyQt6.QtGui import QBrush  # QPainterPath imported locally where needed
 from PyQt6.QtGui import QColor, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 
+# AUDIT(architecture): sys.path manipulation is fragile; configure project packaging properly instead
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from models.component import DEFAULT_VALUES, ComponentData
 from utils.format_utils import validate_component_value
@@ -219,6 +220,7 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         super().hoverMoveEvent(event)
 
+    # AUDIT(architecture): QGraphicsItem directly shows QInputDialog/QMessageBox; emit a signal and let the canvas or controller handle dialogs
     def mouseDoubleClickEvent(self, event):
         """Open a dialog to edit component value on double-click"""
         if self._locked:
@@ -797,6 +799,7 @@ class Transformer(ComponentGraphicsItem):
         return [(-20.0, -18.0), (20.0, -18.0), (20.0, 18.0), (-20.0, 18.0)]
 
 
+# AUDIT(quality): duplicate CamelCase and spaced keys (e.g. "Voltage Source" and "VoltageSource") map to same class; normalize to a single canonical form
 # Component registry for factory pattern
 COMPONENT_CLASSES = {
     "Resistor": Resistor,

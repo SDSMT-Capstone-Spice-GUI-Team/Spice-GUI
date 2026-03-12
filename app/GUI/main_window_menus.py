@@ -48,12 +48,14 @@ class MenuBarMixin:
         save_as_action.triggered.connect(self._on_save_as)
         file_menu.addAction(save_as_action)
 
+        # AUDIT(quality): duplicate "Save as Template" menu entry — this action and the one at line 62 both connect to _on_save_as_template; remove one
         save_template_action = QAction("Save as Tem&plate...", self)
         save_template_action.triggered.connect(self._on_save_as_template)
         file_menu.addAction(save_template_action)
 
         file_menu.addSeparator()
 
+        # AUDIT(quality): duplicate "New from Template" entry — the templates_menu submenu (line 38) already provides the same feature
         new_from_template_action = QAction("New from &Template...", self)
         new_from_template_action.setToolTip("Create a new circuit from an assignment template")
         new_from_template_action.triggered.connect(self._on_new_from_template)

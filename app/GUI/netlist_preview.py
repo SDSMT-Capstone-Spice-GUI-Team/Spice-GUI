@@ -16,6 +16,7 @@ class SpiceHighlighter(QSyntaxHighlighter):
         super().__init__(parent)
         self._rules = []
 
+        # AUDIT(quality): hardcoded syntax highlighter colors will have poor contrast on dark themes; source from theme_manager
         # Comments: lines starting with * (green)
         comment_fmt = QTextCharFormat()
         comment_fmt.setForeground(QColor("#4CAF50"))

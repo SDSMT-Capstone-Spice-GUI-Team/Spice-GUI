@@ -182,6 +182,7 @@ class AnalysisSettingsMixin:
         else:
             self.op_action.setChecked(True)
 
+    # AUDIT(quality): _sync_analysis_menu does not handle "Monte Carlo" analysis type; menu won't reflect it if set on the model
     def _sync_analysis_menu(self):
         """Update Analysis menu checkboxes to match model state."""
         analysis_type = self.model.analysis_type
