@@ -28,7 +28,7 @@ class PDFReportRenderer:
             data: Assembled report content from ReportDataBuilder.
             scene: Optional QGraphicsScene for schematic rendering.
         """
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer = QPrinter(QPrinter.PrinterMode.ScreenResolution)
         printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
         printer.setOutputFileName(filepath)
 
