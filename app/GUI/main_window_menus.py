@@ -77,6 +77,11 @@ class MenuBarMixin:
         import_tikz_action.triggered.connect(self._on_import_circuitikz)
         file_menu.addAction(import_tikz_action)
 
+        import_svg_action = QAction("Import from &SVG...", self)
+        import_svg_action.setToolTip("Import a circuit from a shareable SVG file")
+        import_svg_action.triggered.connect(self._on_import_svg)
+        file_menu.addAction(import_svg_action)
+
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
         export_netlist_action.setToolTip("Export the generated SPICE netlist to a .cir file")

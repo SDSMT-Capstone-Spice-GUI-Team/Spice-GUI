@@ -260,6 +260,30 @@ class FileOperationsMixin:
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Import Error", f"Failed to import CircuiTikZ LaTeX:\n{e}")
 
+    def _on_import_svg(self):
+        """Import a shareable SVG file containing embedded circuit data."""
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Shareable SVG",
+            "",
+            "SVG Files (*.svg);;All Files (*)",
+        )
+        if filename:
+            try:
+                self.file_ctrl.import_svg(filename)
+                self.setWindowTitle(f"Circuit Design GUI - {Path(filename).name} (imported)")
+                self._sync_analysis_menu()
+                self._set_dirty(True)
+                num_components = len(self.model.components)
+                num_wires = len(self.model.wires)
+                QMessageBox.information(
+                    self,
+                    "Import Successful",
+                    f"Imported {num_components} components and {num_wires} wires from {Path(filename).name}.",
+                )
+            except (OSError, ValueError) as e:
+                QMessageBox.critical(self, "Import Error", f"Failed to import SVG:\n{e}")
+
     def _on_export_bom(self):
         """Export a Bill of Materials (BOM) as CSV or Excel."""
         if not self.model.components:
