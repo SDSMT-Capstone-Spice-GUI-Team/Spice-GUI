@@ -66,22 +66,63 @@ _SYMBOL_TO_TYPE = {
     "h2": "CCVS",
 }
 
-# Pin offsets (dx, dy) relative to SYMBOL position for each type (at R0 orientation)
-# LTspice convention: R0 = vertical, pin 1 at top
+# Pin offsets (dx, dy) relative to SYMBOL position for each LTspice symbol
+# at R0 orientation.  Keyed by LTspice symbol name for accuracy; the
+# Spice-GUI component type (used as fallback) may map multiple symbols.
+_SYMBOL_PIN_OFFSETS: dict[str, list[tuple[int, int]]] = {
+    # --- 2-terminal ---
+    "res": [(0, 0), (0, 96)],
+    "res2": [(0, 0), (0, 80)],
+    "cap": [(0, 0), (0, 64)],
+    "cap2": [(0, 0), (0, 64)],
+    "polcap": [(0, 0), (0, 64)],
+    "ind": [(0, 0), (0, 96)],
+    "ind2": [(0, 0), (0, 80)],
+    "voltage": [(0, 0), (0, 112)],
+    "current": [(0, 0), (0, 112)],
+    "diode": [(0, 0), (0, 64)],
+    "schottky": [(0, 0), (0, 64)],
+    "zener": [(0, 0), (0, 64)],
+    "LED": [(0, 0), (0, 64)],
+    "led": [(0, 0), (0, 64)],
+    # --- 3-terminal ---
+    "npn": [(16, 0), (-16, 32), (16, 64)],  # C, B, E
+    "npn2": [(16, 0), (-16, 32), (16, 64)],
+    "pnp": [(16, 64), (-16, 32), (16, 0)],  # C, B, E
+    "pnp2": [(16, 64), (-16, 32), (16, 0)],
+    "nmos": [(16, 0), (-16, 32), (16, 64)],  # D, G, S
+    "nmos3": [(16, 0), (-16, 32), (16, 64)],
+    "pmos": [(16, 64), (-16, 32), (16, 0)],  # D, G, S
+    "pmos3": [(16, 64), (-16, 32), (16, 0)],
+    "opamp": [(-32, 32), (-32, -32), (32, 0)],  # in+, in-, out
+    "Opamps\\\\opamp": [(-32, 32), (-32, -32), (32, 0)],
+    "Opamps\\\\opamp2": [(-32, 32), (-32, -32), (32, 0)],
+    # --- 4-terminal ---
+    "e": [(-32, 32), (-32, -32), (32, -32), (32, 32)],  # VCVS
+    "e2": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
+    "f": [(-32, 32), (-32, -32), (32, -32), (32, 32)],  # CCCS
+    "f2": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
+    "g": [(-32, 32), (-32, -32), (32, -32), (32, 32)],  # VCCS
+    "g2": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
+    "h": [(-32, 32), (-32, -32), (32, -32), (32, 32)],  # CCVS
+    "h2": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
+}
+
+# Fallback offsets keyed by Spice-GUI type (used when LTspice symbol is unknown)
 _PIN_OFFSETS = {
-    "Resistor": [(0, 0), (0, 80)],
+    "Resistor": [(0, 0), (0, 96)],
     "Capacitor": [(0, 0), (0, 64)],
-    "Inductor": [(0, 0), (0, 80)],
+    "Inductor": [(0, 0), (0, 96)],
     "Voltage Source": [(0, 0), (0, 112)],
     "Current Source": [(0, 0), (0, 112)],
     "Diode": [(0, 0), (0, 64)],
     "LED": [(0, 0), (0, 64)],
     "Zener Diode": [(0, 0), (0, 64)],
-    "BJT NPN": [(16, 0), (-16, 32), (16, 64)],  # C, B, E
-    "BJT PNP": [(16, 64), (-16, 32), (16, 0)],  # C, B, E
-    "MOSFET NMOS": [(16, 0), (-16, 32), (16, 64)],  # D, G, S
-    "MOSFET PMOS": [(16, 64), (-16, 32), (16, 0)],  # D, G, S
-    "Op-Amp": [(-32, 32), (-32, -32), (32, 0)],  # in+, in-, out
+    "BJT NPN": [(16, 0), (-16, 32), (16, 64)],
+    "BJT PNP": [(16, 64), (-16, 32), (16, 0)],
+    "MOSFET NMOS": [(16, 0), (-16, 32), (16, 64)],
+    "MOSFET PMOS": [(16, 64), (-16, 32), (16, 0)],
+    "Op-Amp": [(-32, 32), (-32, -32), (32, 0)],
     "VCVS": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
     "CCVS": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
     "VCCS": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
@@ -90,6 +131,26 @@ _PIN_OFFSETS = {
 
 # Coordinate scale factor: LTspice units -> Spice-GUI scene coordinates
 _SCALE = 1.0
+
+
+def _point_on_segment(pt, seg_a, seg_b):
+    """Return True if integer point *pt* lies strictly between *seg_a* and *seg_b*.
+
+    Only checks axis-aligned segments (horizontal or vertical), which is
+    all LTspice wires produce.  The endpoints themselves are already
+    handled by the normal union-find, so this only matches interior points.
+    """
+    px, py = pt
+    ax, ay = seg_a
+    bx, by = seg_b
+
+    if ax == bx == px:  # vertical segment
+        lo, hi = (min(ay, by), max(ay, by))
+        return lo < py < hi
+    if ay == by == py:  # horizontal segment
+        lo, hi = (min(ax, bx), max(ax, bx))
+        return lo < px < hi
+    return False
 
 
 def _transform_pin(dx, dy, rotation_code):
@@ -123,8 +184,13 @@ def _transform_pin(dx, dy, rotation_code):
     return dx, dy
 
 
-def _rotation_to_degrees(rotation_code):
+def _rotation_to_degrees(rotation_code, is_bipole=True):
     """Convert LTspice rotation code to Spice-GUI rotation degrees and flip state.
+
+    Args:
+        rotation_code: LTspice rotation code (R0, R90, R180, R270, M0, etc.)
+        is_bipole: True for 2-terminal components where LTspice R0=vertical
+                   but Spice-GUI 0°=horizontal, requiring a 90° offset.
 
     Returns (rotation_degrees, flip_h).
     """
@@ -132,10 +198,29 @@ def _rotation_to_degrees(rotation_code):
     mirrored = code.startswith("M")
     angle = int(code[1:]) if len(code) > 1 else 0
 
-    # LTspice R0 is vertical, Spice-GUI 0 is horizontal
-    # We use rotation 90 to convert from LTspice vertical to Spice-GUI horizontal
-    # for 2-terminal components. For multi-terminal, keep as-is.
+    if is_bipole:
+        # LTspice R0 is vertical, Spice-GUI 0° is horizontal, and they
+        # rotate in opposite directions (LTspice CW increments map to
+        # Spice-GUI CCW).  The self-inverse transform is:
+        angle = (450 - angle) % 360
+
     return angle, mirrored
+
+
+def _center_offset_from_pins(pin_offsets, rotation_code):
+    """Compute the offset from LTspice SYMBOL origin to Spice-GUI center.
+
+    LTspice positions the SYMBOL origin at pin 1.  Spice-GUI uses the
+    component center.  Returns (dx, dy) to add to the LTspice SYMBOL
+    position to get the Spice-GUI center position.
+    """
+    if not pin_offsets or len(pin_offsets) < 2:
+        return 0, 0
+    # Center = average of all pin offsets (in LTspice space, before rotation)
+    avg_x = sum(o[0] for o in pin_offsets) / len(pin_offsets)
+    avg_y = sum(o[1] for o in pin_offsets) / len(pin_offsets)
+    # Transform the center offset by the LTspice rotation
+    return _transform_pin(avg_x, avg_y, rotation_code)
 
 
 def parse_asc(text):
@@ -388,12 +473,22 @@ def import_asc(text):
                     value = sym["value2"]
                     break
 
-        # Convert position: scale LTspice coords to scene coords
-        pos_x = sym["x"] * _SCALE
-        pos_y = sym["y"] * _SCALE
+        # Look up pin offsets: prefer LTspice symbol name, fall back to type
+        lt_name_lower = lt_name.lower() if lt_name else ""
+        pin_offsets = (
+            _SYMBOL_PIN_OFFSETS.get(lt_name)
+            or _SYMBOL_PIN_OFFSETS.get(lt_name_lower)
+            or _PIN_OFFSETS.get(comp_type, [(0, 0), (0, 96)])
+        )
+        is_bipole = len(pin_offsets) == 2
 
-        # Convert rotation
-        rotation_deg, flip_h = _rotation_to_degrees(sym["rotation"])
+        # Convert position: LTspice SYMBOL origin → Spice-GUI center
+        cx, cy = _center_offset_from_pins(pin_offsets, sym["rotation"])
+        pos_x = (sym["x"] + cx) * _SCALE
+        pos_y = (sym["y"] + cy) * _SCALE
+
+        # Convert rotation (bipoles need +90° offset)
+        rotation_deg, flip_h = _rotation_to_degrees(sym["rotation"], is_bipole=is_bipole)
 
         component = ComponentData(
             component_id=comp_id,
@@ -419,7 +514,7 @@ def import_asc(text):
             model.component_counter[symbol] = max(current, num)
 
         # Calculate absolute pin positions for this component
-        pin_offsets = _PIN_OFFSETS.get(comp_type, [(0, 0), (0, 80)])
+        # (pin_offsets was already resolved above via symbol/type lookup)
         for term_idx, (dx, dy) in enumerate(pin_offsets):
             tx, ty = _transform_pin(dx, dy, sym["rotation"])
             abs_x = sym["x"] + tx

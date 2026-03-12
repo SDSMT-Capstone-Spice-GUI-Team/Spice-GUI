@@ -158,6 +158,7 @@ class TestExportAsc:
         assert "Version 4" in content
 
     def test_rotation_code(self):
+        """Spice-GUI 90° (vertical bipole) -> LTspice R0 (vertical)."""
         model = CircuitModel()
         r1 = ComponentData(
             component_id="R1",
@@ -165,6 +166,20 @@ class TestExportAsc:
             value="1k",
             position=(100.0, 100.0),
             rotation=90,
+        )
+        model.add_component(r1)
+        content = export_asc(model)
+        assert "R0" in content
+
+    def test_horizontal_rotation_code(self):
+        """Spice-GUI 0° (horizontal bipole) -> LTspice R90 (horizontal)."""
+        model = CircuitModel()
+        r1 = ComponentData(
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(100.0, 100.0),
+            rotation=0,
         )
         model.add_component(r1)
         content = export_asc(model)
@@ -177,7 +192,7 @@ class TestExportAsc:
             component_type="Resistor",
             value="1k",
             position=(100.0, 100.0),
-            rotation=0,
+            rotation=90,
             flip_h=True,
         )
         model.add_component(r1)
