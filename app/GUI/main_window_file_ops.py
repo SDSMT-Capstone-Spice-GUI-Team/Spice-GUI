@@ -21,6 +21,8 @@ class FileOperationsMixin:
 
     def _on_new(self):
         """Create a new circuit"""
+        # AUDIT(robustness): Only checks component count, ignores self._dirty flag. A
+        # circuit with unsaved value/wire changes but no new components would not prompt.
         if len(self.canvas.components) > 0:
             if not self.dialogs.confirm("New Circuit", "Current circuit will be lost. Continue?"):
                 return
@@ -541,6 +543,8 @@ class FileOperationsMixin:
 
         for example_file in example_files:
             try:
+                # AUDIT(robustness): Missing encoding="utf-8" -- relies on platform
+                # default encoding which may not be UTF-8 on all systems
                 with open(example_file, "r") as f:
                     data = json.load(f)
 
@@ -555,6 +559,8 @@ class FileOperationsMixin:
                     {"name": name, "description": description, "filepath": example_file}
                 )
             except (json.JSONDecodeError, OSError) as e:
+                # AUDIT(logging): f-string in logger; use
+                # logger.warning("Failed to load example %s: %s", example_file, e)
                 logger.warning(f"Failed to load example {example_file}: {e}")
 
         # Create menu entries organized by category

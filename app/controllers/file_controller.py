@@ -54,6 +54,9 @@ class FileController:
         self.circuit_ctrl = circuit_ctrl
         self.current_file: Optional[Path] = None
         self._session_file = session_file
+        # AUDIT(path): Autosave path is anchored to source-code location, not user's
+        # working directory. The .autosave_recovery.json file ends up inside the app/
+        # source tree, which is unusual and may be gitignored or lost during updates.
         self._autosave_file = Path(__file__).resolve().parent.parent / autosave_file
 
     def _replace_model(self, new_model: CircuitModel) -> None:
@@ -88,7 +91,13 @@ class FileController:
         """
         self._replace_model(new_model)
         if self.circuit_ctrl:
+            # AUDIT(encapsulation): Calls private _notify() on circuit_ctrl. FileController
+            # should use a public notification method or the circuit_ctrl should expose a
+            # public model_loaded() trigger.
             self.circuit_ctrl._notify("model_loaded", None)
+        # AUDIT(undo): Does not clear undo history -- unlike load_circuit() and
+        # load_from_dict() which both call circuit_ctrl.clear_undo_history(). Stale undo
+        # commands may reference components that no longer exist.
 
     def new_circuit(self) -> None:
         """Clear the circuit and reset file state."""
@@ -115,6 +124,8 @@ class FileController:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             os.replace(tmp, filepath)
+        # AUDIT(exception): BaseException catches KeyboardInterrupt/SystemExit.
+        # Intentional for temp-file cleanup safety, but worth documenting.
         except BaseException:
             os.unlink(tmp)
             raise

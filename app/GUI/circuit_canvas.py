@@ -49,8 +49,13 @@ class CircuitCanvasView(QGraphicsView):
     def __init__(self, controller=None):
         super().__init__()
         self.controller = controller  # CircuitController reference for observer pattern
+        # AUDIT(shadowing): Assigning to self.scene shadows QGraphicsView.scene() method.
+        # All downstream code uses the attribute, so it works, but it breaks the Qt API
+        # contract -- self.scene is now a QGraphicsScene instance, not a bound method.
         self.scene = QGraphicsScene()
         if self.scene is None:
+            # AUDIT(dead-code): QGraphicsScene() never returns None; this guard is
+            # unreachable. Also, bare exit() should be sys.exit() or raise RuntimeError.
             exit()
         self.setScene(self.scene)
         self.setSceneRect(-GRID_EXTENT, -GRID_EXTENT, GRID_EXTENT * 2, GRID_EXTENT * 2)
@@ -164,8 +169,11 @@ class CircuitCanvasView(QGraphicsView):
             try:
                 handler(data)
             except (AttributeError, KeyError, TypeError) as e:
+                # AUDIT(logging): f-string in logger.error() defeats lazy formatting;
+                # use logger.error("Error handling event '%s': %s", event, e)
                 logger.error(f"Error handling event '{event}': {e}")
         else:
+            # AUDIT(logging): Same -- use %-formatting for lazy evaluation
             logger.debug(f"Unhandled observer event: {event}")
 
         # Clear stale OP annotations when circuit is modified
@@ -181,6 +189,9 @@ class CircuitCanvasView(QGraphicsView):
             self.node_voltages = {}
             self.branch_currents = {}
             self.show_node_voltages = False
+            # AUDIT(consistency): Should call self.clear_probes() or
+            # self.probe_overlay.clear_probes() instead of direct assignment for
+            # consistency with the probe overlay delegation pattern
             self.probe_results = []
 
     def _sync_nodes_from_model(self) -> None:
@@ -721,6 +732,8 @@ class CircuitCanvasView(QGraphicsView):
                         # Accept event only when we successfully started wire drawing
                         event.accept()
                         return
+                    # AUDIT(dead-code): This 'pass' is unreachable -- the if-block
+                    # above always returns
                     pass
                 else:
                     # Complete the wire
@@ -1052,6 +1065,11 @@ class CircuitCanvasView(QGraphicsView):
 
         commands = []
 
+        # AUDIT(correctness): Wire indices captured here may become stale when the
+        # CompoundCommand executes deletions in order — earlier wire/component
+        # deletions shift subsequent wire indices. This is safe ONLY if
+        # DeleteWireCommand re-resolves the index at execute-time or if the
+        # CompoundCommand reverses the order. Verify DeleteWireCommand implementation.
         # Delete standalone wires first (skip wires that will cascade from component deletion)
         for wire in wires_to_delete:
             if wire in self.wires:
@@ -1609,6 +1627,10 @@ class CircuitCanvasView(QGraphicsView):
         rejected — this is checked when completing the wire, not when
         starting it.  When starting a wire, any terminal is valid.
         """
+        # AUDIT(duplication): This duplicate-wire check duplicates CircuitController.has_duplicate_wire().
+        # The controller's add_wire() already rejects duplicates, so this view-layer
+        # check is redundant. Consider delegating to controller.has_duplicate_wire() or
+        # removing this check entirely and relying on the command layer.
         if self.wire_start_comp is None:
             # Starting a wire — any terminal is valid
             return True

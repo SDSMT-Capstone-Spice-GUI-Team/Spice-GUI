@@ -522,7 +522,10 @@ class CircuitController:
         Used when an action has already been applied (e.g. during a drag)
         and only needs to be recorded for undo/redo.
         """
+        # AUDIT(encapsulation): Accesses private _undo_stack of UndoManager. Add a
+        # public push_pre_executed() method to UndoManager instead.
         self.undo_manager._undo_stack.append(command)
+        # AUDIT(encapsulation): Accesses private _redo_stack of UndoManager.
         self.undo_manager._redo_stack.clear()
 
     def undo(self) -> bool:
@@ -578,6 +581,9 @@ class CircuitController:
 
     def get_components(self) -> dict[str, ComponentData]:
         """Return a copy of the components dict."""
+        # AUDIT(defensiveness): Shallow copy -- callers can still mutate the
+        # ComponentData objects. Consider documenting this or returning deep copies if
+        # immutability is intended.
         return dict(self.model.components)
 
     def get_component_count(self) -> int:

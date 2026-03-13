@@ -371,6 +371,10 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         if show_label or show_value:
             # Counter-flip so text remains readable when component is flipped
+            # AUDIT(duplication): This counter-flip block is duplicated verbatim in
+            # Ground.paint() below (~line 600). Extract into a shared _draw_label()
+            # helper to avoid drift between the two implementations. (Introduced by
+            # PR #811)
             if sx != 1 or sy != 1:
                 painter.scale(sx, sy)
             painter.setPen(QPen(color))
@@ -439,6 +443,9 @@ class ComponentGraphicsItem(QGraphicsItem):
         # authoritative controller model is updated via the debounced
         # _notify_controller_position → controller.move_component() call.
         if self._pending_position:
+            # AUDIT(mvc): Direct model mutation from view layer bypasses controller.
+            # Documented as intentional for rendering consistency, but breaks the
+            # single-writer pattern established by PR #816.
             self.model.position = self._pending_position
 
         # Debounce observer notification (triggers expensive wire rerouting).
@@ -768,6 +775,10 @@ class Transformer(ComponentGraphicsItem):
     def boundingRect(self):
         return QRectF(-40, -25, 80, 50)
 
+    # AUDIT(consistency): Transformer overrides draw_component_body() with hardcoded
+    # drawing, bypassing the renderer delegation used by all other components. Also
+    # overrides get_obstacle_shape() with hardcoded coords. Consider adding a
+    # Transformer renderer for consistency.
     def draw_component_body(self, painter):
         # Terminal connection lines
         if self.scene() is not None:

@@ -26,6 +26,8 @@ class ViewOperationsMixin:
     def apply_theme(self):
         """Apply the current theme to all visual elements."""
         theme = theme_manager.current_theme
+        # AUDIT(naming): Method is called generate_dark_stylesheet() but is used for ALL
+        # themes (light and dark). Misleading name.
         self.setStyleSheet(theme.generate_dark_stylesheet())
 
         # Refresh canvas (grid + components)
@@ -147,6 +149,8 @@ class ViewOperationsMixin:
                 self.grading_panel._update_grade_button()
                 self.grading_panel.setVisible(True)
 
+            # AUDIT(robustness): No null check on statusBar() -- inconsistent with the
+            # pattern used elsewhere (status = self.statusBar(); if status: ...)
             self.statusBar().showMessage(f"Assignment loaded: {filename}", 3000)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load assignment:\n{e}")
@@ -206,6 +210,7 @@ class ViewOperationsMixin:
                 rubric=rubric.to_dict(),
             )
             save_assignment(bundle, save_path)
+            # AUDIT(robustness): No null check on statusBar() -- same as above
             self.statusBar().showMessage(f"Assignment saved: {save_path}", 3000)
         except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to save assignment:\n{e}")
@@ -286,14 +291,17 @@ class ViewOperationsMixin:
         self.canvas.set_probe_mode(checked)
         if checked:
             if not self.canvas.node_voltages and self._last_results is None:
+                # AUDIT(robustness): No null check on statusBar()
                 self.statusBar().showMessage("Probe mode active. Run a simulation first to see values.", 3000)
             else:
+                # AUDIT(robustness): No null check on statusBar()
                 self.statusBar().showMessage(
                     "Probe mode active. Click nodes or components to see values. Press Escape to exit.",
                     3000,
                 )
         else:
             self.canvas.clear_probes()
+            # AUDIT(robustness): No null check on statusBar()
             self.statusBar().showMessage("Probe mode deactivated.", 2000)
 
     def _on_probe_requested(self, signal_name, probe_type):
@@ -454,6 +462,8 @@ class ViewOperationsMixin:
                 include_net_labels=opts["include_net_labels"],
                 style=opts["style"],
             )
+        # AUDIT(exception): Bare 'except Exception' is too broad -- catches programming
+        # errors. Narrow to specific exceptions (ValueError, KeyError, etc.)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
             return
@@ -487,14 +497,19 @@ class ViewOperationsMixin:
         """Copy the CircuiTikZ environment block to the clipboard."""
         model = self.circuit_ctrl.model
         if not model.components:
+            # AUDIT(robustness): No null check on statusBar()
             self.statusBar().showMessage("Nothing to copy — the canvas is empty.", 3000)
             return
 
         try:
             tikz_code = self.simulation_ctrl.generate_circuitikz(standalone=False)
+        # AUDIT(exception): Same broad exception catch as export_circuitikz above
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
             return
 
+        # AUDIT(robustness): No null check on QApplication.clipboard() -- could be None
+        # in headless/test environments
         QApplication.clipboard().setText(tikz_code)
+        # AUDIT(robustness): No null check on statusBar()
         self.statusBar().showMessage("CircuiTikZ code copied to clipboard.", 3000)

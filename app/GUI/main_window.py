@@ -156,6 +156,8 @@ class MainWindow(
         self.properties_panel.property_changed.connect(self.on_property_changed)
         self.circuit_ctrl.add_observer(self._on_dirty_change)
         # Wire results panel display delegate to SimulationMixin handler.
+        # AUDIT(encapsulation): Writes to private attribute _display_delegate. Consider
+        # a public setter or constructor parameter on ResultsPanel.
         self.results_panel._display_delegate = self._display_simulation_results
 
     def init_ui(self):
@@ -371,6 +373,10 @@ class MainWindow(
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
 
         elif property_name == "rotation":
+            # AUDIT(undo): Rotation from properties panel bypasses undo/redo command queue
+            # (calls controller directly instead of via RotateComponentCommand). PR #816
+            # routed canvas mutations through commands but this properties-panel path was
+            # missed.
             self.circuit_ctrl.set_component_rotation(component_id, new_value)
             statusBar = self.statusBar()
             if statusBar:
@@ -381,6 +387,8 @@ class MainWindow(
 
         elif property_name == "waveform":
             waveform_type, params = new_value
+            # AUDIT(undo): Waveform updates bypass undo/redo command queue -- same issue
+            # as rotation above
             self.circuit_ctrl.update_component_waveform(component_id, waveform_type, params)
             # Refresh properties panel to show updated SPICE value
             component = self.canvas.components.get(component_id)
@@ -391,6 +399,8 @@ class MainWindow(
                 statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
 
         elif property_name == "initial_condition":
+            # AUDIT(undo): Initial condition updates bypass undo/redo command queue --
+            # same issue as rotation and waveform above
             self.circuit_ctrl.update_component_initial_condition(component_id, new_value)
             ic_display = new_value if new_value else "none"
             statusBar = self.statusBar()
