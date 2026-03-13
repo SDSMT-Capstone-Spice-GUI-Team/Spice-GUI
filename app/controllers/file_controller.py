@@ -94,6 +94,8 @@ class FileController:
         """Clear the circuit and reset file state."""
         self.model.clear()
         self.current_file = None
+        if self.circuit_ctrl:
+            self.circuit_ctrl.clear_undo_history()
 
     def save_circuit(self, filepath) -> None:
         """
@@ -153,6 +155,7 @@ class FileController:
         self.add_recent_file(filepath)
 
         if self.circuit_ctrl:
+            self.circuit_ctrl.clear_undo_history()
             self.circuit_ctrl._notify("model_loaded", None)
 
     def load_from_dict(self, data: dict) -> None:
@@ -165,6 +168,7 @@ class FileController:
         self._replace_model(new_model)
 
         if self.circuit_ctrl:
+            self.circuit_ctrl.clear_undo_history()
             self.circuit_ctrl._notify("model_loaded", None)
 
     def has_file(self) -> bool:

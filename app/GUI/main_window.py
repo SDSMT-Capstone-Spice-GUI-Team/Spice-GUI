@@ -362,7 +362,10 @@ class MainWindow(
     def on_property_changed(self, component_id, property_name, new_value):
         """Handle property changes from properties panel via controller."""
         if property_name == "value":
-            self.circuit_ctrl.update_component_value(component_id, new_value)
+            from controllers.commands import ChangeValueCommand
+
+            cmd = ChangeValueCommand(self.circuit_ctrl, component_id, new_value)
+            self.circuit_ctrl.execute_command(cmd)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)

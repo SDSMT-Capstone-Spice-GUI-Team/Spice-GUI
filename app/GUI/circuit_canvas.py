@@ -617,9 +617,12 @@ class CircuitCanvasView(QGraphicsView):
             grid_x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
             grid_y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
 
-            # Controller handles component creation, observer creates graphics item
-            component_data = self.controller.add_component(component_type, (grid_x, grid_y))
-            self.componentAdded.emit(component_data.component_id)
+            from controllers.commands import AddComponentCommand
+
+            cmd = AddComponentCommand(self.controller, component_type, (grid_x, grid_y))
+            self.controller.execute_command(cmd)
+            if cmd.component_id:
+                self.componentAdded.emit(cmd.component_id)
 
             event.acceptProposedAction()
 
@@ -639,9 +642,12 @@ class CircuitCanvasView(QGraphicsView):
         grid_x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
         grid_y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
 
-        # Controller handles component creation, observer creates graphics item
-        component_data = self.controller.add_component(component_type, (grid_x, grid_y))
-        self.componentAdded.emit(component_data.component_id)
+        from controllers.commands import AddComponentCommand
+
+        cmd = AddComponentCommand(self.controller, component_type, (grid_x, grid_y))
+        self.controller.execute_command(cmd)
+        if cmd.component_id:
+            self.componentAdded.emit(cmd.component_id)
 
     def mousePressEvent(self, event):
         """Handle wire drawing, probe mode, and component selection"""
@@ -734,14 +740,18 @@ class CircuitCanvasView(QGraphicsView):
                                         + [(wp.x(), wp.y()) for wp in self._wire_waypoints]
                                         + [(end_pos.x(), end_pos.y())]
                                     )
-                                # Controller creates wire, observer creates graphics item
-                                self.controller.add_wire(
+
+                                from controllers.commands import AddWireCommand
+
+                                cmd = AddWireCommand(
+                                    self.controller,
                                     self.wire_start_comp.component_id,
                                     self.wire_start_term,
                                     clicked_component.component_id,
                                     target_term,
                                     waypoints=manual_wps,
                                 )
+                                self.controller.execute_command(cmd)
                                 self.wireAdded.emit(
                                     self.wire_start_comp.component_id,
                                     clicked_component.component_id,
@@ -1015,24 +1025,52 @@ class CircuitCanvasView(QGraphicsView):
             menu.exec(self.mapToGlobal(position))
 
     def delete_selected(self):
-        """Delete all selected items"""
+        """Delete all selected items as a single undoable operation."""
         selected_items = self.scene.selectedItems()
         if not selected_items:
             return
+        if not self.controller:
+            return
+
+        from controllers.commands import (
+            CompoundCommand,
+            DeleteAnnotationCommand,
+            DeleteComponentCommand,
+            DeleteWireCommand,
+        )
 
         components_to_delete = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
         wires_to_delete = [item for item in selected_items if isinstance(item, WireItem)]
         annotations_to_delete = [item for item in selected_items if isinstance(item, AnnotationItem)]
 
-        for comp in components_to_delete:
-            self.delete_component(comp)
+        # Collect component IDs being deleted so we skip their cascaded wires
+        deleting_comp_ids = {comp.component_id for comp in components_to_delete}
 
+        commands = []
+
+        # Delete standalone wires first (skip wires that will cascade from component deletion)
         for wire in wires_to_delete:
             if wire in self.wires:
-                self.delete_wire(wire)
+                wire_model = self.controller.model.wires[self.wires.index(wire)]
+                if (
+                    wire_model.start_component_id in deleting_comp_ids
+                    or wire_model.end_component_id in deleting_comp_ids
+                ):
+                    continue  # Will be cascade-deleted with the component
+                commands.append(DeleteWireCommand(self.controller, self.wires.index(wire)))
+
+        for comp in components_to_delete:
+            commands.append(DeleteComponentCommand(self.controller, comp.component_id))
 
         for ann in annotations_to_delete:
-            self._delete_annotation(ann)
+            if ann in self.annotations:
+                commands.append(DeleteAnnotationCommand(self.controller, self.annotations.index(ann)))
+
+        if len(commands) == 1:
+            self.controller.execute_command(commands[0])
+        elif commands:
+            compound = CompoundCommand(commands, f"Delete {len(commands)} items")
+            self.controller.execute_command(compound)
 
     def delete_component(self, component):
         """Delete a component and all connected wires via undo/redo command."""
@@ -1114,41 +1152,66 @@ class CircuitCanvasView(QGraphicsView):
             self.controller.execute_command(compound)
 
     def rotate_component(self, component, clockwise=True):
-        """Rotate a single component."""
+        """Rotate a single component via undo/redo command."""
         if component is None or not isinstance(component, ComponentGraphicsItem):
             return
         if not self.controller:
             logger.warning("Cannot rotate component: no controller available")
             return
 
-        # Controller handles rotation, observer updates graphics and wires
-        self.controller.rotate_component(component.component_id, clockwise)
+        from controllers.commands import RotateComponentCommand
+
+        cmd = RotateComponentCommand(self.controller, component.component_id, clockwise)
+        self.controller.execute_command(cmd)
 
     def rotate_selected(self, clockwise=True):
-        """Rotate all selected components"""
+        """Rotate all selected components as a single undoable operation."""
+        if not self.controller:
+            return
         selected_items = self.scene.selectedItems()
         components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
+        if not components:
+            return
 
-        for comp in components:
-            self.rotate_component(comp, clockwise)
+        from controllers.commands import CompoundCommand, RotateComponentCommand
+
+        commands = [RotateComponentCommand(self.controller, comp.component_id, clockwise) for comp in components]
+        if len(commands) == 1:
+            self.controller.execute_command(commands[0])
+        else:
+            compound = CompoundCommand(commands, f"Rotate {len(commands)} components")
+            self.controller.execute_command(compound)
 
     def flip_component(self, component, horizontal=True):
-        """Flip a single component - uses controller"""
+        """Flip a single component via undo/redo command."""
         if component is None or not isinstance(component, ComponentGraphicsItem):
             return
         if not self.controller:
             logger.warning("Cannot flip component: no controller available")
             return
 
-        self.controller.flip_component(component.component_id, horizontal)
+        from controllers.commands import FlipComponentCommand
+
+        cmd = FlipComponentCommand(self.controller, component.component_id, horizontal)
+        self.controller.execute_command(cmd)
 
     def flip_selected(self, horizontal=True):
-        """Flip all selected components"""
+        """Flip all selected components as a single undoable operation."""
+        if not self.controller:
+            return
         selected_items = self.scene.selectedItems()
         components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
+        if not components:
+            return
 
-        for comp in components:
-            self.flip_component(comp, horizontal)
+        from controllers.commands import CompoundCommand, FlipComponentCommand
+
+        commands = [FlipComponentCommand(self.controller, comp.component_id, horizontal) for comp in components]
+        if len(commands) == 1:
+            self.controller.execute_command(commands[0])
+        else:
+            compound = CompoundCommand(commands, f"Flip {len(commands)} components")
+            self.controller.execute_command(compound)
 
     def add_annotation(self, scene_pos=None):
         """Add a text annotation at the given scene position (or viewport center)."""

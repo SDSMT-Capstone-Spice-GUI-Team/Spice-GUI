@@ -41,22 +41,40 @@ class FileOperationsMixin:
                 statusBar.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", 2000)
 
     def cut_selected(self):
-        """Cut selected components to internal clipboard."""
+        """Cut selected components to internal clipboard (copy + undoable delete)."""
         ids = self.canvas.get_selected_component_ids()
         if ids:
-            self.circuit_ctrl.cut_components(ids)
+            # Copy to clipboard first (non-destructive)
+            self.circuit_ctrl.copy_components(ids)
+
+            # Delete via command so it's undoable
+            from controllers.commands import CompoundCommand, DeleteComponentCommand
+
+            commands = [DeleteComponentCommand(self.circuit_ctrl, comp_id) for comp_id in ids]
+            if len(commands) == 1:
+                self.circuit_ctrl.execute_command(commands[0])
+            else:
+                compound = CompoundCommand(commands, f"Cut {len(commands)} components")
+                self.circuit_ctrl.execute_command(compound)
 
     def paste_components(self):
-        """Paste components from internal clipboard."""
-        new_comps, new_wires = self.circuit_ctrl.paste_components()
-        if new_comps:
+        """Paste components from internal clipboard via undo/redo command."""
+        if not self.circuit_ctrl.has_clipboard_content():
+            return
+
+        from controllers.commands import PasteCommand
+
+        cmd = PasteCommand(self.circuit_ctrl)
+        self.circuit_ctrl.execute_command(cmd)
+
+        if cmd.pasted_component_ids:
             # Select newly pasted items on the canvas
             self.canvas.scene.clearSelection()
-            for comp_data in new_comps:
-                comp_item = self.canvas.components.get(comp_data.component_id)
+            for comp_id in cmd.pasted_component_ids:
+                comp_item = self.canvas.components.get(comp_id)
                 if comp_item is not None:
                     comp_item.setSelected(True)
-            n = len(new_comps)
+            n = len(cmd.pasted_component_ids)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
