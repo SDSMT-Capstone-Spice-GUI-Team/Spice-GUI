@@ -6,7 +6,6 @@ The fix applies a counter-scale before drawing text so labels remain
 in their original orientation regardless of component flip state.
 """
 
-import ast
 import inspect
 import textwrap
 
@@ -110,9 +109,7 @@ class TestLabelCounterFlipPainter:
 
     def test_no_flip_no_counter_scale(self, _make_item):
         """When not flipped, no scale() should be called."""
-        from GUI.component_item import ComponentGraphicsItem
-
-        item = _make_item(ComponentGraphicsItem, "R1")
+        item = _make_item("Resistor", "R1")
         log = self._collect_scale_calls_around_drawText(item, flip_h=False, flip_v=False)
         scale_calls = [e for e in log if e[0] == "scale"]
         assert len(scale_calls) == 0, "No scale calls when component is not flipped"
@@ -120,9 +117,7 @@ class TestLabelCounterFlipPainter:
     def test_flip_h_counter_scale_before_text(self, _make_item):
         """When flip_h is True, scale(-1,1) must be called twice -- once for the
         flip transform and once to undo it before drawing text."""
-        from GUI.component_item import ComponentGraphicsItem
-
-        item = _make_item(ComponentGraphicsItem, "R1")
+        item = _make_item("Resistor", "R1")
         log = self._collect_scale_calls_around_drawText(item, flip_h=True)
 
         scale_calls = [e for e in log if e[0] == "scale"]
@@ -142,9 +137,7 @@ class TestLabelCounterFlipPainter:
 
     def test_flip_v_counter_scale_before_text(self, _make_item):
         """When flip_v is True, scale(1,-1) is called twice."""
-        from GUI.component_item import ComponentGraphicsItem
-
-        item = _make_item(ComponentGraphicsItem, "R1")
+        item = _make_item("Resistor", "R1")
         log = self._collect_scale_calls_around_drawText(item, flip_v=True)
 
         scale_calls = [e for e in log if e[0] == "scale"]
@@ -154,9 +147,7 @@ class TestLabelCounterFlipPainter:
 
     def test_flip_both_counter_scale_before_text(self, _make_item):
         """When both flip_h and flip_v are True, scale(-1,-1) is called twice."""
-        from GUI.component_item import ComponentGraphicsItem
-
-        item = _make_item(ComponentGraphicsItem, "R1")
+        item = _make_item("Resistor", "R1")
         log = self._collect_scale_calls_around_drawText(item, flip_h=True, flip_v=True)
 
         scale_calls = [e for e in log if e[0] == "scale"]
