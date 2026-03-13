@@ -197,8 +197,8 @@ class TestCanvasAnnotationUndoIntegration:
 
         assert _source_uses_name(CircuitCanvasView._delete_annotation, "DeleteAnnotationCommand")
 
-    def test_delete_selected_delegates_to_delete_annotation(self):
-        """delete_selected should call _delete_annotation for annotations."""
+    def test_delete_selected_uses_delete_annotation_command(self):
+        """delete_selected should use DeleteAnnotationCommand for annotations."""
         from GUI.circuit_canvas import CircuitCanvasView
 
-        assert _source_uses_name(CircuitCanvasView.delete_selected, "_delete_annotation")
+        assert _source_uses_name(CircuitCanvasView.delete_selected, "DeleteAnnotationCommand")
