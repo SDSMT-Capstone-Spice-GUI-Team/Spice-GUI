@@ -370,6 +370,9 @@ class ComponentGraphicsItem(QGraphicsItem):
         )
 
         if show_label or show_value:
+            # Counter-flip so text remains readable when component is flipped
+            if sx != 1 or sy != 1:
+                painter.scale(sx, sy)
             painter.setPen(QPen(color))
             if show_label and show_value:
                 painter.drawText(-20, -25, f"{self.component_id} ({self.value})")
@@ -595,6 +598,9 @@ class Ground(ComponentGraphicsItem):
         )
 
         if show_label or show_value:
+            # Counter-flip so text remains readable when component is flipped
+            if sx != 1 or sy != 1:
+                painter.scale(sx, sy)
             painter.setPen(QPen(color))
             if show_label and show_value:
                 painter.drawText(-20, -25, "GND (0V)")
