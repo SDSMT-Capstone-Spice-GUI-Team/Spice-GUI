@@ -316,6 +316,10 @@ class CircuitCanvasView(QGraphicsView):
             # Reroute remaining wires connected to the same components —
             # they may have been routed around the now-deleted wire.
             self._reroute_wires_near_components(affected_components)
+            # Force full repaint so foreground node labels/dots are refreshed.
+            # Without this, stale node annotations remain as ghost artifacts
+            # when the deleted wire's node is removed from the model.
+            self.scene.update()
 
     def _handle_wire_routed(self, data) -> None:
         """Update wire waypoints"""
