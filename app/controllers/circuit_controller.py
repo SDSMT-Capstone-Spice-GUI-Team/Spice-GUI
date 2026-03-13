@@ -514,6 +514,7 @@ class CircuitController:
             command: A Command instance to execute
         """
         self.undo_manager.execute(command)
+        self._notify("undo_state_changed", None)
 
     def push_already_executed(self, command) -> None:
         """Push a pre-executed command onto the undo stack.
@@ -531,7 +532,10 @@ class CircuitController:
         Returns:
             True if an action was undone, False otherwise
         """
-        return self.undo_manager.undo()
+        result = self.undo_manager.undo()
+        if result:
+            self._notify("undo_state_changed", None)
+        return result
 
     def redo(self) -> bool:
         """
@@ -540,7 +544,10 @@ class CircuitController:
         Returns:
             True if an action was redone, False otherwise
         """
-        return self.undo_manager.redo()
+        result = self.undo_manager.redo()
+        if result:
+            self._notify("undo_state_changed", None)
+        return result
 
     def can_undo(self) -> bool:
         """Return whether there are commands to undo."""

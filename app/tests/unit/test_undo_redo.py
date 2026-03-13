@@ -778,3 +778,225 @@ class TestStaleStateValidation:
         cmd = RerouteWireCommand(controller, 99)
         cmd.execute()
         cmd.undo()
+
+
+# ===========================================================================
+# Full Workflow Integration Tests (#814)
+# ===========================================================================
+
+
+class TestFullUndoRedoWorkflow:
+    """Issue #814: verify all model-mutating operations are undoable via controller."""
+
+    def test_add_component_undoable(self):
+        """Adding a component via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+
+        cmd = AddComponentCommand(ctrl, "Resistor", (0, 0))
+        ctrl.execute_command(cmd)
+
+        assert len(model.components) == 1
+        assert ctrl.can_undo()
+
+        ctrl.undo()
+        assert len(model.components) == 0
+
+        ctrl.redo()
+        assert len(model.components) == 1
+
+    def test_add_wire_undoable(self):
+        """Adding a wire via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (200, 0))
+
+        cmd = AddWireCommand(ctrl, r1.component_id, 1, r2.component_id, 0)
+        ctrl.execute_command(cmd)
+
+        assert len(model.wires) == 1
+        assert len(model.nodes) == 1
+
+        ctrl.undo()
+        assert len(model.wires) == 0
+        assert len(model.nodes) == 0
+
+        ctrl.redo()
+        assert len(model.wires) == 1
+        assert len(model.nodes) == 1
+
+    def test_add_wire_with_waypoints_undoable(self):
+        """Wire undo must preserve original waypoints on redo."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (200, 0))
+
+        waypoints = [(0.0, 0.0), (50.0, 50.0), (200.0, 0.0)]
+        cmd = AddWireCommand(ctrl, r1.component_id, 1, r2.component_id, 0, waypoints=waypoints)
+        ctrl.execute_command(cmd)
+
+        assert model.wires[0].waypoints == waypoints
+
+        ctrl.undo()
+        assert len(model.wires) == 0
+
+        ctrl.redo()
+        assert len(model.wires) == 1
+        assert model.wires[0].waypoints == waypoints
+
+    def test_rotate_component_undoable(self):
+        """Rotating a component via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+
+        cmd = RotateComponentCommand(ctrl, comp.component_id, clockwise=True)
+        ctrl.execute_command(cmd)
+        assert model.components[comp.component_id].rotation == 90
+
+        ctrl.undo()
+        assert model.components[comp.component_id].rotation == 0
+
+        ctrl.redo()
+        assert model.components[comp.component_id].rotation == 90
+
+    def test_flip_component_undoable(self):
+        """Flipping a component via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+
+        cmd = FlipComponentCommand(ctrl, comp.component_id, horizontal=True)
+        ctrl.execute_command(cmd)
+        assert model.components[comp.component_id].flip_h is True
+
+        ctrl.undo()
+        assert model.components[comp.component_id].flip_h is False
+
+        ctrl.redo()
+        assert model.components[comp.component_id].flip_h is True
+
+    def test_change_value_undoable(self):
+        """Changing a value via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+        original = comp.value
+
+        cmd = ChangeValueCommand(ctrl, comp.component_id, "47k")
+        ctrl.execute_command(cmd)
+        assert model.components[comp.component_id].value == "47k"
+
+        ctrl.undo()
+        assert model.components[comp.component_id].value == original
+
+        ctrl.redo()
+        assert model.components[comp.component_id].value == "47k"
+
+    def test_paste_undoable(self):
+        """Pasting components via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        ctrl.copy_components([r1.component_id])
+
+        cmd = PasteCommand(ctrl, offset=(40, 40))
+        ctrl.execute_command(cmd)
+        assert len(model.components) == 2
+
+        ctrl.undo()
+        assert len(model.components) == 1
+
+        ctrl.redo()
+        assert len(model.components) == 2
+
+    def test_compound_rotate_multiple_undoable(self):
+        """Rotating multiple components in a compound command undoes as one step."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (200, 0))
+
+        commands = [
+            RotateComponentCommand(ctrl, r1.component_id, clockwise=True),
+            RotateComponentCommand(ctrl, r2.component_id, clockwise=True),
+        ]
+        compound = CompoundCommand(commands, "Rotate 2 components")
+        ctrl.execute_command(compound)
+
+        assert model.components[r1.component_id].rotation == 90
+        assert model.components[r2.component_id].rotation == 90
+
+        ctrl.undo()
+        assert model.components[r1.component_id].rotation == 0
+        assert model.components[r2.component_id].rotation == 0
+
+    def test_compound_delete_undoable(self):
+        """Deleting multiple items in a compound command undoes as one step."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (200, 0))
+        ctrl.add_wire(r1.component_id, 1, r2.component_id, 0)
+
+        commands = [
+            DeleteComponentCommand(ctrl, r1.component_id),
+            DeleteComponentCommand(ctrl, r2.component_id),
+        ]
+        compound = CompoundCommand(commands, "Delete 2 components")
+        ctrl.execute_command(compound)
+
+        assert len(model.components) == 0
+        assert len(model.wires) == 0
+
+        ctrl.undo()
+        assert len(model.components) == 2
+
+    def test_undo_state_changed_notification(self):
+        """execute_command, undo, and redo all fire undo_state_changed."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        events = []
+        ctrl.add_observer(lambda event, data: events.append(event))
+
+        cmd = AddComponentCommand(ctrl, "Resistor", (0, 0))
+        ctrl.execute_command(cmd)
+        assert "undo_state_changed" in events
+
+        events.clear()
+        ctrl.undo()
+        assert "undo_state_changed" in events
+
+        events.clear()
+        ctrl.redo()
+        assert "undo_state_changed" in events
+
+    def test_mixed_operation_undo_stack_order(self):
+        """Multiple different operations undo in correct LIFO order."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+
+        # 1. Add component
+        cmd1 = AddComponentCommand(ctrl, "Resistor", (0, 0))
+        ctrl.execute_command(cmd1)
+        comp_id = cmd1.component_id
+
+        # 2. Change its value
+        cmd2 = ChangeValueCommand(ctrl, comp_id, "10k")
+        ctrl.execute_command(cmd2)
+
+        # 3. Rotate it
+        cmd3 = RotateComponentCommand(ctrl, comp_id, clockwise=True)
+        ctrl.execute_command(cmd3)
+
+        # Undo in reverse: rotation, value, addition
+        ctrl.undo()  # undo rotate
+        assert model.components[comp_id].rotation == 0
+
+        ctrl.undo()  # undo value change
+        assert model.components[comp_id].value != "10k"
+
+        ctrl.undo()  # undo add
+        assert len(model.components) == 0

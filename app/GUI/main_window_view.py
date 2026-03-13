@@ -213,7 +213,7 @@ class ViewOperationsMixin:
     # Dirty flag (unsaved changes indicator)
 
     def _on_dirty_change(self, event: str, data) -> None:
-        """Mark circuit as dirty on model-modifying events."""
+        """Mark circuit as dirty on model-modifying events and refresh undo/redo menu."""
         dirty_events = {
             "component_added",
             "component_removed",
@@ -230,6 +230,9 @@ class ViewOperationsMixin:
             self._set_dirty(True)
         elif event in ("circuit_cleared", "model_loaded"):
             self._set_dirty(False)
+
+        if event == "undo_state_changed":
+            self._update_undo_redo_actions()
 
         # Sync palette "Used in File" when components change
         if event in (
