@@ -53,6 +53,16 @@ class TestWireDeletionModelSync:
         for node in model.nodes:
             assert len(node.wires) == 0 or all(w in model.wires for w in node.wires)
 
+    def test_remove_only_wire_leaves_no_nodes(self):
+        """Deleting the only wire should leave no nodes (no orphaned node dots)."""
+        model, ctrl, r1, r2 = _make_circuit_with_wire()
+        assert len(model.nodes) == 1
+
+        ctrl.remove_wire(0)
+
+        assert len(model.nodes) == 0
+        assert len(model.terminal_to_node) == 0
+
 
 class TestWireDeletionUndoRedo:
     """Wire deletion via command must support Ctrl+Z / Ctrl+Y."""
@@ -85,6 +95,34 @@ class TestWireDeletionUndoRedo:
 
         ctrl.redo()
         assert len(model.wires) == 0
+
+    def test_undo_restores_node(self):
+        """Undoing wire deletion should restore the node (no orphaned dots)."""
+        model, ctrl, r1, r2 = _make_circuit_with_wire()
+        assert len(model.nodes) == 1
+
+        cmd = DeleteWireCommand(ctrl, 0)
+        ctrl.execute_command(cmd)
+        assert len(model.nodes) == 0
+
+        ctrl.undo()
+        assert len(model.nodes) == 1
+        # Both terminals should be mapped back to the restored node
+        assert (r1.component_id, 1) in model.terminal_to_node
+        assert (r2.component_id, 0) in model.terminal_to_node
+
+    def test_redo_removes_node_again(self):
+        """Redo of wire deletion should re-remove the node cleanly."""
+        model, ctrl, r1, r2 = _make_circuit_with_wire()
+
+        cmd = DeleteWireCommand(ctrl, 0)
+        ctrl.execute_command(cmd)
+        ctrl.undo()
+        assert len(model.nodes) == 1
+
+        ctrl.redo()
+        assert len(model.nodes) == 0
+        assert len(model.terminal_to_node) == 0
 
     def test_undo_description(self):
         model, ctrl, r1, r2 = _make_circuit_with_wire()
