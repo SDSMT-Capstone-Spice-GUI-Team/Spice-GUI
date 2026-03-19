@@ -44,7 +44,7 @@ class TestLoadFromModel:
         ctrl = FileController(CircuitModel(), circuit_ctrl=mock_ctrl)
         new_model = build_simple_circuit()
         ctrl.load_from_model(new_model)
-        mock_ctrl._notify.assert_called_once_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_once_with("model_loaded", None)
 
     def test_load_from_model_without_circuit_ctrl(self):
         """load_from_model should work without circuit_ctrl."""
@@ -66,7 +66,7 @@ class TestCircuitCtrlNotifications:
         ctrl = FileController(model, circuit_ctrl=mock_ctrl)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
-        mock_ctrl._notify.assert_called_with("model_saved", None)
+        mock_ctrl.notify.assert_called_with("model_saved", None)
 
     @patch("controllers.file_controller.settings")
     def test_load_circuit_notifies_circuit_ctrl(self, mock_settings, tmp_path):
@@ -80,7 +80,7 @@ class TestCircuitCtrlNotifications:
         mock_ctrl = MagicMock()
         ctrl2 = FileController(circuit_ctrl=mock_ctrl)
         ctrl2.load_circuit(filepath)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
 
 class TestSaveSessionOSError:
@@ -188,7 +188,7 @@ class TestImportNetlistCtrlNotification:
         netlist.write_text("Test Circuit\nV1 1 0 DC 5V\nR1 1 0 1k\n.op\n.end\n")
         ctrl = FileController(CircuitModel(), circuit_ctrl=mock_ctrl)
         ctrl.import_netlist(netlist)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
 
 class TestImportAscAnalysisAndNotification:
@@ -229,7 +229,7 @@ class TestImportAscAnalysisAndNotification:
         )
         ctrl = FileController(CircuitModel(), circuit_ctrl=mock_ctrl)
         ctrl.import_asc(asc)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
 
 class TestImportCircuitikzCoverage:
@@ -255,7 +255,7 @@ class TestImportCircuitikzCoverage:
         tex.write_text("\\begin{circuitikz}\n\\draw (0,0) to[R, l=$R_1$] (2,0);\n\\end{circuitikz}\n")
         ctrl = FileController(CircuitModel(), circuit_ctrl=mock_ctrl)
         ctrl.import_circuitikz(tex)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
     @patch("controllers.file_controller.settings")
     def test_import_circuitikz_adds_to_recent(self, mock_settings, tmp_path):
@@ -279,7 +279,7 @@ class TestLoadFromDictCtrlNotification:
         ctrl = FileController(model, circuit_ctrl=mock_ctrl)
         data = model.to_dict()
         ctrl.load_from_dict(data)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
 
 class TestLoadLastSessionOSError:
@@ -354,7 +354,7 @@ class TestLoadAutoSaveBranches:
         mock_ctrl = MagicMock()
         ctrl2 = FileController(autosave_file=autosave_file, circuit_ctrl=mock_ctrl)
         ctrl2.load_auto_save()
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
     def test_load_auto_save_returns_none_on_oserror(self, tmp_path):
         """load_auto_save should return None on OSError."""

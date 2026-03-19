@@ -69,20 +69,20 @@ class TestInheritedHelpers:
 
 
 class TestDarkStylesheet:
-    """Verify generate_dark_stylesheet() behavior."""
+    """Verify generate_stylesheet() behavior."""
 
     def test_dark_custom_has_stylesheet(self):
         theme = CustomTheme("D", "dark", {}, theme_is_dark=True)
-        ss = theme.generate_dark_stylesheet()
+        ss = theme.generate_stylesheet()
         assert len(ss) > 0
         assert "background-color" in ss
 
     def test_light_custom_empty_stylesheet(self):
         theme = CustomTheme("L", "light", {}, theme_is_dark=False)
-        ss = theme.generate_dark_stylesheet()
+        ss = theme.generate_stylesheet()
         assert ss == ""
 
     def test_dark_stylesheet_uses_theme_colors(self):
         theme = CustomTheme("D", "dark", {"background_primary": "#1A1A2E"}, theme_is_dark=True)
-        ss = theme.generate_dark_stylesheet()
+        ss = theme.generate_stylesheet()
         assert "#1a1a2e" in ss.lower()

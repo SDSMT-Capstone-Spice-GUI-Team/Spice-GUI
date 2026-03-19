@@ -175,7 +175,7 @@ class TestLoadAutoSave:
         mock_ctrl = MagicMock()
         ctrl2.circuit_ctrl = mock_ctrl
         ctrl2.load_auto_save()
-        mock_ctrl._notify.assert_called_once_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_once_with("model_loaded", None)
 
     def test_autosave_source_not_in_model_data(self, tmp_path):
         """The _autosave_source metadata should not leak into the model."""
