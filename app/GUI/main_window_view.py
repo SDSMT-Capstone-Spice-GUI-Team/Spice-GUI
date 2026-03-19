@@ -147,7 +147,8 @@ class ViewOperationsMixin:
                 self.grading_panel._update_grade_button()
                 self.grading_panel.setVisible(True)
 
-            self.statusBar().showMessage(f"Assignment loaded: {filename}", 3000)
+            if bar := self.statusBar():
+                bar.showMessage(f"Assignment loaded: {filename}", 3000)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load assignment:\n{e}")
 
@@ -206,7 +207,8 @@ class ViewOperationsMixin:
                 rubric=rubric.to_dict(),
             )
             save_assignment(bundle, save_path)
-            self.statusBar().showMessage(f"Assignment saved: {save_path}", 3000)
+            if bar := self.statusBar():
+                bar.showMessage(f"Assignment saved: {save_path}", 3000)
         except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to save assignment:\n{e}")
 
@@ -285,21 +287,24 @@ class ViewOperationsMixin:
         """Toggle interactive probe mode on the canvas."""
         self.canvas.set_probe_mode(checked)
         if checked:
-            if not self.canvas.node_voltages and self._last_results is None:
-                self.statusBar().showMessage("Probe mode active. Run a simulation first to see values.", 3000)
-            else:
-                self.statusBar().showMessage(
-                    "Probe mode active. Click nodes or components to see values. Press Escape to exit.",
-                    3000,
-                )
+            if bar := self.statusBar():
+                if not self.canvas.node_voltages and self._last_results is None:
+                    bar.showMessage("Probe mode active. Run a simulation first to see values.", 3000)
+                else:
+                    bar.showMessage(
+                        "Probe mode active. Click nodes or components to see values. Press Escape to exit.",
+                        3000,
+                    )
         else:
             self.canvas.clear_probes()
-            self.statusBar().showMessage("Probe mode deactivated.", 2000)
+            if bar := self.statusBar():
+                bar.showMessage("Probe mode deactivated.", 2000)
 
     def _on_probe_requested(self, signal_name, probe_type):
         """Handle probe click for sweep/transient analyses (no OP data on canvas)."""
         if self._last_results is None:
-            self.statusBar().showMessage("No simulation results available. Run a simulation first.", 3000)
+            if bar := self.statusBar():
+                bar.showMessage("No simulation results available. Run a simulation first.", 3000)
             return
 
         analysis_type = self._last_results_type
@@ -310,7 +315,8 @@ class ViewOperationsMixin:
         elif analysis_type == "AC Sweep":
             self._probe_open_ac_sweep(signal_name, probe_type)
         else:
-            self.statusBar().showMessage(f"Probe not supported for {analysis_type} analysis.", 3000)
+            if bar := self.statusBar():
+                bar.showMessage(f"Probe not supported for {analysis_type} analysis.", 3000)
 
     def _probe_open_waveform(self, signal_name, probe_type):
         """Open waveform dialog focused on the probed signal."""
@@ -323,7 +329,8 @@ class ViewOperationsMixin:
             self._waveform_dialog.show()
         self._waveform_dialog.raise_()
         self._waveform_dialog.activateWindow()
-        self.statusBar().showMessage(f"Opened waveform plot for {signal_name}.", 2000)
+        if bar := self.statusBar():
+            bar.showMessage(f"Opened waveform plot for {signal_name}.", 2000)
 
     def _probe_open_dc_sweep(self, signal_name, probe_type):
         """Open DC sweep plot dialog for the probed signal."""
@@ -334,7 +341,8 @@ class ViewOperationsMixin:
             self._show_plot_dialog(DCSweepPlotDialog(sweep_data, self))
         self._plot_dialog.raise_()
         self._plot_dialog.activateWindow()
-        self.statusBar().showMessage(f"Opened DC sweep plot for {signal_name}.", 2000)
+        if bar := self.statusBar():
+            bar.showMessage(f"Opened DC sweep plot for {signal_name}.", 2000)
 
     def _probe_open_ac_sweep(self, signal_name, probe_type):
         """Open AC sweep Bode plot dialog for the probed signal."""
@@ -345,7 +353,8 @@ class ViewOperationsMixin:
             self._show_plot_dialog(ACSweepPlotDialog(ac_data, self, sim_ctrl=self.simulation_ctrl))
         self._plot_dialog.raise_()
         self._plot_dialog.activateWindow()
-        self.statusBar().showMessage(f"Opened AC sweep plot for {signal_name}.", 2000)
+        if bar := self.statusBar():
+            bar.showMessage(f"Opened AC sweep plot for {signal_name}.", 2000)
 
     def _on_zoom_changed(self, level):
         """Update the zoom level display"""
@@ -487,7 +496,8 @@ class ViewOperationsMixin:
         """Copy the CircuiTikZ environment block to the clipboard."""
         model = self.circuit_ctrl.model
         if not model.components:
-            self.statusBar().showMessage("Nothing to copy — the canvas is empty.", 3000)
+            if bar := self.statusBar():
+                bar.showMessage("Nothing to copy — the canvas is empty.", 3000)
             return
 
         try:
@@ -497,4 +507,5 @@ class ViewOperationsMixin:
             return
 
         QApplication.clipboard().setText(tikz_code)
-        self.statusBar().showMessage("CircuiTikZ code copied to clipboard.", 3000)
+        if bar := self.statusBar():
+            bar.showMessage("CircuiTikZ code copied to clipboard.", 3000)
