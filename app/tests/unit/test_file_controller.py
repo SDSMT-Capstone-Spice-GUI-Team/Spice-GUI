@@ -781,3 +781,37 @@ class TestFileSizeValidation:
 
         # Original circuit must still be intact
         assert set(ctrl.model.components.keys()) == original_ids
+
+
+class TestLoadFromModelClearsUndo:
+    """Issue #820: load_from_model() must clear undo history."""
+
+    def test_load_from_model_clears_undo_history(self):
+        """Undo stack is empty after load_from_model()."""
+        from controllers.circuit_controller import CircuitController
+        from controllers.commands import AddComponentCommand
+
+        model = CircuitModel()
+        circuit_ctrl = CircuitController(model)
+        file_ctrl = FileController(model, circuit_ctrl=circuit_ctrl)
+
+        # Perform an undoable operation
+        cmd = AddComponentCommand(circuit_ctrl, "Resistor", (0, 0))
+        circuit_ctrl.execute_command(cmd)
+        assert circuit_ctrl.can_undo()
+
+        # Load a new model
+        new_model = build_simple_circuit()
+        file_ctrl.load_from_model(new_model)
+
+        # Undo stack must be cleared
+        assert not circuit_ctrl.can_undo()
+        assert not circuit_ctrl.can_redo()
+
+    def test_load_from_model_without_circuit_ctrl(self):
+        """load_from_model() works without a circuit controller."""
+        model = CircuitModel()
+        file_ctrl = FileController(model, circuit_ctrl=None)
+        new_model = build_simple_circuit()
+        file_ctrl.load_from_model(new_model)
+        assert len(file_ctrl.model.components) > 0
