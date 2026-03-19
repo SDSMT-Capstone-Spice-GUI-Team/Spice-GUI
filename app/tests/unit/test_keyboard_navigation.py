@@ -49,11 +49,11 @@ class TestEscapeKeyCanvas:
         comp_item = view.components.get(c1.component_id)
         if comp_item:
             comp_item.setSelected(True)
-            assert len(view.scene.selectedItems()) == 1
+            assert len(view.scene().selectedItems()) == 1
 
         # Press Escape
         qtbot.keyClick(view, Qt.Key.Key_Escape)
-        assert len(view.scene.selectedItems()) == 0
+        assert len(view.scene().selectedItems()) == 0
 
     def test_escape_with_no_state_does_not_crash(self, canvas, qtbot):
         view, _ = canvas

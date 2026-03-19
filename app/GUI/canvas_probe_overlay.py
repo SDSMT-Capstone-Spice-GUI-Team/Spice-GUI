@@ -34,22 +34,22 @@ class CanvasProbeOverlay:
             self.canvas.setCursor(Qt.CursorShape.CrossCursor)
         else:
             self.canvas.unsetCursor()
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def clear_probes(self):
         """Remove all probe annotations."""
         self.probe_results = []
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def display_node_voltages(self):
         """Enable display of node voltages."""
         self.canvas.show_node_voltages = True
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def hide_node_voltages(self):
         """Disable display of node voltages."""
         self.canvas.show_node_voltages = False
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     # -- hit-testing ---------------------------------------------------
 
@@ -106,7 +106,7 @@ class CanvasProbeOverlay:
             "pos": QPointF(pos.x(), pos.y()),
         }
         self.probe_results.append(result)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
         return result
 
     def _probe_component(self, comp_item):
@@ -152,7 +152,7 @@ class CanvasProbeOverlay:
             "pos": QPointF(center.x() + comp_rect.width() / 2 + 10, center.y()),
         }
         self.probe_results.append(result)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
         return result
 
     def _get_node_position(self, node):

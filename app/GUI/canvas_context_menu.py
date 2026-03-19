@@ -118,7 +118,7 @@ def _build_wire_menu(menu, canvas, item, scene_pos):
     menu.addAction(lock_action)
 
     # Check if multiple wires are selected
-    selected_wires = [i for i in canvas.scene.selectedItems() if isinstance(i, WireItem)]
+    selected_wires = [i for i in canvas.scene().selectedItems() if isinstance(i, WireItem)]
     if len(selected_wires) > 1 and item in selected_wires:
         reroute_action = QAction(f"Reroute Selected Wires ({len(selected_wires)})", canvas)
         reroute_action.triggered.connect(lambda: canvas.reroute_selected_wires(selected_wires))
@@ -147,7 +147,7 @@ def _build_empty_area_menu(menu, canvas, scene_pos):
         menu.addSeparator()
 
     # No specific item, offer to delete all selected
-    selected_items = canvas.scene.selectedItems()
+    selected_items = canvas.scene().selectedItems()
     if selected_items:
         delete_action = QAction(f"Delete Selected ({len(selected_items)} items)", canvas)
         delete_action.triggered.connect(canvas.delete_selected)

@@ -148,7 +148,7 @@ class TestCoSelectedRerouteDedup:
         from GUI.circuit_canvas import CircuitCanvasView
 
         canvas = Mock(spec=CircuitCanvasView)
-        canvas.scene = Mock()
+        canvas._scene = Mock()
         canvas.viewport = Mock(return_value=Mock())
         canvas.window = Mock(return_value=None)
 
@@ -178,7 +178,7 @@ class TestCoSelectedRerouteDedup:
         from GUI.circuit_canvas import CircuitCanvasView
 
         canvas = Mock(spec=CircuitCanvasView)
-        canvas.scene = Mock()
+        canvas._scene = Mock()
         canvas.viewport = Mock(return_value=Mock())
         canvas.window = Mock(return_value=None)
 
@@ -206,7 +206,7 @@ class TestCoSelectedRerouteDedup:
         from GUI.circuit_canvas import CircuitCanvasView
 
         canvas = Mock(spec=CircuitCanvasView)
-        canvas.scene = Mock()
+        canvas._scene = Mock()
         canvas.viewport = Mock(return_value=Mock())
         canvas.window = Mock(return_value=None)
 
