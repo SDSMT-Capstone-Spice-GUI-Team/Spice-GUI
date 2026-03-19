@@ -487,8 +487,8 @@ QAbstractScrollArea {
 
 QScrollBar:vertical {
     background-color: @background_primary@;
-    width: 12px;
-    margin: 0;
+    width: 16px;
+    margin: 0 0 0 4px;
     border: none;
     border-radius: 6px;
 }
