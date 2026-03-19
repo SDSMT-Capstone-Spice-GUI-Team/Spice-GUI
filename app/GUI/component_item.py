@@ -370,16 +370,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         )
 
         if show_label or show_value:
-            # Counter-flip so text remains readable when component is flipped
-            if sx != 1 or sy != 1:
-                painter.scale(sx, sy)
-            painter.setPen(QPen(color))
-            if show_label and show_value:
-                painter.drawText(-20, -25, f"{self.component_id} ({self.value})")
-            elif show_label:
-                painter.drawText(-20, -25, self.component_id)
-            elif show_value:
-                painter.drawText(-20, -25, f"({self.value})")
+            self._draw_label_text(painter, color, sx, sy, show_label, show_value, self.component_id, self.value)
 
         # Restore painter state
         painter.restore()
@@ -388,6 +379,22 @@ class ComponentGraphicsItem(QGraphicsItem):
         painter.setPen(theme_manager.pen("terminal"))
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)
+
+    def _draw_label_text(self, painter, color, sx, sy, show_label, show_value, label, value):
+        """Draw counter-flipped label text above the component.
+
+        Shared by ComponentGraphicsItem.paint() and Ground.paint() to avoid
+        duplicating the counter-flip correction logic.
+        """
+        if sx != 1 or sy != 1:
+            painter.scale(sx, sy)
+        painter.setPen(QPen(color))
+        if show_label and show_value:
+            painter.drawText(-20, -25, f"{label} ({value})")
+        elif show_label:
+            painter.drawText(-20, -25, label)
+        elif show_value:
+            painter.drawText(-20, -25, f"({value})")
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
@@ -598,16 +605,7 @@ class Ground(ComponentGraphicsItem):
         )
 
         if show_label or show_value:
-            # Counter-flip so text remains readable when component is flipped
-            if sx != 1 or sy != 1:
-                painter.scale(sx, sy)
-            painter.setPen(QPen(color))
-            if show_label and show_value:
-                painter.drawText(-20, -25, "GND (0V)")
-            elif show_label:
-                painter.drawText(-20, -25, "GND")
-            elif show_value:
-                painter.drawText(-20, -25, "(0V)")
+            self._draw_label_text(painter, color, sx, sy, show_label, show_value, "GND", "0V")
 
         painter.restore()
 

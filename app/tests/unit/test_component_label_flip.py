@@ -30,33 +30,37 @@ def _find_call_indices(source, method_name):
 class TestLabelCounterFlipStructural:
     """Structural tests verifying the paint method counter-flips text.
 
-    These parse paint() source code to ensure the counter-scale call
-    appears between the initial flip-scale and drawText.
+    The counter-scale and drawText logic lives in the shared
+    _draw_label_text() helper.  paint() delegates to it, so we verify:
+    1. paint() calls _draw_label_text
+    2. _draw_label_text contains scale() before drawText()
     """
 
-    def test_base_paint_applies_counter_scale_before_drawText(self):
-        """ComponentGraphicsItem.paint() must re-apply scale() before drawText()."""
+    def test_base_paint_delegates_to_draw_label_text(self):
+        """ComponentGraphicsItem.paint() must call _draw_label_text()."""
         from GUI.component_item import ComponentGraphicsItem
 
         src = _get_paint_source(ComponentGraphicsItem)
-        scale_indices = _find_call_indices(src, "scale")
-        drawtext_indices = _find_call_indices(src, "drawText")
+        assert "_draw_label_text(" in src, "paint() must delegate to _draw_label_text()"
 
-        assert len(scale_indices) >= 2, "Must have initial scale + counter-scale calls"
-        assert len(drawtext_indices) >= 1, "Must have drawText() call"
-        assert scale_indices[1] < drawtext_indices[0], "Counter-scale must come before first drawText"
-
-    def test_ground_paint_applies_counter_scale_before_drawText(self):
-        """Ground.paint() must re-apply scale() before drawText()."""
+    def test_ground_paint_delegates_to_draw_label_text(self):
+        """Ground.paint() must call _draw_label_text()."""
         from GUI.component_item import Ground
 
         src = _get_paint_source(Ground)
+        assert "_draw_label_text(" in src, "paint() must delegate to _draw_label_text()"
+
+    def test_draw_label_text_applies_counter_scale_before_drawText(self):
+        """_draw_label_text() must call scale() before drawText()."""
+        from GUI.component_item import ComponentGraphicsItem
+
+        src = textwrap.dedent(inspect.getsource(ComponentGraphicsItem._draw_label_text))
         scale_indices = _find_call_indices(src, "scale")
         drawtext_indices = _find_call_indices(src, "drawText")
 
-        assert len(scale_indices) >= 2, "Must have initial scale + counter-scale calls"
+        assert len(scale_indices) >= 1, "Must have counter-scale call"
         assert len(drawtext_indices) >= 1, "Must have drawText() call"
-        assert scale_indices[1] < drawtext_indices[0], "Counter-scale must come before first drawText"
+        assert scale_indices[0] < drawtext_indices[0], "Counter-scale must come before first drawText"
 
 
 class TestLabelCounterFlipPainter:
