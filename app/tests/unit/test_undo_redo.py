@@ -14,7 +14,10 @@ from controllers.commands import (
     PasteCommand,
     RerouteWireCommand,
     RotateComponentCommand,
+    SetRotationCommand,
     ToggleWireLockCommand,
+    UpdateInitialConditionCommand,
+    UpdateWaveformCommand,
 )
 from controllers.undo_manager import UndoManager
 from models.circuit import CircuitModel
@@ -1000,3 +1003,219 @@ class TestFullUndoRedoWorkflow:
 
         ctrl.undo()  # undo add
         assert len(model.components) == 0
+
+
+# ===========================================================================
+# Properties Panel Undo Commands  (#819)
+# ===========================================================================
+
+
+class TestSetRotationCommand:
+    """Test SetRotationCommand for properties-panel rotation changes."""
+
+    def test_execute_and_undo(self):
+        """Setting rotation to exact value is undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+        comp_id = comp.component_id
+
+        assert model.components[comp_id].rotation == 0
+
+        cmd = SetRotationCommand(ctrl, comp_id, 270)
+        cmd.execute()
+        assert model.components[comp_id].rotation == 270
+
+        cmd.undo()
+        assert model.components[comp_id].rotation == 0
+
+    def test_via_controller_undoable(self):
+        """SetRotationCommand through controller is fully undoable/redoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+        comp_id = comp.component_id
+
+        cmd = SetRotationCommand(ctrl, comp_id, 180)
+        ctrl.execute_command(cmd)
+        assert model.components[comp_id].rotation == 180
+        assert ctrl.can_undo()
+
+        ctrl.undo()
+        assert model.components[comp_id].rotation == 0
+
+        ctrl.redo()
+        assert model.components[comp_id].rotation == 180
+
+    def test_normalizes_rotation(self):
+        """Rotation values are normalized mod 360."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+
+        cmd = SetRotationCommand(ctrl, comp.component_id, 450)
+        cmd.execute()
+        assert model.components[comp.component_id].rotation == 90
+
+    def test_missing_component_skips(self):
+        """SetRotationCommand on non-existent component should not crash."""
+        ctrl = CircuitController()
+        cmd = SetRotationCommand(ctrl, "BOGUS", 90)
+        cmd.execute()
+        assert cmd.old_rotation is None
+        cmd.undo()  # should not crash
+
+    def test_undo_missing_component_skips(self):
+        """SetRotationCommand.undo after component deleted should not crash."""
+        ctrl = CircuitController()
+        comp = ctrl.add_component("Resistor", (0, 0))
+        cmd = SetRotationCommand(ctrl, comp.component_id, 90)
+        cmd.execute()
+        ctrl.remove_component(comp.component_id)
+        cmd.undo()  # component gone; should not crash
+
+    def test_description(self):
+        """Command has descriptive get_description."""
+        ctrl = CircuitController()
+        cmd = SetRotationCommand(ctrl, "R1", 270)
+        assert "R1" in cmd.get_description()
+        assert "270" in cmd.get_description()
+
+
+class TestUpdateWaveformCommand:
+    """Test UpdateWaveformCommand for properties-panel waveform changes."""
+
+    def test_execute_and_undo(self):
+        """Updating waveform is undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Waveform Source", (0, 0))
+        comp_id = comp.component_id
+
+        old_type = model.components[comp_id].waveform_type
+        old_value = model.components[comp_id].value
+
+        cmd = UpdateWaveformCommand(ctrl, comp_id, "PULSE", {"v1": "0", "v2": "5"})
+        cmd.execute()
+        assert model.components[comp_id].waveform_type == "PULSE"
+
+        cmd.undo()
+        assert model.components[comp_id].waveform_type == old_type
+        assert model.components[comp_id].value == old_value
+
+    def test_via_controller_undoable(self):
+        """UpdateWaveformCommand through controller is fully undoable/redoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Waveform Source", (0, 0))
+        comp_id = comp.component_id
+        old_type = model.components[comp_id].waveform_type
+
+        cmd = UpdateWaveformCommand(ctrl, comp_id, "PULSE", {"v1": "0", "v2": "3.3"})
+        ctrl.execute_command(cmd)
+        assert model.components[comp_id].waveform_type == "PULSE"
+        assert ctrl.can_undo()
+
+        ctrl.undo()
+        assert model.components[comp_id].waveform_type == old_type
+
+        ctrl.redo()
+        assert model.components[comp_id].waveform_type == "PULSE"
+
+    def test_missing_component_skips(self):
+        """UpdateWaveformCommand on non-existent component should not crash."""
+        ctrl = CircuitController()
+        cmd = UpdateWaveformCommand(ctrl, "BOGUS", "SIN", {"amp": "1"})
+        cmd.execute()
+        assert cmd.old_waveform_type is None
+        cmd.undo()
+
+    def test_undo_missing_component_skips(self):
+        """UpdateWaveformCommand.undo after component deleted should not crash."""
+        ctrl = CircuitController()
+        comp = ctrl.add_component("Waveform Source", (0, 0))
+        cmd = UpdateWaveformCommand(ctrl, comp.component_id, "PULSE", {"v1": "0"})
+        cmd.execute()
+        ctrl.remove_component(comp.component_id)
+        cmd.undo()  # should not crash
+
+    def test_description(self):
+        """Command has descriptive get_description."""
+        ctrl = CircuitController()
+        cmd = UpdateWaveformCommand(ctrl, "VW1", "PULSE", {})
+        assert "VW1" in cmd.get_description()
+
+
+class TestUpdateInitialConditionCommand:
+    """Test UpdateInitialConditionCommand for properties-panel IC changes."""
+
+    def test_execute_and_undo(self):
+        """Updating initial condition is undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Capacitor", (0, 0))
+        comp_id = comp.component_id
+
+        assert model.components[comp_id].initial_condition is None
+
+        cmd = UpdateInitialConditionCommand(ctrl, comp_id, "5V")
+        cmd.execute()
+        assert model.components[comp_id].initial_condition == "5V"
+
+        cmd.undo()
+        assert model.components[comp_id].initial_condition is None
+
+    def test_via_controller_undoable(self):
+        """UpdateInitialConditionCommand through controller is fully undoable/redoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Capacitor", (0, 0))
+        comp_id = comp.component_id
+
+        cmd = UpdateInitialConditionCommand(ctrl, comp_id, "3.3V")
+        ctrl.execute_command(cmd)
+        assert model.components[comp_id].initial_condition == "3.3V"
+        assert ctrl.can_undo()
+
+        ctrl.undo()
+        assert model.components[comp_id].initial_condition is None
+
+        ctrl.redo()
+        assert model.components[comp_id].initial_condition == "3.3V"
+
+    def test_clear_initial_condition_undoable(self):
+        """Clearing an initial condition (setting to None) is undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Capacitor", (0, 0))
+        comp_id = comp.component_id
+        model.components[comp_id].initial_condition = "2V"
+
+        cmd = UpdateInitialConditionCommand(ctrl, comp_id, None)
+        ctrl.execute_command(cmd)
+        assert model.components[comp_id].initial_condition is None
+
+        ctrl.undo()
+        assert model.components[comp_id].initial_condition == "2V"
+
+    def test_missing_component_skips(self):
+        """UpdateInitialConditionCommand on non-existent component should not crash."""
+        ctrl = CircuitController()
+        cmd = UpdateInitialConditionCommand(ctrl, "BOGUS", "5V")
+        cmd.execute()
+        cmd.undo()
+
+    def test_undo_missing_component_skips(self):
+        """UpdateInitialConditionCommand.undo after component deleted should not crash."""
+        ctrl = CircuitController()
+        comp = ctrl.add_component("Capacitor", (0, 0))
+        cmd = UpdateInitialConditionCommand(ctrl, comp.component_id, "5V")
+        cmd.execute()
+        ctrl.remove_component(comp.component_id)
+        cmd.undo()  # should not crash
+
+    def test_description(self):
+        """Command has descriptive get_description."""
+        ctrl = CircuitController()
+        cmd = UpdateInitialConditionCommand(ctrl, "C1", "5V")
+        assert "C1" in cmd.get_description()
