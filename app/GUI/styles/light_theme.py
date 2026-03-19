@@ -57,11 +57,14 @@ class LightTheme(BaseTheme):
             "grid_major": "#969696",  # Medium gray (150, 150, 150)
             "grid_label": "#646464",  # Dark gray (100, 100, 100)
             # ===== Canvas/UI Colors =====
-            "background_primary": "#CFD1D2",  # White
-            "background_secondary": "#EDEDED",  # Light gray
-            "text_primary": "#000000",  # Black
+            "background_primary": "#CFD1D2",  # Light background
+            "background_secondary": "#EDEDED",  # Sections
+            "text_primary": "#2F2F2F",  # Dark gray text
             "text_secondary": "#666666",  # Medium gray
             "text_muted": "#999999",  # Light gray text
+            # ===== Accent Colors (Mines brand) =====
+            "accent_primary": "#002554",  # Mines Navy Blue (default/intended)
+            "accent_hover": "#C5A55A",  # Mines Old Gold (hover/selected)
             # ===== Selection & Highlight =====
             "selection_highlight": "#FFFF00",  # Yellow
             "node_label": "#FF00FF",  # Magenta (255, 0, 255)

@@ -89,14 +89,15 @@ class SettingsMixin:
         saved_theme_key = settings.get("view/theme_key")
         if saved_theme_key and saved_theme_key != "light":
             theme_ctrl.set_theme_by_key(saved_theme_key)
-            self.apply_theme()
             if hasattr(self, "refresh_theme_menu"):
                 self.refresh_theme_menu()
         else:
             # Legacy fallback: check old theme name
             saved_theme = settings.get("view/theme")
             if saved_theme == "Dark Theme":
-                self._set_theme("dark")
+                theme_ctrl.set_theme_by_key("dark")
+        # Always apply theme on startup so the QSS stylesheet is loaded
+        self.apply_theme()
 
         saved_symbol_style = settings.get("view/symbol_style")
         if saved_symbol_style in ("ieee", "iec"):
