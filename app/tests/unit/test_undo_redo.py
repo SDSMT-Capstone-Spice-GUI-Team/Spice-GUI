@@ -1219,3 +1219,103 @@ class TestUpdateInitialConditionCommand:
         ctrl = CircuitController()
         cmd = UpdateInitialConditionCommand(ctrl, "C1", "5V")
         assert "C1" in cmd.get_description()
+
+
+# ===========================================================================
+# Wire Index Stability in Compound Delete  (#821)
+# ===========================================================================
+
+
+class TestWireIndexStabilityInCompoundDelete:
+    """Issue #821: deleting multiple wires in a CompoundCommand must use
+    descending index order so earlier deletions don't shift later indices."""
+
+    def test_multi_wire_delete_descending_order(self):
+        """Deleting wires in descending index order removes correct wires."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (100, 0))
+        r3 = ctrl.add_component("Resistor", (200, 0))
+        r4 = ctrl.add_component("Resistor", (300, 0))
+
+        # Create 3 wires: indices 0, 1, 2
+        ctrl.add_wire(r1.component_id, 1, r2.component_id, 0)  # wire 0
+        ctrl.add_wire(r2.component_id, 1, r3.component_id, 0)  # wire 1
+        ctrl.add_wire(r3.component_id, 1, r4.component_id, 0)  # wire 2
+
+        assert len(model.wires) == 3
+
+        # Delete wires 0 and 2 in descending order (as the fix requires)
+        commands = [
+            DeleteWireCommand(ctrl, 2),
+            DeleteWireCommand(ctrl, 0),
+        ]
+        compound = CompoundCommand(commands, "Delete 2 wires")
+        ctrl.execute_command(compound)
+
+        # Only wire 1 (r2-r3) should remain
+        assert len(model.wires) == 1
+        assert model.wires[0].start_component_id == r2.component_id
+        assert model.wires[0].end_component_id == r3.component_id
+
+        # Undo should restore exactly the 2 deleted wires
+        ctrl.undo()
+        assert len(model.wires) == 3
+
+    def test_multi_wire_delete_ascending_fails_without_fix(self):
+        """Ascending order would delete wrong wire; descending order is correct."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (100, 0))
+        r3 = ctrl.add_component("Resistor", (200, 0))
+
+        ctrl.add_wire(r1.component_id, 1, r2.component_id, 0)  # wire 0
+        ctrl.add_wire(r2.component_id, 1, r3.component_id, 0)  # wire 1
+
+        # Capture wire data before deletion for verification
+        wire0_start = model.wires[0].start_component_id
+        wire1_start = model.wires[1].start_component_id
+
+        # Delete both wires in descending order (correct)
+        commands = [
+            DeleteWireCommand(ctrl, 1),
+            DeleteWireCommand(ctrl, 0),
+        ]
+        compound = CompoundCommand(commands, "Delete 2 wires")
+        ctrl.execute_command(compound)
+
+        assert len(model.wires) == 0
+
+        # Undo restores both
+        ctrl.undo()
+        assert len(model.wires) == 2
+        assert model.wires[0].start_component_id == wire0_start
+        assert model.wires[1].start_component_id == wire1_start
+
+    def test_redo_after_multi_wire_delete_undo(self):
+        """Redo after undoing a multi-wire delete works correctly."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (100, 0))
+        r3 = ctrl.add_component("Resistor", (200, 0))
+
+        ctrl.add_wire(r1.component_id, 1, r2.component_id, 0)
+        ctrl.add_wire(r2.component_id, 1, r3.component_id, 0)
+
+        commands = [
+            DeleteWireCommand(ctrl, 1),
+            DeleteWireCommand(ctrl, 0),
+        ]
+        compound = CompoundCommand(commands, "Delete 2 wires")
+        ctrl.execute_command(compound)
+
+        assert len(model.wires) == 0
+
+        ctrl.undo()
+        assert len(model.wires) == 2
+
+        ctrl.redo()
+        assert len(model.wires) == 0

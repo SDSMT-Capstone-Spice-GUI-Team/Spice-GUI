@@ -1052,7 +1052,8 @@ class CircuitCanvasView(QGraphicsView):
 
         commands = []
 
-        # Delete standalone wires first (skip wires that will cascade from component deletion)
+        # Collect standalone wire indices (skip wires that will cascade from component deletion)
+        wire_indices = []
         for wire in wires_to_delete:
             if wire in self.wires:
                 wire_model = self.controller.model.wires[self.wires.index(wire)]
@@ -1061,14 +1062,23 @@ class CircuitCanvasView(QGraphicsView):
                     or wire_model.end_component_id in deleting_comp_ids
                 ):
                     continue  # Will be cascade-deleted with the component
-                commands.append(DeleteWireCommand(self.controller, self.wires.index(wire)))
+                wire_indices.append(self.wires.index(wire))
+
+        # Sort wire indices descending so higher indices are deleted first,
+        # preventing earlier deletions from shifting later indices (#821)
+        for idx in sorted(wire_indices, reverse=True):
+            commands.append(DeleteWireCommand(self.controller, idx))
 
         for comp in components_to_delete:
             commands.append(DeleteComponentCommand(self.controller, comp.component_id))
 
+        # Sort annotation indices descending for the same reason
+        ann_indices = []
         for ann in annotations_to_delete:
             if ann in self.annotations:
-                commands.append(DeleteAnnotationCommand(self.controller, self.annotations.index(ann)))
+                ann_indices.append(self.annotations.index(ann))
+        for idx in sorted(ann_indices, reverse=True):
+            commands.append(DeleteAnnotationCommand(self.controller, idx))
 
         if len(commands) == 1:
             self.controller.execute_command(commands[0])
