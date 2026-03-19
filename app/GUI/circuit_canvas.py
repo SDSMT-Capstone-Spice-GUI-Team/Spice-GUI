@@ -1623,39 +1623,26 @@ class CircuitCanvasView(QGraphicsView):
             # Starting a wire — any terminal is valid
             return True
 
-        # Completing a wire — check for duplicate wire
+        # Completing a wire — delegate duplicate check to controller
         start_id = self.wire_start_comp.component_id
         start_term = self.wire_start_term
         end_id = component.component_id
         end_term = terminal_index
 
-        for wire in self.wires:
-            same_fwd = (
-                wire.model.start_component_id == start_id
-                and wire.model.start_terminal == start_term
-                and wire.model.end_component_id == end_id
-                and wire.model.end_terminal == end_term
+        if self.controller and self.controller.has_duplicate_wire(start_id, start_term, end_id, end_term):
+            logger.info(
+                "Duplicate wire rejected: %s[%s] -> %s[%s]",
+                start_id,
+                start_term,
+                end_id,
+                end_term,
             )
-            same_rev = (
-                wire.model.start_component_id == end_id
-                and wire.model.start_terminal == end_term
-                and wire.model.end_component_id == start_id
-                and wire.model.end_terminal == start_term
-            )
-            if same_fwd or same_rev:
-                logger.info(
-                    "Duplicate wire rejected: %s[%s] -> %s[%s]",
-                    start_id,
-                    start_term,
-                    end_id,
-                    end_term,
-                )
-                main_window = self.window() if hasattr(self, "window") else None
-                if main_window and hasattr(main_window, "statusBar"):
-                    status = main_window.statusBar()
-                    if status:
-                        status.showMessage("Wire already exists between these terminals", 3000)
-                return False
+            main_window = self.window() if hasattr(self, "window") else None
+            if main_window and hasattr(main_window, "statusBar"):
+                status = main_window.statusBar()
+                if status:
+                    status.showMessage("Wire already exists between these terminals", 3000)
+            return False
 
         return True
 
