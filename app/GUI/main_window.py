@@ -371,7 +371,10 @@ class MainWindow(
                 statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
 
         elif property_name == "rotation":
-            self.circuit_ctrl.set_component_rotation(component_id, new_value)
+            from controllers.commands import SetRotationCommand
+
+            cmd = SetRotationCommand(self.circuit_ctrl, component_id, new_value)
+            self.circuit_ctrl.execute_command(cmd)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
@@ -380,8 +383,11 @@ class MainWindow(
                 self.properties_panel.show_component(component)
 
         elif property_name == "waveform":
+            from controllers.commands import UpdateWaveformCommand
+
             waveform_type, params = new_value
-            self.circuit_ctrl.update_component_waveform(component_id, waveform_type, params)
+            cmd = UpdateWaveformCommand(self.circuit_ctrl, component_id, waveform_type, params)
+            self.circuit_ctrl.execute_command(cmd)
             # Refresh properties panel to show updated SPICE value
             component = self.canvas.components.get(component_id)
             if component:
@@ -391,7 +397,10 @@ class MainWindow(
                 statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
 
         elif property_name == "initial_condition":
-            self.circuit_ctrl.update_component_initial_condition(component_id, new_value)
+            from controllers.commands import UpdateInitialConditionCommand
+
+            cmd = UpdateInitialConditionCommand(self.circuit_ctrl, component_id, new_value)
+            self.circuit_ctrl.execute_command(cmd)
             ic_display = new_value if new_value else "none"
             statusBar = self.statusBar()
             if statusBar:
