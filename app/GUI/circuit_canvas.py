@@ -164,9 +164,9 @@ class CircuitCanvasView(QGraphicsView):
             try:
                 handler(data)
             except (AttributeError, KeyError, TypeError) as e:
-                logger.error(f"Error handling event '{event}': {e}")
+                logger.error("Error handling event '%s': %s", event, e)
         else:
-            logger.debug(f"Unhandled observer event: {event}")
+            logger.debug("Unhandled observer event: %s", event)
 
         # Clear stale OP annotations when circuit is modified
         _stale_events = {

@@ -163,8 +163,8 @@ class BaseTheme:
         color = self.get_component_color(component_type)
         return QBrush(color.lighter(150))
 
-    def generate_dark_stylesheet(self) -> str:
-        """Generate a global dark stylesheet from theme colors.
+    def generate_stylesheet(self) -> str:
+        """Generate a global stylesheet from theme colors.
 
         Returns an empty string for light themes.
         """

@@ -60,13 +60,20 @@ class CircuitController:
         if callback in self._observers:
             self._observers.remove(callback)
 
-    def _notify(self, event: str, data: Any) -> None:
-        """Notify all observers of a model change."""
+    def notify(self, event: str, data: Any = None) -> None:
+        """Notify all observers of a model change.
+
+        Public API for use by collaborating controllers (e.g. FileController).
+        """
         for observer in self._observers:
             try:
                 observer(event, data)
             except (TypeError, AttributeError, RuntimeError) as e:
                 logger.error("Error notifying observer: %s", e)
+
+    def _notify(self, event: str, data: Any) -> None:
+        """Notify all observers of a model change."""
+        self.notify(event, data)
 
     # --- Component operations ---
 
@@ -522,8 +529,7 @@ class CircuitController:
         Used when an action has already been applied (e.g. during a drag)
         and only needs to be recorded for undo/redo.
         """
-        self.undo_manager._undo_stack.append(command)
-        self.undo_manager._redo_stack.clear()
+        self.undo_manager.push_already_executed(command)
 
     def undo(self) -> bool:
         """

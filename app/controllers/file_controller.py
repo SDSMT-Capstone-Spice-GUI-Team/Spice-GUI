@@ -89,7 +89,7 @@ class FileController:
         self._replace_model(new_model)
         if self.circuit_ctrl:
             self.circuit_ctrl.clear_undo_history()
-            self.circuit_ctrl._notify("model_loaded", None)
+            self.circuit_ctrl.notify("model_loaded", None)
 
     def new_circuit(self) -> None:
         """Clear the circuit and reset file state."""
@@ -124,7 +124,7 @@ class FileController:
         self.add_recent_file(filepath)  # Track in recent files
 
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify("model_saved", None)
+            self.circuit_ctrl.notify("model_saved", None)
 
     def load_circuit(self, filepath) -> None:
         """
@@ -157,7 +157,7 @@ class FileController:
 
         if self.circuit_ctrl:
             self.circuit_ctrl.clear_undo_history()
-            self.circuit_ctrl._notify("model_loaded", None)
+            self.circuit_ctrl.notify("model_loaded", None)
 
     def load_from_dict(self, data: dict) -> None:
         """Load circuit from a pre-validated dict (e.g. from clipboard).
@@ -170,7 +170,7 @@ class FileController:
 
         if self.circuit_ctrl:
             self.circuit_ctrl.clear_undo_history()
-            self.circuit_ctrl._notify("model_loaded", None)
+            self.circuit_ctrl.notify("model_loaded", None)
 
     def has_file(self) -> bool:
         """Return whether a current file path is set (for quick-save)."""
@@ -313,7 +313,7 @@ class FileController:
                 self.current_file = Path(source_path)
 
             if self.circuit_ctrl:
-                self.circuit_ctrl._notify("model_loaded", None)
+                self.circuit_ctrl.notify("model_loaded", None)
 
             return source_path
         except (OSError, json.JSONDecodeError, ValueError):
@@ -353,7 +353,7 @@ class FileController:
         self.add_recent_file(filepath)
 
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify("model_loaded", None)
+            self.circuit_ctrl.notify("model_loaded", None)
 
     def import_asc(self, filepath) -> list[str]:
         """Import an LTspice .asc schematic file into the current model.
@@ -391,7 +391,7 @@ class FileController:
         self.add_recent_file(filepath)
 
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify("model_loaded", None)
+            self.circuit_ctrl.notify("model_loaded", None)
 
         return warnings
 
@@ -426,7 +426,7 @@ class FileController:
         self.add_recent_file(filepath)
 
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify("model_loaded", None)
+            self.circuit_ctrl.notify("model_loaded", None)
 
         return warnings
 
@@ -480,7 +480,7 @@ class FileController:
         self.add_recent_file(filepath)
 
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify("model_loaded", None)
+            self.circuit_ctrl.notify("model_loaded", None)
 
     def export_asc(self, filepath: str) -> None:
         """Export the circuit as an LTspice .asc schematic.
