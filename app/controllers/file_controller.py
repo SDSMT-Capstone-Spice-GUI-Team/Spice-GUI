@@ -88,6 +88,7 @@ class FileController:
         """
         self._replace_model(new_model)
         if self.circuit_ctrl:
+            self.circuit_ctrl.clear_undo_history()
             self.circuit_ctrl._notify("model_loaded", None)
 
     def new_circuit(self) -> None:
