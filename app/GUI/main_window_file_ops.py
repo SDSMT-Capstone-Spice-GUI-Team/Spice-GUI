@@ -21,7 +21,7 @@ class FileOperationsMixin:
 
     def _on_new(self):
         """Create a new circuit"""
-        if len(self.canvas.components) > 0:
+        if len(self.canvas.components) > 0 or self._dirty:
             if not self.dialogs.confirm("New Circuit", "Current circuit will be lost. Continue?"):
                 return
 
@@ -541,7 +541,7 @@ class FileOperationsMixin:
 
         for example_file in example_files:
             try:
-                with open(example_file, "r") as f:
+                with open(example_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
                 name = data.get("name", example_file.stem)
