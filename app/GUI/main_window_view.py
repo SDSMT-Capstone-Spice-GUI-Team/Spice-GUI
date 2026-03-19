@@ -38,7 +38,7 @@ class ViewOperationsMixin:
             self.iec_style_action.setChecked(True)
         else:
             self.ieee_style_action.setChecked(True)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def set_color_mode(self, mode: str):
         """Switch between per-type color and monochrome rendering."""
@@ -47,7 +47,7 @@ class ViewOperationsMixin:
             self.monochrome_mode_action.setChecked(True)
         else:
             self.color_mode_action.setChecked(True)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def set_wire_thickness(self, thickness: str):
         """Switch wire rendering thickness."""
@@ -55,14 +55,14 @@ class ViewOperationsMixin:
         if hasattr(self, "wire_thickness_actions"):
             for t, action in self.wire_thickness_actions.items():
                 action.setChecked(t == thickness)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def set_show_junction_dots(self, show: bool):
         """Toggle junction dot visibility at wire intersections."""
         theme_ctrl.set_show_junction_dots(show)
         if hasattr(self, "show_junction_dots_action"):
             self.show_junction_dots_action.setChecked(show)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def set_routing_mode(self, mode: str):
         """Switch wire routing mode between orthogonal and diagonal."""
@@ -70,7 +70,7 @@ class ViewOperationsMixin:
         if hasattr(self, "routing_mode_actions"):
             for m, action in self.routing_mode_actions.items():
                 action.setChecked(m == mode)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def _toggle_statistics_panel(self, checked):
         """Toggle the circuit statistics panel visibility."""
@@ -266,22 +266,22 @@ class ViewOperationsMixin:
     def toggle_component_labels(self, checked):
         """Toggle component label visibility"""
         self.canvas.show_component_labels = checked
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def toggle_component_values(self, checked):
         """Toggle component value visibility"""
         self.canvas.show_component_values = checked
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def toggle_node_labels(self, checked):
         """Toggle node label visibility"""
         self.canvas.show_node_labels = checked
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def toggle_op_annotations(self, checked):
         """Toggle DC operating point annotation visibility."""
         self.canvas.show_op_annotations = checked
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def _toggle_probe_mode(self, checked):
         """Toggle interactive probe mode on the canvas."""
@@ -368,7 +368,7 @@ class ViewOperationsMixin:
         if not filename:
             return
 
-        scene = self.canvas.scene
+        scene = self.canvas.scene()
 
         # Compute bounding rect of circuit items (excluding grid)
         from .annotation_item import AnnotationItem

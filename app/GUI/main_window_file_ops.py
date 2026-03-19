@@ -69,7 +69,7 @@ class FileOperationsMixin:
 
         if cmd.pasted_component_ids:
             # Select newly pasted items on the canvas
-            self.canvas.scene.clearSelection()
+            self.canvas.scene().clearSelection()
             for comp_id in cmd.pasted_component_ids:
                 comp_item = self.canvas.components.get(comp_id)
                 if comp_item is not None:
@@ -401,7 +401,7 @@ class FileOperationsMixin:
         try:
             data = ReportDataBuilder.build(config, model=self.model, netlist=netlist, results_text=results_text)
             renderer = PDFReportRenderer()
-            renderer.render(filepath=filename, data=data, scene=self.canvas.scene)
+            renderer.render(filepath=filename, data=data, scene=self.canvas.scene())
             QMessageBox.information(
                 self,
                 "Report Generated",

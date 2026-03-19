@@ -50,7 +50,7 @@ class TestCancelClearsWaypoints:
         from PyQt6.QtWidgets import QGraphicsLineItem
 
         line = QGraphicsLineItem(0, 0, 100, 100)
-        canvas.scene.addItem(line)
+        canvas._scene.addItem(line)
         canvas.temp_wire_line = line
         canvas.cancel_wire_drawing()
         assert canvas.temp_wire_line is None

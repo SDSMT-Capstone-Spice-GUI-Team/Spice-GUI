@@ -15,7 +15,7 @@ class PrintExportMixin:
         from .component_item import ComponentGraphicsItem
         from .wire_item import WireGraphicsItem
 
-        scene = self.canvas.scene
+        scene = self.canvas.scene()
         circuit_items = [
             item
             for item in scene.items()
@@ -63,7 +63,7 @@ class PrintExportMixin:
         target_y = (page_rect.height() - target_h) / 2
         target_rect = QRectF(target_x, target_y, target_w, target_h)
 
-        self.canvas.scene.render(painter, target=target_rect, source=source_rect)
+        self.canvas.scene().render(painter, target=target_rect, source=source_rect)
         painter.end()
 
     def _on_print(self):
