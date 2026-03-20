@@ -16,11 +16,19 @@ This prototype implements:
 
 import sys
 
-from GUI.main_window import MainWindow
-from PyQt6.QtWidgets import QApplication
-
 
 def main():
+    # Handle --selftest before importing Qt to allow headless execution.
+    if "--selftest" in sys.argv:
+        from simulation.selftest import print_selftest, run_selftest
+
+        result = run_selftest()
+        print_selftest(result)
+        sys.exit(0 if result.passed else 1)
+
+    from GUI.main_window import MainWindow
+    from PyQt6.QtWidgets import QApplication
+
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
