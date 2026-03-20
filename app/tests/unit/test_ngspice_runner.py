@@ -20,38 +20,21 @@ class TestInit:
 
 
 class TestFindNgspice:
-    """Tests for find_ngspice()."""
+    """Tests for find_ngspice() — delegates to ngspice_config.resolve_ngspice_path."""
 
-    def test_found_via_shutil_which(self, tmp_path):
+    def test_found_sets_cmd(self, tmp_path):
         runner = NgspiceRunner(output_dir=str(tmp_path))
-        with patch("simulation.ngspice_runner.shutil.which", return_value="/usr/bin/ngspice"):
+        with patch("simulation.ngspice_runner.resolve_ngspice_path", return_value="/usr/bin/ngspice"):
             result = runner.find_ngspice()
         assert result == "/usr/bin/ngspice"
         assert runner.ngspice_cmd == "/usr/bin/ngspice"
 
     def test_not_found_returns_none(self, tmp_path):
         runner = NgspiceRunner(output_dir=str(tmp_path))
-        with (
-            patch("simulation.ngspice_runner.shutil.which", return_value=None),
-            patch("simulation.ngspice_runner.os.path.exists", return_value=False),
-        ):
+        with patch("simulation.ngspice_runner.resolve_ngspice_path", return_value=None):
             result = runner.find_ngspice()
         assert result is None
         assert runner.ngspice_cmd is None
-
-    def test_fallback_path_found(self, tmp_path):
-        runner = NgspiceRunner(output_dir=str(tmp_path))
-
-        def fake_exists(path):
-            return path == "/usr/local/bin/ngspice"
-
-        with (
-            patch("simulation.ngspice_runner.shutil.which", return_value=None),
-            patch("simulation.ngspice_runner.platform.system", return_value="Linux"),
-            patch("simulation.ngspice_runner.os.path.exists", side_effect=fake_exists),
-        ):
-            result = runner.find_ngspice()
-        assert result == "/usr/local/bin/ngspice"
 
 
 class TestRunSimulation:
@@ -59,10 +42,7 @@ class TestRunSimulation:
 
     def test_ngspice_not_found(self, tmp_path):
         runner = NgspiceRunner(output_dir=str(tmp_path))
-        with (
-            patch("simulation.ngspice_runner.shutil.which", return_value=None),
-            patch("simulation.ngspice_runner.os.path.exists", return_value=False),
-        ):
+        with patch("simulation.ngspice_runner.resolve_ngspice_path", return_value=None):
             success, output_file, stdout, stderr = runner.run_simulation("test netlist")
         assert success is False
         assert "not found" in stderr

@@ -5,11 +5,10 @@ Handles execution of ngspice simulations
 """
 
 import os
-import platform
-import shutil
 import subprocess
 from datetime import datetime
 
+from simulation.ngspice_config import resolve_ngspice_path
 from simulation.spice_sanitizer import validate_output_dir
 from utils.constants import SIMULATION_TIMEOUT
 
@@ -22,10 +21,11 @@ class NgspiceRunner:
     #: debugging ngspice output by hand.
     KEEP_FILES_ENV_VAR = "SPICE_KEEP_SIM_OUTPUT"
 
-    def __init__(self, output_dir="simulation_output"):
+    def __init__(self, output_dir="simulation_output", settings=None):
         self.output_dir = validate_output_dir(output_dir)
         os.makedirs(self.output_dir, exist_ok=True)
         self.ngspice_cmd = None
+        self._settings = settings
         # When True, temp files are never deleted (controlled by env var).
         self._keep_files: bool = os.environ.get(self.KEEP_FILES_ENV_VAR, "").lower() in (
             "1",
@@ -54,43 +54,16 @@ class NgspiceRunner:
         self._prev_run_files = []
 
     def find_ngspice(self):
-        """Find ngspice executable on the system"""
-        # Try PATH lookup first (works cross-platform)
-        which_result = shutil.which("ngspice")
-        if which_result:
-            self.ngspice_cmd = which_result
-            return which_result
+        """Find ngspice executable on the system.
 
-        system = platform.system()
-
-        # Fallback: check common installation paths
-        if system == "Windows":
-            possible_paths = [
-                r"C:\Program Files (x86)\ngspice\bin\ngspice.exe",
-                r"C:\ngspice\bin\ngspice.exe",
-                r"C:\ngspice-42\Spice64\bin\ngspice.exe",
-                r"C:\Program Files\Spice64\bin\ngspice.exe",
-                r"C:\Program Files\ngspice\bin\ngspice.exe",
-            ]
-        elif system == "Linux":
-            possible_paths = [
-                "/usr/bin/ngspice",
-                "/usr/local/bin/ngspice",
-            ]
-        elif system == "Darwin":  # macOS
-            possible_paths = [
-                "/usr/local/bin/ngspice",
-                "/opt/homebrew/bin/ngspice",
-            ]
-        else:
-            possible_paths = []
-
-        for cmd in possible_paths:
-            if os.path.exists(cmd):
-                self.ngspice_cmd = cmd
-                return cmd
-
-        return None
+        Delegates to :func:`simulation.ngspice_config.resolve_ngspice_path`
+        which checks (in order): stored user preference, bundled copy,
+        system PATH and well-known install directories.
+        """
+        result = resolve_ngspice_path(self._settings)
+        if result:
+            self.ngspice_cmd = result
+        return result
 
     def run_simulation(self, netlist_content):
         """

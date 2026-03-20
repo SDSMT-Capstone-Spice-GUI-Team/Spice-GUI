@@ -14,15 +14,16 @@
 #   3. The distributable application will be in:
 #        dist/SpiceGUI/SpiceGUI.exe
 #
-# Runtime dependency -- ngspice:
-#   ngspice is invoked as an external subprocess and is NOT bundled.
-#   Users must install ngspice separately.  On Windows the installer from
-#   https://ngspice.sourceforge.io/ places ngspice.exe on the PATH or in
-#   a well-known location that the application searches automatically
-#   (see simulation/ngspice_runner.py for the full search list).
+# Bundled ngspice:
+#   Place an ngspice distribution at ``ngspice/`` relative to the repo root
+#   (i.e. ``ngspice/bin/ngspice.exe`` and supporting DLLs).  When present
+#   the build will embed it in the bundle under ``ngspice/`` next to the
+#   executable.  At runtime the app checks for a bundled copy first; if
+#   an existing system installation is also found the user is prompted to
+#   choose (see simulation/ngspice_config.py).
 #
-#   Optionally, you can place ngspice.exe (and its DLLs) next to
-#   SpiceGUI.exe in the dist directory and it will be found via PATH.
+#   If the ``ngspice/`` directory is absent the build proceeds without it
+#   and the user must install ngspice separately.
 #
 
 import sys
@@ -46,6 +47,16 @@ datas = [
     (str(APP_DIR / "examples"), "examples"),
     (str(APP_DIR / "templates"), "templates"),
 ]
+
+# Bundle ngspice if a local copy exists at <repo>/ngspice/
+NGSPICE_DIR = REPO_ROOT / "ngspice"
+if NGSPICE_DIR.is_dir():
+    datas.append((str(NGSPICE_DIR), "ngspice"))
+
+# Bundle the ngspice BSD license when present
+NGSPICE_LICENSE = REPO_ROOT / "licenses" / "NGSPICE-LICENSE.txt"
+if NGSPICE_LICENSE.is_file():
+    datas.append((str(NGSPICE_LICENSE), "licenses"))
 
 # ---------------------------------------------------------------------------
 # Hidden imports
