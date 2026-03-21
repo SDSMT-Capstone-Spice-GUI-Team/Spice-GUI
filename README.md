@@ -52,11 +52,19 @@ SDM Spice is a desktop application developed at South Dakota School of Mines and
 
 ## Installation
 
-### Prerequisites
+### Windows Installer (Recommended)
+
+Download the latest **`SpiceGUI-vX.Y.Z-win64-setup.exe`** from the [Releases page](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/releases). The installer bundles Python, all dependencies, and ngspice — no prerequisites needed.
+
+For step-by-step instructions and troubleshooting, see the **[Installation Guide](docs/installation-guide.md)**.
+
+### From Source
+
+#### Prerequisites
 - Python 3.10 or higher
 - ngspice (must be installed separately)
 
-### Install ngspice
+#### Install ngspice
 
 **Windows:**
 Download from [ngspice.sourceforge.io](http://ngspice.sourceforge.io/download.html) and add to PATH.
@@ -71,7 +79,7 @@ brew install ngspice
 sudo apt install ngspice
 ```
 
-### Install SDM Spice
+#### Install SDM Spice
 
 1. Clone the repository:
 ```bash
@@ -157,6 +165,7 @@ SDM Spice is currently in **Phase 1 (Student MVP)** development as part of an SD
 
 ## Documentation
 
+- **[Installation Guide](docs/installation-guide.md)** - Windows installer setup, troubleshooting, and uninstall instructions
 - **[Architecture Decision Records](Doc/decisions/)** - Important architectural decisions and their rationale
 - **[Development Methodology](Doc/autonomous-workflow.md)** - AI-assisted development approach and autonomous workflow
 - **[Project Evolution](Doc/project-evolution.md)** - How the project evolved from discovery to implementation
