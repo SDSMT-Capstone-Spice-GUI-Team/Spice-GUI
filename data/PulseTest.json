@@ -1,0 +1,130 @@
+{
+  "components": [
+    {
+      "type": "WaveformVoltageSource",
+      "id": "VW1",
+      "value": "PULSE(-2 5 1u 1n 1n 1u 2u)",
+      "pos": {
+        "x": -80.0,
+        "y": 0.0
+      },
+      "rotation": 0,
+      "flip_h": false,
+      "flip_v": false,
+      "waveform_type": "PULSE",
+      "waveform_params": {
+        "PULSE": {
+          "v1": "-2",
+          "v2": "5",
+          "td": "1u",
+          "tr": "1n",
+          "tf": "1n",
+          "pw": "1u",
+          "per": "2u"
+        }
+      }
+    },
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "100",
+      "pos": {
+        "x": 80.0,
+        "y": 0.0
+      },
+      "rotation": 90,
+      "flip_h": false,
+      "flip_v": false
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "0V",
+      "pos": {
+        "x": 0.0,
+        "y": 100.0
+      },
+      "rotation": 0,
+      "flip_h": false,
+      "flip_v": false
+    }
+  ],
+  "wires": [
+    {
+      "start_comp": "VW1",
+      "start_term": 0,
+      "end_comp": "R1",
+      "end_term": 0,
+      "waypoints": [
+        [
+          -110,
+          0
+        ],
+        [
+          -110,
+          -40
+        ],
+        [
+          80,
+          -40
+        ],
+        [
+          80,
+          -30
+        ]
+      ]
+    },
+    {
+      "start_comp": "R1",
+      "start_term": 1,
+      "end_comp": "GND1",
+      "end_term": 0,
+      "waypoints": [
+        [
+          80,
+          30
+        ],
+        [
+          80,
+          90
+        ],
+        [
+          0,
+          90
+        ]
+      ]
+    },
+    {
+      "start_comp": "VW1",
+      "start_term": 1,
+      "end_comp": "GND1",
+      "end_term": 0,
+      "waypoints": [
+        [
+          -50,
+          0
+        ],
+        [
+          -50,
+          90
+        ],
+        [
+          0,
+          90
+        ]
+      ]
+    }
+  ],
+  "counters": {
+    "VW": 1,
+    "R": 1,
+    "GND": 1
+  },
+  "analysis_type": "Transient",
+  "analysis_params": {
+    "analysis_type": "Transient",
+    "duration": 0.001,
+    "step": 9.999999999999999e-05,
+    "startTime": 0.0
+  }
+}

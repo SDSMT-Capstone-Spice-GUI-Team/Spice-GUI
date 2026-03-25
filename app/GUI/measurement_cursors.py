@@ -183,10 +183,16 @@ class MeasurementCursors:
         self._canvas.mpl_disconnect(self._cid_press)
         self._canvas.mpl_disconnect(self._cid_release)
         self._canvas.mpl_disconnect(self._cid_motion)
-        if self._line_a is not None:
-            self._line_a.remove()
-        if self._line_b is not None:
-            self._line_b.remove()
+        try:
+            if self._line_a is not None:
+                self._line_a.remove()
+        except NotImplementedError:
+            pass
+        try:
+            if self._line_b is not None:
+                self._line_b.remove()
+        except NotImplementedError:
+            pass
 
 
 class CursorReadoutPanel(QWidget):
