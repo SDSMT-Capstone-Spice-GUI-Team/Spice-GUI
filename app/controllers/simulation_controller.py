@@ -247,9 +247,10 @@ class SimulationController:
                 data = ResultParser.parse_op_results(output)
             elif analysis == "DC Sweep":
                 # Prefer wrdata file (clean tabular format) over log output.
+                data = None
                 if wrdata_filepath and os.path.isfile(wrdata_filepath):
                     data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
-                else:
+                if data is None:
                     output = self.runner.read_output(output_file)
                     data = ResultParser.parse_dc_results(output)
             elif analysis == "AC Sweep":
@@ -263,13 +264,14 @@ class SimulationController:
             elif analysis == "Temperature Sweep":
                 # Temperature sweep with .step produces tabular output;
                 # try wrdata file first, then log output, then OP fallback.
+                data = None
                 if wrdata_filepath and os.path.isfile(wrdata_filepath):
                     data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
                 if data is None:
                     output = self.runner.read_output(output_file)
                     data = ResultParser.parse_dc_results(output)
                 if data is None:
-                    output = self.runner.read_output(output_file) if not output else output
+                    output = self.runner.read_output(output_file)
                     data = ResultParser.parse_op_results(output)
             elif analysis == "Noise":
                 output = self.runner.read_output(output_file)
