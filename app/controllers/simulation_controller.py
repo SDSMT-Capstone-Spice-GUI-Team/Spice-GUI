@@ -246,8 +246,12 @@ class SimulationController:
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_op_results(output)
             elif analysis == "DC Sweep":
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_dc_results(output)
+                # Prefer wrdata file (clean tabular format) over log output.
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
+                else:
+                    output = self.runner.read_output(output_file)
+                    data = ResultParser.parse_dc_results(output)
             elif analysis == "AC Sweep":
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_ac_results(output)
@@ -258,11 +262,14 @@ class SimulationController:
                 data = ResultParser.parse_transient_results(wrdata_filepath)
             elif analysis == "Temperature Sweep":
                 # Temperature sweep with .step produces tabular output;
-                # try DC-sweep-style parsing first (temp-sweep column + voltages).
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_dc_results(output)
+                # try wrdata file first, then log output, then OP fallback.
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
                 if data is None:
-                    # Fall back to OP parsing if tabular parsing fails
+                    output = self.runner.read_output(output_file)
+                    data = ResultParser.parse_dc_results(output)
+                if data is None:
+                    output = self.runner.read_output(output_file) if not output else output
                     data = ResultParser.parse_op_results(output)
             elif analysis == "Noise":
                 output = self.runner.read_output(output_file)

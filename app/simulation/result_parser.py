@@ -147,6 +147,46 @@ class ResultParser:
             raise ResultParseError(f"Error parsing DC results: {e}") from e
 
     @staticmethod
+    def parse_dc_sweep_wrdata(filepath):
+        """Parse DC sweep results from a wrdata file.
+
+        The wrdata file has a clean tabular format: headers on the first
+        line followed by whitespace-delimited numeric data rows.  Returns
+        a dict with ``headers`` and ``data`` keys compatible with
+        :class:`DCSweepPlotDialog`, or *None* when no data is found.
+        """
+        try:
+            with open(filepath, "r") as f:
+                lines = f.readlines()
+            if not lines:
+                return None
+
+            raw_headers = lines[0].strip().split()
+            # Build header list: prepend "Index" so columns align with
+            # DCSweepPlotDialog expectations (col 0 = index, col 1 = sweep var,
+            # col 2+ = signals).
+            headers = ["Index"] + raw_headers
+
+            data_rows = []
+            for idx, line in enumerate(lines[1:]):
+                parts = line.strip().split()
+                if len(parts) == len(raw_headers):
+                    try:
+                        row = [float(idx)] + [float(p) for p in parts]
+                        data_rows.append(row)
+                    except ValueError:
+                        logger.debug("Skipping unparseable DC sweep wrdata row: %s", line.strip())
+                        continue
+
+            if not data_rows:
+                return None
+            return {"headers": headers, "data": data_rows}
+        except FileNotFoundError as e:
+            raise ResultParseError(f"wrdata file not found at {filepath}") from e
+        except (OSError, ValueError, IndexError) as e:
+            raise ResultParseError(f"Error parsing DC sweep wrdata: {e}") from e
+
+    @staticmethod
     def parse_ac_results(output):
         """Parse AC sweep results"""
         try:
