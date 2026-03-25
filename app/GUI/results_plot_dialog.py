@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QPushB
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .plot_utils import apply_mpl_theme as _apply_mpl_theme
+from .plot_utils import safe_legend
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +159,7 @@ class DCSweepPlotDialog(QDialog):
         self._ax.grid(True, alpha=0.3)
 
         if self._lines:
-            legend = self._ax.legend(loc="best", fontsize="small")
+            legend = safe_legend(self._ax, fontsize="small")
             self._setup_legend_toggle(legend)
 
         _apply_mpl_theme(self._fig)
@@ -395,9 +396,9 @@ class ACSweepPlotDialog(QDialog):
         self._ax_phase.grid(True, which="both", alpha=0.3)
 
         if has_data:
-            mag_legend = self._ax_mag.legend(loc="best", fontsize="small")
+            mag_legend = safe_legend(self._ax_mag, fontsize="small")
             self._setup_legend_toggle(mag_legend, self._ax_mag)
-            phase_legend = self._ax_phase.legend(loc="best", fontsize="small")
+            phase_legend = safe_legend(self._ax_phase, fontsize="small")
             self._setup_legend_toggle(phase_legend, self._ax_phase)
 
         _apply_mpl_theme(self._fig)
@@ -636,7 +637,7 @@ class NoisePlotDialog(QDialog):
         ax.set_xlabel("Frequency (Hz)")
         ax.set_ylabel("Noise Spectral Density (V/\u221aHz)")
         ax.set_title("Noise Analysis")
-        ax.legend()
+        safe_legend(ax)
         ax.grid(True, which="both", alpha=0.3)
         self._fig.tight_layout()
         self._canvas.draw()

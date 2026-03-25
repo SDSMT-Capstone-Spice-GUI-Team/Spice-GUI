@@ -14,6 +14,28 @@ from .styles import theme_manager
 matplotlib.use("QtAgg")
 
 
+# Threshold above which ``loc="best"`` becomes too expensive (O(n) scan of
+# every data point).  Above this we fall back to a fixed position to avoid
+# freezing the UI.
+_LEGEND_BEST_MAX_POINTS = 10_000
+
+
+def safe_legend(ax, **kwargs):
+    """Call ``ax.legend()`` with a safe ``loc`` value.
+
+    When the total number of data points on *ax* exceeds
+    ``_LEGEND_BEST_MAX_POINTS``, ``loc="best"`` is replaced with
+    ``"upper right"`` to prevent the UI freeze caused by matplotlib's
+    exhaustive placement search.
+    """
+    loc = kwargs.pop("loc", "best")
+    if loc == "best":
+        total_points = sum(len(line.get_xdata()) for line in ax.get_lines())
+        if total_points > _LEGEND_BEST_MAX_POINTS:
+            loc = "upper right"
+    return ax.legend(loc=loc, **kwargs)
+
+
 def apply_mpl_theme(fig):
     """Apply the current application theme colors to a matplotlib figure.
 

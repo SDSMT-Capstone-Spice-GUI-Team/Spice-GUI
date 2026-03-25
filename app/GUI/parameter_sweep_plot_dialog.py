@@ -11,6 +11,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout
 
+from .plot_utils import safe_legend
 from .results_plot_dialog import save_plot
 
 logger = logging.getLogger(__name__)
@@ -119,7 +120,7 @@ class ParameterSweepPlotDialog(QDialog):
         ax.set_xlabel(f"{component_id} Value")
         ax.set_ylabel("Voltage (V)")
         ax.set_title(f"Parameter Sweep — {component_id}")
-        ax.legend(loc="best", fontsize="small")
+        safe_legend(ax, fontsize="small")
         ax.grid(True, alpha=0.3)
 
     # ------------------------------------------------------------------
@@ -159,7 +160,7 @@ class ParameterSweepPlotDialog(QDialog):
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Voltage (V)")
         ax.set_title(f"Transient Parameter Sweep — {component_id}")
-        ax.legend(loc="best", fontsize="x-small", ncol=2)
+        safe_legend(ax, fontsize="x-small", ncol=2)
         ax.grid(True, alpha=0.3)
 
     # ------------------------------------------------------------------
@@ -206,12 +207,12 @@ class ParameterSweepPlotDialog(QDialog):
 
         ax_mag.set_ylabel("Magnitude")
         ax_mag.set_title(f"AC Parameter Sweep — {component_id}")
-        ax_mag.legend(loc="best", fontsize="x-small")
+        safe_legend(ax_mag, fontsize="x-small")
         ax_mag.grid(True, which="both", alpha=0.3)
 
         ax_phase.set_xlabel("Frequency (Hz)")
         ax_phase.set_ylabel("Phase (degrees)")
-        ax_phase.legend(loc="best", fontsize="x-small")
+        safe_legend(ax_phase, fontsize="x-small")
         ax_phase.grid(True, which="both", alpha=0.3)
 
     # ------------------------------------------------------------------
@@ -257,7 +258,7 @@ class ParameterSweepPlotDialog(QDialog):
         ax.set_xlabel(x_label)
         ax.set_ylabel("Voltage (V)")
         ax.set_title(f"DC Sweep with Parameter Sweep — {component_id}")
-        ax.legend(loc="best", fontsize="x-small")
+        safe_legend(ax, fontsize="x-small")
         ax.grid(True, alpha=0.3)
 
     def closeEvent(self, event):
