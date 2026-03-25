@@ -532,7 +532,11 @@ class WaveformDialog(QDialog):
         self.canvas.axes.set_title("Transient Analysis")
         self.canvas.axes.set_xlabel("Time (s)")
         self.canvas.axes.set_ylabel("Voltage (V)")
-        self.canvas.axes.legend(fontsize="small")
+        # loc="best" scans every data point for optimal placement — too slow
+        # for large datasets. Fall back to a fixed position above 10k points.
+        total_points = sum(len(line.get_xdata()) for line in self.canvas.axes.get_lines())
+        legend_loc = "upper right" if total_points > 10_000 else "best"
+        self.canvas.axes.legend(fontsize="small", loc=legend_loc)
         self.canvas.axes.grid(True)
         _apply_mpl_theme(self.canvas.figure)
         self.canvas.figure.tight_layout()
