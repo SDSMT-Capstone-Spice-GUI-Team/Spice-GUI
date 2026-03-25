@@ -124,7 +124,10 @@ class MeasurementCursors:
 
     def _draw_cursor_a(self):
         if self._line_a is not None:
-            self._line_a.remove()
+            try:
+                self._line_a.remove()
+            except (NotImplementedError, ValueError):
+                pass
         self._line_a = self._ax.axvline(
             self._a_x,
             color=self.CURSOR_A_COLOR,
@@ -135,7 +138,10 @@ class MeasurementCursors:
 
     def _draw_cursor_b(self):
         if self._line_b is not None:
-            self._line_b.remove()
+            try:
+                self._line_b.remove()
+            except (NotImplementedError, ValueError):
+                pass
         self._line_b = self._ax.axvline(
             self._b_x,
             color=self.CURSOR_B_COLOR,

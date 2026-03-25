@@ -27,6 +27,7 @@ from utils.format_utils import format_value, parse_value
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .plot_utils import apply_mpl_theme as _apply_mpl_theme
+from .plot_utils import safe_legend
 from .styles import SCROLL_LOAD_COUNT, theme_manager
 
 # Get colors from the 'Paired' colormap for color-blind friendliness
@@ -532,11 +533,7 @@ class WaveformDialog(QDialog):
         self.canvas.axes.set_title("Transient Analysis")
         self.canvas.axes.set_xlabel("Time (s)")
         self.canvas.axes.set_ylabel("Voltage (V)")
-        # loc="best" scans every data point for optimal placement — too slow
-        # for large datasets. Fall back to a fixed position above 10k points.
-        total_points = sum(len(line.get_xdata()) for line in self.canvas.axes.get_lines())
-        legend_loc = "upper right" if total_points > 10_000 else "best"
-        self.canvas.axes.legend(fontsize="small", loc=legend_loc)
+        safe_legend(self.canvas.axes, fontsize="small")
         self.canvas.axes.grid(True)
         _apply_mpl_theme(self.canvas.figure)
         self.canvas.figure.tight_layout()
