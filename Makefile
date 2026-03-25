@@ -9,21 +9,18 @@ help:  ## Show this help message
 test:  ## Run pytest test suite
 	cd app && python -m pytest tests/ -v --tb=short
 
-lint:  ## Run linting checks (ruff + isort + ruff-format + black)
+lint:  ## Run linting checks (ruff + isort + black)
 	ruff check app/
 	isort --check-only --profile=black --line-length=120 app/
-	ruff format --check app/
 	black --check --line-length=120 app/
 
-format:  ## Auto-format code (ruff --fix + isort + ruff format + black)
+format:  ## Auto-format code (ruff --fix + isort + black)
 	ruff check --fix app/
 	isort --profile=black --line-length=120 app/
-	ruff format app/
 	black --line-length=120 app/
 
 format-check:  ## Check formatting without modifying files
 	@isort --check-only --profile=black --line-length=120 app/ && \
-		ruff format --check app/ && \
 		black --check --line-length=120 app/ && \
 		echo "✓ All files correctly formatted" || \
 		(echo "⚠️  Formatting issues found. Run 'make format' to fix." && false)

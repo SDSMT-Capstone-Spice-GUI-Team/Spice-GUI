@@ -21,15 +21,13 @@ jobs:
       - name: Install lint tools
         run: pip install -r app/requirements-dev.txt
 
-      # Check order matches make format: ruff lint → isort → ruff-format → black
+      # Check order: ruff lint → isort → black (ruff-format removed — it
+      # and black disagree on some formatting, causing infinite reformat loops)
       - name: Run ruff check
         run: ruff check app/ --output-format=github
 
       - name: Run isort check
         run: isort --check-only --profile=black --line-length=120 app/
-
-      - name: Run ruff format check
-        run: ruff format --check app/
 
       - name: Run black check
         run: black --check --line-length=120 app/
