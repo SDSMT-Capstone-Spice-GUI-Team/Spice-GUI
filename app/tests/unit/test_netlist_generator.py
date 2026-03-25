@@ -316,10 +316,15 @@ class TestAnalysisCommands:
             analysis_type="DC Sweep",
             analysis_params={"min": "0", "max": "10", "step": "0.1"},
         )
-        # Find the print line
+        # The print line should NOT include the sweep source name (e.g. "v1")
+        # because ngspice does not expose it as a vector. The sweep column
+        # ("v-sweep") is automatically included by wrdata with wr_singlescale.
         for line in netlist.splitlines():
             if line.strip().startswith("print "):
-                assert "v1" in line.lower(), "DC Sweep print must include sweep source variable"
+                assert (
+                    "v1" not in line.lower()
+                ), "DC Sweep print must NOT include source name (ngspice has no such vector)"
+                assert "v(" in line.lower(), "DC Sweep print should include node voltages"
                 break
 
     def test_non_ac_sweep_excludes_vp(self, simple_resistor_circuit):

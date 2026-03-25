@@ -562,17 +562,10 @@ class NetlistGenerator:
             # Add resistor voltages to the print list
             all_print_vars.extend(resistor_voltages_print)
 
-            # For DC sweep, prepend the sweep source so the parser gets the
-            # sweep variable column alongside node voltages.
-            if self.analysis_type == "DC Sweep" and all_print_vars:
-                source_name = self.analysis_params.get("source")
-                if not source_name:
-                    voltage_sources = [c for c in self.components.values() if c.component_type == "Voltage Source"]
-                    if voltage_sources:
-                        source_name = voltage_sources[0].component_id
-                if source_name:
-                    sweep_var = source_name.lower()
-                    all_print_vars.insert(0, sweep_var)
+            # Note: for DC sweep, the sweep variable (v-sweep) is automatically
+            # included as the first column in wrdata output when wr_singlescale
+            # is set. Do NOT add the source name (e.g. "v1") — ngspice does not
+            # expose it as a vector; the sweep column is always named "v-sweep".
 
             # For temperature sweep, prepend the temperature vector so the
             # parser can extract temperature alongside node voltages.
