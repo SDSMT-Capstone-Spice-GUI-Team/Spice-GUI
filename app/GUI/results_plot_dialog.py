@@ -384,7 +384,9 @@ class ACSweepPlotDialog(QDialog):
                 transform=self._ax_mag.transAxes,
             )
 
-        self._ax_mag.set_ylabel("Magnitude")
+        # Check if any dataset uses dB output
+        use_db = any(ds[1].get("use_db", False) for ds in self._datasets)
+        self._ax_mag.set_ylabel("Magnitude (dB)" if use_db else "Magnitude (V)")
         self._ax_mag.set_title("Bode Plot")
         self._ax_mag.grid(True, which="both", alpha=0.3)
 
@@ -437,13 +439,14 @@ class ACSweepPlotDialog(QDialog):
         first_signal = sorted(magnitude.keys())[0]
         mag_vals = magnitude[first_signal]
         phase_vals = phase.get(first_signal)
+        is_db = data.get("use_db", False)
 
         if self._sim_ctrl is not None:
-            markers = self._sim_ctrl.compute_frequency_markers(frequencies, mag_vals, phase_vals)
+            markers = self._sim_ctrl.compute_frequency_markers(frequencies, mag_vals, phase_vals, is_db=is_db)
         else:
             from controllers.simulation_controller import SimulationController
 
-            markers = SimulationController.compute_frequency_markers(frequencies, mag_vals, phase_vals)
+            markers = SimulationController.compute_frequency_markers(frequencies, mag_vals, phase_vals, is_db=is_db)
 
         if markers["peak_gain_db"] is None:
             self._marker_summary.setPlainText("No markers computed (insufficient data).")
@@ -586,5 +589,58 @@ class ACSweepPlotDialog(QDialog):
     def closeEvent(self, event):
         if self._cursors is not None:
             self._cursors.remove()
+        plt.close(self._canvas.figure)
+        super().closeEvent(event)
+
+
+class NoisePlotDialog(QDialog):
+    """Dialog for displaying noise spectral density plots."""
+
+    analysis_type = "Noise"
+
+    def __init__(self, data, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Noise Spectral Density")
+        self.resize(700, 500)
+
+        layout = QVBoxLayout(self)
+
+        self._fig = Figure(figsize=(8, 5))
+        _apply_mpl_theme(self._fig)
+        self._canvas = FigureCanvas(self._fig)
+        layout.addWidget(self._canvas)
+
+        btn_layout = QHBoxLayout()
+        save_btn = QPushButton("Save Plot...")
+        save_btn.clicked.connect(lambda: save_plot(self._fig, self))
+        btn_layout.addWidget(save_btn)
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
+
+        self._plot(data)
+
+    def _plot(self, data):
+        freqs = data.get("frequencies", [])
+        onoise = data.get("onoise_spectrum", [])
+        inoise = data.get("inoise_spectrum", [])
+
+        if not freqs:
+            return
+
+        ax = self._fig.add_subplot(111)
+        if onoise:
+            ax.loglog(freqs, onoise, label="Output Noise")
+        if inoise:
+            ax.loglog(freqs, inoise, label="Input-Referred Noise")
+
+        ax.set_xlabel("Frequency (Hz)")
+        ax.set_ylabel("Noise Spectral Density (V/\u221aHz)")
+        ax.set_title("Noise Analysis")
+        ax.legend()
+        ax.grid(True, which="both", alpha=0.3)
+        self._fig.tight_layout()
+        self._canvas.draw()
+
+    def closeEvent(self, event):
         plt.close(self._canvas.figure)
         super().closeEvent(event)

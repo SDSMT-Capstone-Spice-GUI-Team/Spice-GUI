@@ -246,17 +246,33 @@ class SimulationController:
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_op_results(output)
             elif analysis == "DC Sweep":
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_dc_results(output)
+                # Prefer wrdata file (clean tabular format) over log output.
+                data = None
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
+                if data is None:
+                    output = self.runner.read_output(output_file)
+                    data = ResultParser.parse_dc_results(output)
             elif analysis == "AC Sweep":
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_ac_results(output)
+                if data is not None:
+                    use_db = str(self.model.analysis_params.get("use_db", "No")).lower() in ("yes", "true", "1")
+                    data["use_db"] = use_db
             elif analysis == "Transient":
                 data = ResultParser.parse_transient_results(wrdata_filepath)
             elif analysis == "Temperature Sweep":
-                # Temperature sweep runs DC OP at each temp; parse as OP
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_op_results(output)
+                # Temperature sweep with .step produces tabular output;
+                # try wrdata file first, then log output, then OP fallback.
+                data = None
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
+                if data is None:
+                    output = self.runner.read_output(output_file)
+                    data = ResultParser.parse_dc_results(output)
+                if data is None:
+                    output = self.runner.read_output(output_file)
+                    data = ResultParser.parse_op_results(output)
             elif analysis == "Noise":
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_noise_results(output)
@@ -277,6 +293,22 @@ class SimulationController:
 
             # Parse any .meas measurement results from stdout
             meas_results = ResultParser.parse_measurement_results(raw_output)
+
+            # Check for hidden errors: ngspice may produce an output file
+            # but still fail (e.g. convergence error).  If the parser found
+            # no data, check the raw output for error patterns (#858).
+            if data is None:
+                from simulation.convergence import ErrorCategory, diagnose_error, format_user_message
+
+                combined = (raw_output or "") + "\n" + (self.runner.read_output(output_file) if output_file else "")
+                diagnosis = diagnose_error("", combined)
+                if diagnosis.category != ErrorCategory.UNKNOWN:
+                    return SimulationResult(
+                        success=False,
+                        error=format_user_message(diagnosis),
+                        netlist=netlist,
+                        raw_output=raw_output,
+                    )
 
             return SimulationResult(
                 success=True,
@@ -597,7 +629,7 @@ class SimulationController:
         return [], ""
 
     @staticmethod
-    def compute_power(components, nodes, node_voltages) -> tuple:
+    def compute_power(components, nodes, node_voltages, branch_currents=None) -> tuple:
         """Calculate power dissipation for all components.
 
         Returns:
@@ -606,17 +638,17 @@ class SimulationController:
         """
         from simulation.power_calculator import calculate_power, total_power
 
-        power_data = calculate_power(components, nodes, node_voltages)
+        power_data = calculate_power(components, nodes, node_voltages, branch_currents)
         if power_data:
             return power_data, total_power(power_data)
         return {}, 0.0
 
     @staticmethod
-    def compute_frequency_markers(frequencies, magnitude, phase=None) -> dict:
+    def compute_frequency_markers(frequencies, magnitude, phase=None, is_db=False) -> dict:
         """Compute frequency response markers from AC sweep data."""
         from simulation.freq_markers import compute_markers
 
-        return compute_markers(frequencies, magnitude, phase)
+        return compute_markers(frequencies, magnitude, phase, is_db=is_db)
 
     @staticmethod
     def compute_signal_fft(time, signal, signal_name, window_type="hamming"):

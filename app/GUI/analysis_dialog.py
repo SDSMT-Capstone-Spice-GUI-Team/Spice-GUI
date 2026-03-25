@@ -53,6 +53,7 @@ class AnalysisDialog(QDialog):
                 ("Stop Frequency (Hz)", "fStop", "float", "1e6"),
                 ("Points per Decade", "points", "int", "100"),
                 ("Sweep Type", "sweepType", "combo", ["dec", "oct", "lin"], "dec"),
+                ("Output in dB", "use_db", "combo", ["No", "Yes"], "No"),
             ],
             "description": "Frequency domain analysis",
             "tooltips": {
@@ -60,6 +61,7 @@ class AnalysisDialog(QDialog):
                 "fStop": "Ending frequency for the AC sweep (Hz)",
                 "points": "Number of frequency points per decade (log scale)",
                 "sweepType": "Frequency scale: dec (decade/log), oct (octave), lin (linear)",
+                "use_db": "Output voltage magnitudes in decibels (dB) instead of volts",
             },
         },
         "Transient": {

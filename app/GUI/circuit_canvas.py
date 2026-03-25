@@ -1524,6 +1524,9 @@ class CircuitCanvasView(QGraphicsView):
 
     def set_op_results(self, voltages_dict, currents_dict=None):
         """Set DC operating point results (voltages and branch currents)."""
+        # Ensure nodes are synced from the model — the simulation controller
+        # may have called rebuild_nodes() directly (bypassing notifications).
+        self._sync_nodes_from_model()
         self.node_voltages = voltages_dict
         self.branch_currents = currents_dict or {}
         self.show_node_voltages = True

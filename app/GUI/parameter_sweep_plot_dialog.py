@@ -69,6 +69,13 @@ class ParameterSweepPlotDialog(QDialog):
     # ------------------------------------------------------------------
     # DC Operating Point base: X = parameter value, Y = node voltages
     # ------------------------------------------------------------------
+    @staticmethod
+    def _extract_node_voltages(data):
+        """Extract node voltages from OP result data (handles both formats)."""
+        if isinstance(data, dict) and "node_voltages" in data:
+            return data["node_voltages"]
+        return data
+
     def _plot_op_sweep(self, fig, sweep_data):
         ax = fig.add_subplot(111)
 
@@ -80,7 +87,9 @@ class ParameterSweepPlotDialog(QDialog):
         all_nodes = set()
         for r in results:
             if r.success and r.data:
-                all_nodes.update(r.data.keys())
+                nv = self._extract_node_voltages(r.data)
+                if isinstance(nv, dict):
+                    all_nodes.update(nv.keys())
 
         if not all_nodes:
             ax.text(
@@ -99,9 +108,11 @@ class ParameterSweepPlotDialog(QDialog):
             vals = []
             voltages = []
             for sv, r in zip(sweep_values, results):
-                if r.success and r.data and node in r.data:
-                    vals.append(sv)
-                    voltages.append(r.data[node])
+                if r.success and r.data:
+                    nv = self._extract_node_voltages(r.data)
+                    if isinstance(nv, dict) and node in nv:
+                        vals.append(sv)
+                        voltages.append(nv[node])
             if vals:
                 ax.plot(vals, voltages, "o-", label=node, color=cmap(idx % 10), markersize=4)
 

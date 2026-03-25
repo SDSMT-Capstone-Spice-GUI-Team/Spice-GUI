@@ -149,6 +149,34 @@ class TestParseAcResults:
         assert "out" in result["phase"]
         assert result["phase"]["out"][1] == pytest.approx(-90.0)
 
+    def test_vm_headers(self):
+        """vm(node) headers should be parsed as magnitude (#804)."""
+        output = (
+            "Index   frequency   vm(out)   vp(out)\n"
+            "0       100.0       1.0      -45.0\n"
+            "1       1000.0      0.5      -90.0\n"
+        )
+        result = ResultParser.parse_ac_results(output)
+        assert result is not None
+        assert len(result["frequencies"]) == 2
+        assert "out" in result["magnitude"]
+        assert result["magnitude"]["out"][0] == pytest.approx(1.0)
+        assert "out" in result["phase"]
+
+    def test_vdb_headers(self):
+        """vdb(node) headers should be parsed as magnitude (#804)."""
+        output = (
+            "Index   frequency   vdb(out)   vp(out)\n"
+            "0       100.0       0.0        0.0\n"
+            "1       1000.0      -6.02      -90.0\n"
+        )
+        result = ResultParser.parse_ac_results(output)
+        assert result is not None
+        assert len(result["frequencies"]) == 2
+        assert "out" in result["magnitude"]
+        assert result["magnitude"]["out"][0] == pytest.approx(0.0)
+        assert result["magnitude"]["out"][1] == pytest.approx(-6.02)
+
     def test_no_frequency_returns_none(self):
         result = ResultParser.parse_ac_results("just some text\n")
         assert result is None
@@ -181,6 +209,17 @@ class TestParseTransientResults:
         headers = list(result[0].keys())
         assert "out" in headers
         assert "i_v1#branch" in headers
+
+    def test_header_sanitization_vm_vdb_vp(self, tmp_path):
+        """vm/vdb/vp headers should be sanitized correctly (#804)."""
+        wrdata = tmp_path / "ac.txt"
+        wrdata.write_text("frequency vm(out) vp(out) vdb(in)\n100.0 1.0 -45.0 0.0\n")
+        result = ResultParser.parse_transient_results(str(wrdata))
+        assert result is not None
+        headers = list(result[0].keys())
+        assert "out" in headers, "vm(out) should sanitize to 'out'"
+        assert "vp_out" in headers, "vp(out) should sanitize to 'vp_out'"
+        assert "in" in headers, "vdb(in) should sanitize to 'in'"
 
     def test_missing_file_raises_parse_error(self):
         with pytest.raises(ResultParseError, match="wrdata file not found"):
