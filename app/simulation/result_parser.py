@@ -179,11 +179,12 @@ class ResultParser:
                             row_phase = {}
                             for j, header in enumerate(headers[2:], start=2):
                                 if j < len(parts):
-                                    if "vp(" in header.lower():
-                                        node = header.replace("vp(", "").replace(")", "")
+                                    h_lower = header.lower()
+                                    if "vp(" in h_lower:
+                                        node = re.sub(r"^vp\(", "", header, flags=re.IGNORECASE).rstrip(")")
                                         row_phase[node] = float(parts[j])
-                                    elif "v(" in header.lower():
-                                        node = header.replace("v(", "").replace(")", "")
+                                    elif "vdb(" in h_lower or "vm(" in h_lower or "v(" in h_lower:
+                                        node = re.sub(r"^(?:vdb|vm|v)\(", "", header, flags=re.IGNORECASE).rstrip(")")
                                         row_mag[node] = float(parts[j])
 
                             # Commit atomically: frequency + all parsed columns
@@ -449,8 +450,10 @@ class ResultParser:
             raw_headers = lines[0].strip().split()
             headers = []
             for h in raw_headers:
-                # Sanitize headers: v(node) -> node, i(branch) -> i_branch
-                sanitized_h = re.sub(r"^v\((.*?)\)$", r"\1", h, flags=re.IGNORECASE)
+                # Sanitize headers: v(node)/vm(node)/vdb(node) -> node,
+                # vp(node) -> vp_node, i(branch) -> i_branch
+                sanitized_h = re.sub(r"^(?:vdb|vm|v)\((.*?)\)$", r"\1", h, flags=re.IGNORECASE)
+                sanitized_h = re.sub(r"^vp\((.*?)\)$", r"vp_\1", sanitized_h, flags=re.IGNORECASE)
                 sanitized_h = re.sub(r"^i\((.*?)\)$", r"i_\1", sanitized_h, flags=re.IGNORECASE)
                 headers.append(sanitized_h)
 

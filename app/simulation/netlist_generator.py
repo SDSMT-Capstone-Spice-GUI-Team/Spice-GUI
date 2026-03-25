@@ -125,6 +125,7 @@ class NetlistGenerator:
         self.wrdata_filepath = validate_wrdata_filepath(wrdata_filepath)
         self.spice_options = spice_options or {}
         self.measurements = measurements or []
+        self._is_temp_sweep = False
 
     def _sanitize_value(self, value: str) -> str:
         """Sanitize a component value before interpolation into the netlist."""
@@ -463,6 +464,8 @@ class NetlistGenerator:
             # Temperature sweep needs .op before .step
             lines.append(".op")
             lines.append(generate_analysis_command(self.analysis_type, self.analysis_params))
+            # Mark that we need the temperature vector printed alongside voltages
+            self._is_temp_sweep = True
         else:
             lines.append(generate_analysis_command(self.analysis_type, self.analysis_params))
 
@@ -534,21 +537,47 @@ class NetlistGenerator:
             labeled_nodes_to_print = {num: label for num, label in node_labels.items() if num != 0}
 
             is_ac = self.analysis_type == "AC Sweep"
+            # For AC analysis, use vm() for magnitude or vdb() for
+            # decibels instead of v() which returns the real part of
+            # the complex voltage.
+            use_db = is_ac and str(self.analysis_params.get("use_db", "No")).lower() in ("yes", "true", "1")
+            ac_mag_func = "vdb" if use_db else "vm"
 
             all_print_vars = []
             if labeled_nodes_to_print:
                 for label in sorted(labeled_nodes_to_print.values()):
-                    all_print_vars.append(f"v({label})")
                     if is_ac:
+                        all_print_vars.append(f"{ac_mag_func}({label})")
                         all_print_vars.append(f"vp({label})")
+                    else:
+                        all_print_vars.append(f"v({label})")
             elif nodes_to_print:
                 for node in sorted(list(nodes_to_print)):
-                    all_print_vars.append(f"v({node})")
                     if is_ac:
+                        all_print_vars.append(f"{ac_mag_func}({node})")
                         all_print_vars.append(f"vp({node})")
+                    else:
+                        all_print_vars.append(f"v({node})")
 
             # Add resistor voltages to the print list
             all_print_vars.extend(resistor_voltages_print)
+
+            # For DC sweep, prepend the sweep source so the parser gets the
+            # sweep variable column alongside node voltages.
+            if self.analysis_type == "DC Sweep" and all_print_vars:
+                source_name = self.analysis_params.get("source")
+                if not source_name:
+                    voltage_sources = [c for c in self.components.values() if c.component_type == "Voltage Source"]
+                    if voltage_sources:
+                        source_name = voltage_sources[0].component_id
+                if source_name:
+                    sweep_var = source_name.lower()
+                    all_print_vars.insert(0, sweep_var)
+
+            # For temperature sweep, prepend the temperature vector so the
+            # parser can extract temperature alongside node voltages.
+            if getattr(self, "_is_temp_sweep", False) and all_print_vars:
+                all_print_vars.insert(0, "temp-sweep")
 
             print_vars = " ".join(all_print_vars)
 
