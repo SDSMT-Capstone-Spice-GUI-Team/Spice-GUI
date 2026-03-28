@@ -24,16 +24,37 @@ class ViewOperationsMixin:
             self.refresh_theme_menu()
 
     def apply_theme(self):
-        """Apply the current theme to all top-level widgets."""
+        """Apply the current theme to all top-level widgets.
+
+        Applying a QSS stylesheet via ``app.setStyleSheet()`` triggers Qt to
+        immediately repaint all widgets, including the QGraphicsView.  During
+        that repaint Qt can invalidate or delete the C++ objects backing
+        QGraphicsItems (grid lines, components, wires), causing a segfault
+        when Python later references them (issue #860).
+
+        To avoid this we clear the scene *before* applying the stylesheet so
+        there are no items for Qt's repaint to destroy, then rebuild the
+        canvas from the model — the same strategy ``_handle_model_loaded``
+        uses after loading a file.
+        """
         theme = theme_manager.current_theme
+
+        # 1. Clear the scene so the upcoming repaint finds nothing to destroy.
+        self.canvas.scene.clear()
+        self.canvas._grid_items.clear()
+        self.canvas.components.clear()
+        self.canvas.wires.clear()
+        self.canvas.annotations.clear()
+
+        # 2. Apply the stylesheet (safe — the scene is empty).
         app = QApplication.instance()
         if app is not None:
             app.setStyleSheet(theme.load_qss())
         else:
             self.setStyleSheet(theme.load_qss())
 
-        # Refresh canvas (grid + components)
-        self.canvas.refresh_theme()
+        # 3. Rebuild the canvas from the controller's model data.
+        self.canvas._handle_model_loaded(None)
 
     def set_symbol_style(self, style: str):
         """Switch the component symbol drawing style."""

@@ -2,15 +2,7 @@ import logging
 
 from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QPen
-from PyQt6.QtWidgets import (
-    QGraphicsLineItem,
-    QGraphicsScene,
-    QGraphicsTextItem,
-    QGraphicsView,
-    QInputDialog,
-    QLineEdit,
-    QRubberBand,
-)
+from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsScene, QGraphicsView, QInputDialog, QLineEdit, QRubberBand
 
 logger = logging.getLogger(__name__)
 from models.clipboard import ClipboardData
@@ -436,6 +428,7 @@ class CircuitCanvasView(QGraphicsView):
 
         # Clear and rebuild everything
         self.scene.clear()
+        self._grid_items.clear()  # drop stale C++ refs destroyed by scene.clear()
         self.draw_grid()
         self.components = {}
         self.wires = []
