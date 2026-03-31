@@ -294,6 +294,45 @@ class ThemeManager:
         """Shortcut to get a font from current theme."""
         return self._theme.font(key)
 
+    def stylesheet(self, key: str) -> str:
+        """Return an inline QSS snippet for a semantic style key.
+
+        Keys map to small CSS fragments using theme colors.
+        Unknown keys return an empty string so widgets degrade gracefully.
+        """
+        snippets = {
+            # Status labels
+            "status_muted": f"color: {self.color_hex('text_muted')};",
+            "status_success": f"color: {self.color_hex('success')}; font-weight: bold;",
+            "status_error": f"color: {self.color_hex('error')}; font-weight: bold;",
+            "status_warning": f"color: {self.color_hex('warning')}; font-weight: bold;",
+            # Error styles
+            "error_label": f"color: {self.color_hex('error')}; font-size: 11px;",
+            "error_label_compact": f"color: {self.color_hex('error')}; font-size: 10px;",
+            "error_border": f"border: 2px solid {self.color_hex('border_error')};",
+            "error_border_thin": f"border: 1px solid {self.color_hex('border_error')};",
+            # Headings
+            "heading_large": "font-size: 16px; font-weight: bold;",
+            "heading_medium": "font-size: 13px; font-weight: bold;",
+            # Labels
+            "label_bold": "font-weight: bold;",
+            "label_padded": "padding: 4px;",
+            # Scores
+            "score_bold": "font-size: 14px; font-weight: bold;",
+            "score_success": f"font-size: 14px; font-weight: bold; color: {self.color_hex('success')};",
+            "score_warning": f"font-size: 14px; font-weight: bold; color: {self.color_hex('warning')};",
+            "score_error": f"font-size: 14px; font-weight: bold; color: {self.color_hex('error')};",
+            # Misc
+            "preview_monospace": "font-family: monospace; font-size: 10px;",
+            "muted_small": f"color: {self.color_hex('text_muted')}; font-size: 10px;",
+            "muted_italic": f"color: {self.color_hex('text_muted')}; font-style: italic;",
+            "ref_info": f"color: {self.color_hex('text_secondary')}; font-size: 11px;",
+            "color_swatch": "border: 1px solid #999; border-radius: 3px; min-width: 24px; min-height: 24px;",
+            "instructions_panel": f"background: {self.color_hex('panel_bg')}; padding: 8px; border-radius: 4px;",
+            "help_panel": f"background: {self.color_hex('panel_bg')}; padding: 8px; border-radius: 4px;",
+        }
+        return snippets.get(key, "")
+
     def load_qss(self) -> str:
         """Load the QSS stylesheet from the current theme."""
         return self._theme.load_qss()

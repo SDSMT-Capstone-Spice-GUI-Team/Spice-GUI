@@ -56,7 +56,7 @@ class DarkTheme(BaseTheme):
             "algorithm_idastar": "#81C784",  # Light green
             "algorithm_dijkstra": "#FFB74D",  # Light orange
             # ===== Grid Colors =====
-            "grid_minor": "#333333",  # Subtle dark gray
+            "grid_minor": "#444444",  # Subtle dark gray (visible on #2F2F2F bg)
             "grid_major": "#4A4A4A",  # Medium dark gray
             "grid_label": "#888888",  # Lighter gray for readability
             # ===== Canvas/UI Colors =====

@@ -1,7 +1,7 @@
 /* ============================================================
    Spice-GUI Light Theme Stylesheet
    ============================================================
-   Variables use the syntax @variable_name@ and are substituted
+   Variables use the syntax  variable  and are substituted
    from theme color definitions at runtime.
 
    Style guide rules:

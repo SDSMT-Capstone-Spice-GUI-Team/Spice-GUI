@@ -57,7 +57,7 @@ class LightTheme(BaseTheme):
             "grid_major": "#969696",  # Medium gray (150, 150, 150)
             "grid_label": "#646464",  # Dark gray (100, 100, 100)
             # ===== Canvas/UI Colors =====
-            "background_primary": "#CFD1D2",  # Light background
+            "background_primary": "#FFFFFF",  # White background
             "background_secondary": "#EDEDED",  # Sections
             "text_primary": "#2F2F2F",  # Dark gray text
             "text_secondary": "#666666",  # Medium gray
