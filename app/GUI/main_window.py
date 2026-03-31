@@ -21,6 +21,8 @@ from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
+    QApplication,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -48,7 +50,7 @@ from .main_window_simulation import SimulationMixin
 from .main_window_view import ViewOperationsMixin
 from .properties_panel import PropertiesPanel
 from .results_panel import ResultsPanel
-from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
+from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +77,7 @@ class MainWindow(
         super().__init__()
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.setGeometry(100, 100, *DEFAULT_WINDOW_SIZE)
+        self.splash_screen = None
 
         # Keybindings registry (load before UI so shortcuts are applied)
         self.keybindings = KeybindingsRegistry()
@@ -169,7 +172,7 @@ class MainWindow(
         left_panel.addWidget(QLabel("Component Palette"))
         self.palette = ComponentPalette()
         left_panel.addWidget(self.palette)
-        instructions = QLabel(
+        """instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
             "🖱️ Drag components to move (wires follow!)\n"
@@ -179,9 +182,9 @@ class MainWindow(
             "\n"
             "Wires auto-route using IDA* path finding!"
         )
-        instructions.setWordWrap(True)
-        instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
-        left_panel.addWidget(instructions)
+        ##instructions.setWordWrap(True)
+        ##instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
+        ##left_panel.addWidget(instructions)"""
         main_layout.addLayout(left_panel, 1)
 
         # Center - Canvas and results
@@ -497,3 +500,68 @@ class MainWindow(
                 statusBar.showMessage(f"Imported {Path(filepath).name}", 3000)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Import Error", f"Failed to import file:\n{e}")
+
+
+class SplashScreen(QWidget):
+    def __init__(self, main_window=None):
+        super().__init__()
+        self._main_window = main_window
+
+        self.setWindowTitle("Welcome to SDM-Spice!")
+
+        self.newCircuitButton = QPushButton("New Circuit")
+        self.loadCircuitButton = QPushButton("Load Circuit")
+        self.preferencesButton = QPushButton("Preferences")
+        self.aboutButton = QPushButton("About SDM-Spice")
+        self.text = QLabel("Welcome to SDM-Spice")
+        self.image = QLabel("I'm a picture, shhhhhh")
+
+        self.layout = QGridLayout(self)
+        self.layout.setVerticalSpacing(15)
+        self.layout.addWidget(self.text, 0, 1)
+        self.layout.addWidget(self.newCircuitButton, 1, 0)
+        self.layout.addWidget(self.loadCircuitButton, 2, 0)
+        self.layout.addWidget(self.preferencesButton, 3, 0)
+        self.layout.addWidget(self.aboutButton, 4, 0)
+        self.layout.addWidget(self.image, 2, 2)
+
+        # Connect button actions
+        self.newCircuitButton.clicked.connect(self.close)
+        self.loadCircuitButton.clicked.connect(self._on_load_circuit)
+        self.preferencesButton.clicked.connect(self._on_preferences)
+
+        self.resize(800, 600)
+
+        desktopScreen = self.frameGeometry()
+        centerPoint = QApplication.primaryScreen().geometry().center()
+        desktopScreen.moveCenter(centerPoint)
+        self.move(desktopScreen.topLeft())
+
+    def _on_load_circuit(self):
+        """Open the load file dialog via the main window, then close splash."""
+        if self._main_window is not None:
+            self._main_window._on_load()
+        self.close()
+
+    def _on_preferences(self):
+        """Open the preferences dialog via the main window."""
+        if self._main_window is not None:
+            self._main_window._open_preferences_dialog()
+
+
+# def main():
+#    app = QtWidgets.QApplication([])
+#
+#    window = MainWindow()
+#    window.show()
+#
+#    widget = MyWidget()
+#    widget.show()
+#
+#    with open("../darkMode.qss", "r") as file:
+#        _style = file.read()
+#        app.setStyleSheet(_style)
+#
+#    sys.exit(app.exec())
+#
+# main()

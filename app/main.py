@@ -26,12 +26,15 @@ def main():
         print_selftest(result)
         sys.exit(0 if result.passed else 1)
 
-    from GUI.main_window import MainWindow
+    from GUI.main_window import MainWindow, SplashScreen
     from PyQt6.QtWidgets import QApplication
 
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
+    widget = SplashScreen(main_window=window)
+    window.splash_screen = widget
+    widget.show()
     sys.exit(app.exec())
 
 

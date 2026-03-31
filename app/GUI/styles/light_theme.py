@@ -11,13 +11,14 @@ from .theme import BaseTheme
 class LightTheme(BaseTheme):
     """Light theme - the default application theme."""
 
+    _qss_filename = "light_theme.qss"
+
     def __init__(self):
         super().__init__()
         self._define_colors()
         self._define_pens()
         self._define_brushes()
         self._define_fonts()
-        self._define_stylesheets()
 
     @property
     def name(self) -> str:
@@ -56,11 +57,14 @@ class LightTheme(BaseTheme):
             "grid_major": "#969696",  # Medium gray (150, 150, 150)
             "grid_label": "#646464",  # Dark gray (100, 100, 100)
             # ===== Canvas/UI Colors =====
-            "background_primary": "#FFFFFF",  # White
-            "background_secondary": "#F0F0F0",  # Light gray
-            "text_primary": "#000000",  # Black
+            "background_primary": "#CFD1D2",  # Light background
+            "background_secondary": "#EDEDED",  # Sections
+            "text_primary": "#2F2F2F",  # Dark gray text
             "text_secondary": "#666666",  # Medium gray
             "text_muted": "#999999",  # Light gray text
+            # ===== Accent Colors (Mines brand) =====
+            "accent_primary": "#002554",  # Mines Navy Blue (default/intended)
+            "accent_hover": "#C5A55A",  # Mines Old Gold (hover/selected)
             # ===== Selection & Highlight =====
             "selection_highlight": "#FFFF00",  # Yellow
             "node_label": "#FF00FF",  # Magenta (255, 0, 255)
@@ -152,45 +156,4 @@ class LightTheme(BaseTheme):
             "panel_subtitle": {"size": 12, "bold": True},
             "monospace": {"family": "monospace", "size": 9, "bold": False},
             "probe_label": {"size": 10, "bold": True},
-        }
-
-    def _define_stylesheets(self):
-        """Define all stylesheet strings."""
-        self._stylesheets = {
-            "instructions_panel": """
-                QLabel {
-                    background-color: #f0f0f0;
-                    padding: 10px;
-                    border-radius: 5px;
-                }
-            """,
-            "muted_label": "QLabel { color: #666; }",
-            "title_bold": "font-weight: bold; font-size: 12pt;",
-            "metrics_text": "font-family: monospace; font-size: 9pt;",
-            # --- Semantic UI stylesheets ---
-            "error_label": "color: #DC3545; font-size: 9pt;",
-            "error_label_compact": "color: #DC3545; font-size: 9pt; margin: 0; padding: 0;",
-            "error_border": "border: 1.5px solid #DC3545; border-radius: 3px;",
-            "error_border_thin": "border: 1px solid #DC3545;",
-            "status_success": "QLabel { color: #28A745; }",
-            "status_error": "QLabel { color: #DC3545; }",
-            "status_warning": "QLabel { color: #CC8800; }",
-            "status_muted": "color: gray;",
-            "muted_italic": "color: #999999; font-style: italic;",
-            "preview_monospace": "color: #999999; font-family: monospace;",
-            "heading_large": "font-weight: bold; font-size: 16px;",
-            "heading_medium": "font-weight: bold; font-size: 14px;",
-            "score_bold": "font-size: 16px; font-weight: bold;",
-            "score_success": "font-size: 16px; font-weight: bold; color: #28A745;",
-            "score_warning": "font-size: 16px; font-weight: bold; color: #CC8800;",
-            "score_error": "font-size: 16px; font-weight: bold; color: #DC3545;",
-            "label_bold": "font-weight: bold;",
-            "label_padded": "padding: 4px;",
-            "help_panel": (
-                "QLabel { background-color: #F9F9F9; padding: 8px; "
-                "border: 1px solid #DDDDDD; border-radius: 3px; font-size: 9pt; }"
-            ),
-            "ref_info": "color: #28A745;",
-            "color_swatch": "border: 1px solid #888888; border-radius: 3px;",
-            "muted_small": "color: #999999; font-size: 9pt;",
         }
