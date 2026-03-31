@@ -24,12 +24,28 @@ class ViewOperationsMixin:
             self.refresh_theme_menu()
 
     def apply_theme(self):
-        """Apply the current theme to all visual elements."""
+        """Apply the current theme to all visual elements.
+
+        QSS ``setStyleSheet()`` triggers an immediate repaint of every widget,
+        including the ``QGraphicsView``.  During that repaint Qt may
+        invalidate/delete the C++ objects backing ``QGraphicsItem`` instances
+        in the scene, leading to a segfault when we later touch those items
+        (see #860).
+
+        The fix: swap the live scene for a temporary empty one *before*
+        applying the stylesheet so the repaint has nothing to destroy, then
+        rebuild the real scene from the model afterwards.
+        """
         theme = theme_manager.current_theme
+
+        # 1. Park an empty scene on the view so the QSS repaint is harmless.
+        self.canvas.detach_scene()
+
+        # 2. Apply the new stylesheet — repaint hits only the empty scene.
         self.setStyleSheet(theme.generate_stylesheet())
 
-        # Refresh canvas (grid + components)
-        self.canvas.refresh_theme()
+        # 3. Rebuild the real scene with correct theme colors and reattach.
+        self.canvas.rebuild_scene()
 
     def set_symbol_style(self, style: str):
         """Switch the component symbol drawing style."""
