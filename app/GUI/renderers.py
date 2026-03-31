@@ -52,8 +52,8 @@ def get_renderer(component_type: str, style: str) -> ComponentRenderer:
 
 
 def _bounding_rect_obstacle(component) -> list[tuple[float, float]]:
-    """Fallback obstacle shape — bounding rect of the component."""
-    rect = component.boundingRect()
+    """Fallback obstacle shape — symbol rect of the component (excludes text)."""
+    rect = component._symbol_rect()
     return [
         (rect.left(), rect.top()),
         (rect.right(), rect.top()),
@@ -227,7 +227,12 @@ def _draw_control_arrow(painter):
     painter.drawLine(-9, 0, -8, -2)
 
 
-_DEPENDENT_SOURCE_OBSTACLE = [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+_DEPENDENT_SOURCE_OBSTACLE = [
+    (-18.0, -18.0),
+    (18.0, -18.0),
+    (18.0, 18.0),
+    (-18.0, 18.0),
+]
 
 
 class IEEEVCVS(ComponentRenderer):
