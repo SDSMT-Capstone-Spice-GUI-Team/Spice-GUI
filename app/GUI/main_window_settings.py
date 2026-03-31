@@ -35,6 +35,7 @@ class SettingsMixin:
         settings.set("view/wire_thickness", theme_manager.wire_thickness)
         settings.set("view/show_junction_dots", theme_manager.show_junction_dots)
         settings.set("view/routing_mode", theme_manager.routing_mode)
+        settings.set("view/font_family", theme_manager.font_family)
 
     def _restore_settings(self):
         """Restore user preferences from the centralized settings service."""
@@ -118,6 +119,10 @@ class SettingsMixin:
         saved_routing_mode = settings.get("view/routing_mode")
         if saved_routing_mode in ("orthogonal", "diagonal"):
             self.set_routing_mode(saved_routing_mode)
+
+        saved_font_family = settings.get_str("view/font_family", "")
+        if saved_font_family:
+            theme_ctrl.set_font_family(saved_font_family)
 
     def closeEvent(self, event):
         """Save settings before closing"""

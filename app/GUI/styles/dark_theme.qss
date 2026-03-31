@@ -33,6 +33,7 @@ QDialog {
 QWidget {
     background-color: @background_primary@;
     color: @text_primary@;
+    font-family: @font_family@;
 }
 
 

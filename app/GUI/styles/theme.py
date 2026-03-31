@@ -62,6 +62,7 @@ class BaseTheme:
         self._pens: Dict[str, Dict] = {}  # key -> pen config dict
         self._brushes: Dict[str, Dict] = {}  # key -> brush config dict
         self._fonts: Dict[str, Dict] = {}  # key -> font config dict
+        self._global_font_family: str = ""  # user-chosen font family override
 
     @property
     def name(self) -> str:
@@ -122,6 +123,15 @@ class BaseTheme:
         color = self.color_rgba(color_key, alpha)
         return QBrush(color)
 
+    @property
+    def global_font_family(self) -> str:
+        """Return the current global font family override, or empty string."""
+        return self._global_font_family
+
+    def set_global_font_family(self, family: str) -> None:
+        """Set a global font family applied to all non-monospace fonts."""
+        self._global_font_family = family
+
     def font(self, key: str) -> QFont:
         """Get QFont by key."""
         config = self._fonts.get(key, {})
@@ -129,6 +139,8 @@ class BaseTheme:
 
         if "family" in config:
             font.setFamily(config["family"])
+        elif self._global_font_family:
+            font.setFamily(self._global_font_family)
         if "size" in config:
             font.setPointSize(config["size"])
         if config.get("bold", False):
@@ -177,6 +189,9 @@ class BaseTheme:
         variables["background_mid"] = bg_mid.name()
         variables["border"] = border.name()
         variables["background_mid_hover"] = bg_mid_hover.name()
+
+        # Font family — empty string means no override (system default)
+        variables["font_family"] = self._global_font_family or "sans-serif"
 
         # Strip CSS comments before substitution, then substitute on the
         # original template by only replacing @var@ outside of comments.

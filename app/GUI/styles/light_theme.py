@@ -143,7 +143,7 @@ class LightTheme(BaseTheme):
             "op_annotation": {"size": 9, "bold": True},
             "panel_title": {"size": 10, "bold": True},
             "panel_subtitle": {"size": 12, "bold": True},
-            "monospace": {"family": "monospace", "size": 9, "bold": False},
+            "monospace": {"family": "JetBrains Mono", "size": 9, "bold": False},
             "probe_label": {"size": 10, "bold": True},
         }
 

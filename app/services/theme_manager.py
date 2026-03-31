@@ -90,6 +90,7 @@ class ThemeManager:
             cls._instance._wire_thickness = "normal"
             cls._instance._show_junction_dots = True
             cls._instance._routing_mode = "orthogonal"
+            cls._instance._font_family = ""
         return cls._instance
 
     @property
@@ -115,6 +116,8 @@ class ThemeManager:
             theme: The new theme to use
         """
         self._theme = theme
+        if self._font_family:
+            self._theme.set_global_font_family(self._font_family)
         self._notify_listeners()
 
     def set_symbol_style(self, style: str) -> None:
@@ -201,6 +204,25 @@ class ThemeManager:
             return
         if mode != self._routing_mode:
             self._routing_mode = mode
+            self._notify_listeners()
+
+    # ===== Font preferences =====
+
+    @property
+    def font_family(self) -> str:
+        """Get the current global font family override."""
+        return self._font_family
+
+    def set_font_family(self, family: str) -> None:
+        """Set the global font family and notify listeners.
+
+        Args:
+            family: Font family name (e.g. 'Arial', 'OpenDyslexic'), or
+                    empty string to reset to system default.
+        """
+        if family != self._font_family:
+            self._font_family = family
+            self._theme.set_global_font_family(family)
             self._notify_listeners()
 
     def on_theme_changed(self, callback: Callable[[ThemeProtocol], None]) -> None:
