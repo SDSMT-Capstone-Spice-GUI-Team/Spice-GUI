@@ -568,6 +568,24 @@ class WaveformVoltageSource(ComponentGraphicsItem):
         return self.model.get_spice_value()
 
 
+class ACVoltageSource(ComponentGraphicsItem):
+    """AC Voltage Source — provides AC magnitude and phase for AC sweep analysis"""
+
+    type_name = "AC Voltage Source"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class ACCurrentSource(ComponentGraphicsItem):
+    """AC Current Source — provides AC magnitude and phase for AC sweep analysis"""
+
+    type_name = "AC Current Source"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
 class Ground(ComponentGraphicsItem):
     """Ground component"""
 
@@ -806,6 +824,10 @@ COMPONENT_CLASSES = {
     "Current Source": CurrentSource,
     "WaveformVoltageSource": WaveformVoltageSource,
     "Waveform Source": WaveformVoltageSource,
+    "ACVoltageSource": ACVoltageSource,
+    "AC Voltage Source": ACVoltageSource,
+    "ACCurrentSource": ACCurrentSource,
+    "AC Current Source": ACCurrentSource,
     "Ground": Ground,
     "OpAmp": OpAmp,
     "Op-Amp": OpAmp,

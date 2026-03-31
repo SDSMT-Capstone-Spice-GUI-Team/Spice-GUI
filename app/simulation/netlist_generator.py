@@ -251,6 +251,14 @@ class NetlistGenerator:
             elif comp.component_type == "Current Source":
                 val = self._sanitize_value(comp.value)
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
+            elif comp.component_type == "AC Voltage Source":
+                # Vxxx n+ n- AC magnitude phase
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} AC {val}")
+            elif comp.component_type == "AC Current Source":
+                # Ixxx n+ n- AC magnitude phase
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} AC {val}")
             elif comp.component_type == "Waveform Source":
                 # Use get_spice_value() method if available, otherwise use value
                 if hasattr(comp, "get_spice_value"):
