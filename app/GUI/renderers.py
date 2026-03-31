@@ -204,6 +204,33 @@ class IEEEACCurrentSource(ComponentRenderer):
         return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
 
 
+class IEEECurrentProbe(ComponentRenderer):
+    """Current Probe — circle with an arrow showing current measurement direction."""
+
+    def draw(self, painter, component):
+        painter.drawLine(-30, 0, -12, 0)
+        painter.drawLine(12, 0, 30, 0)
+        painter.drawEllipse(-12, -12, 24, 24)
+        # Arrow through circle showing current direction
+        painter.drawLine(-8, 0, 8, 0)
+        painter.drawLine(5, -4, 8, 0)
+        painter.drawLine(5, 4, 8, 0)
+        # "A" label for ampere measurement (small, inside top)
+        from PyQt6.QtCore import QRectF
+        from PyQt6.QtGui import QFont
+
+        old_font = painter.font()
+        small_font = QFont(old_font)
+        small_font.setPixelSize(9)
+        small_font.setBold(True)
+        painter.setFont(small_font)
+        painter.drawText(QRectF(-6, -11, 12, 10), 0x0084, "A")
+        painter.setFont(old_font)
+
+    def get_obstacle_shape(self, component):
+        return [(-14.0, -14.0), (14.0, -14.0), (14.0, 14.0), (-14.0, 14.0)]
+
+
 class IEEEGround(ComponentRenderer):
     def draw(self, painter, component):
         painter.drawLine(0, -10, 0, 0)
@@ -538,6 +565,7 @@ _ieee_current_source = IEEECurrentSource()
 _ieee_waveform_voltage_source = IEEEWaveformVoltageSource()
 _ieee_ac_voltage_source = IEEEACVoltageSource()
 _ieee_ac_current_source = IEEEACCurrentSource()
+_ieee_current_probe = IEEECurrentProbe()
 _ieee_ground = IEEEGround()
 _ieee_opamp = IEEEOpAmp()
 _ieee_vcvs = IEEEVCVS()
@@ -587,6 +615,7 @@ register("Current Source", "ieee", _ieee_current_source)
 register("Waveform Source", "ieee", _ieee_waveform_voltage_source)
 register("AC Voltage Source", "ieee", _ieee_ac_voltage_source)
 register("AC Current Source", "ieee", _ieee_ac_current_source)
+register("Current Probe", "ieee", _ieee_current_probe)
 register("Ground", "ieee", _ieee_ground)
 register("Op-Amp", "ieee", _ieee_opamp)
 register("VCVS", "ieee", _ieee_vcvs)
@@ -611,6 +640,7 @@ register("Current Source", "iec", _make_iec_delegate(_ieee_current_source))
 register("Waveform Source", "iec", _make_iec_delegate(_ieee_waveform_voltage_source))
 register("AC Voltage Source", "iec", _make_iec_delegate(_ieee_ac_voltage_source))
 register("AC Current Source", "iec", _make_iec_delegate(_ieee_ac_current_source))
+register("Current Probe", "iec", _make_iec_delegate(_ieee_current_probe))
 register("Ground", "iec", _make_iec_delegate(_ieee_ground))
 register("Op-Amp", "iec", _make_iec_delegate(_ieee_opamp))
 register("VCVS", "iec", _make_iec_delegate(_ieee_vcvs))

@@ -38,6 +38,7 @@ COMPONENT_TYPES = [
     "LED",
     "Zener Diode",
     "Transformer",
+    "Current Probe",
 ]
 
 # Category groupings for the component palette
@@ -54,7 +55,7 @@ COMPONENT_CATEGORIES = {
         "MOSFET PMOS",
     ],
     "Controlled Sources": ["VCVS", "CCVS", "VCCS", "CCCS"],
-    "Other": ["Op-Amp", "VC Switch", "Ground", "Transformer"],
+    "Other": ["Op-Amp", "VC Switch", "Ground", "Transformer", "Current Probe"],
 }
 
 # Mapping of component types to SPICE symbols
@@ -82,6 +83,7 @@ SPICE_SYMBOLS = {
     "LED": "D",
     "Zener Diode": "D",
     "Transformer": "K",
+    "Current Probe": "VP",
 }
 
 # Number of terminals per component type (default is 2)
@@ -125,6 +127,7 @@ DEFAULT_VALUES = {
     "LED": "IS=1e-20 N=1.8 EG=1.9",
     "Zener Diode": "IS=1e-14 N=1 BV=5.1 IBV=1e-3",
     "Transformer": "10mH 10mH 0.99",
+    "Current Probe": "0",
 }
 
 # Available op-amp models (value field choices)
@@ -197,6 +200,7 @@ COMPONENT_COLORS = {
     "LED": "#FFEB3B",
     "Zener Diode": "#8D6E63",
     "Transformer": "#6F42C1",
+    "Current Probe": "#00BFA5",
 }
 
 # Terminal geometry configuration per component type
@@ -227,6 +231,7 @@ TERMINAL_GEOMETRY = {
     "LED": (10, 20, None),
     "Zener Diode": (10, 20, None),
     "Transformer": (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
+    "Current Probe": (15, 15, None),
 }
 
 # Mapping from serialized class names to canonical display names
@@ -248,6 +253,7 @@ _CLASS_TO_DISPLAY = {
     "MOSFETPMOS": "MOSFET PMOS",
     "VCSwitch": "VC Switch",
     "ZenerDiode": "Zener Diode",
+    "CurrentProbe": "Current Probe",
 }
 
 # Mapping from display names to Python class names (for serialization)
@@ -268,6 +274,7 @@ _DISPLAY_TO_CLASS = {
     "MOSFET PMOS": "MOSFETPMOS",
     "VC Switch": "VCSwitch",
     "Zener Diode": "ZenerDiode",
+    "Current Probe": "CurrentProbe",
 }
 
 
