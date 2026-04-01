@@ -50,6 +50,7 @@ class TemplateData:
     reference_circuit: Optional[dict] = None
     required_analysis: Optional[dict] = None
     locked_components: list[str] = field(default_factory=list)
+    recommended_components: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         data = {
@@ -65,6 +66,8 @@ class TemplateData:
             data["required_analysis"] = self.required_analysis
         if self.locked_components:
             data["locked_components"] = list(self.locked_components)
+        if self.recommended_components:
+            data["recommended_components"] = list(self.recommended_components)
         return data
 
     @classmethod
@@ -77,4 +80,5 @@ class TemplateData:
             reference_circuit=data.get("reference_circuit"),
             required_analysis=data.get("required_analysis"),
             locked_components=list(data.get("locked_components", [])),
+            recommended_components=list(data.get("recommended_components", [])),
         )
