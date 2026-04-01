@@ -47,6 +47,8 @@ _COLOR_KEYS = {
     "Voltage Source": "component_voltage_source",
     "Current Source": "component_current_source",
     "Waveform Source": "component_waveform_source",
+    "AC Voltage Source": "component_ac_voltage_source",
+    "AC Current Source": "component_ac_current_source",
     "Ground": "component_ground",
     "Op-Amp": "component_opamp",
     "VCVS": "component_vcvs",

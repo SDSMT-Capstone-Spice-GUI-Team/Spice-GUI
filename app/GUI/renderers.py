@@ -154,6 +154,56 @@ class IEEEWaveformVoltageSource(ComponentRenderer):
         return _bounding_rect_obstacle(component)
 
 
+class IEEEACVoltageSource(ComponentRenderer):
+    """AC Voltage Source — circle with '~' sine symbol and +/- markers."""
+
+    def draw(self, painter, component):
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
+        painter.drawEllipse(-15, -15, 30, 30)
+        # +/- symbols
+        painter.drawLine(-10, 2, -10, -2)
+        painter.drawLine(-12, 0, -8, 0)
+        painter.drawLine(12, 0, 8, 0)
+        # Sine wave symbol inside (smaller, top-center area)
+        from PyQt6.QtGui import QPainterPath
+
+        path = QPainterPath()
+        path.moveTo(-7, -7)
+        for x_i in range(-7, 8):
+            y_i = 3 * math.sin(x_i * math.pi / 7)
+            path.lineTo(x_i, -7 + y_i)
+        painter.drawPath(path)
+
+    def get_obstacle_shape(self, component):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
+class IEEEACCurrentSource(ComponentRenderer):
+    """AC Current Source — circle with arrow and '~' sine symbol."""
+
+    def draw(self, painter, component):
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
+        painter.drawEllipse(-15, -15, 30, 30)
+        # Arrow showing current direction (left to right)
+        painter.drawLine(-8, 0, 8, 0)
+        painter.drawLine(5, -4, 8, 0)
+        painter.drawLine(5, 4, 8, 0)
+        # Sine wave symbol inside (top-center area)
+        from PyQt6.QtGui import QPainterPath
+
+        path = QPainterPath()
+        path.moveTo(-7, -7)
+        for x_i in range(-7, 8):
+            y_i = 3 * math.sin(x_i * math.pi / 7)
+            path.lineTo(x_i, -7 + y_i)
+        painter.drawPath(path)
+
+    def get_obstacle_shape(self, component):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
 class IEEEGround(ComponentRenderer):
     def draw(self, painter, component):
         painter.drawLine(0, -10, 0, 0)
@@ -491,6 +541,8 @@ class IECInductor(ComponentRenderer):
 _ieee_voltage_source = IEEEVoltageSource()
 _ieee_current_source = IEEECurrentSource()
 _ieee_waveform_voltage_source = IEEEWaveformVoltageSource()
+_ieee_ac_voltage_source = IEEEACVoltageSource()
+_ieee_ac_current_source = IEEEACCurrentSource()
 _ieee_ground = IEEEGround()
 _ieee_opamp = IEEEOpAmp()
 _ieee_vcvs = IEEEVCVS()
@@ -538,6 +590,8 @@ register("Inductor", "ieee", _ieee_inductor)
 register("Voltage Source", "ieee", _ieee_voltage_source)
 register("Current Source", "ieee", _ieee_current_source)
 register("Waveform Source", "ieee", _ieee_waveform_voltage_source)
+register("AC Voltage Source", "ieee", _ieee_ac_voltage_source)
+register("AC Current Source", "ieee", _ieee_ac_current_source)
 register("Ground", "ieee", _ieee_ground)
 register("Op-Amp", "ieee", _ieee_opamp)
 register("VCVS", "ieee", _ieee_vcvs)
@@ -560,6 +614,8 @@ register("Inductor", "iec", _iec_inductor)
 register("Voltage Source", "iec", _make_iec_delegate(_ieee_voltage_source))
 register("Current Source", "iec", _make_iec_delegate(_ieee_current_source))
 register("Waveform Source", "iec", _make_iec_delegate(_ieee_waveform_voltage_source))
+register("AC Voltage Source", "iec", _make_iec_delegate(_ieee_ac_voltage_source))
+register("AC Current Source", "iec", _make_iec_delegate(_ieee_ac_current_source))
 register("Ground", "iec", _make_iec_delegate(_ieee_ground))
 register("Op-Amp", "iec", _make_iec_delegate(_ieee_opamp))
 register("VCVS", "iec", _make_iec_delegate(_ieee_vcvs))

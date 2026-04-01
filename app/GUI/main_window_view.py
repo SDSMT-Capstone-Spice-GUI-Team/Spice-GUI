@@ -24,37 +24,28 @@ class ViewOperationsMixin:
             self.refresh_theme_menu()
 
     def apply_theme(self):
-        """Apply the current theme to all top-level widgets.
+        """Apply the current theme to all visual elements.
 
-        Applying a QSS stylesheet via ``app.setStyleSheet()`` triggers Qt to
-        immediately repaint all widgets, including the QGraphicsView.  During
-        that repaint Qt can invalidate or delete the C++ objects backing
-        QGraphicsItems (grid lines, components, wires), causing a segfault
-        when Python later references them (issue #860).
+        QSS ``setStyleSheet()`` triggers an immediate repaint of every widget,
+        including the ``QGraphicsView``.  During that repaint Qt may
+        invalidate/delete the C++ objects backing ``QGraphicsItem`` instances
+        in the scene, leading to a segfault when we later touch those items
+        (see #860).
 
-        To avoid this we clear the scene *before* applying the stylesheet so
-        there are no items for Qt's repaint to destroy, then rebuild the
-        canvas from the model — the same strategy ``_handle_model_loaded``
-        uses after loading a file.
+        The fix: swap the live scene for a temporary empty one *before*
+        applying the stylesheet so the repaint has nothing to destroy, then
+        rebuild the real scene from the model afterwards.
         """
         theme = theme_manager.current_theme
 
-        # 1. Clear the scene so the upcoming repaint finds nothing to destroy.
-        self.canvas._scene.clear()
-        self.canvas._grid_items.clear()
-        self.canvas.components.clear()
-        self.canvas.wires.clear()
-        self.canvas.annotations.clear()
+        # 1. Park an empty scene on the view so the QSS repaint is harmless.
+        self.canvas.detach_scene()
 
-        # 2. Apply the stylesheet (safe — the scene is empty).
-        app = QApplication.instance()
-        if app is not None:
-            app.setStyleSheet(theme.load_qss())
-        else:
-            self.setStyleSheet(theme.load_qss())
+        # 2. Apply the new stylesheet — repaint hits only the empty scene.
+        self.setStyleSheet(theme.generate_stylesheet())
 
-        # 3. Rebuild the canvas from the controller's model data.
-        self.canvas._handle_model_loaded(None)
+        # 3. Rebuild the real scene with correct theme colors and reattach.
+        self.canvas.rebuild_scene()
 
     def set_symbol_style(self, style: str):
         """Switch the component symbol drawing style."""
