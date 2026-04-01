@@ -577,7 +577,7 @@ class TestReplaceModelDeepCopy:
 
     def test_replace_model_copies_all_dataclass_fields(self):
         """Every field on CircuitModel must be transferred by _replace_model."""
-        import dataclasses
+        from dataclasses import fields
 
         source = build_simple_circuit()
         source.analysis_type = "AC Sweep"
@@ -587,8 +587,15 @@ class TestReplaceModelDeepCopy:
         ctrl = FileController(CircuitModel())
         ctrl._replace_model(source)
 
-        for f in dataclasses.fields(CircuitModel):
+        for f in fields(CircuitModel):
             assert getattr(ctrl.model, f.name) is not None, f"Field {f.name!r} was not copied"
+
+    def test_replace_model_preserves_identity(self):
+        """_replace_model must update the existing model object, not replace it."""
+        ctrl = FileController()
+        original_model = ctrl.model
+        ctrl._replace_model(build_simple_circuit())
+        assert ctrl.model is original_model
 
 
 class TestExportBom:

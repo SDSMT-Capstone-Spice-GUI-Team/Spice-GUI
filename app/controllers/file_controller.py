@@ -5,11 +5,11 @@ File dialog interaction is the responsibility of the view layer.
 Recent files tracking uses the centralized settings service for cross-session persistence.
 """
 
-import dataclasses
 import json
 import logging
 import os
 import tempfile
+from dataclasses import fields
 from pathlib import Path
 from typing import List, Optional
 
@@ -71,7 +71,7 @@ class FileController:
 
         fresh = CircuitModel.from_dict(parsed_data)
         self.model.clear()
-        for f in dataclasses.fields(fresh):
+        for f in fields(fresh):
             setattr(self.model, f.name, getattr(fresh, f.name))
 
     def load_from_model(self, new_model: CircuitModel) -> None:
