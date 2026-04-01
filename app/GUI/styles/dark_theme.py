@@ -10,14 +10,13 @@ from .theme import BaseTheme
 class DarkTheme(BaseTheme):
     """Dark theme with high-contrast colors on a dark background."""
 
-    _qss_filename = "dark_theme.qss"
-
     def __init__(self):
         super().__init__()
         self._define_colors()
         self._define_pens()
         self._define_brushes()
         self._define_fonts()
+        self._define_stylesheets()
 
     @property
     def name(self) -> str:
@@ -60,14 +59,11 @@ class DarkTheme(BaseTheme):
             "grid_major": "#4A4A4A",  # Medium dark gray
             "grid_label": "#888888",  # Lighter gray for readability
             # ===== Canvas/UI Colors =====
-            "background_primary": "#2F2F2F",  # Dark background
-            "background_secondary": "#4F4F4F",  # Slightly lighter
-            "text_primary": "#EDEDED",  # Light gray text
+            "background_primary": "#1E1E1E",  # Dark background
+            "background_secondary": "#2D2D2D",  # Slightly lighter
+            "text_primary": "#D4D4D4",  # Light gray text
             "text_secondary": "#999999",  # Medium gray
             "text_muted": "#666666",  # Dimmed text
-            # ===== Accent Colors (Mines brand) =====
-            "accent_primary": "#002554",  # Mines Navy Blue (default/intended)
-            "accent_hover": "#C5A55A",  # Mines Old Gold (hover/selected)
             # ===== Selection & Highlight =====
             "selection_highlight": "#FFFF00",  # Yellow (kept bright)
             "node_label": "#FF80FF",  # Bright magenta
@@ -159,4 +155,47 @@ class DarkTheme(BaseTheme):
             "panel_subtitle": {"size": 12, "bold": True},
             "monospace": {"family": "monospace", "size": 9, "bold": False},
             "probe_label": {"size": 10, "bold": True},
+        }
+
+    def _define_stylesheets(self):
+        """Define all stylesheet strings for dark mode."""
+        self._stylesheets = {
+            "instructions_panel": """
+                QLabel {
+                    background-color: #2D2D2D;
+                    color: #D4D4D4;
+                    padding: 10px;
+                    border-radius: 5px;
+                }
+            """,
+            "muted_label": "QLabel { color: #999; }",
+            "title_bold": "font-weight: bold; font-size: 12pt; color: #D4D4D4;",
+            "metrics_text": "font-family: monospace; font-size: 9pt; color: #D4D4D4;",
+            # --- Semantic UI stylesheets ---
+            "error_label": "color: #FF6B6B; font-size: 9pt;",
+            "error_label_compact": "color: #FF6B6B; font-size: 9pt; margin: 0; padding: 0;",
+            "error_border": "border: 1.5px solid #FF6B6B; border-radius: 3px;",
+            "error_border_thin": "border: 1px solid #FF6B6B;",
+            "status_success": "QLabel { color: #66DD66; }",
+            "status_error": "QLabel { color: #FF6B6B; }",
+            "status_warning": "QLabel { color: #FFAA44; }",
+            "status_muted": "color: #999999;",
+            "muted_italic": "color: #666666; font-style: italic;",
+            "preview_monospace": "color: #666666; font-family: monospace;",
+            "heading_large": "font-weight: bold; font-size: 16px; color: #D4D4D4;",
+            "heading_medium": "font-weight: bold; font-size: 14px; color: #D4D4D4;",
+            "score_bold": "font-size: 16px; font-weight: bold; color: #D4D4D4;",
+            "score_success": "font-size: 16px; font-weight: bold; color: #66DD66;",
+            "score_warning": "font-size: 16px; font-weight: bold; color: #FFAA44;",
+            "score_error": "font-size: 16px; font-weight: bold; color: #FF6B6B;",
+            "label_bold": "font-weight: bold; color: #D4D4D4;",
+            "label_padded": "padding: 4px; color: #D4D4D4;",
+            "help_panel": (
+                "QLabel { background-color: #2D2D2D; padding: 8px; "
+                "border: 1px solid #444444; border-radius: 3px; "
+                "font-size: 9pt; color: #D4D4D4; }"
+            ),
+            "ref_info": "color: #66DD66;",
+            "color_swatch": "border: 1px solid #888888; border-radius: 3px;",
+            "muted_small": "color: #999999; font-size: 9pt;",
         }

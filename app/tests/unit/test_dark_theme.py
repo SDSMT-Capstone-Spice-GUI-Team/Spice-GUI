@@ -103,28 +103,19 @@ class TestDarkThemeBrushes:
         assert brush.color().alpha() == 200
 
 
-class TestDarkThemeQSS:
-    """Verify QSS stylesheet loading works."""
+class TestDarkThemeStylesheets:
+    """Verify stylesheets are correctly defined."""
 
-    def test_load_qss_returns_content(self):
+    def test_instructions_panel(self):
         theme = DarkTheme()
-        qss = theme.load_qss()
-        assert len(qss) > 0
-        assert "background-color" in qss
+        ss = theme.stylesheet("instructions_panel")
+        assert "background-color" in ss
+        assert "#2D2D2D" in ss
 
-    def test_load_qss_substitutes_variables(self):
+    def test_muted_label(self):
         theme = DarkTheme()
-        qss = theme.load_qss()
-        # Should not contain any unresolved @variable@ placeholders
-        import re
-
-        unresolved = re.findall(r"@\w+@", qss)
-        assert unresolved == [], f"Unresolved variables: {unresolved}"
-
-    def test_load_qss_contains_theme_colors(self):
-        theme = DarkTheme()
-        qss = theme.load_qss()
-        assert theme.color_hex("background_primary").lower() in qss.lower()
+        ss = theme.stylesheet("muted_label")
+        assert "color" in ss
 
 
 class TestThemeManagerSwitch:

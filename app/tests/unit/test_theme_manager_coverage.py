@@ -350,9 +350,9 @@ class TestConvenienceMethods:
         self.mgr.font("label")
         self.mgr.current_theme.font.assert_called_with("label")
 
-    def test_load_qss(self):
-        self.mgr.load_qss()
-        self.mgr.current_theme.load_qss.assert_called_once()
+    def test_stylesheet(self):
+        self.mgr.stylesheet("main")
+        self.mgr.current_theme.stylesheet.assert_called_with("main")
 
 
 class TestComponentColorHelpers:

@@ -35,13 +35,13 @@ class PropertiesPanel(QWidget):
 
         # Component ID field (read-only)
         self.id_label = QLabel("-")
-        self.id_label.setObjectName("muted_label")
+        self.id_label.setStyleSheet(theme_manager.stylesheet("muted_label"))
         self.id_label.setToolTip("Unique identifier for this component (auto-generated)")
         self.form_layout.addRow("ID:", self.id_label)
 
         # Component Type field (read-only)
         self.type_label = QLabel("-")
-        self.type_label.setObjectName("muted_label")
+        self.type_label.setStyleSheet(theme_manager.stylesheet("muted_label"))
         self.type_label.setToolTip("The type of circuit component")
         self.form_layout.addRow("Type:", self.type_label)
 

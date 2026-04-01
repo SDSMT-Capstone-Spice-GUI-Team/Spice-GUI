@@ -20,13 +20,14 @@ class CustomTheme(BaseTheme):
         self._pens = dict(base_theme._pens)
         self._brushes = dict(base_theme._brushes)
         self._fonts = dict(base_theme._fonts)
-
-        # Use the base theme's QSS file
-        self._qss_filename = base_theme._qss_filename
+        self._stylesheets = dict(base_theme._stylesheets)
 
         # Apply user color overrides
         self._color_overrides = dict(colors)
         self._colors.update(colors)
+
+        # Regenerate stylesheets from new colors
+        self._rebuild_stylesheets()
 
     @property
     def name(self) -> str:
@@ -43,3 +44,37 @@ class CustomTheme(BaseTheme):
     def get_color_overrides(self) -> dict:
         """Return only the colors that differ from the base theme."""
         return dict(self._color_overrides)
+
+    def _rebuild_stylesheets(self):
+        """Regenerate named stylesheets using the current color values."""
+        bg2 = self._colors.get("background_secondary", "#F0F0F0")
+        fg = self._colors.get("text_primary", "#000000")
+        fg2 = self._colors.get("text_secondary", "#666666")
+
+        if self._theme_is_dark:
+            self._stylesheets = {
+                "instructions_panel": f"""
+                    QLabel {{
+                        background-color: {bg2};
+                        color: {fg};
+                        padding: 10px;
+                        border-radius: 5px;
+                    }}
+                """,
+                "muted_label": f"QLabel {{ color: {fg2}; }}",
+                "title_bold": f"font-weight: bold; font-size: 12pt; color: {fg};",
+                "metrics_text": f"font-family: monospace; font-size: 9pt; color: {fg};",
+            }
+        else:
+            self._stylesheets = {
+                "instructions_panel": f"""
+                    QLabel {{
+                        background-color: {bg2};
+                        padding: 10px;
+                        border-radius: 5px;
+                    }}
+                """,
+                "muted_label": f"QLabel {{ color: {fg2}; }}",
+                "title_bold": "font-weight: bold; font-size: 12pt;",
+                "metrics_text": "font-family: monospace; font-size: 9pt;",
+            }

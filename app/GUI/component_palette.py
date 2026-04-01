@@ -102,7 +102,6 @@ class ComponentPalette(QWidget):
         # Component tree with collapsible categories
         self.tree_widget = _PaletteTreeWidget()
         self.tree_widget.setHeaderHidden(True)
-        self.tree_widget.setRootIsDecorated(False)
         self.tree_widget.setDragEnabled(True)
         self.tree_widget.setDefaultDropAction(Qt.DropAction.CopyAction)
         self.tree_widget.setIconSize(QSize(48, 48))
@@ -142,16 +141,10 @@ class ComponentPalette(QWidget):
             is_expanded = expanded_state.get(category_name, True)
             category_item.setExpanded(is_expanded)
 
-        self.tree_widget.itemClicked.connect(self._on_item_clicked)
         self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.tree_widget.itemExpanded.connect(self._save_expanded_state)
         self.tree_widget.itemCollapsed.connect(self._save_expanded_state)
         layout.addWidget(self.tree_widget)
-
-    def _on_item_clicked(self, item, column):
-        """Toggle expand/collapse when a category header is clicked."""
-        if item.parent() is None:
-            item.setExpanded(not item.isExpanded())
 
     def _on_item_double_clicked(self, item, column):
         """Handle double-click on palette item (ignore category headers)."""

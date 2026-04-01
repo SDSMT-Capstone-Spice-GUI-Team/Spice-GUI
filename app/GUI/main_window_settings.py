@@ -89,15 +89,14 @@ class SettingsMixin:
         saved_theme_key = settings.get("view/theme_key")
         if saved_theme_key and saved_theme_key != "light":
             theme_ctrl.set_theme_by_key(saved_theme_key)
+            self.apply_theme()
             if hasattr(self, "refresh_theme_menu"):
                 self.refresh_theme_menu()
         else:
             # Legacy fallback: check old theme name
             saved_theme = settings.get("view/theme")
             if saved_theme == "Dark Theme":
-                theme_ctrl.set_theme_by_key("dark")
-        # Always apply theme on startup so the QSS stylesheet is loaded
-        self.apply_theme()
+                self._set_theme("dark")
 
         saved_symbol_style = settings.get("view/symbol_style")
         if saved_symbol_style in ("ieee", "iec"):
@@ -123,8 +122,6 @@ class SettingsMixin:
         """Save settings before closing"""
         self._save_settings()
         self.file_ctrl.clear_auto_save()
-        if self.splash_screen is not None:
-            self.splash_screen.close()
         super().closeEvent(event)
 
     def start_autosave_timer(self):
