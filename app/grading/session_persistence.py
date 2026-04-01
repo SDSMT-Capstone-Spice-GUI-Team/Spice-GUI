@@ -144,17 +144,56 @@ def batch_result_to_session(
 # ---------------------------------------------------------------------------
 
 
+def _to_relative(path_str: str, anchor: Path) -> str:
+    """Convert an absolute path to a relative path based on *anchor* directory.
+
+    Returns the original string unchanged when it is empty or already relative.
+    """
+    if not path_str:
+        return path_str
+    p = Path(path_str)
+    if not p.is_absolute():
+        return path_str
+    try:
+        return str(p.relative_to(anchor))
+    except ValueError:
+        # On different drive / no common prefix — use os.path.relpath
+        return os.path.relpath(path_str, anchor)
+
+
+def _to_absolute(path_str: str, anchor: Path) -> str:
+    """Resolve a (possibly relative) path against *anchor* directory.
+
+    Returns the original string unchanged when it is empty.
+    """
+    if not path_str:
+        return path_str
+    p = Path(path_str)
+    if p.is_absolute():
+        return path_str
+    return str((anchor / p).resolve())
+
+
 def save_grading_session(filepath, session: GradingSessionData) -> None:
     """Save a grading session to a .spice-grades JSON file.
+
+    Paths are stored relative to the session file's directory so the
+    file remains portable across machines.
 
     Raises:
         OSError: If the file cannot be written.
     """
     filepath = Path(filepath)
+    anchor = filepath.parent.resolve()
+
+    data = session.to_dict()
+    data["rubric_path"] = _to_relative(data.get("rubric_path", ""), anchor)
+    data["student_folder"] = _to_relative(data.get("student_folder", ""), anchor)
+
     fd, tmp = tempfile.mkstemp(dir=filepath.parent, suffix=".tmp")
     try:
         with os.fdopen(fd, "w") as f:
-            json.dump(session.to_dict(), f, indent=2)
+            json.dump(data, f, indent=2)
         os.replace(tmp, filepath)
     except BaseException:
         os.unlink(tmp)
@@ -164,15 +203,24 @@ def save_grading_session(filepath, session: GradingSessionData) -> None:
 def load_grading_session(filepath) -> GradingSessionData:
     """Load and validate a grading session from a .spice-grades JSON file.
 
+    Relative paths stored in the file are resolved against the session
+    file's directory.
+
     Raises:
         json.JSONDecodeError: If the file is not valid JSON.
         ValueError: If the session structure is invalid.
         OSError: If the file cannot be read.
     """
     filepath = Path(filepath)
+    anchor = filepath.parent.resolve()
+
     with open(filepath, "r") as f:
         data = json.load(f)
     validate_session_data(data)
+
+    data["rubric_path"] = _to_absolute(data.get("rubric_path", ""), anchor)
+    data["student_folder"] = _to_absolute(data.get("student_folder", ""), anchor)
+
     return GradingSessionData.from_dict(data)
 
 
