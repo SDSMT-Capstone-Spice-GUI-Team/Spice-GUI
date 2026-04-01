@@ -329,6 +329,9 @@ class CircuitCanvasView(QGraphicsView):
             # Sync visual path from persisted model waypoints
             if hasattr(wire_data, "waypoints") and wire_data.waypoints:
                 wire._restore_waypoints()
+                # Refresh handles if the wire is selected (e.g. after undo/redo)
+                if wire.isSelected():
+                    wire._show_handles()
 
     def _handle_wire_lock_changed(self, data) -> None:
         """Update wire visual when lock state changes."""
@@ -359,6 +362,19 @@ class CircuitCanvasView(QGraphicsView):
             idx = self.wires.index(wire_item)
             wps = waypoints if waypoints is not None else wire_item.model.waypoints
             self.controller.update_wire_waypoints(idx, wps)
+            self.controller.set_wire_locked(idx, True)
+
+    def on_waypoint_drag_finished(self, wire_item, new_waypoints) -> None:
+        """Push an undoable MoveWaypointCommand after a waypoint drag."""
+        from controllers.commands import MoveWaypointCommand
+
+        if self.controller and wire_item in self.wires:
+            idx = self.wires.index(wire_item)
+            old_waypoints = wire_item._pre_drag_waypoints
+            cmd = MoveWaypointCommand(self.controller, idx, old_waypoints, new_waypoints)
+            self.controller.push_already_executed(cmd)
+            # Sync the model (the visual state is already correct)
+            self.controller.update_wire_waypoints(idx, new_waypoints)
             self.controller.set_wire_locked(idx, True)
 
     def on_wire_routing_complete(self, wire_item, waypoints, runtime=0.0, iterations=0, routing_failed=False):

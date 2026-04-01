@@ -66,9 +66,9 @@ class TestWaypointHandleCreation:
 
         scene = QGraphicsScene()
         scene.addItem(wire_with_waypoints)
-        # 4 waypoints, interior = index 1 and 2
+        # 4 waypoints: 2 interior waypoint handles + 3 segment midpoint handles = 5
         wire_with_waypoints._show_handles()
-        assert len(wire_with_waypoints._waypoint_handles) == 2
+        assert len(wire_with_waypoints._waypoint_handles) == 5
 
     def test_hide_handles_removes_all(self, wire_with_waypoints, qtbot):
         from PyQt6.QtWidgets import QGraphicsScene
@@ -76,7 +76,7 @@ class TestWaypointHandleCreation:
         scene = QGraphicsScene()
         scene.addItem(wire_with_waypoints)
         wire_with_waypoints._show_handles()
-        assert len(wire_with_waypoints._waypoint_handles) == 2
+        assert len(wire_with_waypoints._waypoint_handles) == 5
         wire_with_waypoints._hide_handles()
         assert len(wire_with_waypoints._waypoint_handles) == 0
 
@@ -110,17 +110,21 @@ class TestWaypointHandleCreation:
         scene = QGraphicsScene()
         scene.addItem(wire)
         wire._show_handles()
-        assert len(wire._waypoint_handles) == 0
+        # 2-point wire: no interior handles, but 1 segment midpoint handle
+        assert len(wire._waypoint_handles) == 1
 
     def test_handles_positioned_at_waypoints(self, wire_with_waypoints, qtbot):
+        from GUI.wire_item import WaypointHandle
         from PyQt6.QtWidgets import QGraphicsScene
 
         scene = QGraphicsScene()
         scene.addItem(wire_with_waypoints)
         wire_with_waypoints._show_handles()
-        handle1, handle2 = wire_with_waypoints._waypoint_handles
-        assert handle1.pos() == QPointF(50, 0)
-        assert handle2.pos() == QPointF(50, 50)
+        # Filter to only WaypointHandle (interior) handles
+        wp_handles = [h for h in wire_with_waypoints._waypoint_handles if isinstance(h, WaypointHandle)]
+        assert len(wp_handles) == 2
+        assert wp_handles[0].pos() == QPointF(50, 0)
+        assert wp_handles[1].pos() == QPointF(50, 50)
 
 
 class TestWaypointDragging:
@@ -139,15 +143,15 @@ class TestWaypointDragging:
     def test_finish_drag_passes_waypoints_to_canvas(self, wire_with_waypoints, qtbot):
         wire_with_waypoints._move_waypoint(1, QPointF(60, 10))
         wire_with_waypoints._finish_waypoint_drag()
-        call_args = wire_with_waypoints.canvas.on_wire_waypoints_changed.call_args
+        call_args = wire_with_waypoints.canvas.on_waypoint_drag_finished.call_args
         waypoints = call_args[0][1]  # second positional arg
         assert (60.0, 10.0) in waypoints
 
     def test_finish_drag_notifies_canvas_with_waypoints(self, wire_with_waypoints, qtbot):
         wire_with_waypoints._move_waypoint(1, QPointF(60, 10))
         wire_with_waypoints._finish_waypoint_drag()
-        wire_with_waypoints.canvas.on_wire_waypoints_changed.assert_called_once()
-        call_args = wire_with_waypoints.canvas.on_wire_waypoints_changed.call_args
+        wire_with_waypoints.canvas.on_waypoint_drag_finished.assert_called_once()
+        call_args = wire_with_waypoints.canvas.on_waypoint_drag_finished.call_args
         assert call_args[0][0] is wire_with_waypoints
         # Second arg is tuple waypoints list
         assert isinstance(call_args[0][1], list)
@@ -168,7 +172,7 @@ class TestWaypointDragControllerIntegration:
         """Waypoints sent to canvas must be (x, y) tuples, not QPointF."""
         wire_with_waypoints._move_waypoint(1, QPointF(60, 10))
         wire_with_waypoints._finish_waypoint_drag()
-        call_args = wire_with_waypoints.canvas.on_wire_waypoints_changed.call_args
+        call_args = wire_with_waypoints.canvas.on_waypoint_drag_finished.call_args
         waypoints = call_args[0][1]
         for wp in waypoints:
             assert isinstance(wp, tuple), f"Expected tuple, got {type(wp)}"
@@ -231,7 +235,8 @@ class TestSelectionToggle:
         scene = QGraphicsScene()
         scene.addItem(wire_with_waypoints)
         wire_with_waypoints.setSelected(True)
-        assert len(wire_with_waypoints._waypoint_handles) == 2
+        # 2 interior + 3 segment = 5
+        assert len(wire_with_waypoints._waypoint_handles) == 5
 
     def test_deselection_hides_handles(self, wire_with_waypoints, qtbot):
         from PyQt6.QtWidgets import QGraphicsScene
@@ -239,6 +244,6 @@ class TestSelectionToggle:
         scene = QGraphicsScene()
         scene.addItem(wire_with_waypoints)
         wire_with_waypoints.setSelected(True)
-        assert len(wire_with_waypoints._waypoint_handles) == 2
+        assert len(wire_with_waypoints._waypoint_handles) == 5
         wire_with_waypoints.setSelected(False)
         assert len(wire_with_waypoints._waypoint_handles) == 0
