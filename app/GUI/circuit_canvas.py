@@ -1002,6 +1002,22 @@ class CircuitCanvasView(QGraphicsView):
             self._scene.clearSelection()
             event.accept()
             return
+        if event.key() == Qt.Key.Key_Backspace:
+            if self.wire_start_comp is not None and self._wire_waypoints:
+                self._wire_waypoints.pop()
+                if self._wire_waypoint_markers:
+                    marker = self._wire_waypoint_markers.pop()
+                    self._scene.removeItem(marker)
+                # Re-anchor preview line to previous waypoint (or start terminal)
+                if self.temp_wire_line is not None:
+                    if self._wire_waypoints:
+                        anchor = self._wire_waypoints[-1]
+                    else:
+                        anchor = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+                    line = self.temp_wire_line.line()
+                    self.temp_wire_line.setLine(anchor.x(), anchor.y(), line.x2(), line.y2())
+                event.accept()
+                return
         super().keyPressEvent(event)
 
     def wheelEvent(self, event):
