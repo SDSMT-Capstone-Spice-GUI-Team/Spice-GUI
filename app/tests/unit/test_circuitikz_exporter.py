@@ -411,6 +411,51 @@ class TestFourTerminalExport:
         assert "closing switch" in output
 
 
+class TestTransformerExport:
+    def test_transformer_node(self):
+        model = CircuitModel()
+        model.add_component(ComponentData("K1", "Transformer", "10mH 10mH 0.99", position=(100, 100)))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert r"\node[transformer core" in output
+        assert "(K1)" in output
+        assert "K1.A1" in output
+        assert "K1.A2" in output
+        assert "K1.B1" in output
+        assert "K1.B2" in output
+
+    def test_transformer_includes_value_comment(self):
+        model = CircuitModel()
+        model.add_component(ComponentData("K1", "Transformer", "10mH 10mH 0.99", position=(100, 100)))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+            include_values=True,
+        )
+        assert "10mH 10mH 0.99" in output
+
+    def test_transformer_not_silently_omitted(self):
+        """Regression: Transformer was silently skipped before #500."""
+        model = CircuitModel()
+        model.add_component(ComponentData("K1", "Transformer", "10mH 10mH 0.99", position=(100, 100)))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert "K1" in output
+
+
 class TestCompleteCircuit:
     def test_voltage_divider_compiles_structure(self):
         """Full voltage divider: V1, R1, R2, GND with wires."""
