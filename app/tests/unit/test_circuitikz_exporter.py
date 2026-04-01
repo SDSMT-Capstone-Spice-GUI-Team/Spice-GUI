@@ -236,6 +236,43 @@ class TestTripoleExport:
         assert r"\node[op amp" in output
         assert "OA1.-" in output or "OA1.+" in output
 
+    def test_flip_v_on_tripole(self):
+        """Regression: flip_v was ignored on tripoles before #522."""
+        model = CircuitModel()
+        model.add_component(ComponentData("Q1", "BJT NPN", "2N3904", position=(100, 100), flip_v=True))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert "yscale=-1" in output
+
+    def test_flip_h_on_tripole(self):
+        model = CircuitModel()
+        model.add_component(ComponentData("Q1", "BJT NPN", "2N3904", position=(100, 100), flip_h=True))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert "xscale=-1" in output
+
+    def test_flip_v_absent_when_not_flipped(self):
+        model = CircuitModel()
+        model.add_component(ComponentData("Q1", "BJT NPN", "2N3904", position=(100, 100)))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert "yscale" not in output
+
     def test_all_tripole_types_mapped(self):
         """Ensure every tripole type has a CircuiTikZ mapping."""
         expected_tripoles = {

@@ -274,12 +274,15 @@ def _emit_tripole(lines, comp, tikz_name, transform, include_ids):
     xscale = ""
     if comp.flip_h:
         xscale = ", xscale=-1"
+    yscale = ""
+    if comp.flip_v:
+        yscale = ", yscale=-1"
 
     label_opt = ""
     if include_ids:
         label_opt = f", label={{right:{comp.component_id}}}"
 
-    lines.append(f"  \\node[{tikz_name}{rotate_opt}{xscale}{label_opt}] ({node_id}) at {_coord(cx, cy)} {{}};")
+    lines.append(f"  \\node[{tikz_name}{rotate_opt}{xscale}{yscale}{label_opt}] ({node_id}) at {_coord(cx, cy)} {{}};")
 
     # Draw short wires from tripole anchors to terminal positions
     terminals = comp.get_terminal_positions()
