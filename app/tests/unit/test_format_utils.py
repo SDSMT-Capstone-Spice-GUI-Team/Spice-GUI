@@ -3,7 +3,7 @@ Tests for GUI/format_utils.py — SI prefix parsing, formatting, and validation.
 """
 
 import pytest
-from utils.format_utils import format_value, parse_value, validate_component_value
+from utils.format_utils import format_value, parse_spice_value, parse_value, validate_component_value
 
 # ── parse_value ──────────────────────────────────────────────────────
 
@@ -157,3 +157,44 @@ class TestValidateComponentValue:
     def test_dependent_source_accepts_negative(self):
         is_valid, msg = validate_component_value("-2", "CCCS")
         assert is_valid
+
+
+# ── parse_spice_value case-insensitive suffixes (#543) ──────────────
+
+
+class TestParseSpiceValueCaseInsensitive:
+    """SPICE suffixes must be matched case-insensitively (#543)."""
+
+    @pytest.mark.parametrize(
+        "input_str, expected",
+        [
+            ("4.7MEG", 4.7e6),
+            ("4.7meg", 4.7e6),
+            ("4.7Meg", 4.7e6),
+            ("10K", 10e3),
+            ("10k", 10e3),
+            ("100N", 100e-9),
+            ("100n", 100e-9),
+            ("1U", 1e-6),
+            ("1u", 1e-6),
+            ("2.2P", 2.2e-12),
+            ("2.2p", 2.2e-12),
+            ("1F", 1e-15),
+            ("1f", 1e-15),
+            ("1T", 1e12),
+            ("1t", 1e12),
+            ("1G", 1e9),
+            ("1g", 1e9),
+            ("5M", 5e-3),
+            ("5m", 5e-3),
+        ],
+    )
+    def test_case_insensitive_suffix(self, input_str, expected):
+        result = parse_spice_value(input_str)
+        assert result == pytest.approx(expected), f"parse_spice_value({input_str!r}) = {result}, expected {expected}"
+
+    def test_bare_number(self):
+        assert parse_spice_value("100") == pytest.approx(100.0)
+
+    def test_unparseable_returns_none(self):
+        assert parse_spice_value("SIN(0 5 1k)") is None

@@ -207,23 +207,22 @@ def parse_spice_value(value_str):
         return None
 
     # Map of SPICE suffix -> multiplier (ordered longest-first so "MEG" is
-    # tested before "M" etc.)
+    # tested before "M" etc.).  Matching is case-insensitive (#543).
     suffixes = [
         ("MEG", 1e6),
-        ("meg", 1e6),
         ("T", 1e12),
         ("G", 1e9),
-        ("k", 1e3),
         ("K", 1e3),
-        ("m", 1e-3),
-        ("u", 1e-6),
-        ("n", 1e-9),
-        ("p", 1e-12),
-        ("f", 1e-15),
+        ("M", 1e-3),
+        ("U", 1e-6),
+        ("N", 1e-9),
+        ("P", 1e-12),
+        ("F", 1e-15),
     ]
 
+    s_upper = s.upper()
     for suffix, mult in suffixes:
-        if s.endswith(suffix):
+        if s_upper.endswith(suffix):
             num_part = s[: -len(suffix)]
             try:
                 return float(num_part) * mult
