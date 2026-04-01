@@ -161,6 +161,42 @@ class TestWaypointDragging:
         assert new_path.elementCount() == old_element_count
 
 
+class TestWaypointDragControllerIntegration:
+    """Test that waypoint drag persists through the controller without crash (#482)."""
+
+    def test_finish_drag_waypoints_are_tuples(self, wire_with_waypoints, qtbot):
+        """Waypoints sent to canvas must be (x, y) tuples, not QPointF."""
+        wire_with_waypoints._move_waypoint(1, QPointF(60, 10))
+        wire_with_waypoints._finish_waypoint_drag()
+        call_args = wire_with_waypoints.canvas.on_wire_waypoints_changed.call_args
+        waypoints = call_args[0][1]
+        for wp in waypoints:
+            assert isinstance(wp, tuple), f"Expected tuple, got {type(wp)}"
+            assert len(wp) == 2
+
+    def test_wire_routed_event_unpacks_without_error(self, wire_with_waypoints, qtbot):
+        """Simulate wire_routed event to verify data format is (index, WireData)."""
+        from controllers.circuit_controller import CircuitController
+
+        ctrl = CircuitController()
+        ctrl.add_component("Resistor", (0.0, 0.0))
+        ctrl.add_component("Resistor", (100.0, 0.0))
+        ctrl.add_wire("R1", 1, "R2", 0)
+
+        recorded = []
+        ctrl.add_observer(lambda name, data: recorded.append((name, data)))
+
+        pts = [(0, 0), (60, 10), (50, 50), (100, 50)]
+        ctrl.update_wire_waypoints(0, pts)
+
+        event_name, event_data = recorded[-1]
+        assert event_name == "wire_routed"
+        # This must not raise ValueError
+        wire_index, wire_data = event_data
+        assert wire_index == 0
+        assert wire_data.waypoints == pts
+
+
 class TestWaypointHandleProperties:
     """Test WaypointHandle properties and behavior."""
 
