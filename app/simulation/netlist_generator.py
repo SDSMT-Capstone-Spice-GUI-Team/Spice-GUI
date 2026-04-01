@@ -132,11 +132,15 @@ class NetlistGenerator:
 
         Raises ValueError with a descriptive message if any component has
         an invalid value (empty, unparseable, or out of range).
+        Subcircuit instances (SPICE symbol "X") are skipped because their
+        value is a model/subcircuit name, not a numeric quantity.
         """
         from utils.format_utils import validate_component_value
 
         errors = []
         for comp in self.components.values():
+            if comp.get_spice_symbol() == "X":
+                continue  # subcircuit name, not numeric
             is_valid, msg = validate_component_value(comp.value, comp.component_type)
             if not is_valid:
                 errors.append(f"{comp.component_id} ({comp.component_type}): {msg}")
