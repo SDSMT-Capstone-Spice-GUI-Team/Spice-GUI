@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QPushB
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
 from .plot_utils import apply_mpl_theme as _apply_mpl_theme
 from .plot_utils import safe_legend
+from .styles import theme_manager
 
 logger = logging.getLogger(__name__)
 
@@ -455,10 +456,12 @@ class ACSweepPlotDialog(QDialog):
 
         # Draw -3dB reference line
         ref_level = markers["ref_level_db"]
+        cutoff_color = theme_manager.color_hex("probe_voltage")
+        ugf_color = theme_manager.color_hex("probe_current")
         if ref_level is not None:
             artist = self._ax_mag.axhline(
                 y=ref_level,
-                color="#CC0066",
+                color=cutoff_color,
                 linestyle="--",
                 linewidth=1,
                 alpha=0.7,
@@ -468,7 +471,7 @@ class ACSweepPlotDialog(QDialog):
 
         # Draw -3dB cutoff frequency markers
         for fc in markers["cutoff_3db"]:
-            artist = self._ax_mag.axvline(x=fc, color="#CC0066", linestyle=":", linewidth=1, alpha=0.7)
+            artist = self._ax_mag.axvline(x=fc, color=cutoff_color, linestyle=":", linewidth=1, alpha=0.7)
             self._marker_artists.append(artist)
             artist = self._ax_mag.annotate(
                 f"fc={format_frequency(fc)}",
@@ -476,15 +479,15 @@ class ACSweepPlotDialog(QDialog):
                 xytext=(10, 15),
                 textcoords="offset points",
                 fontsize=8,
-                color="#CC0066",
-                arrowprops=dict(arrowstyle="->", color="#CC0066", lw=0.8),
+                color=cutoff_color,
+                arrowprops=dict(arrowstyle="->", color=cutoff_color, lw=0.8),
             )
             self._marker_artists.append(artist)
 
         # Draw unity gain frequency marker
         if markers["unity_gain_freq"] is not None:
             ugf = markers["unity_gain_freq"]
-            artist = self._ax_mag.axvline(x=ugf, color="#006633", linestyle=":", linewidth=1, alpha=0.7)
+            artist = self._ax_mag.axvline(x=ugf, color=ugf_color, linestyle=":", linewidth=1, alpha=0.7)
             self._marker_artists.append(artist)
             artist = self._ax_mag.annotate(
                 f"0dB @ {format_frequency(ugf)}",
@@ -492,8 +495,8 @@ class ACSweepPlotDialog(QDialog):
                 xytext=(10, -20),
                 textcoords="offset points",
                 fontsize=8,
-                color="#006633",
-                arrowprops=dict(arrowstyle="->", color="#006633", lw=0.8),
+                color=ugf_color,
+                arrowprops=dict(arrowstyle="->", color=ugf_color, lw=0.8),
             )
             self._marker_artists.append(artist)
 
