@@ -127,12 +127,31 @@ class NetlistGenerator:
         self.measurements = measurements or []
         self._is_temp_sweep = False
 
+    def _validate_component_values(self):
+        """Validate all component values before netlist generation (#541).
+
+        Raises ValueError with a descriptive message if any component has
+        an invalid value (empty, unparseable, or out of range).
+        """
+        from utils.format_utils import validate_component_value
+
+        errors = []
+        for comp in self.components.values():
+            is_valid, msg = validate_component_value(comp.value, comp.component_type)
+            if not is_valid:
+                errors.append(f"{comp.component_id} ({comp.component_type}): {msg}")
+        if errors:
+            raise ValueError("Invalid component values:\n" + "\n".join(errors))
+
     def _sanitize_value(self, value: str) -> str:
         """Sanitize a component value before interpolation into the netlist."""
         return sanitize_spice_value(value)
 
     def generate(self):
         """Generate complete SPICE netlist"""
+        # Validate component values before generation (#541)
+        self._validate_component_values()
+
         lines = ["My Test Circuit", "* Generated netlist", ""]
 
         # Add op-amp subcircuit definitions for each model used
