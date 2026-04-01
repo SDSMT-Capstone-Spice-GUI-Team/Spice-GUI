@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import tempfile
+from dataclasses import fields
 from pathlib import Path
 from typing import List, Optional
 
@@ -68,15 +69,8 @@ class FileController:
         validate_circuit_data(parsed_data)
 
         self.model.clear()
-        self.model.components = new_model.components
-        self.model.wires = new_model.wires
-        self.model.nodes = new_model.nodes
-        self.model.terminal_to_node = new_model.terminal_to_node
-        self.model.component_counter = new_model.component_counter
-        self.model.analysis_type = new_model.analysis_type
-        self.model.analysis_params = new_model.analysis_params
-        self.model.annotations = new_model.annotations
-        self.model.recommended_components = new_model.recommended_components
+        for f in fields(new_model):
+            setattr(self.model, f.name, getattr(new_model, f.name))
 
     def load_from_model(self, new_model: CircuitModel) -> None:
         """Replace the current circuit with *new_model* and notify observers.
