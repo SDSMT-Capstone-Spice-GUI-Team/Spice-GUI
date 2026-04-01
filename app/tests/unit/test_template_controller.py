@@ -382,3 +382,58 @@ class TestGetTemplateMetadata:
         ctrl = TemplateController()
         with pytest.raises(ValueError, match="title"):
             ctrl.get_template_metadata(filepath)
+
+
+class TestRecommendedComponents:
+    """Issue #485: recommended_components lost when loading templates."""
+
+    def test_save_and_load_preserves_recommended(self, tmp_path):
+        ctrl = TemplateController()
+        circuit = _build_simple_circuit()
+        filepath = tmp_path / "test.spice-template"
+        ctrl.save_as_template(
+            filepath=filepath,
+            metadata=_build_metadata(),
+            starter_circuit=circuit,
+            recommended_components=["Resistor", "Capacitor"],
+        )
+        template = ctrl.load_template(filepath)
+        assert template.recommended_components == ["Resistor", "Capacitor"]
+
+    def test_create_circuit_applies_recommended(self):
+        ctrl = TemplateController()
+        template = TemplateData(
+            metadata=_build_metadata(),
+            recommended_components=["Resistor", "Inductor"],
+        )
+        model = ctrl.create_circuit_from_template(template)
+        assert model.recommended_components == ["Resistor", "Inductor"]
+
+    def test_template_level_overrides_starter_circuit(self, tmp_path):
+        ctrl = TemplateController()
+        circuit = _build_simple_circuit()
+        circuit.recommended_components = ["Op-Amp"]
+        filepath = tmp_path / "test.spice-template"
+        ctrl.save_as_template(
+            filepath=filepath,
+            metadata=_build_metadata(),
+            starter_circuit=circuit,
+            recommended_components=["Resistor", "Capacitor"],
+        )
+        template = ctrl.load_template(filepath)
+        model = ctrl.create_circuit_from_template(template)
+        assert model.recommended_components == ["Resistor", "Capacitor"]
+
+    def test_empty_recommended_preserves_starter_circuit(self, tmp_path):
+        ctrl = TemplateController()
+        circuit = _build_simple_circuit()
+        circuit.recommended_components = ["Op-Amp"]
+        filepath = tmp_path / "test.spice-template"
+        ctrl.save_as_template(
+            filepath=filepath,
+            metadata=_build_metadata(),
+            starter_circuit=circuit,
+        )
+        template = ctrl.load_template(filepath)
+        model = ctrl.create_circuit_from_template(template)
+        assert model.recommended_components == ["Op-Amp"]

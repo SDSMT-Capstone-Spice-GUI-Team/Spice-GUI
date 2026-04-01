@@ -58,6 +58,7 @@ class TemplateController:
         instructions: str = "",
         required_analysis: Optional[dict] = None,
         locked_components: Optional[list[str]] = None,
+        recommended_components: Optional[list[str]] = None,
     ) -> None:
         """Save a circuit as an assignment template.
 
@@ -82,6 +83,7 @@ class TemplateController:
             reference_circuit=(reference_circuit.to_dict() if reference_circuit else None),
             required_analysis=required_analysis,
             locked_components=list(locked_components or []),
+            recommended_components=list(recommended_components or []),
         )
 
         with open(filepath, "w") as f:
@@ -133,6 +135,10 @@ class TemplateController:
             analysis_params = template.required_analysis.get("params")
             if analysis_params:
                 model.analysis_params = analysis_params.copy()
+
+        # Template-level recommended_components override the starter circuit's
+        if template.recommended_components:
+            model.recommended_components = list(template.recommended_components)
 
         return model
 
