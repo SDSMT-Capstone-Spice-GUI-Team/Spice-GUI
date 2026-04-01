@@ -215,10 +215,10 @@ v1                   5.000e+00     5.000e-01     2.500e+00
 
     def test_sensitivity_in_analysis_dialog(self):
         """Sensitivity option exists in the analysis type configurations."""
-        from GUI.analysis_dialog import ANALYSIS_CONFIGS
+        from GUI.analysis_dialog import AnalysisDialog
 
-        assert "Sensitivity" in ANALYSIS_CONFIGS
-        config = ANALYSIS_CONFIGS["Sensitivity"]
+        assert "Sensitivity" in AnalysisDialog.ANALYSIS_CONFIGS
+        config = AnalysisDialog.ANALYSIS_CONFIGS["Sensitivity"]
         field_names = [f["name"] for f in config["fields"]]
         assert "output_node" in field_names
 
