@@ -152,7 +152,7 @@ class ViewOperationsMixin:
             if bundle.template is not None:
                 from controllers.template_controller import TemplateController
 
-                model = TemplateController.create_circuit_from_template(bundle.template)
+                model = TemplateController().create_circuit_from_template(bundle.template)
                 self.file_ctrl.load_from_model(model)
 
             # Load rubric into grading panel if present
