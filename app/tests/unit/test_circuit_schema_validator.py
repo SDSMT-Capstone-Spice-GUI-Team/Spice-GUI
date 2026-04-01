@@ -148,6 +148,16 @@ class TestValidateComponentTypeAndRotation:
             }
             validate_circuit_data(data)  # no exception
 
+    def test_serialized_class_names_pass(self):
+        from models.component import _CLASS_TO_DISPLAY
+
+        for class_name in _CLASS_TO_DISPLAY:
+            data = {
+                "components": [{"id": "X1", "type": class_name, "value": "", "pos": {"x": 0, "y": 0}}],
+                "wires": [],
+            }
+            validate_circuit_data(data)  # no exception
+
     def test_valid_rotations_pass(self):
         for rotation in (0, 90, 180, 270):
             data = {
