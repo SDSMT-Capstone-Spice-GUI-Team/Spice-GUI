@@ -328,6 +328,8 @@ class BatchGradingDialog(QDialog):
         self._display_results(loaded_result)
         self.export_btn.setEnabled(True)
         self.save_grades_btn.setEnabled(True)
+        self.export_reports_btn.setEnabled(bool(loaded_result.results))
+        self.save_histogram_btn.setEnabled(bool(loaded_result.results))
         self.progress_label.setText(f"Loaded session: {session.rubric_title} ({session.timestamp})")
 
     def _show_comparison(self, old_session: GradingSessionData):
