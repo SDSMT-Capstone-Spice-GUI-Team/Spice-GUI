@@ -104,7 +104,8 @@ class TestTemplateData:
         )
         d = template.to_dict()
         assert "starter_circuit" in d
-        assert "reference_circuit" in d
+        # Identical reference_circuit is omitted (deduplication)
+        assert "reference_circuit" not in d
         assert "components" in d["starter_circuit"]
 
     def test_from_dict_round_trip(self):
@@ -119,7 +120,8 @@ class TestTemplateData:
         assert restored.metadata.title == "Test Template"
         assert restored.instructions == "Build a voltage divider"
         assert restored.starter_circuit is not None
-        assert restored.reference_circuit is None
+        # from_dict falls back reference_circuit to starter_circuit when absent
+        assert restored.reference_circuit == restored.starter_circuit
         assert restored.required_analysis["type"] == "DC Operating Point"
 
     def test_from_dict_missing_optional_fields(self):
@@ -216,7 +218,8 @@ class TestTemplateControllerSaveLoad:
         )
         data = json.loads(filepath.read_text())
         assert "starter_circuit" in data
-        assert "reference_circuit" in data
+        # Identical reference_circuit is omitted (deduplication)
+        assert "reference_circuit" not in data
         assert data["instructions"] == "Follow the steps."
 
     def test_load_returns_template_data(self, tmp_path):
