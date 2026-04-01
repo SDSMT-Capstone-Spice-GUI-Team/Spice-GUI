@@ -550,6 +550,34 @@ class TestAnnotationsAndRecommendedComponents:
         assert ctrl2.model.analysis_type == "AC Sweep"
 
 
+class TestReplaceModelFieldTransfer:
+    """Issue #499: _replace_model must transfer all CircuitModel dataclass fields."""
+
+    def test_replace_model_copies_all_fields(self):
+        """Every dataclass field on CircuitModel is copied by _replace_model."""
+        from dataclasses import fields
+
+        new_model = build_simple_circuit()
+        new_model.recommended_components = ["Resistor"]
+        new_model.analysis_type = "Transient"
+        new_model.analysis_params = {"tstop": "10m"}
+
+        ctrl = FileController()
+        ctrl._replace_model(new_model)
+
+        for f in fields(CircuitModel):
+            assert getattr(ctrl.model, f.name) == getattr(
+                new_model, f.name
+            ), f"Field '{f.name}' not transferred by _replace_model"
+
+    def test_replace_model_preserves_identity(self):
+        """_replace_model must update the existing model object, not replace it."""
+        ctrl = FileController()
+        original_model = ctrl.model
+        ctrl._replace_model(build_simple_circuit())
+        assert ctrl.model is original_model
+
+
 class TestExportBom:
     """Tests for FileController.export_bom (Issue #570)."""
 
