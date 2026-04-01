@@ -535,6 +535,50 @@ class TestResistorDivider:
         assert "V1" in netlist
 
 
+class TestGroundCustomLabel:
+    """Ground node with a custom label must still produce SPICE node '0' (#527)."""
+
+    def test_ground_custom_label_stays_zero(self):
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "R1": make_component("Resistor", "R1", "1k", (100, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_gnd = NodeData(
+            terminals={("R1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={1, 2},
+            is_ground=True,
+            auto_label="0",
+            custom_label="MyGround",
+        )
+        nodes = [node_a, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        netlist = _generate(components, wires, nodes, t2n)
+        # The netlist must NOT contain the custom label as a node name
+        assert "MyGround" not in netlist
+        assert "(ground)" not in netlist
+        # Ground node must appear as "0" in component lines
+        assert " 0 " in netlist or " 0\n" in netlist
+
+
 class TestWrdataPathCrossPlatform:
     """Verify wrdata file paths use forward slashes for ngspice compatibility."""
 
