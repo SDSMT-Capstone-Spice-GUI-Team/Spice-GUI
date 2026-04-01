@@ -325,6 +325,48 @@ class TestSaveLoadSession:
             assert restored_result.earned_points == orig_result.earned_points
             assert restored_result.total_points == orig_result.total_points
 
+    def test_paths_stored_as_relative_in_file(self, tmp_path):
+        """Issue #535: paths on disk must be relative, not absolute."""
+        rubric = tmp_path / "rubric.spice-rubric"
+        students = tmp_path / "students"
+        session = _make_session(
+            rubric_path=str(rubric),
+            student_folder=str(students),
+        )
+        filepath = tmp_path / f"test{GRADES_EXTENSION}"
+        save_grading_session(filepath, session)
+
+        with open(filepath) as f:
+            data = json.load(f)
+        # Stored paths must be relative to the session file directory
+        assert data["rubric_path"] == "rubric.spice-rubric"
+        assert data["student_folder"] == "students"
+
+    def test_relative_paths_resolved_on_load(self, tmp_path):
+        """Issue #535: relative paths are resolved back to absolute on load."""
+        rubric = tmp_path / "rubric.spice-rubric"
+        students = tmp_path / "students"
+        session = _make_session(
+            rubric_path=str(rubric),
+            student_folder=str(students),
+        )
+        filepath = tmp_path / f"test{GRADES_EXTENSION}"
+        save_grading_session(filepath, session)
+
+        loaded = load_grading_session(filepath)
+        assert loaded.rubric_path == str(rubric.resolve())
+        assert loaded.student_folder == str(students.resolve())
+
+    def test_empty_paths_preserved(self, tmp_path):
+        """Empty paths must stay empty through save/load."""
+        session = _make_session(rubric_path="", student_folder="")
+        filepath = tmp_path / f"test{GRADES_EXTENSION}"
+        save_grading_session(filepath, session)
+
+        loaded = load_grading_session(filepath)
+        assert loaded.rubric_path == ""
+        assert loaded.student_folder == ""
+
 
 # ---------------------------------------------------------------------------
 # compare_sessions
