@@ -96,6 +96,10 @@ class DarkTheme(BaseTheme):
             "border_error": "#FF6B6B",  # Red border for invalid inputs
             "border_light": "#444444",  # Subtle border for dark bg
             "panel_bg": "#2D2D2D",  # Match background_secondary
+            # ===== Syntax Highlighting Colors =====
+            "syntax_comment": "#81C784",  # Light green for dark bg
+            "syntax_directive": "#64B5F6",  # Light blue for dark bg
+            "syntax_keyword": "#CE93D8",  # Light purple for dark bg
             # ===== Measurement Cursor Colors =====
             "cursor_a": "#FF6B6B",  # Light red cursor for dark bg
             "cursor_b": "#5DADE2",  # Light blue cursor for dark bg
