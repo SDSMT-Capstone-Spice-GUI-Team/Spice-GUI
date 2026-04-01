@@ -64,6 +64,7 @@ _COLOR_KEYS = {
     "LED": "component_led",
     "Zener Diode": "component_zener",
     "Transformer": "component_transformer",
+    "Current Probe": "component_current_probe",
 }
 
 # Component definitions - symbol and terminals sourced from models

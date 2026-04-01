@@ -37,6 +37,7 @@ COMPONENT_TOOLTIPS = {
     "LED": "LED (D) — Light-emitting diode",
     "Zener Diode": "Zener Diode (D) — Voltage-regulating diode",
     "Transformer": "Transformer (K) — Coupled inductors / ideal transformer",
+    "Current Probe": "Current Probe (VP) — Measures current through a branch (0V source)",
 }
 
 # Name for the recommended section in the palette

@@ -259,6 +259,9 @@ class NetlistGenerator:
                 # Ixxx n+ n- AC magnitude phase
                 val = self._sanitize_value(comp.value)
                 lines.append(f"{comp_id} {' '.join(nodes)} AC {val}")
+            elif comp.component_type == "Current Probe":
+                # 0V voltage source for current measurement
+                lines.append(f"{comp_id} {' '.join(nodes)} 0")
             elif comp.component_type == "Waveform Source":
                 # Use get_spice_value() method if available, otherwise use value
                 if hasattr(comp, "get_spice_value"):
@@ -569,6 +572,11 @@ class NetlistGenerator:
 
             # Add resistor voltages to the print list
             all_print_vars.extend(resistor_voltages_print)
+
+            # Add current probe measurements: i(probe_id) for each Current Probe
+            probes = [c for c in self.components.values() if c.component_type == "Current Probe"]
+            for probe in sorted(probes, key=lambda c: c.component_id):
+                all_print_vars.append(f"i({probe.component_id})")
 
             # Note: for DC sweep, the sweep variable (v-sweep) is automatically
             # included as the first column in wrdata output when wr_singlescale

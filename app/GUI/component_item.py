@@ -813,6 +813,15 @@ class ZenerDiode(ComponentGraphicsItem):
         super().__init__(component_id, self.type_name, model=model)
 
 
+class CurrentProbe(ComponentGraphicsItem):
+    """Current Probe — 0V voltage source for measuring current"""
+
+    type_name = "Current Probe"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
 class Transformer(ComponentGraphicsItem):
     """Transformer — two coupled inductors (K element)"""
 
@@ -892,6 +901,8 @@ COMPONENT_CLASSES = {
     "Zener Diode": ZenerDiode,
     "ZenerDiode": ZenerDiode,
     "Transformer": Transformer,
+    "CurrentProbe": CurrentProbe,
+    "Current Probe": CurrentProbe,
 }
 
 
