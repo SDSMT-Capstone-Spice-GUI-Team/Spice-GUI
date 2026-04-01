@@ -66,6 +66,17 @@ class TestFormatHelpers:
         assert _escape_latex("100%") == "100\\%"
         assert _escape_latex("a&b") == "a\\&b"
 
+    def test_escape_latex_tilde(self):
+        """Issue #525: tilde must not produce a non-breaking space."""
+        assert _escape_latex("V~out") == r"V\textasciitilde{}out"
+
+    def test_escape_latex_caret(self):
+        """Issue #525: caret must not produce a superscript."""
+        assert _escape_latex("x^2") == r"x\textasciicircum{}2"
+
+    def test_escape_latex_tilde_and_caret_together(self):
+        assert _escape_latex("a~b^c") == r"a\textasciitilde{}b\textasciicircum{}c"
+
 
 class TestCoordinateTransform:
     def test_transform_normalizes_origin(self):
