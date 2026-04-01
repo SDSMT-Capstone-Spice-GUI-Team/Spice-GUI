@@ -43,7 +43,7 @@ class TestValidateCircuitDataStructure:
 class TestValidateCircuitDataComponents:
     def test_component_missing_id_raises(self):
         data = {
-            "components": [{"type": "R", "value": "1k", "pos": {"x": 0, "y": 0}}],
+            "components": [{"type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
             "wires": [],
         }
         with pytest.raises(ValueError, match="'id'"):
@@ -75,7 +75,7 @@ class TestValidateCircuitDataComponents:
 
     def test_component_pos_missing_x_raises(self):
         data = {
-            "components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"y": 0}}],
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"y": 0}}],
             "wires": [],
         }
         with pytest.raises(ValueError, match="invalid position"):
@@ -83,7 +83,7 @@ class TestValidateCircuitDataComponents:
 
     def test_component_pos_missing_y_raises(self):
         data = {
-            "components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": 0}}],
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0}}],
             "wires": [],
         }
         with pytest.raises(ValueError, match="invalid position"):
@@ -91,7 +91,7 @@ class TestValidateCircuitDataComponents:
 
     def test_component_pos_non_numeric_x_raises(self):
         data = {
-            "components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": "a", "y": 0}}],
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": "a", "y": 0}}],
             "wires": [],
         }
         with pytest.raises(ValueError, match="numeric"):
@@ -99,7 +99,7 @@ class TestValidateCircuitDataComponents:
 
     def test_component_pos_non_numeric_y_raises(self):
         data = {
-            "components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": 0, "y": "b"}}],
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": "b"}}],
             "wires": [],
         }
         with pytest.raises(ValueError, match="numeric"):
