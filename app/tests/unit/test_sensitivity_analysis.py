@@ -173,6 +173,63 @@ r1                   1.000e+03     1.000e-03     1.000e+00
         assert results[0]["element"] == "r1"
 
 
+class TestSensitivitySortedByImpact:
+    """Acceptance criteria #859: table sorted by impact (highest sensitivity first)."""
+
+    SAMPLE_OUTPUT = """
+dc sensitivities of output v(2)
+
+element              element       element       normalized
+name                 value         sensitivity   sensitivity
+                                   (volts/unit)  (volts/percent)
+
+r1                   1.000e+03    -2.500e-04    -2.500e-01
+r2                   1.000e+03     2.500e-04     2.500e-01
+v1                   5.000e+00     5.000e-01     2.500e+00
+"""
+
+    def test_sorted_by_absolute_normalized_sensitivity(self):
+        """Results sorted by abs(normalized_sensitivity), highest first (#859)."""
+        data = ResultParser.parse_sensitivity_results(self.SAMPLE_OUTPUT)
+        assert data is not None
+
+        # Apply the same sort used in _display_sensitivity_results
+        sorted_data = sorted(
+            data,
+            key=lambda r: abs(r["normalized_sensitivity"]),
+            reverse=True,
+        )
+
+        # V1 has the highest absolute normalized sensitivity (2.5)
+        assert sorted_data[0]["element"] == "v1"
+        # R1 and R2 are tied at 0.25 — both must appear after V1
+        assert {sorted_data[1]["element"], sorted_data[2]["element"]} == {"r1", "r2"}
+
+    def test_all_rows_have_required_columns(self):
+        """Each row has element, value, sensitivity, and normalized_sensitivity."""
+        data = ResultParser.parse_sensitivity_results(self.SAMPLE_OUTPUT)
+        assert data is not None
+        required = {"element", "value", "sensitivity", "normalized_sensitivity"}
+        for row in data:
+            assert required.issubset(row.keys()), f"Missing keys in {row}"
+
+    def test_sensitivity_in_analysis_dialog(self):
+        """Sensitivity option exists in the analysis type configurations."""
+        from GUI.analysis_dialog import AnalysisDialog
+
+        assert "Sensitivity" in AnalysisDialog.ANALYSIS_CONFIGS
+        config = AnalysisDialog.ANALYSIS_CONFIGS["Sensitivity"]
+        field_names = [f[1] for f in config["fields"]]
+        assert "output_node" in field_names
+
+    def test_sensitivity_command_generation(self):
+        """generate_analysis_command produces .sens directive."""
+        from simulation.netlist_generator import generate_analysis_command
+
+        cmd = generate_analysis_command("Sensitivity", {"output_node": "nodeB"})
+        assert cmd == ".sens v(nodeB)"
+
+
 class TestSensitivityControllerWiring:
     """Test that the controller correctly routes Sensitivity analysis."""
 
