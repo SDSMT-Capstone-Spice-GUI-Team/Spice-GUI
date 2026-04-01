@@ -50,6 +50,10 @@ class DarkTheme(BaseTheme):
             "component_diode": "#90A4AE",  # Light blue-gray
             "component_led": "#FFF176",  # Light yellow
             "component_zener": "#A1887F",  # Light brown
+            "component_transformer": "#B388FF",  # Light purple
+            "component_current_probe": "#64FFDA",  # Light teal
+            "component_ac_voltage_source": "#FF8A65",  # Light deep orange
+            "component_ac_current_source": "#CE93D8",  # Light purple
             # ===== Algorithm Layer Colors =====
             "algorithm_astar": "#64B5F6",  # Light blue
             "algorithm_idastar": "#81C784",  # Light green

@@ -47,6 +47,10 @@ class LightTheme(BaseTheme):
             "component_diode": "#607D8B",  # Blue-gray
             "component_led": "#FFEB3B",  # Yellow
             "component_zener": "#8D6E63",  # Brown
+            "component_transformer": "#6F42C1",  # Purple
+            "component_current_probe": "#00BFA5",  # Teal
+            "component_ac_voltage_source": "#FF5722",  # Deep orange
+            "component_ac_current_source": "#AB47BC",  # Light purple
             # ===== Algorithm Layer Colors =====
             "algorithm_astar": "#2196F3",  # Blue (33, 150, 243)
             "algorithm_idastar": "#4CAF50",  # Green (76, 175, 80)
