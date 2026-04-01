@@ -60,7 +60,7 @@ class TemplateData:
         }
         if self.starter_circuit is not None:
             data["starter_circuit"] = self.starter_circuit
-        if self.reference_circuit is not None:
+        if self.reference_circuit is not None and self.reference_circuit != self.starter_circuit:
             data["reference_circuit"] = self.reference_circuit
         if self.required_analysis is not None:
             data["required_analysis"] = self.required_analysis
@@ -72,12 +72,18 @@ class TemplateData:
 
     @classmethod
     def from_dict(cls, data: dict) -> "TemplateData":
+        starter = data.get("starter_circuit")
+        reference = data.get("reference_circuit")
+        # When reference_circuit was omitted because it matched starter_circuit,
+        # fall back to starter_circuit so the loaded template is complete.
+        if reference is None and starter is not None:
+            reference = starter
         return cls(
             template_version=data.get("template_version", "1.0"),
             metadata=TemplateMetadata.from_dict(data.get("metadata", {})),
             instructions=data.get("instructions", ""),
-            starter_circuit=data.get("starter_circuit"),
-            reference_circuit=data.get("reference_circuit"),
+            starter_circuit=starter,
+            reference_circuit=reference,
             required_analysis=data.get("required_analysis"),
             locked_components=list(data.get("locked_components", [])),
             recommended_components=list(data.get("recommended_components", [])),

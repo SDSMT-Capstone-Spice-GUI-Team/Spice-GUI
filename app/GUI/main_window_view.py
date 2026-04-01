@@ -213,10 +213,11 @@ class ViewOperationsMixin:
             from models.assignment import AssignmentBundle
             from models.template import TemplateData, TemplateMetadata
 
+            circuit_data = self.model.to_dict()
             template = TemplateData(
                 metadata=TemplateMetadata(title=rubric.title),
-                starter_circuit=self.model.to_dict(),
-                reference_circuit=self.model.to_dict(),
+                starter_circuit=circuit_data,
+                reference_circuit=circuit_data,
             )
             bundle = AssignmentBundle(
                 template=template,
