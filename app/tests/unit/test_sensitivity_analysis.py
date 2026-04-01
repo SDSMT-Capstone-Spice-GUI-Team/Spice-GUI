@@ -219,7 +219,7 @@ v1                   5.000e+00     5.000e-01     2.500e+00
 
         assert "Sensitivity" in AnalysisDialog.ANALYSIS_CONFIGS
         config = AnalysisDialog.ANALYSIS_CONFIGS["Sensitivity"]
-        field_names = [f["name"] for f in config["fields"]]
+        field_names = [f[1] for f in config["fields"]]
         assert "output_node" in field_names
 
     def test_sensitivity_command_generation(self):
