@@ -186,7 +186,8 @@ class NetlistGenerator:
                     if node_map[k] == gnd_node:
                         node_map[k] = 0
 
-        # Create mapping from node numbers to node labels
+        # Create mapping from node numbers to node labels.
+        # Ground (node 0) is never relabeled — SPICE requires literal "0" (#527).
         node_labels = {}  # node_number -> label
         node_comps = [c for c in self.nodes if hasattr(c, "get_label")]
         for node_comp in node_comps:
@@ -195,6 +196,8 @@ class NetlistGenerator:
                 if terminal_node == node_comp:
                     if terminal_key in node_map:
                         node_num = node_map[terminal_key]
+                        if node_num == 0:
+                            break  # ground must stay "0"
                         node_labels[node_num] = node_comp.get_label()
                         break
 
