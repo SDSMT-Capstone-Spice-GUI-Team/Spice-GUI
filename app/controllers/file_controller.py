@@ -5,6 +5,7 @@ File dialog interaction is the responsibility of the view layer.
 Recent files tracking uses the centralized settings service for cross-session persistence.
 """
 
+import dataclasses
 import json
 import logging
 import os
@@ -60,23 +61,18 @@ class FileController:
         """Replace the current model's data with *new_model* in place.
 
         Validates the parsed data **before** clearing the existing circuit
-        so that a corrupt import can never cause data loss.  Copies all
-        fields from *new_model* into ``self.model`` so that existing
-        references to the model object remain valid.
+        so that a corrupt import can never cause data loss.  Round-trips
+        through ``to_dict`` / ``from_dict`` to produce a fully independent
+        copy, then transfers every dataclass field so that existing
+        references to ``self.model`` remain valid.
         """
         parsed_data = new_model.to_dict()
         validate_circuit_data(parsed_data)
 
+        fresh = CircuitModel.from_dict(parsed_data)
         self.model.clear()
-        self.model.components = new_model.components
-        self.model.wires = new_model.wires
-        self.model.nodes = new_model.nodes
-        self.model.terminal_to_node = new_model.terminal_to_node
-        self.model.component_counter = new_model.component_counter
-        self.model.analysis_type = new_model.analysis_type
-        self.model.analysis_params = new_model.analysis_params
-        self.model.annotations = new_model.annotations
-        self.model.recommended_components = new_model.recommended_components
+        for f in dataclasses.fields(fresh):
+            setattr(self.model, f.name, getattr(fresh, f.name))
 
     def load_from_model(self, new_model: CircuitModel) -> None:
         """Replace the current circuit with *new_model* and notify observers.
