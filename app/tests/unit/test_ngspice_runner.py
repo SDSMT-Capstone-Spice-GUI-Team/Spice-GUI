@@ -123,6 +123,29 @@ class TestEmptyOutputDetection:
         assert success is False
         assert output_file is None
 
+    def test_nonzero_exit_code_with_output_returns_failure(self, tmp_path):
+        """Non-zero exit code must be treated as failure even when output exists (#508)."""
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/usr/bin/ngspice"
+
+        mock_result = MagicMock()
+        mock_result.stdout = ""
+        mock_result.stderr = "Error: some ngspice error"
+        mock_result.returncode = 1
+
+        def fake_run(cmd, **kwargs):
+            output_path = cmd[4]
+            with open(output_path, "w") as f:
+                f.write("partial output before error\n")
+            return mock_result
+
+        with patch("simulation.ngspice_runner.subprocess.run", side_effect=fake_run):
+            success, output_file, stdout, stderr = runner.run_simulation("test netlist")
+
+        assert success is False
+        assert output_file is not None  # output preserved for diagnosis
+        assert "Error" in stderr
+
     def test_nonempty_output_file_returns_success(self, tmp_path):
         """A non-empty output file should return success=True."""
         runner = NgspiceRunner(output_dir=str(tmp_path))

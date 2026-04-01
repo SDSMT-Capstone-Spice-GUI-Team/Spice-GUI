@@ -106,6 +106,12 @@ class NgspiceRunner:
             if os.path.exists(output_filename) and os.path.getsize(output_filename) > 0:
                 # Track both files so the next run can clean them up.
                 self._prev_run_files = [netlist_filename, output_filename]
+
+                # Check exit code first — a non-zero return code means
+                # ngspice encountered an error even if it wrote output (#508).
+                if result.returncode != 0:
+                    return False, output_filename, result.stdout, result.stderr
+
                 # Detect convergence failures even when ngspice produces output.
                 # ngspice may write partial output before aborting, so check
                 # stderr and stdout for error patterns (#858).
