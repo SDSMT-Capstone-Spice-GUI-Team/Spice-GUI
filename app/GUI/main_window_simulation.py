@@ -208,12 +208,17 @@ class SimulationMixin:
         if result.warnings:
             popup_lines.append("")
             popup_lines.extend(result.warnings)
-        if not popup_lines and result.error:
+        if result.error:
+            if popup_lines:
+                popup_lines.append("")
             popup_lines.append(result.error)
+        # Use appropriate title: "Simulation Error" for sim failures,
+        # "Circuit Validation" for pre-run validation errors (#858).
+        title = "Simulation Error" if result.error else "Circuit Validation"
         QMessageBox.warning(
             self,
-            "Circuit Validation",
-            "\n\n".join(popup_lines),
+            title,
+            "\n".join(popup_lines),
         )
 
     def _display_measurement_results(self, measurements):
