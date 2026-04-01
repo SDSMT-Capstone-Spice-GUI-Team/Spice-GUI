@@ -370,12 +370,14 @@ class ComponentGraphicsItem(QGraphicsItem):
             painter.drawRect(QRectF(-42, -22, 84, 44))
         # Grading overlay (temporary visual feedback)
         if self._grading_state == "passed":
-            painter.setPen(QPen(QColor(0, 200, 0, 200), 3))
-            painter.setBrush(QBrush(QColor(0, 200, 0, 40)))
+            grading_color = theme_manager.color("grading_passed")
+            painter.setPen(QPen(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 200), 3))
+            painter.setBrush(QBrush(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 40)))
             painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
         elif self._grading_state == "failed":
-            painter.setPen(QPen(QColor(220, 0, 0, 200), 3))
-            painter.setBrush(QBrush(QColor(220, 0, 0, 40)))
+            grading_color = theme_manager.color("grading_failed")
+            painter.setPen(QPen(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 200), 3))
+            painter.setBrush(QBrush(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 40)))
             painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
 
         # Draw component body

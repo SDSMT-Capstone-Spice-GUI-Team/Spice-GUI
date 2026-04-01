@@ -104,6 +104,9 @@ class DarkTheme(BaseTheme):
             "syntax_comment": "#81C784",  # Light green for dark bg
             "syntax_directive": "#64B5F6",  # Light blue for dark bg
             "syntax_keyword": "#CE93D8",  # Light purple for dark bg
+            # ===== Grading Overlay Colors (colorblind-friendly) =====
+            "grading_passed": "#33BBEE",  # Light blue for dark bg
+            "grading_failed": "#EE7733",  # Orange for dark bg
             # ===== Measurement Cursor Colors =====
             "cursor_a": "#FF6B6B",  # Light red cursor for dark bg
             "cursor_b": "#5DADE2",  # Light blue cursor for dark bg

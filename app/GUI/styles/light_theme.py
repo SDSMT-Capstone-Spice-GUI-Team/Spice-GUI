@@ -101,6 +101,9 @@ class LightTheme(BaseTheme):
             "syntax_comment": "#4CAF50",  # Green for SPICE comments
             "syntax_directive": "#2196F3",  # Blue for SPICE directives
             "syntax_keyword": "#9C27B0",  # Purple for control keywords
+            # ===== Grading Overlay Colors (colorblind-friendly) =====
+            "grading_passed": "#0077BB",  # Blue (distinguishable by most color vision)
+            "grading_failed": "#EE7733",  # Orange (distinguishable by most color vision)
             # ===== Measurement Cursor Colors =====
             "cursor_a": "#E74C3C",  # Red cursor
             "cursor_b": "#2980B9",  # Blue cursor
