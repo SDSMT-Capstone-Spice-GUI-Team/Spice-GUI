@@ -37,7 +37,12 @@ CIRCUITIKZ_QUADPOLES = {
 
 # Terminal name suffixes for quadpole node anchors
 QUADPOLE_ANCHORS = {
-    "Transformer": ["A1", "A2", "B1", "B2"],  # primary+, primary-, secondary+, secondary-
+    "Transformer": [
+        "A1",
+        "A2",
+        "B1",
+        "B2",
+    ],  # primary+, primary-, secondary+, secondary-
 }
 
 # Terminal name suffixes for tripole node anchors
@@ -69,6 +74,8 @@ def _escape_latex(s):
     """Escape special LaTeX characters in a string."""
     for ch in ("\\", "&", "%", "$", "#", "_", "{", "}"):
         s = s.replace(ch, "\\" + ch)
+    s = s.replace("~", r"\textasciitilde{}")
+    s = s.replace("^", r"\textasciicircum{}")
     return s
 
 
