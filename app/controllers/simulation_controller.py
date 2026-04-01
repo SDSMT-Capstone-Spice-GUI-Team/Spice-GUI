@@ -242,7 +242,7 @@ class SimulationController:
         analysis = self.model.analysis_type
 
         try:
-            if analysis == "DC Operating Point":
+            if analysis in ("DC Operating Point", "Operational Point"):
                 output = self.runner.read_output(output_file)
                 data = ResultParser.parse_op_results(output)
             elif analysis == "DC Sweep":
