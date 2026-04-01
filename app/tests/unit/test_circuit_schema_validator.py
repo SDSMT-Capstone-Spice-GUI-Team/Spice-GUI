@@ -42,55 +42,162 @@ class TestValidateCircuitDataStructure:
 
 class TestValidateCircuitDataComponents:
     def test_component_missing_id_raises(self):
-        data = {"components": [{"type": "R", "value": "1k", "pos": {"x": 0, "y": 0}}], "wires": []}
+        data = {
+            "components": [{"type": "R", "value": "1k", "pos": {"x": 0, "y": 0}}],
+            "wires": [],
+        }
         with pytest.raises(ValueError, match="'id'"):
             validate_circuit_data(data)
 
     def test_component_missing_type_raises(self):
-        data = {"components": [{"id": "R1", "value": "1k", "pos": {"x": 0, "y": 0}}], "wires": []}
+        data = {
+            "components": [{"id": "R1", "value": "1k", "pos": {"x": 0, "y": 0}}],
+            "wires": [],
+        }
         with pytest.raises(ValueError, match="'type'"):
             validate_circuit_data(data)
 
     def test_component_missing_value_raises(self):
-        data = {"components": [{"id": "R1", "type": "Resistor", "pos": {"x": 0, "y": 0}}], "wires": []}
+        data = {
+            "components": [{"id": "R1", "type": "Resistor", "pos": {"x": 0, "y": 0}}],
+            "wires": [],
+        }
         with pytest.raises(ValueError, match="'value'"):
             validate_circuit_data(data)
 
     def test_component_missing_pos_raises(self):
-        data = {"components": [{"id": "R1", "type": "Resistor", "value": "1k"}], "wires": []}
+        data = {
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k"}],
+            "wires": [],
+        }
         with pytest.raises(ValueError, match="'pos'"):
             validate_circuit_data(data)
 
     def test_component_pos_missing_x_raises(self):
-        data = {"components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"y": 0}}], "wires": []}
+        data = {
+            "components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"y": 0}}],
+            "wires": [],
+        }
         with pytest.raises(ValueError, match="invalid position"):
             validate_circuit_data(data)
 
     def test_component_pos_missing_y_raises(self):
-        data = {"components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": 0}}], "wires": []}
+        data = {
+            "components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": 0}}],
+            "wires": [],
+        }
         with pytest.raises(ValueError, match="invalid position"):
             validate_circuit_data(data)
 
     def test_component_pos_non_numeric_x_raises(self):
-        data = {"components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": "a", "y": 0}}], "wires": []}
+        data = {
+            "components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": "a", "y": 0}}],
+            "wires": [],
+        }
         with pytest.raises(ValueError, match="numeric"):
             validate_circuit_data(data)
 
     def test_component_pos_non_numeric_y_raises(self):
-        data = {"components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": 0, "y": "b"}}], "wires": []}
+        data = {
+            "components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": 0, "y": "b"}}],
+            "wires": [],
+        }
         with pytest.raises(ValueError, match="numeric"):
             validate_circuit_data(data)
 
     def test_component_pos_accepts_float(self):
-        data = {"components": [{"id": "R1", "type": "R", "value": "1k", "pos": {"x": 1.5, "y": 2.5}}], "wires": []}
+        data = {
+            "components": [
+                {
+                    "id": "R1",
+                    "type": "Resistor",
+                    "value": "1k",
+                    "pos": {"x": 1.5, "y": 2.5},
+                }
+            ],
+            "wires": [],
+        }
         validate_circuit_data(data)  # no exception
+
+
+class TestValidateComponentTypeAndRotation:
+    """Issue #526: validate_circuit_data must check component types and rotation values."""
+
+    def test_unknown_component_type_raises(self):
+        data = {
+            "components": [
+                {
+                    "id": "X1",
+                    "type": "FakeComponent",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                }
+            ],
+            "wires": [],
+        }
+        with pytest.raises(ValueError, match="unknown type.*FakeComponent"):
+            validate_circuit_data(data)
+
+    def test_all_known_types_pass(self):
+        from models.component import COMPONENT_TYPES
+
+        for ctype in COMPONENT_TYPES:
+            data = {
+                "components": [{"id": "X1", "type": ctype, "value": "", "pos": {"x": 0, "y": 0}}],
+                "wires": [],
+            }
+            validate_circuit_data(data)  # no exception
+
+    def test_valid_rotations_pass(self):
+        for rotation in (0, 90, 180, 270):
+            data = {
+                "components": [
+                    {
+                        "id": "R1",
+                        "type": "Resistor",
+                        "value": "1k",
+                        "pos": {"x": 0, "y": 0},
+                        "rotation": rotation,
+                    }
+                ],
+                "wires": [],
+            }
+            validate_circuit_data(data)  # no exception
+
+    def test_invalid_rotation_raises(self):
+        data = {
+            "components": [
+                {
+                    "id": "R1",
+                    "type": "Resistor",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                    "rotation": 45,
+                }
+            ],
+            "wires": [],
+        }
+        with pytest.raises(ValueError, match="invalid rotation"):
+            validate_circuit_data(data)
+
+    def test_missing_rotation_defaults_to_zero(self):
+        data = {
+            "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
+            "wires": [],
+        }
+        validate_circuit_data(data)  # no exception — rotation defaults to 0
 
 
 class TestValidateCircuitDataWires:
     def _base_circuit(self):
         return {
             "components": [
-                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}},
+                {
+                    "id": "R1",
+                    "type": "Resistor",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
                 {"id": "GND1", "type": "Ground", "value": "0", "pos": {"x": 1, "y": 0}},
             ],
             "wires": [],
@@ -115,7 +222,14 @@ class TestValidateCircuitDataWires:
 
     def test_wire_unknown_start_comp_raises(self):
         data = self._base_circuit()
-        data["wires"] = [{"start_comp": "UNKNOWN", "end_comp": "GND1", "start_term": 0, "end_term": 0}]
+        data["wires"] = [
+            {
+                "start_comp": "UNKNOWN",
+                "end_comp": "GND1",
+                "start_term": 0,
+                "end_term": 0,
+            }
+        ]
         with pytest.raises(ValueError, match="unknown component"):
             validate_circuit_data(data)
 
