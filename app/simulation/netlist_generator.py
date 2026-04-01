@@ -127,13 +127,22 @@ class NetlistGenerator:
         self.measurements = measurements or []
         self._is_temp_sweep = False
 
+    # Component types that use non-numeric or compound value formats and
+    # should not be rejected by the simple numeric validator.
+    _SKIP_NUMERIC_VALIDATION = {
+        "Voltage Source",  # may contain "AC 1" or "DC 5V"
+        "Current Source",
+        "AC Voltage Source",
+        "AC Current Source",
+    }
+
     def _validate_component_values(self):
         """Validate all component values before netlist generation (#541).
 
         Raises ValueError with a descriptive message if any component has
         an invalid value (empty, unparseable, or out of range).
-        Subcircuit instances (SPICE symbol "X") are skipped because their
-        value is a model/subcircuit name, not a numeric quantity.
+        Subcircuit instances (SPICE symbol "X") and source types with
+        compound value formats are skipped.
         """
         from utils.format_utils import validate_component_value
 
@@ -141,6 +150,8 @@ class NetlistGenerator:
         for comp in self.components.values():
             if comp.get_spice_symbol() == "X":
                 continue  # subcircuit name, not numeric
+            if comp.component_type in self._SKIP_NUMERIC_VALIDATION:
+                continue  # source values can have complex SPICE formats
             is_valid, msg = validate_component_value(comp.value, comp.component_type)
             if not is_valid:
                 errors.append(f"{comp.component_id} ({comp.component_type}): {msg}")
