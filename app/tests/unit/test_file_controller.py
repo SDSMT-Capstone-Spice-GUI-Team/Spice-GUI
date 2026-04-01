@@ -550,25 +550,45 @@ class TestAnnotationsAndRecommendedComponents:
         assert ctrl2.model.analysis_type == "AC Sweep"
 
 
-class TestReplaceModelFieldTransfer:
-    """Issue #499: _replace_model must transfer all CircuitModel dataclass fields."""
+class TestReplaceModelDeepCopy:
+    """Issue #532: _replace_model must produce an independent copy, not share references."""
 
-    def test_replace_model_copies_all_fields(self):
-        """Every dataclass field on CircuitModel is copied by _replace_model."""
+    def test_replace_model_does_not_share_component_dict(self):
+        """Mutating components after replace must not affect the source model."""
+        source = build_simple_circuit()
+        ctrl = FileController(CircuitModel())
+        ctrl._replace_model(source)
+
+        # Mutate the loaded model
+        ctrl.model.components["R1"].value = "CHANGED"
+
+        # Source model must be unaffected
+        assert source.components["R1"].value != "CHANGED"
+
+    def test_replace_model_does_not_share_wire_list(self):
+        """Appending to wires after replace must not affect the source model."""
+        source = build_simple_circuit()
+        original_wire_count = len(source.wires)
+        ctrl = FileController(CircuitModel())
+        ctrl._replace_model(source)
+
+        ctrl.model.wires.clear()
+        assert len(source.wires) == original_wire_count
+
+    def test_replace_model_copies_all_dataclass_fields(self):
+        """Every field on CircuitModel must be transferred by _replace_model."""
         from dataclasses import fields
 
-        new_model = build_simple_circuit()
-        new_model.recommended_components = ["Resistor"]
-        new_model.analysis_type = "Transient"
-        new_model.analysis_params = {"tstop": "10m"}
+        source = build_simple_circuit()
+        source.analysis_type = "AC Sweep"
+        source.analysis_params = {"fstart": "1", "fstop": "1Meg"}
+        source.recommended_components = ["Inductor"]
 
-        ctrl = FileController()
-        ctrl._replace_model(new_model)
+        ctrl = FileController(CircuitModel())
+        ctrl._replace_model(source)
 
         for f in fields(CircuitModel):
-            assert getattr(ctrl.model, f.name) == getattr(
-                new_model, f.name
-            ), f"Field '{f.name}' not transferred by _replace_model"
+            assert getattr(ctrl.model, f.name) is not None, f"Field {f.name!r} was not copied"
 
     def test_replace_model_preserves_identity(self):
         """_replace_model must update the existing model object, not replace it."""

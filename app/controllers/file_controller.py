@@ -61,16 +61,18 @@ class FileController:
         """Replace the current model's data with *new_model* in place.
 
         Validates the parsed data **before** clearing the existing circuit
-        so that a corrupt import can never cause data loss.  Copies all
-        fields from *new_model* into ``self.model`` so that existing
-        references to the model object remain valid.
+        so that a corrupt import can never cause data loss.  Round-trips
+        through ``to_dict`` / ``from_dict`` to produce a fully independent
+        copy, then transfers every dataclass field so that existing
+        references to ``self.model`` remain valid.
         """
         parsed_data = new_model.to_dict()
         validate_circuit_data(parsed_data)
 
+        fresh = CircuitModel.from_dict(parsed_data)
         self.model.clear()
-        for f in fields(new_model):
-            setattr(self.model, f.name, getattr(new_model, f.name))
+        for f in fields(fresh):
+            setattr(self.model, f.name, getattr(fresh, f.name))
 
     def load_from_model(self, new_model: CircuitModel) -> None:
         """Replace the current circuit with *new_model* and notify observers.
