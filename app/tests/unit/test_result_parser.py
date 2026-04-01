@@ -294,3 +294,23 @@ class TestParseErrorPropagation:
     def test_transient_parse_error_on_missing_file(self):
         with pytest.raises(ResultParseError, match="wrdata file not found"):
             ResultParser.parse_transient_results("/nonexistent/path.txt")
+
+
+# ── Operational Point alias (#540) ──────────────────────────────────
+
+
+class TestOperationalPointAlias:
+    """'Operational Point' alias must be handled the same as 'DC Operating Point' (#540)."""
+
+    def test_generate_analysis_command_accepts_alias(self):
+        from simulation.netlist_generator import generate_analysis_command
+
+        assert generate_analysis_command("Operational Point", {}) == ".op"
+        assert generate_analysis_command("DC Operating Point", {}) == ".op"
+
+    def test_parse_op_results_works_for_both_aliases(self):
+        """parse_op_results is analysis-agnostic; the dispatch in
+        SimulationController must route both aliases to it."""
+        output = "v(nodeA) = 5.00000\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(5.0)

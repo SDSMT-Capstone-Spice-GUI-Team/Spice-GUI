@@ -301,6 +301,24 @@ class TestExportResultsMarkdown:
         assert filepath.exists()
 
 
+class TestOperationalPointAlias:
+    """'Operational Point' analysis type must parse results like 'DC Operating Point' (#540)."""
+
+    def test_operational_point_routes_to_op_parser(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Operational Point"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        mock_runner.run_simulation.return_value = (True, "/tmp/out.txt", "", "")
+        mock_runner.read_output.return_value = "v(nodeA) = 5.00000\n"
+        ctrl._runner = mock_runner
+        result = ctrl.run_simulation()
+        assert result.success
+        assert result.data["node_voltages"]["nodeA"] == pytest.approx(5.0)
+
+
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.simulation_controller as mod
