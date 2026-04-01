@@ -322,17 +322,13 @@ class CircuitCanvasView(QGraphicsView):
             self._scene.update()
 
     def _handle_wire_routed(self, data) -> None:
-        """Update wire waypoints"""
-        from PyQt6.QtCore import QPointF
-
+        """Update wire waypoints from a (wire_index, wire_data) tuple."""
         wire_index, wire_data = data
         if 0 <= wire_index < len(self.wires):
             wire = self.wires[wire_index]
-            # Convert waypoints to QPointF if they exist
+            # Sync visual path from persisted model waypoints
             if hasattr(wire_data, "waypoints") and wire_data.waypoints:
-                wire.waypoints = [QPointF(x, y) for x, y in wire_data.waypoints]
-                if hasattr(wire, "update_path"):
-                    wire.update_path()
+                wire._restore_waypoints()
 
     def _handle_wire_lock_changed(self, data) -> None:
         """Update wire visual when lock state changes."""
