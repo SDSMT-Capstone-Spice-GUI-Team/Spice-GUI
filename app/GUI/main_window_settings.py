@@ -2,6 +2,7 @@
 
 from controllers.settings_service import settings
 from controllers.theme_controller import theme_ctrl
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMessageBox
 
 from .styles import theme_manager
@@ -117,6 +118,11 @@ class SettingsMixin:
         saved_routing_mode = settings.get("view/routing_mode")
         if saved_routing_mode in ("orthogonal", "diagonal"):
             self.set_routing_mode(saved_routing_mode)
+
+        # Auto-trigger guided tutorial on first launch
+        if not settings.get_bool("tutorial/has_shown", False):
+            settings.set("tutorial/has_shown", True)
+            QTimer.singleShot(500, self._start_tutorial)
 
     def closeEvent(self, event):
         """Save settings before closing"""
