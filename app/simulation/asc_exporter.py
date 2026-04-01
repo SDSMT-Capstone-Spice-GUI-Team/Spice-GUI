@@ -27,6 +27,7 @@ _TYPE_TO_SYMBOL = {
     "VCCS": "g",
     "CCVS": "h",
     "Waveform Source": "voltage",
+    "Transformer": "ind2",
 }
 
 # Pin offsets (same as asc_parser._PIN_OFFSETS, with corrected pin spacing)
@@ -49,6 +50,7 @@ _PIN_OFFSETS = {
     "CCVS": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
     "VCCS": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
     "CCCS": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
+    "Transformer": [(-32, -32), (-32, 32), (32, -32), (32, 32)],
     "Ground": [(0, 0)],
 }
 
