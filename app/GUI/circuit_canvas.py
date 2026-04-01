@@ -462,6 +462,70 @@ class CircuitCanvasView(QGraphicsView):
     # End Observer Pattern Handlers
     # ===================================================================
 
+    def detach_scene(self):
+        """Replace the live scene with a temporary empty one.
+
+        This prevents ``setStyleSheet()`` from triggering a repaint that
+        destroys the C++ objects backing scene items (see #860).
+        The old scene is discarded — call :meth:`rebuild_scene` afterwards
+        to create a fresh scene populated from the model.
+        """
+        # Orphan the old scene so Qt won't touch its items during repaint.
+        old_scene = self._scene
+        self._scene = QGraphicsScene()
+        self.setScene(self._scene)
+
+        # Prevent dangling-pointer access: clear Python references *before*
+        # deleting the C++ scene.
+        self._grid_items.clear()
+        self.components.clear()
+        self.wires.clear()
+        self.annotations.clear()
+
+        # Schedule the old scene for deletion after control returns to the
+        # event loop (avoids deleting it while Qt may still reference it).
+        if old_scene is not None:
+            old_scene.deleteLater()
+
+    def rebuild_scene(self):
+        """Build a fresh scene from the model with current theme colours.
+
+        Intended to be called after :meth:`detach_scene` + QSS application so
+        that every item is created with up-to-date theme colours and no stale
+        C++ pointers remain.
+        """
+        self.setSceneRect(-GRID_EXTENT, -GRID_EXTENT, GRID_EXTENT * 2, GRID_EXTENT * 2)
+
+        # Theme-aware background
+        bg = theme_manager.color("background_primary")
+        self._scene.setBackgroundBrush(QBrush(bg))
+
+        # Redraw grid
+        self._grid_items.clear()
+        self.draw_grid()
+        self._grid_drawn = True
+
+        if self.controller:
+            # Restore components
+            for comp_data in self.controller.get_components().values():
+                self._handle_component_added(comp_data)
+
+            # Restore wires
+            for wire_data in self.controller.get_wires():
+                self._handle_wire_added(wire_data)
+
+            # Rebuild node visualisation
+            self._sync_nodes_from_model()
+
+            # Restore annotations
+            for ann_data in self.controller.get_annotations():
+                self._handle_annotation_added(ann_data)
+
+            # Restore component counter
+            self.component_counter = self.controller.get_component_counter()
+
+        self._scene.update()
+
     def refresh_theme(self):
         """Redraw grid and repaint all items to reflect the current theme."""
         if self._scene is None:
