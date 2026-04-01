@@ -20,6 +20,8 @@ COMPONENT_TOOLTIPS = {
     "Voltage Source": "Voltage Source (V) — Provides a constant voltage",
     "Current Source": "Current Source (I) — Provides a constant current",
     "Waveform Source": "Waveform Source (VW) — Time-varying voltage source",
+    "AC Voltage Source": "AC Voltage Source (V) — AC magnitude and phase for AC sweep",
+    "AC Current Source": "AC Current Source (I) — AC magnitude and phase for AC sweep",
     "Ground": "Ground (GND) — Zero-volt reference node",
     "Op-Amp": "Op-Amp (OA) — Operational amplifier",
     "VCVS": "VCVS (E) — Voltage-controlled voltage source",
