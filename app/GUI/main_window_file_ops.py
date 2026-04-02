@@ -8,6 +8,8 @@ from controllers.settings_service import settings as app_settings
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
+from .styles import STATUS_DURATION_DEFAULT, STATUS_DURATION_SHORT
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,7 +40,7 @@ class FileOperationsMixin:
             n = len(ids)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", 2000)
+                statusBar.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
 
     def cut_selected(self):
         """Cut selected components to internal clipboard (copy + undoable delete)."""
@@ -77,7 +79,7 @@ class FileOperationsMixin:
             n = len(cmd.pasted_component_ids)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
+                statusBar.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
 
     def copy_circuit_json(self):
         """Copy the entire circuit to system clipboard as JSON."""
@@ -91,7 +93,7 @@ class FileOperationsMixin:
                 clipboard.setText(json_str)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage("Circuit copied to clipboard as JSON", 3000)
+                statusBar.showMessage("Circuit copied to clipboard as JSON", STATUS_DURATION_DEFAULT)
         except (TypeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to copy circuit: {e}")
 
@@ -134,7 +136,7 @@ class FileOperationsMixin:
             self._sync_analysis_menu()
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage("Circuit pasted from clipboard", 3000)
+                statusBar.showMessage("Circuit pasted from clipboard", STATUS_DURATION_DEFAULT)
         except (ValueError, KeyError) as e:
             QMessageBox.critical(self, "Error", f"Failed to paste circuit: {e}")
 
@@ -177,7 +179,7 @@ class FileOperationsMixin:
                 self._set_dirty(False)
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Saved to {self.file_ctrl.current_file}", 3000)
+                    statusBar.showMessage(f"Saved to {self.file_ctrl.current_file}", STATUS_DURATION_DEFAULT)
             except (OSError, TypeError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to save: {e}")
         else:
@@ -334,7 +336,7 @@ class FileOperationsMixin:
 
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"BOM exported to {filename}", 3000)
+                statusBar.showMessage(f"BOM exported to {filename}", STATUS_DURATION_DEFAULT)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to export BOM: {e}")
 
@@ -357,7 +359,7 @@ class FileOperationsMixin:
             self.file_ctrl.export_asc(filename)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"LTspice schematic exported to {filename}", 3000)
+                statusBar.showMessage(f"LTspice schematic exported to {filename}", STATUS_DURATION_DEFAULT)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to export LTspice schematic: {e}")
 
@@ -713,7 +715,7 @@ class FileOperationsMixin:
                 self._populate_templates_menu()
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Template saved: {name}", 3000)
+                    statusBar.showMessage(f"Template saved: {name}", STATUS_DURATION_DEFAULT)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to save template: {e}")
 
@@ -863,7 +865,7 @@ class FileOperationsMixin:
 
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Re-exported to {Path(path).name}", 3000)
+                statusBar.showMessage(f"Re-exported to {Path(path).name}", STATUS_DURATION_DEFAULT)
         except (OSError, ValueError, RuntimeError) as e:
             logger.error("Re-export failed", exc_info=True)
             QMessageBox.critical(self, "Re-export Error", f"Failed to re-export:\n{e}")

@@ -38,6 +38,9 @@ from .constants import (
     INITIAL_LOAD_COUNT,
     MAJOR_GRID_INTERVAL,
     SCROLL_LOAD_COUNT,
+    STATUS_DURATION_DEFAULT,
+    STATUS_DURATION_LONG,
+    STATUS_DURATION_SHORT,
     TERMINAL_CLICK_RADIUS,
     TERMINAL_HOVER_RADIUS,
     WIRE_CLICK_WIDTH,
@@ -99,6 +102,10 @@ __all__ = [
     "Z_WAYPOINT_MARKER",
     "Z_SEGMENT_HANDLE",
     "Z_WAYPOINT_HANDLE",
+    # Status bar durations
+    "STATUS_DURATION_SHORT",
+    "STATUS_DURATION_DEFAULT",
+    "STATUS_DURATION_LONG",
     # Theme system
     "ThemeProtocol",
     "BaseTheme",

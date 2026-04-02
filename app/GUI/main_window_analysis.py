@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QDialog, QMessageBox
 from .analysis_dialog import AnalysisDialog
 from .monte_carlo_dialog import MonteCarloDialog
 from .parameter_sweep_dialog import ParameterSweepDialog
+from .styles import STATUS_DURATION_DEFAULT
 
 
 class AnalysisSettingsMixin:
@@ -15,7 +16,7 @@ class AnalysisSettingsMixin:
         self.simulation_ctrl.set_analysis("DC Operating Point", {})
         statusbar = self.statusBar()
         if statusbar:
-            statusbar.showMessage("Analysis: DC Operating Point (.op)", 3000)
+            statusbar.showMessage("Analysis: DC Operating Point (.op)", STATUS_DURATION_DEFAULT)
 
     def set_analysis_dc(self):
         """Set analysis type to DC Sweep with parameters"""
@@ -229,7 +230,7 @@ class AnalysisSettingsMixin:
                 self.simulation_ctrl.set_analysis("Pole-Zero", params)
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage("Analysis: Pole-Zero", 3000)
+                    statusBar.showMessage("Analysis: Pole-Zero", STATUS_DURATION_DEFAULT)
             else:
                 QMessageBox.warning(self, "Invalid Parameters", "Please enter valid parameters.")
                 self.op_action.setChecked(True)

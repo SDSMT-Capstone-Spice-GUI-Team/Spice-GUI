@@ -23,6 +23,8 @@ from .styles import (
     GRID_EXTENT,
     GRID_SIZE,
     MAJOR_GRID_INTERVAL,
+    STATUS_DURATION_DEFAULT,
+    STATUS_DURATION_SHORT,
     TERMINAL_CLICK_RADIUS,
     Z_GRID,
     Z_WAYPOINT_MARKER,
@@ -1417,7 +1419,7 @@ class CircuitCanvasView(QGraphicsView):
                 status = main_window.statusBar()
                 if status:
                     n = len(component_ids)
-                    status.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", 2000)
+                    status.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
 
         return copied
 
@@ -1480,7 +1482,7 @@ class CircuitCanvasView(QGraphicsView):
             status = main_window.statusBar()
             if status:
                 n = len(new_components)
-                status.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
+                status.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
 
     def drawForeground(self, painter, rect):
         """Draw node labels, voltages, and OP annotations on top of everything."""
@@ -1739,7 +1741,7 @@ class CircuitCanvasView(QGraphicsView):
             if main_window and hasattr(main_window, "statusBar"):
                 status = main_window.statusBar()
                 if status:
-                    status.showMessage("Wire already exists between these terminals", 3000)
+                    status.showMessage("Wire already exists between these terminals", STATUS_DURATION_DEFAULT)
             return False
 
         return True

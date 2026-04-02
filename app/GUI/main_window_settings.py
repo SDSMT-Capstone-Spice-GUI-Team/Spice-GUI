@@ -5,7 +5,7 @@ from controllers.theme_controller import theme_ctrl
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMessageBox
 
-from .styles import theme_manager
+from .styles import STATUS_DURATION_LONG, theme_manager
 
 
 class SettingsMixin:
@@ -166,5 +166,5 @@ class SettingsMixin:
                 self._sync_analysis_menu()
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage("Auto-save recovered", 5000)
+                    statusBar.showMessage("Auto-save recovered", STATUS_DURATION_LONG)
         self.file_ctrl.clear_auto_save()
