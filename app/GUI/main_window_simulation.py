@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDia
 from .monte_carlo_results_dialog import MonteCarloResultsDialog
 from .parameter_sweep_plot_dialog import ParameterSweepPlotDialog
 from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog, NoisePlotDialog
+from .styles import STATUS_DURATION_DEFAULT
 from .waveform_dialog import WaveformDialog
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class SimulationMixin:
             self.simulation_ctrl.export_netlist(filename)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Netlist exported to {filename}", 3000)
+                statusBar.showMessage(f"Netlist exported to {filename}", STATUS_DURATION_DEFAULT)
         except (ValueError, KeyError, TypeError, OSError) as e:
             QMessageBox.critical(self, "Error", f"Failed to export netlist: {e}")
 
@@ -708,7 +709,7 @@ class SimulationMixin:
                 )
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Results exported to {filename}", 3000)
+                    statusBar.showMessage(f"Results exported to {filename}", STATUS_DURATION_DEFAULT)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export CSV: {e}")
 
@@ -728,7 +729,7 @@ class SimulationMixin:
                 )
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Results exported to {filename}", 3000)
+                    statusBar.showMessage(f"Results exported to {filename}", STATUS_DURATION_DEFAULT)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export Excel: {e}")
 
@@ -750,7 +751,7 @@ class SimulationMixin:
         clipboard.setText(md_content)
         statusBar = self.statusBar()
         if statusBar:
-            statusBar.showMessage("Results copied as Markdown", 3000)
+            statusBar.showMessage("Results copied as Markdown", STATUS_DURATION_DEFAULT)
 
     def export_results_markdown(self):
         """Export the last simulation results to a Markdown (.md) file."""
@@ -771,6 +772,6 @@ class SimulationMixin:
                 )
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Results exported to {filename}", 3000)
+                    statusBar.showMessage(f"Results exported to {filename}", STATUS_DURATION_DEFAULT)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export Markdown: {e}")

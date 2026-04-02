@@ -48,7 +48,13 @@ from .main_window_simulation import SimulationMixin
 from .main_window_view import ViewOperationsMixin
 from .properties_panel import PropertiesPanel
 from .results_panel import ResultsPanel
-from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
+from .styles import (
+    DEFAULT_SPLITTER_SIZES,
+    DEFAULT_WINDOW_SIZE,
+    STATUS_DURATION_DEFAULT,
+    STATUS_DURATION_SHORT,
+    theme_manager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +140,7 @@ class MainWindow(
 
     # --- ApplicationShellProtocol methods ---
 
-    def show_status_message(self, message: str, timeout_ms: int = 3000) -> None:
+    def show_status_message(self, message: str, timeout_ms: int = STATUS_DURATION_DEFAULT) -> None:
         """Show a transient message in the status bar (ApplicationShellProtocol)."""
         status = self.statusBar()
         if status:
@@ -369,7 +375,7 @@ class MainWindow(
             self.circuit_ctrl.execute_command(cmd)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
+                statusBar.showMessage(f"Updated {component_id} value to {new_value}", STATUS_DURATION_SHORT)
 
         elif property_name == "rotation":
             from controllers.commands import SetRotationCommand
@@ -378,7 +384,7 @@ class MainWindow(
             self.circuit_ctrl.execute_command(cmd)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
+                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", STATUS_DURATION_SHORT)
             component = self.canvas.components.get(component_id)
             if component:
                 self.properties_panel.show_component(component)
@@ -395,7 +401,7 @@ class MainWindow(
                 self.properties_panel.show_component(component)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
+                statusBar.showMessage(f"Updated {component_id} waveform configuration", STATUS_DURATION_SHORT)
 
         elif property_name == "initial_condition":
             from controllers.commands import UpdateInitialConditionCommand
@@ -405,7 +411,9 @@ class MainWindow(
             ic_display = new_value if new_value else "none"
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} initial condition to {ic_display}", 2000)
+                statusBar.showMessage(
+                    f"Updated {component_id} initial condition to {ic_display}", STATUS_DURATION_SHORT
+                )
 
     def _refresh_netlist_preview(self):
         """Regenerate and display the netlist in the preview panel."""
@@ -495,6 +503,6 @@ class MainWindow(
 
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Imported {Path(filepath).name}", 3000)
+                statusBar.showMessage(f"Imported {Path(filepath).name}", STATUS_DURATION_DEFAULT)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Import Error", f"Failed to import file:\n{e}")

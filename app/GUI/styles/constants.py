@@ -45,6 +45,11 @@ Z_WAYPOINT_MARKER = 101  # Waypoint placement markers
 Z_SEGMENT_HANDLE = 199  # Wire segment drag handles
 Z_WAYPOINT_HANDLE = 200  # Waypoint drag handles (topmost)
 
+# Status bar message durations (milliseconds)
+STATUS_DURATION_SHORT = 2000  # Brief feedback (property edits, copy/paste)
+STATUS_DURATION_DEFAULT = 3000  # Standard messages (exports, analysis, save)
+STATUS_DURATION_LONG = 5000  # Important notices (auto-save recovery)
+
 # Waveform viewer
 INITIAL_LOAD_COUNT = 50  # Rows loaded on first display
 SCROLL_LOAD_COUNT = 25  # Additional rows loaded on scroll
