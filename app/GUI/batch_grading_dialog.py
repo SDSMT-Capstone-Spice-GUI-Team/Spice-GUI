@@ -297,6 +297,7 @@ class BatchGradingDialog(QDialog):
                 self._batch_result,
                 rubric_path=self.rubric_path.text(),
                 student_folder=self.folder_path.text(),
+                rubric_hash=self._rubric.content_hash() if self._rubric else "",
             )
             save_grading_session(filename, session)
             QMessageBox.information(self, "Saved", f"Grading session saved to {filename}")
@@ -339,14 +340,19 @@ class BatchGradingDialog(QDialog):
 
         from grading.session_persistence import batch_result_to_session, compare_sessions
 
-        new_session = batch_result_to_session(self._batch_result)
-        comparisons = compare_sessions(old_session, new_session)
+        new_session = batch_result_to_session(
+            self._batch_result,
+            rubric_hash=self._rubric.content_hash() if self._rubric else "",
+        )
+        comparison = compare_sessions(old_session, new_session)
 
-        if not comparisons:
+        if not comparison["students"]:
             return
 
         lines = ["", "Comparison with previous session:"]
-        for c in comparisons:
+        if comparison["rubric_changed"] is True:
+            lines.append("  \u26a0 Rubric changed between sessions — deltas may not be directly comparable.")
+        for c in comparison["students"]:
             if c["delta"] is not None:
                 sign = "+" if c["delta"] >= 0 else ""
                 lines.append(
