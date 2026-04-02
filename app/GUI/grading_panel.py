@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Optional
 from grading.component_mapper import extract_component_ids
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QFileDialog,
     QGroupBox,
@@ -248,9 +247,9 @@ class GradingPanel(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, cr)
 
             if cr.passed:
-                item.setForeground(QColor("green"))
+                item.setForeground(theme_manager.color("grading_passed"))
             else:
-                item.setForeground(QColor("red"))
+                item.setForeground(theme_manager.color("grading_failed"))
 
             self.results_list.addItem(item)
 
