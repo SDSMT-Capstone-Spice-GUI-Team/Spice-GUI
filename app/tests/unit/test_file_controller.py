@@ -33,6 +33,30 @@ class TestSaveLoad:
         assert "components" in data
         assert "wires" in data
 
+    def test_save_includes_schema_version(self, tmp_path):
+        from models.circuit import SCHEMA_VERSION
+
+        ctrl = FileController(build_simple_circuit())
+        filepath = tmp_path / "test.json"
+        ctrl.save_circuit(filepath)
+        data = json.loads(filepath.read_text())
+        assert data["schema_version"] == SCHEMA_VERSION
+
+    def test_load_file_without_schema_version(self, tmp_path):
+        """Files saved before schema_version was added should still load."""
+        data = {
+            "components": [
+                {"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}},
+            ],
+            "wires": [],
+            "counters": {"Resistor": 1},
+        }
+        filepath = tmp_path / "legacy.json"
+        filepath.write_text(json.dumps(data))
+        ctrl = FileController()
+        ctrl.load_circuit(filepath)
+        assert "R1" in ctrl.model.components
+
     def test_load_restores_components(self, tmp_path):
         model = build_simple_circuit()
         ctrl = FileController(model)

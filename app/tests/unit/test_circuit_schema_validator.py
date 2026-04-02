@@ -1,11 +1,13 @@
 """Tests for models.circuit_schema_validator.validate_circuit_data."""
 
 import pytest
+from models.circuit import SCHEMA_VERSION
 from models.circuit_schema_validator import validate_circuit_data
 
 
 def _valid_circuit():
     return {
+        "schema_version": SCHEMA_VERSION,
         "components": [{"id": "R1", "type": "Resistor", "value": "1k", "pos": {"x": 0, "y": 0}}],
         "wires": [],
     }
@@ -38,6 +40,41 @@ class TestValidateCircuitDataStructure:
     def test_wires_not_list_raises(self):
         with pytest.raises(ValueError, match="wires"):
             validate_circuit_data({"components": [], "wires": {}})
+
+
+class TestValidateSchemaVersion:
+    """Issue #521: circuit JSON must include a schema_version field."""
+
+    def test_valid_version_passes(self):
+        data = _valid_circuit()
+        validate_circuit_data(data)  # no exception
+
+    def test_missing_version_passes_for_backward_compat(self):
+        data = _valid_circuit()
+        del data["schema_version"]
+        validate_circuit_data(data)  # no exception
+
+    def test_non_integer_version_raises(self):
+        data = _valid_circuit()
+        data["schema_version"] = "1"
+        with pytest.raises(ValueError, match="integer"):
+            validate_circuit_data(data)
+
+    def test_future_version_raises(self):
+        data = _valid_circuit()
+        data["schema_version"] = SCHEMA_VERSION + 1
+        with pytest.raises(ValueError, match="update the application"):
+            validate_circuit_data(data)
+
+    def test_current_version_passes(self):
+        data = _valid_circuit()
+        data["schema_version"] = SCHEMA_VERSION
+        validate_circuit_data(data)  # no exception
+
+    def test_older_version_passes(self):
+        data = _valid_circuit()
+        data["schema_version"] = 1
+        validate_circuit_data(data)  # no exception
 
 
 class TestValidateCircuitDataComponents:
