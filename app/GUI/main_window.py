@@ -169,13 +169,14 @@ class MainWindow(
         left_panel.addWidget(QLabel("Component Palette"))
         self.palette = ComponentPalette()
         left_panel.addWidget(self.palette)
+        kb = self.keybindings
         instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
             "🖱️ Drag components to move (wires follow!)\n"
-            "🔄 Press R to rotate selected\n"
+            f"🔄 Press {kb.get('edit.rotate_cw')} to rotate selected\n"
             "🗑️ Right-click for context menu\n"
-            "⌫ Delete key to remove selected\n"
+            f"⌫ {kb.get('edit.delete')} key to remove selected\n"
             "\n"
             "Wires auto-route using IDA* path finding!"
         )
@@ -194,12 +195,12 @@ class MainWindow(
         canvas_toolbar.addWidget(QLabel("Circuit Canvas"))
         btn_zoom_in = QPushButton("+")
         btn_zoom_in.setFixedWidth(30)
-        btn_zoom_in.setToolTip("Zoom In (Ctrl++)")
+        btn_zoom_in.setToolTip(f"Zoom In ({self.keybindings.get('view.zoom_in')})")
         btn_zoom_out = QPushButton("-")
         btn_zoom_out.setFixedWidth(30)
-        btn_zoom_out.setToolTip("Zoom Out (Ctrl+-)")
+        btn_zoom_out.setToolTip(f"Zoom Out ({self.keybindings.get('view.zoom_out')})")
         btn_zoom_fit = QPushButton("Fit")
-        btn_zoom_fit.setToolTip("Fit to Circuit (Ctrl+0)")
+        btn_zoom_fit.setToolTip(f"Fit to Circuit ({self.keybindings.get('view.zoom_fit')})")
         self.zoom_label = QLabel("100%")
         self.zoom_label.setFixedWidth(45)
         canvas_toolbar.addStretch()
