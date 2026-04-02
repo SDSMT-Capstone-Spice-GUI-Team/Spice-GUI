@@ -9,7 +9,7 @@ delegates to the appropriate renderer via ``get_renderer``.
 import math
 from abc import ABC, abstractmethod
 
-from PyQt6.QtGui import QColor, QPen
+from PyQt6.QtGui import QPen
 
 # ---------------------------------------------------------------------------
 # Abstract base & registry
@@ -138,9 +138,9 @@ class IEEEWaveformVoltageSource(ComponentRenderer):
         painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
         # Draw sine wave symbol
-        from models.component import COMPONENT_COLORS
+        from GUI.styles import theme_manager
 
-        painter.setPen(QPen(QColor(COMPONENT_COLORS.get(component.component_type, "#E91E63")), 2))
+        painter.setPen(QPen(theme_manager.get_component_color(component.component_type), 2))
         from PyQt6.QtGui import QPainterPath
 
         path = QPainterPath()

@@ -55,14 +55,21 @@ def create_component_icon(component_type, size=48):
 
     # Get component class and create temp instance
     component_class = COMPONENT_CLASSES.get(component_type)
-    if not component_class:
-        return QIcon()
 
-    temp_comp = component_class("temp")
-
-    # Paint component symbol
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    if not component_class:
+        # Fallback icon for subcircuit components without a renderer class
+        color = theme_manager.get_component_color(component_type)
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(QBrush(color.lighter(150)))
+        margin = int(size * 0.15)
+        painter.drawRect(margin, margin, size - 2 * margin, size - 2 * margin)
+        painter.end()
+        return QIcon(pixmap)
+
+    temp_comp = component_class("temp")
 
     # Set up painter with theme color
     color = theme_manager.get_component_color(temp_comp.component_type)
