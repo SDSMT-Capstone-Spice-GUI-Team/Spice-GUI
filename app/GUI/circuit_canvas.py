@@ -24,6 +24,9 @@ from .styles import (
     GRID_SIZE,
     MAJOR_GRID_INTERVAL,
     TERMINAL_CLICK_RADIUS,
+    Z_GRID,
+    Z_WAYPOINT_MARKER,
+    Z_WIRE_PREVIEW,
     ZOOM_FACTOR,
     ZOOM_FIT_PADDING,
     ZOOM_MAX,
@@ -578,7 +581,7 @@ class CircuitCanvasView(QGraphicsView):
             is_major = x % MAJOR_GRID_INTERVAL == 0
             pen = major_pen if is_major else minor_pen
             line = self._scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
-            line.setZValue(-1)
+            line.setZValue(Z_GRID)
             self._grid_items.append(line)
 
             # Add label for major grid lines
@@ -587,7 +590,7 @@ class CircuitCanvasView(QGraphicsView):
                 label.setDefaultTextColor(grid_label_color)
                 label.setFont(grid_label_font)
                 label.setPos(x - 15, -GRID_EXTENT)  # Position at top
-                label.setZValue(-1)  # Draw behind components
+                label.setZValue(Z_GRID)  # Draw behind components
                 self._scene.addItem(label)
                 self._grid_items.append(label)
 
@@ -596,7 +599,7 @@ class CircuitCanvasView(QGraphicsView):
             is_major = y % MAJOR_GRID_INTERVAL == 0
             pen = major_pen if is_major else minor_pen
             line = self._scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
-            line.setZValue(-1)
+            line.setZValue(Z_GRID)
             self._grid_items.append(line)
 
             # Add label for major grid lines
@@ -605,7 +608,7 @@ class CircuitCanvasView(QGraphicsView):
                 label.setDefaultTextColor(grid_label_color)
                 label.setFont(grid_label_font)
                 label.setPos(-GRID_EXTENT, y - 10)  # Position at left
-                label.setZValue(-1)  # Draw behind components
+                label.setZValue(Z_GRID)  # Draw behind components
                 self._scene.addItem(label)
                 self._grid_items.append(label)
 
@@ -788,7 +791,7 @@ class CircuitCanvasView(QGraphicsView):
                             start_pos.x(), start_pos.y(), start_pos.x(), start_pos.y()
                         )
                         self.temp_wire_line.setPen(theme_manager.pen("wire_preview"))
-                        self.temp_wire_line.setZValue(100)  # Draw on top
+                        self.temp_wire_line.setZValue(Z_WIRE_PREVIEW)  # Draw on top
                         self._scene.addItem(self.temp_wire_line)
 
                         # Show crosshair cursor while drawing a wire
@@ -960,7 +963,7 @@ class CircuitCanvasView(QGraphicsView):
         marker.setPos(pos)
         marker.setBrush(QBrush(theme_manager.color("wire_preview")))
         marker.setPen(QPen(Qt.PenStyle.NoPen))
-        marker.setZValue(101)
+        marker.setZValue(Z_WAYPOINT_MARKER)
         self._scene.addItem(marker)
         self._wire_waypoint_markers.append(marker)
 
