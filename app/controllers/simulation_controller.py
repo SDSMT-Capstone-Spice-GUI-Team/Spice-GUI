@@ -168,6 +168,9 @@ class SimulationController:
                 self.circuit_ctrl._notify("simulation_completed", result)
             return result
 
+        # Track wrdata file for cleanup on next run
+        self.runner.register_extra_files([wrdata_filepath])
+
         # 5. Run simulation
         success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
         if not success:
@@ -393,6 +396,7 @@ class SimulationController:
         step_results = []
         errors = []
         cancelled = False
+        wrdata_files: list[str] = []
 
         try:
             for i, val in enumerate(sweep_values):
@@ -406,6 +410,7 @@ class SimulationController:
                 # Generate netlist
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                 wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_sweep_{i}_{timestamp}.txt")
+                wrdata_files.append(wrdata_filepath)
 
                 try:
                     netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
@@ -444,6 +449,8 @@ class SimulationController:
             # Restore original state
             comp.value = original_value
             self.set_analysis(original_analysis, original_params)
+            # Track wrdata files for cleanup on next run
+            self.runner.register_extra_files(wrdata_files)
 
         # Trim sweep_values to match actual results if cancelled
         actual_values = sweep_values[: len(step_results)]
@@ -522,6 +529,7 @@ class SimulationController:
         run_values = []
         errors = []
         cancelled = False
+        wrdata_files: list[str] = []
 
         try:
             for i in range(num_runs):
@@ -547,6 +555,7 @@ class SimulationController:
 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                 wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_mc_{i}_{timestamp}.txt")
+                wrdata_files.append(wrdata_filepath)
 
                 try:
                     netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
@@ -583,6 +592,8 @@ class SimulationController:
                 if comp:
                     comp.value = orig_val
             self.set_analysis(original_analysis, original_params)
+            # Track wrdata files for cleanup on next run
+            self.runner.register_extra_files(wrdata_files)
 
         any_success = any(r.success for r in step_results)
 

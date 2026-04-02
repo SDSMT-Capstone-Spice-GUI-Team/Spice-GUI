@@ -35,6 +35,18 @@ class NgspiceRunner:
         # Paths written during the most-recently completed run; cleaned up at
         # the start of the next run so that results remain readable until then.
         self._prev_run_files: list[str] = []
+        # Additional files registered by callers (e.g. wrdata files created by
+        # SimulationController) that should be cleaned up on the next run.
+        self._extra_cleanup_files: list[str] = []
+
+    def register_extra_files(self, paths: list[str]) -> None:
+        """Register additional file paths for cleanup on the next run.
+
+        Used by callers (e.g. SimulationController) to track wrdata files
+        that are created outside of NgspiceRunner but should be cleaned up
+        when the next simulation starts.
+        """
+        self._extra_cleanup_files.extend(paths)
 
     def _cleanup_prev_run(self) -> None:
         """Remove temp files written by the previous simulation run.
@@ -45,13 +57,14 @@ class NgspiceRunner:
         """
         if self._keep_files:
             return
-        for path in self._prev_run_files:
+        for path in self._prev_run_files + self._extra_cleanup_files:
             try:
                 if os.path.exists(path):
                     os.remove(path)
             except OSError:
                 pass
         self._prev_run_files = []
+        self._extra_cleanup_files = []
 
     def find_ngspice(self):
         """Find ngspice executable on the system.
