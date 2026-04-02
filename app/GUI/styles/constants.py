@@ -35,6 +35,16 @@ ZOOM_MIN = 0.1  # Minimum zoom level (10%)
 ZOOM_MAX = 5.0  # Maximum zoom level (500%)
 ZOOM_FIT_PADDING = 50  # Pixels of padding when fitting to circuit
 
+# Z-value layering (higher values are drawn on top)
+Z_GRID = -1  # Grid lines and labels (background)
+Z_COMPONENT = 0  # Components (default QGraphicsItem z)
+Z_WIRE = 1  # Wires (above components)
+Z_ANNOTATION = 90  # Text annotations
+Z_WIRE_PREVIEW = 100  # Temporary wire preview during drawing
+Z_WAYPOINT_MARKER = 101  # Waypoint placement markers
+Z_SEGMENT_HANDLE = 199  # Wire segment drag handles
+Z_WAYPOINT_HANDLE = 200  # Waypoint drag handles (topmost)
+
 # Waveform viewer
 INITIAL_LOAD_COUNT = 50  # Rows loaded on first display
 SCROLL_LOAD_COUNT = 25  # Additional rows loaded on scroll
