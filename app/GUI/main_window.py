@@ -48,7 +48,7 @@ from .main_window_simulation import SimulationMixin
 from .main_window_view import ViewOperationsMixin
 from .properties_panel import PropertiesPanel
 from .results_panel import ResultsPanel
-from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
+from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE
 
 logger = logging.getLogger(__name__)
 

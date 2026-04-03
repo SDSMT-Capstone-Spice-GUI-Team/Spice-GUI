@@ -60,7 +60,7 @@ class TestDialogStructure:
     def test_appearance_tab_has_combos(self, dialog):
         tab = dialog.tabs.widget(0)
         combos = tab.findChildren(QComboBox)
-        assert len(combos) == 4  # theme, style, color mode, wire thickness
+        assert len(combos) == 5  # theme, style, color mode, wire thickness, font family
 
     def test_appearance_tab_has_theme_buttons(self, dialog):
         tab = dialog.tabs.widget(0)
