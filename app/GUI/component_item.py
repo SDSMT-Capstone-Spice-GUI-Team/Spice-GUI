@@ -272,14 +272,14 @@ class ComponentGraphicsItem(QGraphicsItem):
         if show_label or show_value:
             text = self._label_text(show_label, show_value)
             fm = QFontMetricsF(QFont())
-            text_rect = fm.boundingRect(text)
-            # drawText(-20, -25) uses -25 as the text baseline.
-            # QFontMetrics ascent = distance from baseline to top of tallest glyph.
+            # Use horizontalAdvance for true pixel width (boundingRect can undercount)
+            text_width = fm.horizontalAdvance(text)
+            text_height = fm.height()
+            # drawText(-20, -25) uses -25 as the text baseline
             text_top = -25 - fm.ascent()
-            text_rect.moveLeft(-20)
-            text_rect.moveTop(text_top)
-            # Add padding for anti-aliasing and descenders
-            text_rect.adjust(-2, -2, 2, 2)
+            text_rect = QRectF(-20, text_top, text_width, text_height)
+            # Generous padding — anti-aliasing, subpixel rendering, italic overhang
+            text_rect.adjust(-4, -4, 8, 4)
             base = base.united(text_rect)
 
         return base
