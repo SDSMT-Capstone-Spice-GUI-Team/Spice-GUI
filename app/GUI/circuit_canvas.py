@@ -448,7 +448,7 @@ class CircuitCanvasView(QGraphicsView):
 
         # Clear and rebuild everything
 
-        self.scene.clear()
+        self._scene.clear()
         self._grid_items.clear()  # drop stale C++ refs destroyed by scene.clear()
 
         self.draw_grid()
@@ -569,7 +569,7 @@ class CircuitCanvasView(QGraphicsView):
     def draw_grid(self):
 
         """Draw background grid with major and minor grid lines."""
-        if self.scene is None:
+        if self._scene is None:
 
             return
 

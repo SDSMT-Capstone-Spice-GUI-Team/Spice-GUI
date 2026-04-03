@@ -41,7 +41,7 @@ class ViewOperationsMixin:
         theme = theme_manager.current_theme
 
         # 1. Clear the scene so the upcoming repaint finds nothing to destroy.
-        self.canvas.scene.clear()
+        self.canvas._scene.clear()
         self.canvas._grid_items.clear()
         self.canvas.components.clear()
         self.canvas.wires.clear()

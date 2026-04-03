@@ -1,0 +1,47 @@
+{
+  "components": [
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "1k",
+      "pos": {
+        "x": -140,
+        "y": -40
+      },
+      "rotation": 0,
+      "flip_h": false,
+      "flip_v": false
+    },
+    {
+      "type": "VoltageSource",
+      "id": "V1",
+      "value": "5V",
+      "pos": {
+        "x": -100,
+        "y": 70
+      },
+      "rotation": 0,
+      "flip_h": false,
+      "flip_v": false
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "0V",
+      "pos": {
+        "x": 40,
+        "y": 130
+      },
+      "rotation": 0,
+      "flip_h": false,
+      "flip_v": false
+    }
+  ],
+  "wires": [],
+  "counters": {
+    "R": 1,
+    "V": 1,
+    "GND": 1
+  },
+  "_autosave_source": ""
+}
