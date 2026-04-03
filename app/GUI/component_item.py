@@ -273,9 +273,13 @@ class ComponentGraphicsItem(QGraphicsItem):
             text = self._label_text(show_label, show_value)
             fm = QFontMetricsF(QFont())
             text_rect = fm.boundingRect(text)
-            # Text is drawn at (-20, -25); that's the left-baseline position
+            # drawText(-20, -25) uses -25 as the text baseline.
+            # QFontMetrics ascent = distance from baseline to top of tallest glyph.
+            text_top = -25 - fm.ascent()
             text_rect.moveLeft(-20)
-            text_rect.moveBottom(-25)
+            text_rect.moveTop(text_top)
+            # Add padding for anti-aliasing and descenders
+            text_rect.adjust(-2, -2, 2, 2)
             base = base.united(text_rect)
 
         return base
