@@ -11,6 +11,8 @@ from .theme import BaseTheme
 class LightTheme(BaseTheme):
     """Light theme - the default application theme."""
 
+    _qss_filename = "light_theme.qss"
+
     def __init__(self):
         super().__init__()
         self._define_colors()
@@ -60,11 +62,14 @@ class LightTheme(BaseTheme):
             "grid_major": "#969696",  # Medium gray (150, 150, 150)
             "grid_label": "#646464",  # Dark gray (100, 100, 100)
             # ===== Canvas/UI Colors =====
-            "background_primary": "#FFFFFF",  # White
-            "background_secondary": "#F0F0F0",  # Light gray
-            "text_primary": "#000000",  # Black
+            "background_primary": "#CFD1D2",  # Light background
+            "background_secondary": "#EDEDED",  # Sections
+            "text_primary": "#2F2F2F",  # Dark gray text
             "text_secondary": "#666666",  # Medium gray
             "text_muted": "#999999",  # Light gray text
+            # ===== Accent Colors (Mines brand) =====
+            "accent_primary": "#002554",  # Mines Navy Blue (default/intended)
+            "accent_hover": "#C5A55A",  # Mines Old Gold (hover/selected)
             # ===== Selection & Highlight =====
             "selection_highlight": "#FFFF00",  # Yellow
             "node_label": "#FF00FF",  # Magenta (255, 0, 255)
@@ -161,7 +166,7 @@ class LightTheme(BaseTheme):
             "op_annotation": {"size": 9, "bold": True},
             "panel_title": {"size": 10, "bold": True},
             "panel_subtitle": {"size": 12, "bold": True},
-            "monospace": {"family": "monospace", "size": 9, "bold": False},
+            "monospace": {"family": "JetBrains Mono", "size": 9, "bold": False},
             "probe_label": {"size": 10, "bold": True},
         }
 

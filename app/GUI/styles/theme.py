@@ -4,12 +4,19 @@ theme.py - Theme protocol and base class.
 Defines the contract that all themes must fulfill.
 """
 
+import logging
+import re
+from pathlib import Path
 from typing import Dict, Protocol
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QPen
 
 from .constants import COMPONENTS
+
+logger = logging.getLogger(__name__)
+
+_STYLES_DIR = Path(__file__).parent
 
 
 class ThemeProtocol(Protocol):
@@ -44,9 +51,15 @@ class ThemeProtocol(Protocol):
         """Get a stylesheet string by semantic key."""
         ...
 
+    def load_qss(self) -> str:
+        """Load and return the resolved QSS stylesheet string."""
+        ...
+
 
 class BaseTheme:
     """Base class for themes with shared functionality."""
+
+    _qss_filename: str = ""
 
     def __init__(self):
         self._colors: Dict[str, str] = {}  # key -> hex string
@@ -54,6 +67,7 @@ class BaseTheme:
         self._brushes: Dict[str, Dict] = {}  # key -> brush config dict
         self._fonts: Dict[str, Dict] = {}  # key -> font config dict
         self._stylesheets: Dict[str, str] = {}  # key -> stylesheet string
+        self._global_font_family: str = ""  # user-chosen font family override
 
     @property
     def name(self) -> str:
@@ -114,6 +128,15 @@ class BaseTheme:
         color = self.color_rgba(color_key, alpha)
         return QBrush(color)
 
+    @property
+    def global_font_family(self) -> str:
+        """Return the current global font family override, or empty string."""
+        return self._global_font_family
+
+    def set_global_font_family(self, family: str) -> None:
+        """Set a global font family applied to all non-monospace fonts."""
+        self._global_font_family = family
+
     def font(self, key: str) -> QFont:
         """Get QFont by key."""
         config = self._fonts.get(key, {})
@@ -121,6 +144,8 @@ class BaseTheme:
 
         if "family" in config:
             font.setFamily(config["family"])
+        elif self._global_font_family:
+            font.setFamily(self._global_font_family)
         if "size" in config:
             font.setPointSize(config["size"])
         if config.get("bold", False):
@@ -133,6 +158,69 @@ class BaseTheme:
     def stylesheet(self, key: str) -> str:
         """Get stylesheet string by key."""
         return self._stylesheets.get(key, "")
+
+    def load_qss(self) -> str:
+        """Load the QSS file for this theme and substitute @variable@ placeholders.
+
+        Derived colors (background_mid, border, background_mid_hover) are
+        computed automatically from the theme's color definitions.
+        """
+        if not self._qss_filename:
+            return ""
+
+        qss_path = _STYLES_DIR / self._qss_filename
+        if not qss_path.exists():
+            logger.warning("QSS file not found: %s", qss_path)
+            return ""
+
+        template = qss_path.read_text(encoding="utf-8")
+        return self._substitute_variables(template)
+
+    def _substitute_variables(self, template: str) -> str:
+        """Replace @key@ placeholders with color values from self._colors.
+
+        Also computes derived colors that aren't stored directly:
+        - background_mid: lighter shade of background_secondary
+        - border: even lighter shade of background_secondary
+        - background_mid_hover: lighter shade of background_mid
+
+        Placeholders inside CSS comments are ignored.
+        """
+        # Build the substitution map from theme colors + derived colors
+        variables = dict(self._colors)
+
+        # Compute derived colors
+        bg2 = QColor(self._colors.get("background_secondary", "#F0F0F0"))
+        bg_mid = bg2.lighter(120)
+        border = bg2.lighter(150)
+        bg_mid_hover = bg_mid.lighter(110)
+
+        variables["background_mid"] = bg_mid.name()
+        variables["border"] = border.name()
+        variables["background_mid_hover"] = bg_mid_hover.name()
+
+        # Font family — empty string means no override (system default)
+        variables["font_family"] = self._global_font_family or "sans-serif"
+
+        # Strip CSS comments before substitution, then substitute on the
+        # original template by only replacing @var@ outside of comments.
+        comment_ranges = [
+            (m.start(), m.end()) for m in re.finditer(r"/\*.*?\*/", template, re.DOTALL)
+        ]
+
+        def in_comment(pos: int) -> bool:
+            return any(start <= pos < end for start, end in comment_ranges)
+
+        def replace_var(match):
+            if in_comment(match.start()):
+                return match.group(0)
+            key = match.group(1)
+            if key in variables:
+                return variables[key]
+            logger.warning("Unknown QSS variable: @%s@", key)
+            return match.group(0)
+
+        return re.sub(r"@(\w+)@", replace_var, template)
 
     # ===== Helper methods for common patterns =====
 

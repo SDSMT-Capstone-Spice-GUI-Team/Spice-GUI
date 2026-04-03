@@ -36,6 +36,7 @@ class SettingsMixin:
         settings.set("view/wire_thickness", theme_manager.wire_thickness)
         settings.set("view/show_junction_dots", theme_manager.show_junction_dots)
         settings.set("view/routing_mode", theme_manager.routing_mode)
+        settings.set("view/font_family", theme_manager.font_family)
 
     def _restore_settings(self):
         """Restore user preferences from the centralized settings service."""
@@ -90,14 +91,15 @@ class SettingsMixin:
         saved_theme_key = settings.get("view/theme_key")
         if saved_theme_key and saved_theme_key != "light":
             theme_ctrl.set_theme_by_key(saved_theme_key)
-            self.apply_theme()
             if hasattr(self, "refresh_theme_menu"):
                 self.refresh_theme_menu()
         else:
             # Legacy fallback: check old theme name
             saved_theme = settings.get("view/theme")
             if saved_theme == "Dark Theme":
-                self._set_theme("dark")
+                theme_ctrl.set_theme_by_key("dark")
+        # Always apply theme on startup so the QSS stylesheet is loaded
+        self.apply_theme()
 
         saved_symbol_style = settings.get("view/symbol_style")
         if saved_symbol_style in ("ieee", "iec"):
@@ -124,10 +126,17 @@ class SettingsMixin:
             settings.set("tutorial/has_shown", True)
             QTimer.singleShot(500, self._start_tutorial)
 
+        saved_font_family = settings.get_str("view/font_family", "")
+        if saved_font_family:
+            theme_ctrl.set_font_family(saved_font_family)
+
+
     def closeEvent(self, event):
         """Save settings before closing"""
         self._save_settings()
         self.file_ctrl.clear_auto_save()
+        if self.splash_screen is not None:
+            self.splash_screen.close()
         super().closeEvent(event)
 
     def start_autosave_timer(self):

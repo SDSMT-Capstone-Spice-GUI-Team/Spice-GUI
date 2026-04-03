@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
-    QWidget,
+    QWidget, QGridLayout, QApplication,
 )
 
 from .circuit_canvas import CircuitCanvasView
@@ -48,13 +48,7 @@ from .main_window_simulation import SimulationMixin
 from .main_window_view import ViewOperationsMixin
 from .properties_panel import PropertiesPanel
 from .results_panel import ResultsPanel
-from .styles import (
-    DEFAULT_SPLITTER_SIZES,
-    DEFAULT_WINDOW_SIZE,
-    STATUS_DURATION_DEFAULT,
-    STATUS_DURATION_SHORT,
-    theme_manager,
-)
+from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +75,7 @@ class MainWindow(
         super().__init__()
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.setGeometry(100, 100, *DEFAULT_WINDOW_SIZE)
+        self.splash_screen = None
 
         # Keybindings registry (load before UI so shortcuts are applied)
         self.keybindings = KeybindingsRegistry()
@@ -88,7 +83,7 @@ class MainWindow(
         # Create model (single source of truth)
         self.model = CircuitModel()
 
-        # Create controllers
+        # Create controllers (Phase 5: wire them together)
         self._circuit_ctrl = CircuitController(self.model)
         self._file_ctrl = FileController(self.model, self._circuit_ctrl)
         self._simulation_ctrl = SimulationController(self.model, self._circuit_ctrl)
@@ -140,7 +135,7 @@ class MainWindow(
 
     # --- ApplicationShellProtocol methods ---
 
-    def show_status_message(self, message: str, timeout_ms: int = STATUS_DURATION_DEFAULT) -> None:
+    def show_status_message(self, message: str, timeout_ms: int = 3000) -> None:
         """Show a transient message in the status bar (ApplicationShellProtocol)."""
         status = self.statusBar()
         if status:
@@ -175,20 +170,19 @@ class MainWindow(
         left_panel.addWidget(QLabel("Component Palette"))
         self.palette = ComponentPalette()
         left_panel.addWidget(self.palette)
-        kb = self.keybindings
-        instructions = QLabel(
+        '''instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
             "🖱️ Drag components to move (wires follow!)\n"
-            f"🔄 Press {kb.get('edit.rotate_cw')} to rotate selected\n"
+            "🔄 Press R to rotate selected\n"
             "🗑️ Right-click for context menu\n"
-            f"⌫ {kb.get('edit.delete')} key to remove selected\n"
+            "⌫ Delete key to remove selected\n"
             "\n"
             "Wires auto-route using IDA* path finding!"
         )
-        instructions.setWordWrap(True)
-        instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
-        left_panel.addWidget(instructions)
+        ##instructions.setWordWrap(True)
+        ##instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
+        ##left_panel.addWidget(instructions)'''
         main_layout.addLayout(left_panel, 1)
 
         # Center - Canvas and results
@@ -201,12 +195,12 @@ class MainWindow(
         canvas_toolbar.addWidget(QLabel("Circuit Canvas"))
         btn_zoom_in = QPushButton("+")
         btn_zoom_in.setFixedWidth(30)
-        btn_zoom_in.setToolTip(f"Zoom In ({self.keybindings.get('view.zoom_in')})")
+        btn_zoom_in.setToolTip("Zoom In (Ctrl++)")
         btn_zoom_out = QPushButton("-")
         btn_zoom_out.setFixedWidth(30)
-        btn_zoom_out.setToolTip(f"Zoom Out ({self.keybindings.get('view.zoom_out')})")
+        btn_zoom_out.setToolTip("Zoom Out (Ctrl+-)")
         btn_zoom_fit = QPushButton("Fit")
-        btn_zoom_fit.setToolTip(f"Fit to Circuit ({self.keybindings.get('view.zoom_fit')})")
+        btn_zoom_fit.setToolTip("Fit to Circuit (Ctrl+0)")
         self.zoom_label = QLabel("100%")
         self.zoom_label.setFixedWidth(45)
         canvas_toolbar.addStretch()
@@ -216,6 +210,7 @@ class MainWindow(
         canvas_toolbar.addWidget(btn_zoom_fit)
         canvas_layout.addLayout(canvas_toolbar)
 
+        # Phase 5: Pass controller to canvas for observer pattern
         self.canvas = CircuitCanvasView(self.circuit_ctrl)
         btn_zoom_in.clicked.connect(lambda: self.canvas.zoom_in())
         btn_zoom_out.clicked.connect(lambda: self.canvas.zoom_out())
@@ -369,51 +364,37 @@ class MainWindow(
     def on_property_changed(self, component_id, property_name, new_value):
         """Handle property changes from properties panel via controller."""
         if property_name == "value":
-            from controllers.commands import ChangeValueCommand
-
-            cmd = ChangeValueCommand(self.circuit_ctrl, component_id, new_value)
-            self.circuit_ctrl.execute_command(cmd)
+            self.circuit_ctrl.update_component_value(component_id, new_value)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} value to {new_value}", STATUS_DURATION_SHORT)
+                statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
 
         elif property_name == "rotation":
-            from controllers.commands import SetRotationCommand
-
-            cmd = SetRotationCommand(self.circuit_ctrl, component_id, new_value)
-            self.circuit_ctrl.execute_command(cmd)
+            self.circuit_ctrl.set_component_rotation(component_id, new_value)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", STATUS_DURATION_SHORT)
+                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
             component = self.canvas.components.get(component_id)
             if component:
                 self.properties_panel.show_component(component)
 
         elif property_name == "waveform":
-            from controllers.commands import UpdateWaveformCommand
-
             waveform_type, params = new_value
-            cmd = UpdateWaveformCommand(self.circuit_ctrl, component_id, waveform_type, params)
-            self.circuit_ctrl.execute_command(cmd)
+            self.circuit_ctrl.update_component_waveform(component_id, waveform_type, params)
             # Refresh properties panel to show updated SPICE value
             component = self.canvas.components.get(component_id)
             if component:
                 self.properties_panel.show_component(component)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} waveform configuration", STATUS_DURATION_SHORT)
+                statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
 
         elif property_name == "initial_condition":
-            from controllers.commands import UpdateInitialConditionCommand
-
-            cmd = UpdateInitialConditionCommand(self.circuit_ctrl, component_id, new_value)
-            self.circuit_ctrl.execute_command(cmd)
+            self.circuit_ctrl.update_component_initial_condition(component_id, new_value)
             ic_display = new_value if new_value else "none"
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(
-                    f"Updated {component_id} initial condition to {ic_display}", STATUS_DURATION_SHORT
-                )
+                statusBar.showMessage(f"Updated {component_id} initial condition to {ic_display}", 2000)
 
     def _refresh_netlist_preview(self):
         """Regenerate and display the netlist in the preview panel."""
@@ -503,6 +484,71 @@ class MainWindow(
 
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Imported {Path(filepath).name}", STATUS_DURATION_DEFAULT)
+                statusBar.showMessage(f"Imported {Path(filepath).name}", 3000)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Import Error", f"Failed to import file:\n{e}")
+
+
+class SplashScreen(QWidget):
+    def __init__(self, main_window=None):
+        super().__init__()
+        self._main_window = main_window
+
+        self.setWindowTitle("Welcome to SDM-Spice!")
+
+        self.newCircuitButton = QPushButton("New Circuit")
+        self.loadCircuitButton = QPushButton("Load Circuit")
+        self.preferencesButton = QPushButton("Preferences")
+        self.aboutButton = QPushButton("About SDM-Spice")
+        self.text = QLabel("Welcome to SDM-Spice")
+        self.image = QLabel("I'm a picture, shhhhhh")
+
+        self.layout = QGridLayout(self)
+        self.layout.setVerticalSpacing(15)
+        self.layout.addWidget(self.text, 0, 1)
+        self.layout.addWidget(self.newCircuitButton, 1, 0)
+        self.layout.addWidget(self.loadCircuitButton, 2, 0)
+        self.layout.addWidget(self.preferencesButton, 3, 0)
+        self.layout.addWidget(self.aboutButton, 4, 0)
+        self.layout.addWidget(self.image, 2, 2)
+
+        # Connect button actions
+        self.newCircuitButton.clicked.connect(self.close)
+        self.loadCircuitButton.clicked.connect(self._on_load_circuit)
+        self.preferencesButton.clicked.connect(self._on_preferences)
+
+        self.resize(800, 600)
+
+        desktopScreen = self.frameGeometry()
+        centerPoint = QApplication.primaryScreen().geometry().center()
+        desktopScreen.moveCenter(centerPoint)
+        self.move(desktopScreen.topLeft())
+
+    def _on_load_circuit(self):
+        """Open the load file dialog via the main window, then close splash."""
+        if self._main_window is not None:
+            self._main_window._on_load()
+        self.close()
+
+    def _on_preferences(self):
+        """Open the preferences dialog via the main window."""
+        if self._main_window is not None:
+            self._main_window._open_preferences_dialog()
+
+
+# def main():
+#    app = QtWidgets.QApplication([])
+#
+#    window = MainWindow()
+#    window.show()
+#
+#    widget = MyWidget()
+#    widget.show()
+#
+#    with open("../darkMode.qss", "r") as file:
+#        _style = file.read()
+#        app.setStyleSheet(_style)
+#
+#    sys.exit(app.exec())
+#
+# main()

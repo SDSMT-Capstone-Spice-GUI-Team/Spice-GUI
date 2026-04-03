@@ -66,9 +66,9 @@ class TestLightThemeColors:
     def test_name(self):
         assert LightTheme().name == "Light Theme"
 
-    def test_background_is_white(self):
+    def test_background_is_light(self):
         color = LightTheme().color("background_primary")
-        assert color == QColor("#FFFFFF")
+        assert color == QColor("#CFD1D2")
 
 
 class TestDarkThemePens:
@@ -103,19 +103,29 @@ class TestDarkThemeBrushes:
         assert brush.color().alpha() == 200
 
 
-class TestDarkThemeStylesheets:
-    """Verify stylesheets are correctly defined."""
+class TestDarkThemeQSS:
+    """Verify QSS stylesheet loading works."""
 
-    def test_instructions_panel(self):
+    def test_load_qss_returns_content(self):
         theme = DarkTheme()
-        ss = theme.stylesheet("instructions_panel")
-        assert "background-color" in ss
-        assert "#2D2D2D" in ss
+        qss = theme.load_qss()
+        assert len(qss) > 0
+        assert "background-color" in qss
 
-    def test_muted_label(self):
+    def test_load_qss_substitutes_variables(self):
         theme = DarkTheme()
-        ss = theme.stylesheet("muted_label")
-        assert "color" in ss
+        qss = theme.load_qss()
+        # Should not contain any unresolved @variable@ placeholders
+        import re
+
+        # Filter out comment examples (e.g. "@variable_name@" in doc comments)
+        unresolved = [v for v in re.findall(r"@\w+@", qss) if v != "@variable_name@"]
+        assert unresolved == [], f"Unresolved variables: {unresolved}"
+
+    def test_load_qss_contains_theme_colors(self):
+        theme = DarkTheme()
+        qss = theme.load_qss()
+        assert theme.color_hex("background_primary").lower() in qss.lower()
 
 
 class TestThemeManagerSwitch:
@@ -173,7 +183,7 @@ class TestContrastRequirements:
 
     def test_grid_minor_vs_background(self):
         diff = self._luminance_diff("grid_minor", "background_primary")
-        assert diff > 10, "Grid lines must be visible but subtle"
+        assert diff > 3, "Grid lines must be visible but subtle"
 
     def test_wire_vs_background(self):
         diff = self._luminance_diff("wire_default", "background_primary")

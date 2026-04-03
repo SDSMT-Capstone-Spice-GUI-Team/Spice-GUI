@@ -51,6 +51,15 @@ class ThemeController:
         """Set the wire routing mode ('orthogonal' or 'diagonal')."""
         theme_manager.set_routing_mode(mode)
 
+    @property
+    def font_family(self) -> str:
+        """Return the current global font family override."""
+        return theme_manager.font_family
+
+    def set_font_family(self, family: str) -> None:
+        """Set the global font family (e.g. 'OpenDyslexic', or '' to reset)."""
+        theme_manager.set_font_family(family)
+
 
 # Module-level singleton
 theme_ctrl = ThemeController()

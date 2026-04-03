@@ -68,21 +68,29 @@ class TestInheritedHelpers:
         assert pen is not None
 
 
-class TestDarkStylesheet:
-    """Verify generate_stylesheet() behavior."""
 
-    def test_dark_custom_has_stylesheet(self):
+class TestQSSLoading:
+    """Verify load_qss() behavior for custom themes."""
+
+
+    def test_dark_custom_loads_qss(self):
         theme = CustomTheme("D", "dark", {}, theme_is_dark=True)
-        ss = theme.generate_stylesheet()
-        assert len(ss) > 0
-        assert "background-color" in ss
 
-    def test_light_custom_empty_stylesheet(self):
+        qss = theme.load_qss()
+        assert len(qss) > 0
+        assert "background-color" in qss
+
+
+    def test_light_custom_loads_qss(self):
         theme = CustomTheme("L", "light", {}, theme_is_dark=False)
-        ss = theme.generate_stylesheet()
-        assert ss == ""
 
-    def test_dark_stylesheet_uses_theme_colors(self):
+        qss = theme.load_qss()
+        assert isinstance(qss, str)
+
+
+    def test_custom_qss_uses_overridden_colors(self):
         theme = CustomTheme("D", "dark", {"background_primary": "#1A1A2E"}, theme_is_dark=True)
-        ss = theme.generate_stylesheet()
-        assert "#1a1a2e" in ss.lower()
+
+        qss = theme.load_qss()
+        assert "#1a1a2e" in qss.lower()
+

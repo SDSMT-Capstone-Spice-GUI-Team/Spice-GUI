@@ -35,15 +35,19 @@ class TestApplyThemeDetachPattern:
                         if isinstance(child.func, ast.Attribute):
                             calls.append((child.func.attr, child.lineno))
                 # Find positions
-                detach_line = next((line for name, line in calls if name == "detach_scene"), None)
-                set_ss_line = next((line for name, line in calls if name == "setStyleSheet"), None)
-                rebuild_line = next((line for name, line in calls if name == "rebuild_scene"), None)
+                clear_line = next((line for name, line in calls if name == "clear"), None)
+                set_ss_line = next(
+                    (line for name, line in calls if name in ("setStyleSheet", "load_qss")), None
+                )
+                rebuild_line = next(
+                    (line for name, line in calls if name in ("rebuild_scene", "_handle_model_loaded")), None
+                )
 
-                assert detach_line is not None, "detach_scene() not called in apply_theme"
-                assert set_ss_line is not None, "setStyleSheet() not called in apply_theme"
-                assert rebuild_line is not None, "rebuild_scene() not called in apply_theme"
-                assert detach_line < set_ss_line, "detach_scene() must be called before setStyleSheet()"
-                assert set_ss_line < rebuild_line, "rebuild_scene() must be called after setStyleSheet()"
+                assert clear_line is not None, "scene.clear() not called in apply_theme"
+                assert set_ss_line is not None, "setStyleSheet()/load_qss() not called in apply_theme"
+                assert rebuild_line is not None, "rebuild/reload not called in apply_theme"
+                assert clear_line < set_ss_line, "scene must be cleared before applying stylesheet"
+                assert set_ss_line < rebuild_line, "scene must be rebuilt after applying stylesheet"
                 return
         raise AssertionError("apply_theme not found")  # pragma: no cover
 

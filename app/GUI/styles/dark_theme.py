@@ -10,6 +10,8 @@ from .theme import BaseTheme
 class DarkTheme(BaseTheme):
     """Dark theme with high-contrast colors on a dark background."""
 
+    _qss_filename = "dark_theme.qss"
+
     def __init__(self):
         super().__init__()
         self._define_colors()
@@ -63,11 +65,14 @@ class DarkTheme(BaseTheme):
             "grid_major": "#4A4A4A",  # Medium dark gray
             "grid_label": "#888888",  # Lighter gray for readability
             # ===== Canvas/UI Colors =====
-            "background_primary": "#1E1E1E",  # Dark background
-            "background_secondary": "#2D2D2D",  # Slightly lighter
-            "text_primary": "#D4D4D4",  # Light gray text
+            "background_primary": "#2F2F2F",  # Dark background
+            "background_secondary": "#4F4F4F",  # Slightly lighter
+            "text_primary": "#EDEDED",  # Light gray text
             "text_secondary": "#999999",  # Medium gray
             "text_muted": "#666666",  # Dimmed text
+            # ===== Accent Colors (Mines brand) =====
+            "accent_primary": "#002554",  # Mines Navy Blue (default/intended)
+            "accent_hover": "#C5A55A",  # Mines Old Gold (hover/selected)
             # ===== Selection & Highlight =====
             "selection_highlight": "#FFFF00",  # Yellow (kept bright)
             "node_label": "#FF80FF",  # Bright magenta
@@ -164,7 +169,7 @@ class DarkTheme(BaseTheme):
             "op_annotation": {"size": 9, "bold": True},
             "panel_title": {"size": 10, "bold": True},
             "panel_subtitle": {"size": 12, "bold": True},
-            "monospace": {"family": "monospace", "size": 9, "bold": False},
+            "monospace": {"family": "JetBrains Mono", "size": 9, "bold": False},
             "probe_label": {"size": 10, "bold": True},
         }
 
