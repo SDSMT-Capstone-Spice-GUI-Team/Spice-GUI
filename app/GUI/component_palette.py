@@ -146,6 +146,27 @@ class ComponentPalette(QWidget):
         self.tree_widget.itemCollapsed.connect(self._save_expanded_state)
         layout.addWidget(self.tree_widget)
 
+        # Refresh cached icons whenever the theme, symbol style, or color
+        # mode changes so the palette stays in sync with the canvas.
+        theme_manager.on_theme_changed(self._on_theme_changed)
+
+    def _on_theme_changed(self, _theme=None) -> None:
+        """Regenerate all cached palette icons using current theme settings."""
+        def walk(parent: QTreeWidgetItem) -> None:
+            for i in range(parent.childCount()):
+                child = parent.child(i)
+                if child.childCount() > 0:
+                    walk(child)
+                else:
+                    name = child.text(0)
+                    if name in COMPONENTS:
+                        try:
+                            child.setIcon(0, create_component_icon(name))
+                        except Exception:
+                            pass
+
+        walk(self.tree_widget.invisibleRootItem())
+
     def _on_item_clicked(self, item, column):
         """Toggle expand/collapse when a category header is clicked."""
         if item.parent() is None:
