@@ -185,6 +185,23 @@ class TestExportAsc:
         content = export_asc(model)
         assert "R90" in content
 
+    def test_transformer_exported(self):
+        """Regression: Transformer was silently skipped before #500."""
+        model = CircuitModel()
+        model.add_component(
+            ComponentData(
+                component_id="K1",
+                component_type="Transformer",
+                value="10mH 10mH 0.99",
+                position=(200.0, 200.0),
+                rotation=0,
+            )
+        )
+        content = export_asc(model)
+        assert "SYMBOL ind2" in content
+        assert "SYMATTR InstName K1" in content
+        assert "SYMATTR Value 10mH 10mH 0.99" in content
+
     def test_flip_produces_mirror_code(self):
         model = CircuitModel()
         r1 = ComponentData(

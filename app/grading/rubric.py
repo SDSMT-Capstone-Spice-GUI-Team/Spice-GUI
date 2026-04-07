@@ -7,6 +7,7 @@ each worth a certain number of points. Rubrics are serialized as
 No Qt dependencies — pure Python module.
 """
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -72,6 +73,30 @@ class Rubric:
             "total_points": self.total_points,
             "checks": [c.to_dict() for c in self.checks],
         }
+
+    def content_hash(self) -> str:
+        """Return a SHA-256 hex digest of the rubric's grading-relevant content.
+
+        The hash captures check definitions and point values so that two
+        rubrics with identical grading behaviour produce the same hash,
+        regardless of title or cosmetic differences in feedback text.
+        """
+        canonical = json.dumps(
+            {
+                "total_points": self.total_points,
+                "checks": [
+                    {
+                        "check_id": c.check_id,
+                        "check_type": c.check_type,
+                        "points": c.points,
+                        "params": c.params,
+                    }
+                    for c in self.checks
+                ],
+            },
+            sort_keys=True,
+        )
+        return hashlib.sha256(canonical.encode()).hexdigest()
 
     @classmethod
     def from_dict(cls, data: dict) -> "Rubric":

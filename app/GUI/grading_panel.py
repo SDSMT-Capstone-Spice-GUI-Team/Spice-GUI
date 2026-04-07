@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Optional
 from grading.component_mapper import extract_component_ids
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QFileDialog,
     QGroupBox,
@@ -48,6 +47,7 @@ class GradingPanel(QWidget):
         self._grader = None  # Lazy-initialized to avoid circular import
         self._rubric: Optional[Rubric] = None
         self._student_circuit: Optional[CircuitModel] = None
+        self._reference_circuit: Optional[CircuitModel] = None
         self._student_file: str = ""
         self._result: Optional[GradingResult] = None
         self._highlighted_components: list = []
@@ -130,7 +130,7 @@ class GradingPanel(QWidget):
     # --- Load operations ---
 
     def _on_load_student(self):
-        """Load a student circuit file."""
+        """Load a student circuit file and display it on the canvas."""
         from controllers.file_controller import validate_circuit_data
 
         filename, _ = QFileDialog.getOpenFileName(
@@ -156,6 +156,15 @@ class GradingPanel(QWidget):
             else:
                 validate_circuit_data(data)
                 self._student_circuit = CircuitModel.from_dict(data)
+
+            # Snapshot the current (reference) circuit before replacing the canvas
+            if self._reference_circuit is None:
+                self._reference_circuit = CircuitModel.from_dict(self._model.to_dict())
+
+            # Display student circuit on canvas so highlights target the correct components
+            parent = self.parent()
+            if parent is not None and hasattr(parent, "file_ctrl"):
+                parent.file_ctrl.load_from_model(self._student_circuit)
 
             self._student_file = Path(filename).name
             self.student_label.setText(f"Student: {self._student_file}")
@@ -199,10 +208,11 @@ class GradingPanel(QWidget):
 
             self._grader = CircuitGrader()
 
+        reference = self._reference_circuit if self._reference_circuit is not None else self._model
         self._result = self._grader.grade(
             student_circuit=self._student_circuit,
             rubric=self._rubric,
-            reference_circuit=self._model,
+            reference_circuit=reference,
             student_file=self._student_file,
         )
 
@@ -237,9 +247,9 @@ class GradingPanel(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, cr)
 
             if cr.passed:
-                item.setForeground(QColor("green"))
+                item.setForeground(theme_manager.color("grading_passed"))
             else:
-                item.setForeground(QColor("red"))
+                item.setForeground(theme_manager.color("grading_failed"))
 
             self.results_list.addItem(item)
 
@@ -326,6 +336,14 @@ class GradingPanel(QWidget):
     def clear_results(self):
         """Clear all grading results, overlays, and reset the panel."""
         self._clear_highlights()
+
+        # Restore the reference (instructor) circuit on the canvas
+        if self._reference_circuit is not None:
+            parent = self.parent()
+            if parent is not None and hasattr(parent, "file_ctrl"):
+                parent.file_ctrl.load_from_model(self._reference_circuit)
+            self._reference_circuit = None
+
         self._result = None
         self._student_circuit = None
         self._student_file = ""

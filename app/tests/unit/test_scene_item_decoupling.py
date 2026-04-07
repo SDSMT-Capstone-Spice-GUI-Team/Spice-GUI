@@ -162,8 +162,8 @@ class TestWireItemDecoupling:
         wire.waypoints = [(0, 0), (50, 50), (100, 100)]
         wire._finish_waypoint_drag()
 
-        mock_canvas.on_wire_waypoints_changed.assert_called_once()
-        call_args = mock_canvas.on_wire_waypoints_changed.call_args
+        mock_canvas.on_waypoint_drag_finished.assert_called_once()
+        call_args = mock_canvas.on_waypoint_drag_finished.call_args
         assert call_args[0][0] is wire  # first positional arg is the wire item
 
     def test_no_window_statusbar_access_in_source(self):

@@ -25,8 +25,9 @@ class MeasurementCursors:
         Callback ``(cursor_a_x, cursor_b_x)`` called whenever a cursor moves.
     """
 
-    CURSOR_A_COLOR = "#e74c3c"  # red (legacy fallback)
-    CURSOR_B_COLOR = "#2980b9"  # blue (legacy fallback)
+    # Legacy fallbacks (used only if theme_manager is unavailable)
+    _FALLBACK_CURSOR_A = "#e74c3c"
+    _FALLBACK_CURSOR_B = "#2980b9"
 
     def __init__(self, ax, canvas, on_cursor_moved=None):
         self._ax = ax
@@ -130,7 +131,7 @@ class MeasurementCursors:
                 pass
         self._line_a = self._ax.axvline(
             self._a_x,
-            color=self.CURSOR_A_COLOR,
+            color=theme_manager.color_hex("cursor_a"),
             linewidth=1.5,
             linestyle="--",
             label="_cursor_a",
@@ -144,7 +145,7 @@ class MeasurementCursors:
                 pass
         self._line_b = self._ax.axvline(
             self._b_x,
-            color=self.CURSOR_B_COLOR,
+            color=theme_manager.color_hex("cursor_b"),
             linewidth=1.5,
             linestyle="--",
             label="_cursor_b",

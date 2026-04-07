@@ -20,6 +20,8 @@ COMPONENT_TOOLTIPS = {
     "Voltage Source": "Voltage Source (V) — Provides a constant voltage",
     "Current Source": "Current Source (I) — Provides a constant current",
     "Waveform Source": "Waveform Source (VW) — Time-varying voltage source",
+    "AC Voltage Source": "AC Voltage Source (V) — AC magnitude and phase for AC sweep",
+    "AC Current Source": "AC Current Source (I) — AC magnitude and phase for AC sweep",
     "Ground": "Ground (GND) — Zero-volt reference node",
     "Op-Amp": "Op-Amp (OA) — Operational amplifier",
     "VCVS": "VCVS (E) — Voltage-controlled voltage source",
@@ -35,6 +37,7 @@ COMPONENT_TOOLTIPS = {
     "LED": "LED (D) — Light-emitting diode",
     "Zener Diode": "Zener Diode (D) — Voltage-regulating diode",
     "Transformer": "Transformer (K) — Coupled inductors / ideal transformer",
+    "Current Probe": "Current Probe (VP) — Measures current through a branch (0V source)",
 }
 
 # Name for the recommended section in the palette
@@ -52,14 +55,21 @@ def create_component_icon(component_type, size=48):
 
     # Get component class and create temp instance
     component_class = COMPONENT_CLASSES.get(component_type)
-    if not component_class:
-        return QIcon()
 
-    temp_comp = component_class("temp")
-
-    # Paint component symbol
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    if not component_class:
+        # Fallback icon for subcircuit components without a renderer class
+        color = theme_manager.get_component_color(component_type)
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(QBrush(color.lighter(150)))
+        margin = int(size * 0.15)
+        painter.drawRect(margin, margin, size - 2 * margin, size - 2 * margin)
+        painter.end()
+        return QIcon(pixmap)
+
+    temp_comp = component_class("temp")
 
     # Set up painter with theme color
     color = theme_manager.get_component_color(temp_comp.component_type)

@@ -127,12 +127,46 @@ class NetlistGenerator:
         self.measurements = measurements or []
         self._is_temp_sweep = False
 
+    # Component types that use non-numeric or compound value formats and
+    # should not be rejected by the simple numeric validator.
+    _SKIP_NUMERIC_VALIDATION = {
+        "Voltage Source",  # may contain "AC 1" or "DC 5V"
+        "Current Source",
+        "AC Voltage Source",
+        "AC Current Source",
+    }
+
+    def _validate_component_values(self):
+        """Validate all component values before netlist generation (#541).
+
+        Raises ValueError with a descriptive message if any component has
+        an invalid value (empty, unparseable, or out of range).
+        Subcircuit instances (SPICE symbol "X") and source types with
+        compound value formats are skipped.
+        """
+        from utils.format_utils import validate_component_value
+
+        errors = []
+        for comp in self.components.values():
+            if comp.get_spice_symbol() == "X":
+                continue  # subcircuit name, not numeric
+            if comp.component_type in self._SKIP_NUMERIC_VALIDATION:
+                continue  # source values can have complex SPICE formats
+            is_valid, msg = validate_component_value(comp.value, comp.component_type)
+            if not is_valid:
+                errors.append(f"{comp.component_id} ({comp.component_type}): {msg}")
+        if errors:
+            raise ValueError("Invalid component values:\n" + "\n".join(errors))
+
     def _sanitize_value(self, value: str) -> str:
         """Sanitize a component value before interpolation into the netlist."""
         return sanitize_spice_value(value)
 
     def generate(self):
         """Generate complete SPICE netlist"""
+        # Validate component values before generation (#541)
+        self._validate_component_values()
+
         lines = ["My Test Circuit", "* Generated netlist", ""]
 
         # Add op-amp subcircuit definitions for each model used
@@ -186,7 +220,8 @@ class NetlistGenerator:
                     if node_map[k] == gnd_node:
                         node_map[k] = 0
 
-        # Create mapping from node numbers to node labels
+        # Create mapping from node numbers to node labels.
+        # Ground (node 0) is never relabeled — SPICE requires literal "0" (#527).
         node_labels = {}  # node_number -> label
         node_comps = [c for c in self.nodes if hasattr(c, "get_label")]
         for node_comp in node_comps:
@@ -195,6 +230,8 @@ class NetlistGenerator:
                 if terminal_node == node_comp:
                     if terminal_key in node_map:
                         node_num = node_map[terminal_key]
+                        if node_num == 0:
+                            break  # ground must stay "0"
                         node_labels[node_num] = node_comp.get_label()
                         break
 
@@ -251,6 +288,17 @@ class NetlistGenerator:
             elif comp.component_type == "Current Source":
                 val = self._sanitize_value(comp.value)
                 lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
+            elif comp.component_type == "AC Voltage Source":
+                # Vxxx n+ n- AC magnitude phase
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} AC {val}")
+            elif comp.component_type == "AC Current Source":
+                # Ixxx n+ n- AC magnitude phase
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} AC {val}")
+            elif comp.component_type == "Current Probe":
+                # 0V voltage source for current measurement
+                lines.append(f"{comp_id} {' '.join(nodes)} 0")
             elif comp.component_type == "Waveform Source":
                 # Use get_spice_value() method if available, otherwise use value
                 if hasattr(comp, "get_spice_value"):
@@ -561,6 +609,11 @@ class NetlistGenerator:
 
             # Add resistor voltages to the print list
             all_print_vars.extend(resistor_voltages_print)
+
+            # Add current probe measurements: i(probe_id) for each Current Probe
+            probes = [c for c in self.components.values() if c.component_type == "Current Probe"]
+            for probe in sorted(probes, key=lambda c: c.component_id):
+                all_print_vars.append(f"i({probe.component_id})")
 
             # Note: for DC sweep, the sweep variable (v-sweep) is automatically
             # included as the first column in wrdata output when wr_singlescale

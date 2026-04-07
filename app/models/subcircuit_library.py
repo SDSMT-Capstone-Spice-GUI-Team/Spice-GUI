@@ -288,6 +288,27 @@ def register_subcircuit_component(defn: SubcircuitDefinition) -> None:
     # Color -- use a consistent colour for all subcircuits
     COMPONENT_COLORS[name] = "#FF6F00"
 
+    # Also register in the theme system so theme_manager.get_component_color()
+    # returns the correct color for dynamically registered subcircuits.
+    try:
+        from GUI.styles.constants import _COLOR_KEYS, COMPONENTS
+
+        color_key = f"component_subcircuit_{name.lower().replace(' ', '_')}"
+        _COLOR_KEYS[name] = color_key
+        COMPONENTS[name] = {
+            "symbol": "X",
+            "terminals": defn.terminal_count,
+            "color_key": color_key,
+        }
+        # Inject the color into the current theme's color dict
+        from GUI.styles import theme_manager
+
+        theme = theme_manager.current_theme
+        if hasattr(theme, "_colors"):
+            theme._colors.setdefault(color_key, "#FF6F00")
+    except Exception:
+        pass  # GUI styles unavailable (headless / test environment)
+
     # Terminal geometry
     TERMINAL_GEOMETRY[name] = _generate_terminal_geometry(defn.terminal_count)
 

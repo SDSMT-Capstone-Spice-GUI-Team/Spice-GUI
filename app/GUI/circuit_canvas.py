@@ -15,7 +15,12 @@ from .styles import (
     GRID_EXTENT,
     GRID_SIZE,
     MAJOR_GRID_INTERVAL,
+    STATUS_DURATION_DEFAULT,
+    STATUS_DURATION_SHORT,
     TERMINAL_CLICK_RADIUS,
+    Z_GRID,
+    Z_WAYPOINT_MARKER,
+    Z_WIRE_PREVIEW,
     ZOOM_FACTOR,
     ZOOM_FIT_PADDING,
     ZOOM_MAX,
@@ -318,17 +323,16 @@ class CircuitCanvasView(QGraphicsView):
             self._scene.update()
 
     def _handle_wire_routed(self, data) -> None:
-        """Update wire waypoints"""
-        from PyQt6.QtCore import QPointF
-
+        """Update wire waypoints from a (wire_index, wire_data) tuple."""
         wire_index, wire_data = data
         if 0 <= wire_index < len(self.wires):
             wire = self.wires[wire_index]
-            # Convert waypoints to QPointF if they exist
+            # Sync visual path from persisted model waypoints
             if hasattr(wire_data, "waypoints") and wire_data.waypoints:
-                wire.waypoints = [QPointF(x, y) for x, y in wire_data.waypoints]
-                if hasattr(wire, "update_path"):
-                    wire.update_path()
+                wire._restore_waypoints()
+                # Refresh handles if the wire is selected (e.g. after undo/redo)
+                if wire.isSelected():
+                    wire._show_handles()
 
     def _handle_wire_lock_changed(self, data) -> None:
         """Update wire visual when lock state changes."""
@@ -359,6 +363,19 @@ class CircuitCanvasView(QGraphicsView):
             idx = self.wires.index(wire_item)
             wps = waypoints if waypoints is not None else wire_item.model.waypoints
             self.controller.update_wire_waypoints(idx, wps)
+            self.controller.set_wire_locked(idx, True)
+
+    def on_waypoint_drag_finished(self, wire_item, new_waypoints) -> None:
+        """Push an undoable MoveWaypointCommand after a waypoint drag."""
+        from controllers.commands import MoveWaypointCommand
+
+        if self.controller and wire_item in self.wires:
+            idx = self.wires.index(wire_item)
+            old_waypoints = wire_item._pre_drag_waypoints
+            cmd = MoveWaypointCommand(self.controller, idx, old_waypoints, new_waypoints)
+            self.controller.push_already_executed(cmd)
+            # Sync the model (the visual state is already correct)
+            self.controller.update_wire_waypoints(idx, new_waypoints)
             self.controller.set_wire_locked(idx, True)
 
     def on_wire_routing_complete(self, wire_item, waypoints, runtime=0.0, iterations=0, routing_failed=False):
@@ -459,6 +476,70 @@ class CircuitCanvasView(QGraphicsView):
     # End Observer Pattern Handlers
     # ===================================================================
 
+    def detach_scene(self):
+        """Replace the live scene with a temporary empty one.
+
+        This prevents ``setStyleSheet()`` from triggering a repaint that
+        destroys the C++ objects backing scene items (see #860).
+        The old scene is discarded — call :meth:`rebuild_scene` afterwards
+        to create a fresh scene populated from the model.
+        """
+        # Orphan the old scene so Qt won't touch its items during repaint.
+        old_scene = self._scene
+        self._scene = QGraphicsScene()
+        self.setScene(self._scene)
+
+        # Prevent dangling-pointer access: clear Python references *before*
+        # deleting the C++ scene.
+        self._grid_items.clear()
+        self.components.clear()
+        self.wires.clear()
+        self.annotations.clear()
+
+        # Schedule the old scene for deletion after control returns to the
+        # event loop (avoids deleting it while Qt may still reference it).
+        if old_scene is not None:
+            old_scene.deleteLater()
+
+    def rebuild_scene(self):
+        """Build a fresh scene from the model with current theme colours.
+
+        Intended to be called after :meth:`detach_scene` + QSS application so
+        that every item is created with up-to-date theme colours and no stale
+        C++ pointers remain.
+        """
+        self.setSceneRect(-GRID_EXTENT, -GRID_EXTENT, GRID_EXTENT * 2, GRID_EXTENT * 2)
+
+        # Theme-aware background
+        bg = theme_manager.color("background_primary")
+        self._scene.setBackgroundBrush(QBrush(bg))
+
+        # Redraw grid
+        self._grid_items.clear()
+        self.draw_grid()
+        self._grid_drawn = True
+
+        if self.controller:
+            # Restore components
+            for comp_data in self.controller.get_components().values():
+                self._handle_component_added(comp_data)
+
+            # Restore wires
+            for wire_data in self.controller.get_wires():
+                self._handle_wire_added(wire_data)
+
+            # Rebuild node visualisation
+            self._sync_nodes_from_model()
+
+            # Restore annotations
+            for ann_data in self.controller.get_annotations():
+                self._handle_annotation_added(ann_data)
+
+            # Restore component counter
+            self.component_counter = self.controller.get_component_counter()
+
+        self._scene.update()
+
     def refresh_theme(self):
         """Redraw grid and repaint all items to reflect the current theme."""
         if self._scene is None:
@@ -497,16 +578,36 @@ class CircuitCanvasView(QGraphicsView):
             is_major = x % MAJOR_GRID_INTERVAL == 0
             pen = major_pen if is_major else minor_pen
             line = self._scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
-            line.setZValue(-1)
+            line.setZValue(Z_GRID)
             self._grid_items.append(line)
+
+            # Add label for major grid lines
+            if is_major:
+                label = QGraphicsTextItem(str(x))
+                label.setDefaultTextColor(grid_label_color)
+                label.setFont(grid_label_font)
+                label.setPos(x - 15, -GRID_EXTENT)  # Position at top
+                label.setZValue(Z_GRID)  # Draw behind components
+                self._scene.addItem(label)
+                self._grid_items.append(label)
 
         # Draw horizontal lines
         for y in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
             is_major = y % MAJOR_GRID_INTERVAL == 0
             pen = major_pen if is_major else minor_pen
             line = self._scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
-            line.setZValue(-1)
+            line.setZValue(Z_GRID)
             self._grid_items.append(line)
+
+            # Add label for major grid lines
+            if is_major:
+                label = QGraphicsTextItem(str(y))
+                label.setDefaultTextColor(grid_label_color)
+                label.setFont(grid_label_font)
+                label.setPos(-GRID_EXTENT, y - 10)  # Position at left
+                label.setZValue(Z_GRID)  # Draw behind components
+                self._scene.addItem(label)
+                self._grid_items.append(label)
 
     def reroute_connected_wires(self, component):
         """Reroute all wires connected to a component.
@@ -695,7 +796,7 @@ class CircuitCanvasView(QGraphicsView):
                             start_pos.x(), start_pos.y(), start_pos.x(), start_pos.y()
                         )
                         self.temp_wire_line.setPen(theme_manager.pen("wire_preview"))
-                        self.temp_wire_line.setZValue(100)  # Draw on top
+                        self.temp_wire_line.setZValue(Z_WIRE_PREVIEW)  # Draw on top
                         self._scene.addItem(self.temp_wire_line)
 
                         # Show crosshair cursor while drawing a wire
@@ -883,7 +984,7 @@ class CircuitCanvasView(QGraphicsView):
         marker.setPos(pos)
         marker.setBrush(QBrush(theme_manager.color("wire_preview")))
         marker.setPen(QPen(Qt.PenStyle.NoPen))
-        marker.setZValue(101)
+        marker.setZValue(Z_WAYPOINT_MARKER)
         self._scene.addItem(marker)
         self._wire_waypoint_markers.append(marker)
 
@@ -925,6 +1026,22 @@ class CircuitCanvasView(QGraphicsView):
             self._scene.clearSelection()
             event.accept()
             return
+        if event.key() == Qt.Key.Key_Backspace:
+            if self.wire_start_comp is not None and self._wire_waypoints:
+                self._wire_waypoints.pop()
+                if self._wire_waypoint_markers:
+                    marker = self._wire_waypoint_markers.pop()
+                    self._scene.removeItem(marker)
+                # Re-anchor preview line to previous waypoint (or start terminal)
+                if self.temp_wire_line is not None:
+                    if self._wire_waypoints:
+                        anchor = self._wire_waypoints[-1]
+                    else:
+                        anchor = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+                    line = self.temp_wire_line.line()
+                    self.temp_wire_line.setLine(anchor.x(), anchor.y(), line.x2(), line.y2())
+                event.accept()
+                return
         super().keyPressEvent(event)
 
     def wheelEvent(self, event):
@@ -1321,7 +1438,7 @@ class CircuitCanvasView(QGraphicsView):
                 status = main_window.statusBar()
                 if status:
                     n = len(component_ids)
-                    status.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", 2000)
+                    status.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
 
         return copied
 
@@ -1384,7 +1501,7 @@ class CircuitCanvasView(QGraphicsView):
             status = main_window.statusBar()
             if status:
                 n = len(new_components)
-                status.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
+                status.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
 
     def drawForeground(self, painter, rect):
         """Draw node labels, voltages, and OP annotations on top of everything."""
@@ -1643,7 +1760,7 @@ class CircuitCanvasView(QGraphicsView):
             if main_window and hasattr(main_window, "statusBar"):
                 status = main_window.statusBar()
                 if status:
-                    status.showMessage("Wire already exists between these terminals", 3000)
+                    status.showMessage("Wire already exists between these terminals", STATUS_DURATION_DEFAULT)
             return False
 
         return True

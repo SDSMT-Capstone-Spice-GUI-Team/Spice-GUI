@@ -126,12 +126,14 @@ def batch_result_to_session(
     batch_result: BatchGradingResult,
     rubric_path: str = "",
     student_folder: str = "",
+    rubric_hash: str = "",
 ) -> GradingSessionData:
     """Convert a BatchGradingResult into a GradingSessionData for persistence."""
     return GradingSessionData(
         session_version="1.0",
         timestamp=datetime.now(timezone.utc).isoformat(),
         rubric_title=batch_result.rubric_title,
+        rubric_hash=rubric_hash,
         rubric_path=rubric_path,
         student_folder=student_folder,
         results=[grading_result_to_dict(r) for r in batch_result.results],
@@ -144,17 +146,56 @@ def batch_result_to_session(
 # ---------------------------------------------------------------------------
 
 
+def _to_relative(path_str: str, anchor: Path) -> str:
+    """Convert an absolute path to a relative path based on *anchor* directory.
+
+    Returns the original string unchanged when it is empty or already relative.
+    """
+    if not path_str:
+        return path_str
+    p = Path(path_str)
+    if not p.is_absolute():
+        return path_str
+    try:
+        return str(p.relative_to(anchor))
+    except ValueError:
+        # On different drive / no common prefix — use os.path.relpath
+        return os.path.relpath(path_str, anchor)
+
+
+def _to_absolute(path_str: str, anchor: Path) -> str:
+    """Resolve a (possibly relative) path against *anchor* directory.
+
+    Returns the original string unchanged when it is empty.
+    """
+    if not path_str:
+        return path_str
+    p = Path(path_str)
+    if p.is_absolute():
+        return path_str
+    return str((anchor / p).resolve())
+
+
 def save_grading_session(filepath, session: GradingSessionData) -> None:
     """Save a grading session to a .spice-grades JSON file.
+
+    Paths are stored relative to the session file's directory so the
+    file remains portable across machines.
 
     Raises:
         OSError: If the file cannot be written.
     """
     filepath = Path(filepath)
+    anchor = filepath.parent.resolve()
+
+    data = session.to_dict()
+    data["rubric_path"] = _to_relative(data.get("rubric_path", ""), anchor)
+    data["student_folder"] = _to_relative(data.get("student_folder", ""), anchor)
+
     fd, tmp = tempfile.mkstemp(dir=filepath.parent, suffix=".tmp")
     try:
         with os.fdopen(fd, "w") as f:
-            json.dump(session.to_dict(), f, indent=2)
+            json.dump(data, f, indent=2)
         os.replace(tmp, filepath)
     except BaseException:
         os.unlink(tmp)
@@ -164,15 +205,24 @@ def save_grading_session(filepath, session: GradingSessionData) -> None:
 def load_grading_session(filepath) -> GradingSessionData:
     """Load and validate a grading session from a .spice-grades JSON file.
 
+    Relative paths stored in the file are resolved against the session
+    file's directory.
+
     Raises:
         json.JSONDecodeError: If the file is not valid JSON.
         ValueError: If the session structure is invalid.
         OSError: If the file cannot be read.
     """
     filepath = Path(filepath)
+    anchor = filepath.parent.resolve()
+
     with open(filepath, "r") as f:
         data = json.load(f)
     validate_session_data(data)
+
+    data["rubric_path"] = _to_absolute(data.get("rubric_path", ""), anchor)
+    data["student_folder"] = _to_absolute(data.get("student_folder", ""), anchor)
+
     return GradingSessionData.from_dict(data)
 
 
@@ -181,11 +231,15 @@ def load_grading_session(filepath) -> GradingSessionData:
 # ---------------------------------------------------------------------------
 
 
-def compare_sessions(old: GradingSessionData, new: GradingSessionData) -> list[dict]:
+def compare_sessions(old: GradingSessionData, new: GradingSessionData) -> dict:
     """Compare two grading sessions and return per-student score deltas.
 
-    Returns a list of dicts, one per student that appears in *either* session:
-    ``{student_file, old_score, new_score, old_pct, new_pct, delta}``
+    Returns a dict with:
+    - ``rubric_changed``: ``True`` if the rubric content hashes differ
+      (or if either session has no hash recorded), ``None`` if neither
+      session has a hash.
+    - ``students``: a list of dicts, one per student in *either* session:
+      ``{student_file, old_score, new_score, old_pct, new_pct, delta}``
 
     Students present in only one session have ``None`` for the missing scores.
     """
@@ -194,7 +248,7 @@ def compare_sessions(old: GradingSessionData, new: GradingSessionData) -> list[d
 
     all_students = sorted(set(old_map) | set(new_map))
 
-    comparisons: list[dict] = []
+    students: list[dict] = []
     for student in all_students:
         old_r = old_map.get(student)
         new_r = new_map.get(student)
@@ -207,7 +261,7 @@ def compare_sessions(old: GradingSessionData, new: GradingSessionData) -> list[d
         else:
             delta = None
 
-        comparisons.append(
+        students.append(
             {
                 "student_file": student,
                 "old_score": (f"{old_r['earned_points']}/{old_r['total_points']}" if old_r else None),
@@ -218,7 +272,19 @@ def compare_sessions(old: GradingSessionData, new: GradingSessionData) -> list[d
             }
         )
 
-    return comparisons
+    # Determine whether the rubric changed between sessions.
+    if old.rubric_hash and new.rubric_hash:
+        rubric_changed = old.rubric_hash != new.rubric_hash
+    elif old.rubric_hash or new.rubric_hash:
+        # One session has a hash but the other doesn't — can't confirm match.
+        rubric_changed = True
+    else:
+        rubric_changed = None
+
+    return {
+        "rubric_changed": rubric_changed,
+        "students": students,
+    }
 
 
 def _pct(result_dict: dict) -> float:

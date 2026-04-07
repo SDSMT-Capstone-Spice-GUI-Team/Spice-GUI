@@ -17,6 +17,7 @@ class GradingSessionData:
         session_version: Schema version for forward compatibility.
         timestamp: ISO-8601 timestamp when session was created/saved.
         rubric_title: Title of the rubric used.
+        rubric_hash: SHA-256 content hash of the rubric used to grade this session.
         rubric_path: Optional filesystem path to the rubric file.
         student_folder: Optional filesystem path to the student submissions folder.
         results: List of serialized GradingResult dicts.
@@ -26,6 +27,7 @@ class GradingSessionData:
     session_version: str = "1.0"
     timestamp: str = ""
     rubric_title: str = ""
+    rubric_hash: str = ""
     rubric_path: str = ""
     student_folder: str = ""
     results: list[dict] = field(default_factory=list)
@@ -37,6 +39,7 @@ class GradingSessionData:
             "session_version": self.session_version,
             "timestamp": self.timestamp,
             "rubric_title": self.rubric_title,
+            "rubric_hash": self.rubric_hash,
             "rubric_path": self.rubric_path,
             "student_folder": self.student_folder,
             "results": list(self.results),
@@ -50,6 +53,7 @@ class GradingSessionData:
             session_version=data.get("session_version", "1.0"),
             timestamp=data.get("timestamp", ""),
             rubric_title=data.get("rubric_title", ""),
+            rubric_hash=data.get("rubric_hash", ""),
             rubric_path=data.get("rubric_path", ""),
             student_folder=data.get("student_folder", ""),
             results=list(data.get("results", [])),

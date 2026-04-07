@@ -656,6 +656,42 @@ class UpdateInitialConditionCommand(Command):
         return f"Update {self.component_id} initial condition"
 
 
+class MoveWaypointCommand(Command):
+    """Command to record a waypoint drag so it can be undone/redone.
+
+    The drag has already been applied visually by the time this command
+    is pushed, so ``execute()`` writes the *new* waypoints into the model
+    and ``undo()`` restores the *old* ones.
+    """
+
+    def __init__(
+        self,
+        controller,
+        wire_index: int,
+        old_waypoints: list[tuple[float, float]],
+        new_waypoints: list[tuple[float, float]],
+    ):
+        self.controller = controller
+        self.wire_index = wire_index
+        self.old_waypoints = old_waypoints
+        self.new_waypoints = new_waypoints
+
+    def execute(self) -> None:
+        if self.wire_index >= len(self.controller.model.wires):
+            return
+        self.controller.update_wire_waypoints(self.wire_index, self.new_waypoints)
+        self.controller.set_wire_locked(self.wire_index, True)
+
+    def undo(self) -> None:
+        if self.wire_index >= len(self.controller.model.wires):
+            return
+        self.controller.update_wire_waypoints(self.wire_index, self.old_waypoints)
+        self.controller.set_wire_locked(self.wire_index, True)
+
+    def get_description(self) -> str:
+        return "Move waypoint"
+
+
 class CompoundCommand(Command):
     """Command that groups multiple commands into a single undo step."""
 

@@ -301,6 +301,119 @@ class TestExportResultsMarkdown:
         assert filepath.exists()
 
 
+class TestOperationalPointAlias:
+    """'Operational Point' analysis type must parse results like 'DC Operating Point' (#540)."""
+
+    def test_operational_point_routes_to_op_parser(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Operational Point"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        mock_runner.run_simulation.return_value = (True, "/tmp/out.txt", "", "")
+        mock_runner.read_output.return_value = "v(nodeA) = 5.00000\n"
+        ctrl._runner = mock_runner
+        result = ctrl.run_simulation()
+        assert result.success
+        assert result.data["node_voltages"]["nodeA"] == pytest.approx(5.0)
+
+
+class TestWrdataCleanup:
+    """Verify wrdata files are registered for cleanup (#542)."""
+
+    def test_run_simulation_registers_wrdata(self):
+        """run_simulation registers the wrdata file for cleanup."""
+        model = _build_simple_circuit()
+        model.analysis_type = "DC Operating Point"
+        ctrl = SimulationController(model=model)
+
+        mock_runner = MagicMock()
+        mock_runner.output_dir = "/tmp/sim"
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/sim/output.txt",
+            "v(1) = 5.0",
+            "",
+        )
+        mock_runner.read_output.return_value = "v(nodeA) = 5.00000\n"
+        ctrl._runner = mock_runner
+
+        ctrl.run_simulation()
+
+        mock_runner.register_extra_files.assert_called_once()
+        registered = mock_runner.register_extra_files.call_args[0][0]
+        assert len(registered) == 1
+        assert "wrdata_" in registered[0]
+
+    def test_parameter_sweep_registers_wrdata(self):
+        """run_parameter_sweep registers all wrdata files for cleanup."""
+        model = _build_simple_circuit()
+        model.analysis_type = "DC Operating Point"
+        ctrl = SimulationController(model=model)
+
+        mock_runner = MagicMock()
+        mock_runner.output_dir = "/tmp/sim"
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/sim/output.txt",
+            "v(1) = 5.0",
+            "",
+        )
+        mock_runner.read_output.return_value = "v(nodeA) = 5.00000\n"
+        ctrl._runner = mock_runner
+
+        sweep_config = {
+            "component_id": "R1",
+            "start": 100,
+            "stop": 1000,
+            "num_steps": 3,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {},
+        }
+        ctrl.run_parameter_sweep(sweep_config)
+
+        mock_runner.register_extra_files.assert_called_once()
+        registered = mock_runner.register_extra_files.call_args[0][0]
+        assert len(registered) == 3
+        assert all("wrdata_sweep_" in f for f in registered)
+
+    def test_monte_carlo_registers_wrdata(self):
+        """run_monte_carlo registers all wrdata files for cleanup."""
+        model = _build_simple_circuit()
+        model.analysis_type = "DC Operating Point"
+        ctrl = SimulationController(model=model)
+
+        mock_runner = MagicMock()
+        mock_runner.output_dir = "/tmp/sim"
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/sim/output.txt",
+            "v(1) = 5.0",
+            "",
+        )
+        mock_runner.read_output.return_value = "v(nodeA) = 5.00000\n"
+        ctrl._runner = mock_runner
+
+        mc_config = {
+            "num_runs": 2,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {},
+            "tolerances": {
+                "R1": {"tolerance_pct": 10, "distribution": "gaussian"},
+            },
+        }
+        ctrl.run_monte_carlo(mc_config)
+
+        mock_runner.register_extra_files.assert_called_once()
+        registered = mock_runner.register_extra_files.call_args[0][0]
+        assert len(registered) == 2
+        assert all("wrdata_mc_" in f for f in registered)
+
+
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.simulation_controller as mod

@@ -48,6 +48,10 @@ class LightTheme(BaseTheme):
             "component_diode": "#607D8B",  # Blue-gray
             "component_led": "#FFEB3B",  # Yellow
             "component_zener": "#8D6E63",  # Brown
+            "component_transformer": "#6F42C1",  # Purple
+            "component_current_probe": "#00BFA5",  # Teal
+            "component_ac_voltage_source": "#FF5722",  # Deep orange
+            "component_ac_current_source": "#AB47BC",  # Light purple
             # ===== Algorithm Layer Colors =====
             "algorithm_astar": "#2196F3",  # Blue (33, 150, 243)
             "algorithm_idastar": "#4CAF50",  # Green (76, 175, 80)
@@ -97,6 +101,13 @@ class LightTheme(BaseTheme):
             "border_error": "#DC3545",  # Red border for invalid inputs
             "border_light": "#DDDDDD",  # Light border for panels
             "panel_bg": "#F9F9F9",  # Light panel background
+            # ===== Syntax Highlighting Colors =====
+            "syntax_comment": "#4CAF50",  # Green for SPICE comments
+            "syntax_directive": "#2196F3",  # Blue for SPICE directives
+            "syntax_keyword": "#9C27B0",  # Purple for control keywords
+            # ===== Grading Overlay Colors (colorblind-friendly) =====
+            "grading_passed": "#0077BB",  # Blue (distinguishable by most color vision)
+            "grading_failed": "#EE7733",  # Orange (distinguishable by most color vision)
             # ===== Measurement Cursor Colors =====
             "cursor_a": "#E74C3C",  # Red cursor
             "cursor_b": "#2980B9",  # Blue cursor

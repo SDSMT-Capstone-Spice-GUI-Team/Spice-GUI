@@ -2,9 +2,10 @@
 
 from controllers.settings_service import settings
 from controllers.theme_controller import theme_ctrl
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMessageBox
 
-from .styles import theme_manager
+from .styles import STATUS_DURATION_LONG, theme_manager
 
 
 class SettingsMixin:
@@ -119,6 +120,11 @@ class SettingsMixin:
         if saved_routing_mode in ("orthogonal", "diagonal"):
             self.set_routing_mode(saved_routing_mode)
 
+        # Auto-trigger guided tutorial on first launch
+        if not settings.get_bool("tutorial/has_shown", False):
+            settings.set("tutorial/has_shown", True)
+            QTimer.singleShot(500, self._start_tutorial)
+
     def closeEvent(self, event):
         """Save settings before closing"""
         self._save_settings()
@@ -163,5 +169,5 @@ class SettingsMixin:
                 self._sync_analysis_menu()
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage("Auto-save recovered", 5000)
+                    statusBar.showMessage("Auto-save recovered", STATUS_DURATION_LONG)
         self.file_ctrl.clear_auto_save()

@@ -9,7 +9,7 @@ delegates to the appropriate renderer via ``get_renderer``.
 import math
 from abc import ABC, abstractmethod
 
-from PyQt6.QtGui import QColor, QPen
+from PyQt6.QtGui import QPen
 
 # ---------------------------------------------------------------------------
 # Abstract base & registry
@@ -52,8 +52,8 @@ def get_renderer(component_type: str, style: str) -> ComponentRenderer:
 
 
 def _bounding_rect_obstacle(component) -> list[tuple[float, float]]:
-    """Fallback obstacle shape — bounding rect of the component."""
-    rect = component.boundingRect()
+    """Fallback obstacle shape — symbol rect of the component (excludes text)."""
+    rect = component._symbol_rect()
     return [
         (rect.left(), rect.top()),
         (rect.right(), rect.top()),
@@ -138,9 +138,9 @@ class IEEEWaveformVoltageSource(ComponentRenderer):
         painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
         # Draw sine wave symbol
-        from models.component import COMPONENT_COLORS
+        from GUI.styles import theme_manager
 
-        painter.setPen(QPen(QColor(COMPONENT_COLORS.get(component.component_type, "#E91E63")), 2))
+        painter.setPen(QPen(theme_manager.get_component_color(component.component_type), 2))
         from PyQt6.QtGui import QPainterPath
 
         path = QPainterPath()
@@ -152,6 +152,83 @@ class IEEEWaveformVoltageSource(ComponentRenderer):
 
     def get_obstacle_shape(self, component):
         return _bounding_rect_obstacle(component)
+
+
+class IEEEACVoltageSource(ComponentRenderer):
+    """AC Voltage Source — circle with '~' sine symbol and +/- markers."""
+
+    def draw(self, painter, component):
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
+        painter.drawEllipse(-15, -15, 30, 30)
+        # +/- symbols
+        painter.drawLine(-10, 2, -10, -2)
+        painter.drawLine(-12, 0, -8, 0)
+        painter.drawLine(12, 0, 8, 0)
+        # Sine wave symbol inside (smaller, top-center area)
+        from PyQt6.QtGui import QPainterPath
+
+        path = QPainterPath()
+        path.moveTo(-7, -7)
+        for x_i in range(-7, 8):
+            y_i = 3 * math.sin(x_i * math.pi / 7)
+            path.lineTo(x_i, -7 + y_i)
+        painter.drawPath(path)
+
+    def get_obstacle_shape(self, component):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
+class IEEEACCurrentSource(ComponentRenderer):
+    """AC Current Source — circle with arrow and '~' sine symbol."""
+
+    def draw(self, painter, component):
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
+        painter.drawEllipse(-15, -15, 30, 30)
+        # Arrow showing current direction (left to right)
+        painter.drawLine(-8, 0, 8, 0)
+        painter.drawLine(5, -4, 8, 0)
+        painter.drawLine(5, 4, 8, 0)
+        # Sine wave symbol inside (top-center area)
+        from PyQt6.QtGui import QPainterPath
+
+        path = QPainterPath()
+        path.moveTo(-7, -7)
+        for x_i in range(-7, 8):
+            y_i = 3 * math.sin(x_i * math.pi / 7)
+            path.lineTo(x_i, -7 + y_i)
+        painter.drawPath(path)
+
+    def get_obstacle_shape(self, component):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
+class IEEECurrentProbe(ComponentRenderer):
+    """Current Probe — circle with an arrow showing current measurement direction."""
+
+    def draw(self, painter, component):
+        painter.drawLine(-30, 0, -12, 0)
+        painter.drawLine(12, 0, 30, 0)
+        painter.drawEllipse(-12, -12, 24, 24)
+        # Arrow through circle showing current direction
+        painter.drawLine(-8, 0, 8, 0)
+        painter.drawLine(5, -4, 8, 0)
+        painter.drawLine(5, 4, 8, 0)
+        # "A" label for ampere measurement (small, inside top)
+        from PyQt6.QtCore import QRectF
+        from PyQt6.QtGui import QFont
+
+        old_font = painter.font()
+        small_font = QFont(old_font)
+        small_font.setPixelSize(9)
+        small_font.setBold(True)
+        painter.setFont(small_font)
+        painter.drawText(QRectF(-6, -11, 12, 10), 0x0084, "A")
+        painter.setFont(old_font)
+
+    def get_obstacle_shape(self, component):
+        return [(-14.0, -14.0), (14.0, -14.0), (14.0, 14.0), (-14.0, 14.0)]
 
 
 class IEEEGround(ComponentRenderer):
@@ -227,7 +304,12 @@ def _draw_control_arrow(painter):
     painter.drawLine(-9, 0, -8, -2)
 
 
-_DEPENDENT_SOURCE_OBSTACLE = [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+_DEPENDENT_SOURCE_OBSTACLE = [
+    (-18.0, -18.0),
+    (18.0, -18.0),
+    (18.0, 18.0),
+    (-18.0, 18.0),
+]
 
 
 class IEEEVCVS(ComponentRenderer):
@@ -486,6 +568,9 @@ class IECInductor(ComponentRenderer):
 _ieee_voltage_source = IEEEVoltageSource()
 _ieee_current_source = IEEECurrentSource()
 _ieee_waveform_voltage_source = IEEEWaveformVoltageSource()
+_ieee_ac_voltage_source = IEEEACVoltageSource()
+_ieee_ac_current_source = IEEEACCurrentSource()
+_ieee_current_probe = IEEECurrentProbe()
 _ieee_ground = IEEEGround()
 _ieee_opamp = IEEEOpAmp()
 _ieee_vcvs = IEEEVCVS()
@@ -533,6 +618,9 @@ register("Inductor", "ieee", _ieee_inductor)
 register("Voltage Source", "ieee", _ieee_voltage_source)
 register("Current Source", "ieee", _ieee_current_source)
 register("Waveform Source", "ieee", _ieee_waveform_voltage_source)
+register("AC Voltage Source", "ieee", _ieee_ac_voltage_source)
+register("AC Current Source", "ieee", _ieee_ac_current_source)
+register("Current Probe", "ieee", _ieee_current_probe)
 register("Ground", "ieee", _ieee_ground)
 register("Op-Amp", "ieee", _ieee_opamp)
 register("VCVS", "ieee", _ieee_vcvs)
@@ -555,6 +643,9 @@ register("Inductor", "iec", _iec_inductor)
 register("Voltage Source", "iec", _make_iec_delegate(_ieee_voltage_source))
 register("Current Source", "iec", _make_iec_delegate(_ieee_current_source))
 register("Waveform Source", "iec", _make_iec_delegate(_ieee_waveform_voltage_source))
+register("AC Voltage Source", "iec", _make_iec_delegate(_ieee_ac_voltage_source))
+register("AC Current Source", "iec", _make_iec_delegate(_ieee_ac_current_source))
+register("Current Probe", "iec", _make_iec_delegate(_ieee_current_probe))
 register("Ground", "iec", _make_iec_delegate(_ieee_ground))
 register("Op-Amp", "iec", _make_iec_delegate(_ieee_opamp))
 register("VCVS", "iec", _make_iec_delegate(_ieee_vcvs))

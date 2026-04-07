@@ -57,11 +57,28 @@ class TestTemplateData:
         assert "required_analysis" not in d
 
     def test_to_dict_includes_present_optionals(self):
+        starter = {"components": [], "wires": []}
+        reference = {"components": [{"id": "R1"}], "wires": []}
+        td = TemplateData(starter_circuit=starter, reference_circuit=reference)
+        d = td.to_dict()
+        assert "starter_circuit" in d
+        assert "reference_circuit" in d
+
+    def test_to_dict_omits_reference_when_identical_to_starter(self):
+        """Issue #530: identical circuits must not be duplicated in the bundle."""
         circuit = {"components": [], "wires": []}
         td = TemplateData(starter_circuit=circuit, reference_circuit=circuit)
         d = td.to_dict()
         assert "starter_circuit" in d
-        assert "reference_circuit" in d
+        assert "reference_circuit" not in d
+
+    def test_from_dict_falls_back_reference_to_starter(self):
+        """Issue #530: when reference_circuit is absent, fall back to starter."""
+        circuit = {"components": [], "wires": []}
+        td = TemplateData(starter_circuit=circuit)
+        d = td.to_dict()
+        restored = TemplateData.from_dict(d)
+        assert restored.reference_circuit == circuit
 
     def test_to_dict_excludes_empty_locked_components(self):
         td = TemplateData()
@@ -87,7 +104,8 @@ class TestTemplateData:
         assert restored.instructions == "Build it."
         assert restored.starter_circuit == circuit
         assert restored.locked_components == ["R1"]
-        assert restored.reference_circuit is None
+        # reference_circuit falls back to starter_circuit when absent
+        assert restored.reference_circuit == circuit
 
     def test_from_dict_with_empty_dict_uses_defaults(self):
         td = TemplateData.from_dict({})

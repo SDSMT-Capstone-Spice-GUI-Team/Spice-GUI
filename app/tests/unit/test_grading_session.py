@@ -5,6 +5,7 @@ import json
 import pytest
 from grading.batch_grader import BatchGradingResult
 from grading.grader import CheckGradeResult, GradingResult
+from grading.rubric import Rubric, RubricCheck
 from grading.session_persistence import (
     GRADES_EXTENSION,
     batch_result_to_session,
@@ -325,6 +326,48 @@ class TestSaveLoadSession:
             assert restored_result.earned_points == orig_result.earned_points
             assert restored_result.total_points == orig_result.total_points
 
+    def test_paths_stored_as_relative_in_file(self, tmp_path):
+        """Issue #535: paths on disk must be relative, not absolute."""
+        rubric = tmp_path / "rubric.spice-rubric"
+        students = tmp_path / "students"
+        session = _make_session(
+            rubric_path=str(rubric),
+            student_folder=str(students),
+        )
+        filepath = tmp_path / f"test{GRADES_EXTENSION}"
+        save_grading_session(filepath, session)
+
+        with open(filepath) as f:
+            data = json.load(f)
+        # Stored paths must be relative to the session file directory
+        assert data["rubric_path"] == "rubric.spice-rubric"
+        assert data["student_folder"] == "students"
+
+    def test_relative_paths_resolved_on_load(self, tmp_path):
+        """Issue #535: relative paths are resolved back to absolute on load."""
+        rubric = tmp_path / "rubric.spice-rubric"
+        students = tmp_path / "students"
+        session = _make_session(
+            rubric_path=str(rubric),
+            student_folder=str(students),
+        )
+        filepath = tmp_path / f"test{GRADES_EXTENSION}"
+        save_grading_session(filepath, session)
+
+        loaded = load_grading_session(filepath)
+        assert loaded.rubric_path == str(rubric.resolve())
+        assert loaded.student_folder == str(students.resolve())
+
+    def test_empty_paths_preserved(self, tmp_path):
+        """Empty paths must stay empty through save/load."""
+        session = _make_session(rubric_path="", student_folder="")
+        filepath = tmp_path / f"test{GRADES_EXTENSION}"
+        save_grading_session(filepath, session)
+
+        loaded = load_grading_session(filepath)
+        assert loaded.rubric_path == ""
+        assert loaded.student_folder == ""
+
 
 # ---------------------------------------------------------------------------
 # compare_sessions
@@ -339,7 +382,8 @@ class TestCompareSessions:
         new.results[0]["earned_points"] = 18  # alice: was 20 -> 18
         new.results[1]["earned_points"] = 15  # bob: was 10 -> 15
 
-        comparisons = compare_sessions(old, new)
+        result = compare_sessions(old, new)
+        comparisons = result["students"]
 
         assert len(comparisons) == 2
         alice = next(c for c in comparisons if c["student_file"] == "alice.json")
@@ -358,8 +402,8 @@ class TestCompareSessions:
         dave_result = grading_result_to_dict(_make_grading_result("dave.json", earned=15))
         new = _make_session(results=[new_result, dave_result])
 
-        comparisons = compare_sessions(old, new)
-        dave = next(c for c in comparisons if c["student_file"] == "dave.json")
+        result = compare_sessions(old, new)
+        dave = next(c for c in result["students"] if c["student_file"] == "dave.json")
         assert dave["old_score"] is None
         assert dave["old_pct"] is None
         assert dave["new_pct"] == 75.0
@@ -371,8 +415,8 @@ class TestCompareSessions:
         old = _make_session(results=[alice_result, bob_result])
         new = _make_session(results=[alice_result])
 
-        comparisons = compare_sessions(old, new)
-        bob = next(c for c in comparisons if c["student_file"] == "bob.json")
+        result = compare_sessions(old, new)
+        bob = next(c for c in result["students"] if c["student_file"] == "bob.json")
         assert bob["new_score"] is None
         assert bob["new_pct"] is None
         assert bob["delta"] is None
@@ -380,24 +424,49 @@ class TestCompareSessions:
     def test_empty_sessions(self):
         old = _make_session(results=[])
         new = _make_session(results=[])
-        comparisons = compare_sessions(old, new)
-        assert comparisons == []
+        result = compare_sessions(old, new)
+        assert result["students"] == []
 
     def test_zero_total_points(self):
-        result = {
+        result_dict = {
             "student_file": "zero.json",
             "rubric_title": "Zero",
             "total_points": 0,
             "earned_points": 0,
             "check_results": [],
         }
-        old = _make_session(results=[result])
-        new = _make_session(results=[result])
+        old = _make_session(results=[result_dict])
+        new = _make_session(results=[result_dict])
 
-        comparisons = compare_sessions(old, new)
+        result = compare_sessions(old, new)
+        comparisons = result["students"]
         assert len(comparisons) == 1
         assert comparisons[0]["old_pct"] == 100.0  # 0/0 => 100%
         assert comparisons[0]["delta"] == 0.0
+
+    def test_rubric_changed_both_hashes_differ(self):
+        old = _make_session(rubric_hash="aaa")
+        new = _make_session(rubric_hash="bbb")
+        result = compare_sessions(old, new)
+        assert result["rubric_changed"] is True
+
+    def test_rubric_unchanged_same_hash(self):
+        old = _make_session(rubric_hash="aaa")
+        new = _make_session(rubric_hash="aaa")
+        result = compare_sessions(old, new)
+        assert result["rubric_changed"] is False
+
+    def test_rubric_changed_one_hash_missing(self):
+        old = _make_session(rubric_hash="")
+        new = _make_session(rubric_hash="bbb")
+        result = compare_sessions(old, new)
+        assert result["rubric_changed"] is True
+
+    def test_rubric_changed_none_when_no_hashes(self):
+        old = _make_session(rubric_hash="")
+        new = _make_session(rubric_hash="")
+        result = compare_sessions(old, new)
+        assert result["rubric_changed"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -426,6 +495,7 @@ class TestEdgeCases:
         validate_session_data(minimal)
         session = GradingSessionData.from_dict(minimal)
         assert session.rubric_path == ""
+        assert session.rubric_hash == ""
         assert session.student_folder == ""
         assert session.errors == []
 
@@ -451,3 +521,132 @@ class TestEdgeCases:
         }
         result = dict_to_grading_result(data)
         assert result.check_results[0].feedback == ""
+
+
+# ---------------------------------------------------------------------------
+# Rubric content_hash
+# ---------------------------------------------------------------------------
+
+
+def _make_rubric(**overrides):
+    defaults = dict(
+        title="Test Rubric",
+        total_points=20,
+        checks=[
+            RubricCheck(check_id="r1", check_type="component_exists", points=10, params={"component_id": "R1"}),
+            RubricCheck(check_id="r2", check_type="component_value", points=10, params={"component_id": "R1"}),
+        ],
+    )
+    defaults.update(overrides)
+    return Rubric(**defaults)
+
+
+class TestRubricContentHash:
+    def test_hash_is_hex_string(self):
+        rubric = _make_rubric()
+        h = rubric.content_hash()
+        assert isinstance(h, str)
+        assert len(h) == 64  # SHA-256 hex digest
+
+    def test_identical_rubrics_same_hash(self):
+        a = _make_rubric()
+        b = _make_rubric()
+        assert a.content_hash() == b.content_hash()
+
+    def test_different_checks_different_hash(self):
+        a = _make_rubric()
+        b = _make_rubric(
+            checks=[RubricCheck(check_id="r1", check_type="component_exists", points=20, params={"component_id": "R1"})]
+        )
+        assert a.content_hash() != b.content_hash()
+
+    def test_different_title_same_hash(self):
+        """Title is cosmetic — should not affect the content hash."""
+        a = _make_rubric(title="Rubric A")
+        b = _make_rubric(title="Rubric B")
+        assert a.content_hash() == b.content_hash()
+
+    def test_different_feedback_same_hash(self):
+        """Feedback text is cosmetic — should not affect the content hash."""
+        checks_a = [RubricCheck("c1", "ground", 10, feedback_pass="Good")]
+        checks_b = [RubricCheck("c1", "ground", 10, feedback_pass="Great")]
+        a = _make_rubric(total_points=10, checks=checks_a)
+        b = _make_rubric(total_points=10, checks=checks_b)
+        assert a.content_hash() == b.content_hash()
+
+    def test_different_points_different_hash(self):
+        a = _make_rubric(total_points=20)
+        b = _make_rubric(
+            total_points=30,
+            checks=[
+                RubricCheck("r1", "component_exists", 15, params={"component_id": "R1"}),
+                RubricCheck("r2", "component_value", 15, params={"component_id": "R1"}),
+            ],
+        )
+        assert a.content_hash() != b.content_hash()
+
+    def test_different_params_different_hash(self):
+        checks_a = [RubricCheck("c1", "component_exists", 10, params={"component_id": "R1"})]
+        checks_b = [RubricCheck("c1", "component_exists", 10, params={"component_id": "R2"})]
+        a = _make_rubric(total_points=10, checks=checks_a)
+        b = _make_rubric(total_points=10, checks=checks_b)
+        assert a.content_hash() != b.content_hash()
+
+    def test_hash_stable_across_calls(self):
+        rubric = _make_rubric()
+        assert rubric.content_hash() == rubric.content_hash()
+
+
+# ---------------------------------------------------------------------------
+# rubric_hash in session serialization
+# ---------------------------------------------------------------------------
+
+
+class TestSessionRubricHash:
+    def test_rubric_hash_roundtrip(self):
+        session = _make_session(rubric_hash="abc123")
+        d = session.to_dict()
+        assert d["rubric_hash"] == "abc123"
+        restored = GradingSessionData.from_dict(d)
+        assert restored.rubric_hash == "abc123"
+
+    def test_rubric_hash_in_saved_file(self, tmp_path):
+        rubric = _make_rubric()
+        session = _make_session(rubric_hash=rubric.content_hash())
+        filepath = tmp_path / f"test{GRADES_EXTENSION}"
+        save_grading_session(filepath, session)
+
+        with open(filepath) as f:
+            data = json.load(f)
+        assert data["rubric_hash"] == rubric.content_hash()
+
+    def test_rubric_hash_loaded_from_file(self, tmp_path):
+        rubric = _make_rubric()
+        session = _make_session(rubric_hash=rubric.content_hash())
+        filepath = tmp_path / f"test{GRADES_EXTENSION}"
+        save_grading_session(filepath, session)
+
+        loaded = load_grading_session(filepath)
+        assert loaded.rubric_hash == rubric.content_hash()
+
+    def test_rubric_hash_defaults_empty_for_old_files(self, tmp_path):
+        """Sessions saved before rubric_hash was added should load with empty hash."""
+        session = _make_session()
+        filepath = tmp_path / f"test{GRADES_EXTENSION}"
+        save_grading_session(filepath, session)
+
+        # Simulate an old file by removing rubric_hash
+        with open(filepath) as f:
+            data = json.load(f)
+        del data["rubric_hash"]
+        with open(filepath, "w") as f:
+            json.dump(data, f)
+
+        loaded = load_grading_session(filepath)
+        assert loaded.rubric_hash == ""
+
+    def test_batch_result_to_session_stores_hash(self):
+        batch = _make_batch_result()
+        rubric = _make_rubric()
+        session = batch_result_to_session(batch, rubric_hash=rubric.content_hash())
+        assert session.rubric_hash == rubric.content_hash()

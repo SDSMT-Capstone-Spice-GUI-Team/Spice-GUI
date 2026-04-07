@@ -526,6 +526,85 @@ class TestUnconnectedTerminal:
         assert "999" not in netlist
 
 
+class TestComponentValueValidation:
+    """Component values must be validated before netlist generation (#541)."""
+
+    def test_invalid_resistor_value_raises(self):
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "R1": make_component("Resistor", "R1", "abc", (100, 0)),  # invalid
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_gnd = NodeData(
+            terminals={("R1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={1, 2},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        with pytest.raises(ValueError, match="Invalid component values"):
+            _generate(components, wires, nodes, t2n)
+
+    def test_negative_resistor_value_raises(self):
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "R1": make_component("Resistor", "R1", "-1k", (100, 0)),  # negative
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_gnd = NodeData(
+            terminals={("R1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={1, 2},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        with pytest.raises(ValueError, match="positive"):
+            _generate(components, wires, nodes, t2n)
+
+    def test_valid_circuit_passes_validation(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "R1" in netlist  # generation succeeds
+
+
 class TestResistorDivider:
     def test_two_nodes_labeled(self, resistor_divider_circuit):
         components, wires, nodes, t2n = resistor_divider_circuit
@@ -533,6 +612,50 @@ class TestResistorDivider:
         assert "R1" in netlist
         assert "R2" in netlist
         assert "V1" in netlist
+
+
+class TestGroundCustomLabel:
+    """Ground node with a custom label must still produce SPICE node '0' (#527)."""
+
+    def test_ground_custom_label_stays_zero(self):
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "R1": make_component("Resistor", "R1", "1k", (100, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_gnd = NodeData(
+            terminals={("R1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={1, 2},
+            is_ground=True,
+            auto_label="0",
+            custom_label="MyGround",
+        )
+        nodes = [node_a, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        netlist = _generate(components, wires, nodes, t2n)
+        # The netlist must NOT contain the custom label as a node name
+        assert "MyGround" not in netlist
+        assert "(ground)" not in netlist
+        # Ground node must appear as "0" in component lines
+        assert " 0 " in netlist or " 0\n" in netlist
 
 
 class TestWrdataPathCrossPlatform:

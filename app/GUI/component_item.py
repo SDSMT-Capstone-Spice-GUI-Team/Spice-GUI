@@ -3,7 +3,7 @@ import math
 from models.component import DEFAULT_VALUES, ComponentData
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import QBrush  # QPainterPath imported locally where needed
-from PyQt6.QtGui import QColor, QPen
+from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 from utils.format_utils import validate_component_value
 
@@ -255,8 +255,30 @@ class ComponentGraphicsItem(QGraphicsItem):
 
     # --- Geometry ---
 
-    def boundingRect(self):
+    def _symbol_rect(self):
+        """Return the bounding rectangle of the symbol only (no text)."""
         return QRectF(-40, -30, 80, 60)
+
+    def boundingRect(self):
+        base = self._symbol_rect()
+
+        # Expand to include text labels that paint() draws above the symbol
+        show_label = (
+            self.canvas.show_component_labels if self.canvas and hasattr(self.canvas, "show_component_labels") else True
+        )
+        show_value = (
+            self.canvas.show_component_values if self.canvas and hasattr(self.canvas, "show_component_values") else True
+        )
+        if show_label or show_value:
+            text = self._label_text(show_label, show_value)
+            fm = QFontMetricsF(QFont())
+            text_rect = fm.boundingRect(text)
+            # Text is drawn at (-20, -25); that's the left-baseline position
+            text_rect.moveLeft(-20)
+            text_rect.moveBottom(-25)
+            base = base.united(text_rect)
+
+        return base
 
     def get_obstacle_shape(self):
         """Return the obstacle boundary for pathfinding, respecting symbol style.
@@ -348,12 +370,14 @@ class ComponentGraphicsItem(QGraphicsItem):
             painter.drawRect(QRectF(-42, -22, 84, 44))
         # Grading overlay (temporary visual feedback)
         if self._grading_state == "passed":
-            painter.setPen(QPen(QColor(0, 200, 0, 200), 3))
-            painter.setBrush(QBrush(QColor(0, 200, 0, 40)))
+            grading_color = theme_manager.color("grading_passed")
+            painter.setPen(QPen(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 200), 3))
+            painter.setBrush(QBrush(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 40)))
             painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
         elif self._grading_state == "failed":
-            painter.setPen(QPen(QColor(220, 0, 0, 200), 3))
-            painter.setBrush(QBrush(QColor(220, 0, 0, 40)))
+            grading_color = theme_manager.color("grading_failed")
+            painter.setPen(QPen(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 200), 3))
+            painter.setBrush(QBrush(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 40)))
             painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
 
         # Draw component body
@@ -370,7 +394,16 @@ class ComponentGraphicsItem(QGraphicsItem):
         )
 
         if show_label or show_value:
-            self._draw_label_text(painter, color, sx, sy, show_label, show_value, self.component_id, self.value)
+            self._draw_label_text(
+                painter,
+                color,
+                sx,
+                sy,
+                show_label,
+                show_value,
+                self.component_id,
+                self.value,
+            )
 
         # Restore painter state
         painter.restore()
@@ -379,6 +412,15 @@ class ComponentGraphicsItem(QGraphicsItem):
         painter.setPen(theme_manager.pen("terminal"))
         for terminal in self.terminals:
             painter.drawEllipse(terminal, 3, 3)
+
+    def _label_text(self, show_label, show_value):
+        """Return the label string that paint() would draw."""
+        if show_label and show_value:
+            return f"{self.component_id} ({self.value})"
+        elif show_label:
+            return self.component_id
+        else:
+            return f"({self.value})"
 
     def _draw_label_text(self, painter, color, sx, sy, show_label, show_value, label, value):
         """Draw counter-flipped label text above the component.
@@ -568,6 +610,24 @@ class WaveformVoltageSource(ComponentGraphicsItem):
         return self.model.get_spice_value()
 
 
+class ACVoltageSource(ComponentGraphicsItem):
+    """AC Voltage Source — provides AC magnitude and phase for AC sweep analysis"""
+
+    type_name = "AC Voltage Source"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
+class ACCurrentSource(ComponentGraphicsItem):
+    """AC Current Source — provides AC magnitude and phase for AC sweep analysis"""
+
+    type_name = "AC Current Source"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
 class Ground(ComponentGraphicsItem):
     """Ground component"""
 
@@ -622,7 +682,7 @@ class OpAmp(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def boundingRect(self):
+    def _symbol_rect(self):
         return QRectF(-30, -25, 60, 50)
 
 
@@ -634,7 +694,7 @@ class VCVS(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def boundingRect(self):
+    def _symbol_rect(self):
         return QRectF(-40, -25, 80, 50)
 
 
@@ -646,7 +706,7 @@ class CCVS(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def boundingRect(self):
+    def _symbol_rect(self):
         return QRectF(-40, -25, 80, 50)
 
 
@@ -658,7 +718,7 @@ class VCCS(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def boundingRect(self):
+    def _symbol_rect(self):
         return QRectF(-40, -25, 80, 50)
 
 
@@ -670,7 +730,7 @@ class CCCS(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def boundingRect(self):
+    def _symbol_rect(self):
         return QRectF(-40, -25, 80, 50)
 
 
@@ -682,7 +742,7 @@ class BJTNPN(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def boundingRect(self):
+    def _symbol_rect(self):
         return QRectF(-30, -30, 60, 60)
 
 
@@ -694,7 +754,7 @@ class BJTPNP(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def boundingRect(self):
+    def _symbol_rect(self):
         return QRectF(-30, -30, 60, 60)
 
 
@@ -724,7 +784,7 @@ class VCSwitch(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def boundingRect(self):
+    def _symbol_rect(self):
         return QRectF(-40, -25, 80, 50)
 
 
@@ -755,6 +815,15 @@ class ZenerDiode(ComponentGraphicsItem):
         super().__init__(component_id, self.type_name, model=model)
 
 
+class CurrentProbe(ComponentGraphicsItem):
+    """Current Probe — 0V voltage source for measuring current"""
+
+    type_name = "Current Probe"
+
+    def __init__(self, component_id, model=None):
+        super().__init__(component_id, self.type_name, model=model)
+
+
 class Transformer(ComponentGraphicsItem):
     """Transformer — two coupled inductors (K element)"""
 
@@ -763,7 +832,7 @@ class Transformer(ComponentGraphicsItem):
     def __init__(self, component_id, model=None):
         super().__init__(component_id, self.type_name, model=model)
 
-    def boundingRect(self):
+    def _symbol_rect(self):
         return QRectF(-40, -25, 80, 50)
 
     def draw_component_body(self, painter):
@@ -806,6 +875,10 @@ COMPONENT_CLASSES = {
     "Current Source": CurrentSource,
     "WaveformVoltageSource": WaveformVoltageSource,
     "Waveform Source": WaveformVoltageSource,
+    "ACVoltageSource": ACVoltageSource,
+    "AC Voltage Source": ACVoltageSource,
+    "ACCurrentSource": ACCurrentSource,
+    "AC Current Source": ACCurrentSource,
     "Ground": Ground,
     "OpAmp": OpAmp,
     "Op-Amp": OpAmp,
@@ -830,6 +903,8 @@ COMPONENT_CLASSES = {
     "Zener Diode": ZenerDiode,
     "ZenerDiode": ZenerDiode,
     "Transformer": Transformer,
+    "CurrentProbe": CurrentProbe,
+    "Current Probe": CurrentProbe,
 }
 
 

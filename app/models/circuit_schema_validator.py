@@ -7,6 +7,10 @@ dependencies.
 This module is the canonical location for ``validate_circuit_data``.
 """
 
+from models.component import _CLASS_TO_DISPLAY, COMPONENT_TYPES
+
+_VALID_ROTATIONS = {0, 90, 180, 270}
+
 
 def validate_circuit_data(data) -> None:
     """
@@ -32,6 +36,17 @@ def validate_circuit_data(data) -> None:
             raise ValueError(f"Component '{comp.get('id', i)}' has invalid position data.")
         if not isinstance(pos["x"], (int, float)) or not isinstance(pos["y"], (int, float)):
             raise ValueError(f"Component '{comp['id']}' position values must be numeric.")
+        ctype = comp["type"]
+        # Check both display names and serialized class names; use live
+        # COMPONENT_TYPES list because subcircuit registration can extend it.
+        if ctype not in set(COMPONENT_TYPES) | set(_CLASS_TO_DISPLAY):
+            raise ValueError(f"Component '{comp['id']}' has unknown type '{ctype}'.")
+        rotation = comp.get("rotation", 0)
+        if rotation not in _VALID_ROTATIONS:
+            raise ValueError(
+                f"Component '{comp['id']}' has invalid rotation {rotation}. "
+                f"Must be one of {sorted(_VALID_ROTATIONS)}."
+            )
         comp_ids.add(comp["id"])
 
     for i, wire in enumerate(data["wires"]):
