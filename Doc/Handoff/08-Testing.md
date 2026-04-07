@@ -5,7 +5,7 @@
 ```
 app/tests/
 ├── conftest.py              ← Shared pytest fixtures
-├── unit/                    ← 142 test files
+├── unit/                    ← 148 test files
 │   ├── test_circuit_model.py
 │   ├── test_circuit_controller.py
 │   ├── test_component_*.py

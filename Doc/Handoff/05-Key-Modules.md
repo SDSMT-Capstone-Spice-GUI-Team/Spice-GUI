@@ -77,7 +77,7 @@ A `QGraphicsView` + `QGraphicsScene` that renders the circuit. Handles:
 A `QGraphicsItem` that draws a single component using custom paint logic. Handles hit testing, selection highlighting, and terminal indicators.
 
 ### ComponentPalette (`component_palette.py`)
-A sidebar listing all available components, grouped by category. Supports drag-and-drop onto the canvas.
+A sidebar listing all available components, grouped by category. Supports drag-and-drop onto the canvas. Honors the active palette profile (see `palette_profiles.py`) to restrict which categories/components are visible, and regenerates its icons when the theme manager's `symbol_style` switches between IEEE (American) and IEC (European) symbols.
 
 ### PropertiesPanel (`properties_panel.py`)
 Shows editable properties (value, model, label) for the currently selected component.
@@ -90,6 +90,8 @@ Displays simulation output: data tables, node voltages, branch currents.
 - `dark_theme.py` / `light_theme.py` — concrete themes with color maps
 - `dark_theme.qss` / `light_theme.qss` — Qt stylesheets
 - `constants.py` — grid size (10px), canvas dimensions
+- `font_loader.py` — loads bundled fonts (OpenDyslexic, JetBrains Mono) from `GUI/styles/fonts/` at startup. The active `ThemeManager` exposes `font()` / `font_family` for runtime font switching (accessibility-friendly defaults).
+- `fonts/` — bundled .ttf/.otf font files plus their license texts
 
 ---
 
@@ -131,6 +133,13 @@ Educational auto-grading system. Pure Python — no Qt.
 
 - `path_finding.py` — **IDA\*** algorithm for routing wires around components on the grid. This is the largest single file in the project (~28 KB).
 - `graph_ops.py` — maintains the node graph when wires/components change.
+
+---
+
+## Services (`app/services/`)
+
+### PaletteProfiles (`palette_profiles.py`)
+Defines which component categories/classes are visible in the `ComponentPalette`. Ships built-in profiles (`circuits_1`, `circuits_2`) for common course tracks and supports user-defined profiles loaded from disk, letting instructors restrict the palette for assignments.
 
 ---
 

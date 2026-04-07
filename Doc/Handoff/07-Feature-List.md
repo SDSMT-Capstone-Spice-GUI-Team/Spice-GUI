@@ -68,6 +68,9 @@
 
 - Dark and light themes with QSS stylesheets
 - Custom theme editor
+- IEEE (American) ↔ IEC (European) schematic symbol style toggle, with live palette icon regeneration
+- Bundled accessible fonts (OpenDyslexic, JetBrains Mono) with runtime font switching via `ThemeManager`
+- Palette profiles (`circuits_1`, `circuits_2`, plus user-defined) that restrict the component palette to a course-specific subset
 - Configurable keyboard shortcuts
 - Properties panel for selected components
 - Results panel with tabs
