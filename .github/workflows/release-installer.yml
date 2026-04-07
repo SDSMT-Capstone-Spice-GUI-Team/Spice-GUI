@@ -61,10 +61,18 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}" -replace '^v', ''
+          # VersionInfoVersion requires strict numeric X.Y.Z — derive a valid one
+          if ($version -match '^(\d+)\.(\d+)\.(\d+)') {
+            $numericVersion = "$($matches[1]).$($matches[2]).$($matches[3])"
+          } else {
+            # dev build — fall back to 0.0.0
+            $numericVersion = "0.0.0"
+          }
           $content = Get-Content installer/spicegui.iss -Raw
-          $content = $content -replace '#define MyAppVersion\s+"[^"]+"', "#define MyAppVersion   `"$version`""
+          $content = $content -replace '#define MyAppVersion\s+"[^"]+"', "#define MyAppVersion        `"$version`""
+          $content = $content -replace '#define MyAppNumericVersion\s+"[^"]+"', "#define MyAppNumericVersion `"$numericVersion`""
           Set-Content installer/spicegui.iss -Value $content
-          Write-Host "Set installer version to: $version"
+          Write-Host "Display version: $version, numeric: $numericVersion"
 
       - name: Compile installer with Inno Setup
         shell: cmd
