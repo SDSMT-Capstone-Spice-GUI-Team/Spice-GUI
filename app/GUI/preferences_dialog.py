@@ -2,6 +2,7 @@
 
 from controllers.settings_service import settings
 from controllers.theme_controller import theme_ctrl
+from services import palette_profiles
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -69,6 +70,7 @@ class PreferencesDialog(QDialog):
         self._snap_autosave_interval = settings.get_int("autosave/interval", 60)
         self._snap_default_zoom = settings.get_int("view/default_zoom", 100)
         self._snap_font_family = theme_manager.font_family
+        self._snap_palette_profile = palette_profiles.get_active_profile_key()
 
     def _revert_settings(self):
         """Restore appearance and autosave to snapshot values."""
@@ -83,6 +85,11 @@ class PreferencesDialog(QDialog):
         settings.set("view/default_zoom", self._snap_default_zoom)
         theme_ctrl.set_font_family(self._snap_font_family)
         self.main_window.apply_theme()
+        # Restore palette profile
+        if palette_profiles.get_active_profile_key() != self._snap_palette_profile:
+            palette_profiles.set_active_profile_key(self._snap_palette_profile)
+            if hasattr(self.main_window, "palette") and hasattr(self.main_window.palette, "reload_layout"):
+                self.main_window.palette.reload_layout()
         self.main_window.start_autosave_timer()
 
     # ---- UI construction --------------------------------------------------
@@ -171,6 +178,14 @@ class PreferencesDialog(QDialog):
         self.dyslexia_checkbox = QCheckBox("Use dyslexia-friendly font (OpenDyslexic)")
         form.addRow(self.dyslexia_checkbox)
 
+        # Palette profile (component palette layout)
+        self.palette_profile_combo = QComboBox()
+        self._palette_profile_keys: list[str] = []
+        for display_name, key in palette_profiles.list_profiles():
+            self.palette_profile_combo.addItem(display_name)
+            self._palette_profile_keys.append(key)
+        form.addRow("Palette Profile:", self.palette_profile_combo)
+
         self._update_theme_buttons()
         return widget
 
@@ -258,6 +273,14 @@ class PreferencesDialog(QDialog):
             self.font_combo.setCurrentIndex(idx)
         self.font_combo.setEnabled(current_family != DYSLEXIA_FONT_FAMILY)
 
+        # Palette profile
+        if self._snap_palette_profile in self._palette_profile_keys:
+            self.palette_profile_combo.setCurrentIndex(
+                self._palette_profile_keys.index(self._snap_palette_profile)
+            )
+        else:
+            self.palette_profile_combo.setCurrentIndex(0)
+
     # ---- Signal wiring (live preview) -------------------------------------
 
     def _connect_signals(self):
@@ -269,6 +292,14 @@ class PreferencesDialog(QDialog):
         self.font_combo.currentIndexChanged.connect(self._on_font_changed)
         self.dyslexia_checkbox.toggled.connect(self._on_dyslexia_toggled)
         self.autosave_checkbox.toggled.connect(self.autosave_spin.setEnabled)
+        self.palette_profile_combo.currentIndexChanged.connect(self._on_palette_profile_changed)
+
+    def _on_palette_profile_changed(self, index):
+        if 0 <= index < len(self._palette_profile_keys):
+            key = self._palette_profile_keys[index]
+            palette_profiles.set_active_profile_key(key)
+            if hasattr(self.main_window, "palette") and hasattr(self.main_window.palette, "reload_layout"):
+                self.main_window.palette.reload_layout()
 
     def _on_theme_changed(self, index):
         if 0 <= index < len(self._theme_keys):
