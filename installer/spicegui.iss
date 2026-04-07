@@ -16,7 +16,8 @@
 ; =========================================================================
 
 #define MyAppName      "Spice GUI"
-#define MyAppVersion   "0.1.0"
+#define MyAppVersion        "0.1.0"
+#define MyAppNumericVersion "0.1.0"
 #define MyAppPublisher "SDSMT Capstone Spice GUI Team"
 #define MyAppURL       "https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI"
 #define MyAppExeName   "SpiceGUI.exe"
@@ -47,7 +48,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ; Installer version info
-VersionInfoVersion={#MyAppVersion}.0
+VersionInfoVersion={#MyAppNumericVersion}.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppName} Installer
 VersionInfoProductName={#MyAppName}
