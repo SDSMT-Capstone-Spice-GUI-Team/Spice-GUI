@@ -414,7 +414,7 @@ def _write_op_csv(data: dict, path: Path) -> None:
         writer.writerow([name, value])
     for name, value in data.get("branch_currents", {}).items():
         writer.writerow([name, value])
-    atomic_write_text(path, output.getvalue())
+    atomic_write_text(path, output.getvalue(), newline="")
 
 
 def _write_tabular_csv(data, path: Path) -> None:
@@ -429,7 +429,7 @@ def _write_tabular_csv(data, path: Path) -> None:
         writer = csv.DictWriter(output, fieldnames=keys)
         writer.writeheader()
         writer.writerows(data)
-        atomic_write_text(path, output.getvalue())
+        atomic_write_text(path, output.getvalue(), newline="")
     elif isinstance(data, dict):
         _write_generic_csv(data, path)
 
@@ -446,4 +446,4 @@ def _write_generic_csv(data, path: Path) -> None:
     if isinstance(data, dict):
         for key, value in data.items():
             writer.writerow([key, value])
-    atomic_write_text(path, output.getvalue())
+    atomic_write_text(path, output.getvalue(), newline="")

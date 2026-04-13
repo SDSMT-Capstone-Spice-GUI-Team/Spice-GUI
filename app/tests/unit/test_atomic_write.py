@@ -2,6 +2,7 @@
 
 import os
 
+import pytest
 from utils.atomic_write import atomic_write_text
 
 
@@ -25,10 +26,10 @@ class TestAtomicWriteText:
         files = list(tmp_path.iterdir())
         assert files == [target], f"Unexpected files: {files}"
 
-    def test_creates_parent_directories(self, tmp_path):
-        target = tmp_path / "sub" / "dir" / "test.txt"
-        atomic_write_text(target, "deep")
-        assert target.read_text() == "deep"
+    def test_fails_if_parent_directory_missing(self, tmp_path):
+        target = tmp_path / "nonexistent" / "test.txt"
+        with pytest.raises(OSError):
+            atomic_write_text(target, "deep")
 
     def test_original_preserved_on_failure(self, tmp_path):
         """If the write fails, the original file should be untouched."""

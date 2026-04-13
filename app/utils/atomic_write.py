@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 
-def atomic_write_text(filepath, content: str, encoding: str = "utf-8") -> None:
+def atomic_write_text(filepath, content: str, encoding: str = "utf-8", newline=None) -> None:
     """Atomically write *content* to *filepath*.
 
     Creates a temporary file in the same directory as *filepath*,
@@ -21,15 +21,16 @@ def atomic_write_text(filepath, content: str, encoding: str = "utf-8") -> None:
         filepath: Target file path (str or Path).
         content: Text content to write.
         encoding: Text encoding (default utf-8).
+        newline: Newline translation mode (passed to open). Use ``""``
+            for CSV files to prevent ``\\r\\n`` doubling on Windows.
 
     Raises:
         OSError: If the write or replace fails.
     """
     filepath = Path(filepath)
-    filepath.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=filepath.parent, suffix=".tmp")
     try:
-        with os.fdopen(fd, "w", encoding=encoding) as f:
+        with os.fdopen(fd, "w", encoding=encoding, newline=newline) as f:
             f.write(content)
         os.replace(tmp, filepath)
     except BaseException:

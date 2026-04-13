@@ -57,6 +57,7 @@ class SettingsService:
         try:
             from utils.atomic_write import atomic_write_text
 
+            self._path.parent.mkdir(parents=True, exist_ok=True)
             atomic_write_text(self._path, json.dumps(self._data, indent=2))
         except OSError:
             logger.warning("Failed to save settings to %s", self._path, exc_info=True)

@@ -128,6 +128,7 @@ class KeybindingsRegistry:
         try:
             from utils.atomic_write import atomic_write_text
 
+            self._config_path.parent.mkdir(parents=True, exist_ok=True)
             atomic_write_text(self._config_path, json.dumps(overrides, indent=2))
         except OSError as e:
             logger.error("Failed to save keybindings: %s", e)
