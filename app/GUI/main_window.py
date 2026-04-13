@@ -231,7 +231,7 @@ class MainWindow(
         self.results_panel.btn_export_csv.clicked.connect(self.export_results_csv)
         self.results_panel.btn_export_excel.clicked.connect(self.export_results_excel)
         self.results_panel.btn_copy_markdown.clicked.connect(self.copy_results_markdown)
-        # Backward-compat aliases so existing SimulationMixin code works unchanged.
+        # Convenience aliases used by SimulationMixin.
         self.results_text = self.results_panel.results_text
         self.btn_export_csv = self.results_panel.btn_export_csv
         self.btn_export_excel = self.results_panel.btn_export_excel

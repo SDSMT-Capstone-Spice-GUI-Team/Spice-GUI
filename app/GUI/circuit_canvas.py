@@ -69,7 +69,7 @@ class CircuitCanvasView(QGraphicsView):
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
 
         self.components = {}  # id -> ComponentGraphicsItem
-        self.wires = []  # All wires (for backward compatibility)
+        self.wires = []  # All wires
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()

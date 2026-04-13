@@ -410,7 +410,7 @@ class ComponentData:
         Return the SPICE value string for this component.
 
         For waveform sources, delegates to
-        :func:`simulation.waveform_utils.format_waveform_spice_value`.
+        :func:`models.waveform_defaults.format_waveform_spice_value`.
         For other components, returns the value as-is.
         """
         if self.component_type != "Waveform Source":

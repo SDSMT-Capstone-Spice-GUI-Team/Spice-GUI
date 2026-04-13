@@ -32,7 +32,7 @@ def check_file_size(filepath: Path, max_size: int = MAX_FILE_SIZE) -> None:
         raise ValueError(f"File is too large ({mb:.1f} MB). Maximum allowed size is {limit_mb:.0f} MB.")
 
 
-from models.circuit_schema_validator import validate_circuit_data  # noqa: F401 — re-exported for compatibility
+from models.circuit_schema_validator import validate_circuit_data  # noqa: F401 — re-exported
 
 
 class FileController:

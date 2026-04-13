@@ -1,5 +1,5 @@
 """
-Unit tests for Phase 3: Backward Compatibility Aliases
+Unit tests for backward compatibility aliases.
 
 Tests that the renamed classes (ComponentItem → ComponentGraphicsItem,
 WireItem → WireGraphicsItem, CircuitCanvas → CircuitCanvasView) maintain

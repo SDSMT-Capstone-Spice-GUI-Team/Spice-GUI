@@ -13,7 +13,7 @@ from .wire_item import WireGraphicsItem, WireItem
 __all__ = [
     "AnalysisDialog",
     "CircuitCanvasView",
-    "CircuitCanvas",  # Backward compatibility
+    "CircuitCanvas",
     "MainWindow",
     "ComponentGraphicsItem",
     "ComponentPalette",
@@ -21,7 +21,7 @@ __all__ = [
     "get_component_obstacles",
     "get_wire_obstacles",
     "WireGraphicsItem",
-    "WireItem",  # Backward compatibility
+    "WireItem",
     "GRID_SIZE",
     "COMPONENTS",
     "DEFAULT_COMPONENT_COUNTER",
