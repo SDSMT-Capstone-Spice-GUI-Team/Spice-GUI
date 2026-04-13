@@ -10,7 +10,7 @@ from pathlib import Path
 
 def _module_source(module):
     """Return the source text of a module by reading its __file__."""
-    return Path(module.__file__).read_text()
+    return Path(module.__file__).read_text(encoding="utf-8")
 
 
 class TestRightPanelTooltipsStructural:
