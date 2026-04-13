@@ -143,6 +143,9 @@ class GradingPanel(QWidget):
             return
 
         try:
+            from controllers.file_controller import check_file_size
+
+            check_file_size(filename)
             with open(filename, "r") as f:
                 data = json.load(f)
 

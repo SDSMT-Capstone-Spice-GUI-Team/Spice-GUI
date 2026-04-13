@@ -216,6 +216,9 @@ def load_grading_session(filepath) -> GradingSessionData:
     filepath = Path(filepath)
     anchor = filepath.parent.resolve()
 
+    from controllers.file_controller import check_file_size
+
+    check_file_size(filepath)
     with open(filepath, "r") as f:
         data = json.load(f)
     validate_session_data(data)

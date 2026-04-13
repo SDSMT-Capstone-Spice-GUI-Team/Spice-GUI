@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from controllers.file_controller import validate_circuit_data
+from controllers.file_controller import check_file_size, validate_circuit_data
 from models.circuit import CircuitModel
 from models.template import TemplateData, TemplateMetadata
 
@@ -104,6 +104,7 @@ class TemplateController:
             OSError: If the file cannot be read.
         """
         filepath = Path(filepath)
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             data = json.load(f)
 
@@ -172,6 +173,7 @@ class TemplateController:
             OSError: If the file cannot be read.
         """
         filepath = Path(filepath)
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             data = json.load(f)
 
