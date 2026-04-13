@@ -371,13 +371,51 @@ class ComponentGraphicsItem(QGraphicsItem):
         # Grading overlay (temporary visual feedback)
         if self._grading_state == "passed":
             grading_color = theme_manager.color("grading_passed")
-            painter.setPen(QPen(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 200), 3))
-            painter.setBrush(QBrush(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 40)))
+            painter.setPen(
+                QPen(
+                    QColor(
+                        grading_color.red(),
+                        grading_color.green(),
+                        grading_color.blue(),
+                        200,
+                    ),
+                    3,
+                )
+            )
+            painter.setBrush(
+                QBrush(
+                    QColor(
+                        grading_color.red(),
+                        grading_color.green(),
+                        grading_color.blue(),
+                        40,
+                    )
+                )
+            )
             painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
         elif self._grading_state == "failed":
             grading_color = theme_manager.color("grading_failed")
-            painter.setPen(QPen(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 200), 3))
-            painter.setBrush(QBrush(QColor(grading_color.red(), grading_color.green(), grading_color.blue(), 40)))
+            painter.setPen(
+                QPen(
+                    QColor(
+                        grading_color.red(),
+                        grading_color.green(),
+                        grading_color.blue(),
+                        200,
+                    ),
+                    3,
+                )
+            )
+            painter.setBrush(
+                QBrush(
+                    QColor(
+                        grading_color.red(),
+                        grading_color.green(),
+                        grading_color.blue(),
+                        40,
+                    )
+                )
+            )
             painter.drawRoundedRect(QRectF(-42, -22, 84, 44), 4, 4)
 
         # Draw component body
@@ -530,10 +568,8 @@ class ComponentGraphicsItem(QGraphicsItem):
         # Create model first
         comp_data = ComponentData.from_dict(data_dict)
 
-        # Find the right GUI class
-        component_class = COMPONENT_CLASSES.get(comp_data.component_type)
-        if component_class is None:
-            raise ValueError(f"Unknown component type: {comp_data.component_type}")
+        # Find the right GUI class, falling back to GenericComponent
+        component_class = COMPONENT_CLASSES.get(comp_data.component_type, GenericComponent)
 
         # Create GUI component backed by the model
         comp = component_class(comp_data.component_id, model=comp_data)
@@ -541,6 +577,20 @@ class ComponentGraphicsItem(QGraphicsItem):
         comp.update_terminals()
 
         return comp
+
+
+class GenericComponent(ComponentGraphicsItem):
+    """Fallback renderer for unknown/subcircuit component types (e.g. LM7812).
+
+    Renders as a simple rectangle with the type name, allowing files containing
+    unrecognised component types to load without crashing.
+    """
+
+    type_name = "Generic"
+
+    def __init__(self, component_id, model=None):
+        component_type = model.component_type if model else "Generic"
+        super().__init__(component_id, component_type, model=model)
 
 
 class Resistor(ComponentGraphicsItem):
@@ -910,9 +960,7 @@ COMPONENT_CLASSES = {
 
 def create_component(component_type, component_id):
     """Factory function to create components with a backing ComponentData model"""
-    component_class = COMPONENT_CLASSES.get(component_type)
-    if component_class is None:
-        raise ValueError(f"Unknown component type: {component_type}")
+    component_class = COMPONENT_CLASSES.get(component_type, GenericComponent)
 
     comp_model = ComponentData(
         component_id=component_id,

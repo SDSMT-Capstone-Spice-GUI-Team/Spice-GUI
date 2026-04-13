@@ -40,15 +40,47 @@ def register(component_type: str, style: str, renderer: ComponentRenderer):
     _registry[(component_type, style)] = renderer
 
 
+class GenericRenderer(ComponentRenderer):
+    """Fallback renderer for unknown/subcircuit component types.
+
+    Draws a simple rectangle with the component type name inside.
+    """
+
+    def draw(self, painter, component):
+        # Leads
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
+        # Body rectangle
+        painter.drawRect(-15, -10, 30, 20)
+        # Type label inside the box
+        from PyQt6.QtCore import QRectF, Qt
+        from PyQt6.QtGui import QFont
+
+        font = QFont()
+        font.setPointSize(6)
+        painter.setFont(font)
+        painter.drawText(
+            QRectF(-14, -9, 28, 18),
+            Qt.AlignmentFlag.AlignCenter,
+            component.component_type,
+        )
+
+    def get_obstacle_shape(self, component):
+        return [(-15.0, -10.0), (15.0, -10.0), (15.0, 10.0), (-15.0, 10.0)]
+
+
+_generic_renderer = GenericRenderer()
+
+
 def get_renderer(component_type: str, style: str) -> ComponentRenderer:
     """Look up the renderer for (*component_type*, *style*).
 
-    Raises ``KeyError`` if no renderer is registered.
+    Falls back to a generic rectangular renderer for unknown component types.
     """
     renderer = _registry.get((component_type, style))
     if renderer is not None:
         return renderer
-    raise KeyError(f"No renderer for ({component_type!r}, {style!r})")
+    return _generic_renderer
 
 
 def _bounding_rect_obstacle(component) -> list[tuple[float, float]]:

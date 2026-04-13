@@ -194,13 +194,17 @@ class TestRendererRegistry:
         renderer = get_renderer(cls.type_name, "iec")
         assert renderer is not None
 
-    def test_unregistered_type_raises_key_error(self):
-        with pytest.raises(KeyError):
-            get_renderer("Nonexistent", "ieee")
+    def test_unregistered_type_returns_generic_renderer(self):
+        from GUI.renderers import GenericRenderer
 
-    def test_unregistered_style_raises_key_error(self):
-        with pytest.raises(KeyError):
-            get_renderer("Resistor", "bogus")
+        renderer = get_renderer("Nonexistent", "ieee")
+        assert isinstance(renderer, GenericRenderer)
+
+    def test_unregistered_style_returns_generic_renderer(self):
+        from GUI.renderers import GenericRenderer
+
+        renderer = get_renderer("Resistor", "bogus")
+        assert isinstance(renderer, GenericRenderer)
 
 
 # ── Draw dispatch via renderers ─────────────────────────────────────
