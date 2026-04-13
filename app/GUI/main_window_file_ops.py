@@ -40,7 +40,10 @@ class FileOperationsMixin:
             n = len(ids)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
+                statusBar.showMessage(
+                    f"Copied {n} component{'s' if n != 1 else ''}",
+                    STATUS_DURATION_SHORT,
+                )
 
     def cut_selected(self):
         """Cut selected components to internal clipboard (copy + undoable delete)."""
@@ -79,7 +82,10 @@ class FileOperationsMixin:
             n = len(cmd.pasted_component_ids)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
+                statusBar.showMessage(
+                    f"Pasted {n} component{'s' if n != 1 else ''}",
+                    STATUS_DURATION_SHORT,
+                )
 
     def copy_circuit_json(self):
         """Copy the entire circuit to system clipboard as JSON."""
@@ -179,7 +185,10 @@ class FileOperationsMixin:
                 self._set_dirty(False)
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Saved to {self.file_ctrl.current_file}", STATUS_DURATION_DEFAULT)
+                    statusBar.showMessage(
+                        f"Saved to {self.file_ctrl.current_file}",
+                        STATUS_DURATION_DEFAULT,
+                    )
             except (OSError, TypeError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to save: {e}")
         else:
@@ -634,11 +643,9 @@ class FileOperationsMixin:
         self.templates_menu.addAction(browse_action)
 
     def _on_new_from_template(self):
-        """Open the template browser dialog with preview."""
-        from controllers.template_controller import TemplateController
+        """Open the template browser dialog and load the selected template."""
         from controllers.template_manager import TemplateManager
         from GUI.template_dialog import NewFromTemplateDialog
-        from GUI.template_preview_dialog import TemplatePreviewDialog
 
         if not hasattr(self, "_template_manager"):
             self._template_manager = TemplateManager()
@@ -654,18 +661,7 @@ class FileOperationsMixin:
             if template_info is None:
                 return
 
-            # Load full template data for preview
-            try:
-                template_ctrl = TemplateController()
-                template_data = template_ctrl.load_template(template_info.filepath)
-            except (OSError, ValueError):
-                # If preview load fails, fall back to direct load
-                self._open_template(template_info.filepath)
-                return
-
-            preview = TemplatePreviewDialog(template_data, self)
-            if preview.exec() == TemplatePreviewDialog.DialogCode.Accepted:
-                self._open_template(template_info.filepath)
+            self._open_template(template_info.filepath)
 
     def _open_template(self, filepath: Path):
         """Load a circuit template, replacing the current circuit."""
