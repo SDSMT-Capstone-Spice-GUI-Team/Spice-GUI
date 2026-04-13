@@ -420,7 +420,7 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         # Draw component body
         painter.setPen(QPen(color, 2))
-        painter.setBrush(QBrush(color.lighter(150)))
+        painter.setBrush(theme_manager.brush("component_fill"))
         self.draw_component_body(painter)
 
         # Draw label (check canvas visibility settings via injected reference)
@@ -704,7 +704,7 @@ class Ground(ComponentGraphicsItem):
             painter.drawRect(QRectF(-40, -20, 80, 40))
 
         painter.setPen(QPen(color, 2))
-        painter.setBrush(QBrush(color.lighter(150)))
+        painter.setBrush(theme_manager.brush("component_fill"))
         self.draw_component_body(painter)
 
         show_label = (
