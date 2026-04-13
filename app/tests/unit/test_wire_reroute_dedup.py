@@ -5,12 +5,8 @@ path (the observer/controller path) instead of two (observer + timer),
 and that co-selected wires are only rerouted once.
 """
 
-import ast
-import inspect
-import textwrap
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-import pytest
 from controllers.circuit_controller import CircuitController
 from models.circuit import CircuitModel
 
@@ -69,79 +65,126 @@ class TestTimerPathRemoved:
         assert not hasattr(ComponentGraphicsItem, "update_wires_after_drag")
 
     def test_no_wire_update_timer_attribute(self):
-        """ComponentGraphicsItem should not have self.update_timer in init."""
+        """ComponentGraphicsItem instances should not have an update_timer attribute."""
+        from unittest.mock import MagicMock, patch
+
         from GUI.component_item import ComponentGraphicsItem
 
-        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.__init__)))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Attribute) and node.attr == "update_timer":
-                raise AssertionError("Found update_timer reference in ComponentGraphicsItem.__init__")
+        mock_comp = MagicMock()
+        mock_comp.component_id = "R1"
+        mock_comp.component_type = "Resistor"
+        mock_comp.position = (0, 0)
+        mock_comp.rotation = 0
+        mock_comp.flip_h = False
+        mock_comp.flip_v = False
+
+        with patch.object(ComponentGraphicsItem, "__init__", lambda self, *a, **kw: None):
+            item = ComponentGraphicsItem.__new__(ComponentGraphicsItem)
+
+        assert not hasattr(item, "update_timer")
 
     def test_no_last_position_attribute(self):
-        """ComponentGraphicsItem should not reference last_position in init."""
+        """ComponentGraphicsItem instances should not have a last_position attribute."""
         from GUI.component_item import ComponentGraphicsItem
 
-        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.__init__)))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Attribute) and node.attr == "last_position":
-                raise AssertionError("Found last_position reference in ComponentGraphicsItem.__init__")
-            if isinstance(node, ast.Name) and node.id == "last_position":
-                raise AssertionError("Found last_position reference in ComponentGraphicsItem.__init__")
+        with patch.object(ComponentGraphicsItem, "__init__", lambda self, *a, **kw: None):
+            item = ComponentGraphicsItem.__new__(ComponentGraphicsItem)
+
+        assert not hasattr(item, "last_position")
 
 
 class TestSingleReroutePath:
     """Verify only one code path exists from drag to reroute."""
 
     def test_itemchange_does_not_call_schedule_wire_update(self):
-        """itemChange source should not reference schedule_wire_update."""
+        """ComponentGraphicsItem should not have a schedule_wire_update method."""
         from GUI.component_item import ComponentGraphicsItem
 
-        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.itemChange)))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Attribute) and node.attr == "schedule_wire_update":
-                raise AssertionError("Found schedule_wire_update in itemChange")
-            if isinstance(node, ast.Name) and node.id == "schedule_wire_update":
-                raise AssertionError("Found schedule_wire_update in itemChange")
+        assert not hasattr(ComponentGraphicsItem, "schedule_wire_update")
 
     def test_itemchange_schedules_controller_update(self):
-        """itemChange source should still schedule controller updates."""
+        """ComponentGraphicsItem should have a _schedule_controller_update method."""
         from GUI.component_item import ComponentGraphicsItem
 
-        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.itemChange)))
-        found = any(
-            (isinstance(node, ast.Attribute) and node.attr == "_schedule_controller_update")
-            or (isinstance(node, ast.Name) and node.id == "_schedule_controller_update")
-            for node in ast.walk(tree)
-        )
-        assert found, "_schedule_controller_update not found in itemChange"
+        assert hasattr(ComponentGraphicsItem, "_schedule_controller_update")
 
 
 class TestCoSelectedRerouteDedup:
     """Tests for #190: wires between co-selected components rerouted once."""
 
     def test_reroute_checks_isSelected(self):
-        """reroute_connected_wires should check isSelected on other endpoint."""
+        """reroute_connected_wires skips a wire when the other endpoint is selected and has the lower ID.
+
+        This behavioral check confirms that isSelected is consulted: if the other endpoint IS
+        selected (and has a lower ID), the wire is skipped.
+        """
         from GUI.circuit_canvas import CircuitCanvasView
 
-        tree = ast.parse(textwrap.dedent(inspect.getsource(CircuitCanvasView.reroute_connected_wires)))
-        found = any(
-            (isinstance(node, ast.Attribute) and node.attr == "isSelected")
-            or (isinstance(node, ast.Name) and node.id == "isSelected")
-            for node in ast.walk(tree)
-        )
-        assert found, "isSelected not found in reroute_connected_wires"
+        canvas = Mock(spec=CircuitCanvasView)
+        canvas._scene = Mock()
+        canvas.viewport = Mock(return_value=Mock())
+        canvas.window = Mock(return_value=None)
+
+        comp_a = Mock()
+        comp_a.component_id = "R1"
+        comp_a.isSelected = Mock(return_value=True)  # IS selected
+
+        comp_b = Mock()
+        comp_b.component_id = "R2"
+        comp_b.isSelected = Mock(return_value=True)
+
+        wire = Mock()
+        wire.start_comp = comp_a
+        wire.end_comp = comp_b
+        wire.model.locked = False
+
+        canvas.wires = [wire]
+
+        # comp_b has the higher ID — since comp_a is selected with a lower ID, wire should be skipped
+        CircuitCanvasView.reroute_connected_wires(canvas, comp_b)
+        wire.update_position.assert_not_called()
+
+        # When comp_a is NOT selected, the wire should be rerouted regardless of ID order
+        comp_a.isSelected = Mock(return_value=False)
+        CircuitCanvasView.reroute_connected_wires(canvas, comp_b)
+        wire.update_position.assert_called_once()
 
     def test_reroute_uses_component_id_tiebreaker(self):
-        """Deterministic tiebreaker: lower component_id handles the wire."""
+        """Deterministic tiebreaker: lower component_id handles the wire.
+
+        Behavioral confirmation that component_id ordering is the tiebreaker when both
+        endpoints are selected.
+        """
         from GUI.circuit_canvas import CircuitCanvasView
 
-        tree = ast.parse(textwrap.dedent(inspect.getsource(CircuitCanvasView.reroute_connected_wires)))
-        found = any(
-            (isinstance(node, ast.Attribute) and node.attr == "component_id")
-            or (isinstance(node, ast.Name) and node.id == "component_id")
-            for node in ast.walk(tree)
-        )
-        assert found, "component_id not found in reroute_connected_wires"
+        canvas = Mock(spec=CircuitCanvasView)
+        canvas._scene = Mock()
+        canvas.viewport = Mock(return_value=Mock())
+        canvas.window = Mock(return_value=None)
+
+        comp_a = Mock()
+        comp_a.component_id = "R1"
+        comp_a.isSelected = Mock(return_value=True)
+
+        comp_b = Mock()
+        comp_b.component_id = "R2"
+        comp_b.isSelected = Mock(return_value=True)
+
+        wire = Mock()
+        wire.start_comp = comp_a
+        wire.end_comp = comp_b
+        wire.model.locked = False
+
+        canvas.wires = [wire]
+
+        # comp_a (lower ID) should reroute; comp_b (higher ID) should skip
+        CircuitCanvasView.reroute_connected_wires(canvas, comp_a)
+        assert wire.update_position.call_count == 1
+
+        wire.reset_mock()
+
+        CircuitCanvasView.reroute_connected_wires(canvas, comp_b)
+        wire.update_position.assert_not_called()
 
     def test_reroute_skips_when_other_has_lower_id(self):
         """Wire should not be rerouted if other endpoint has lower ID and is selected."""

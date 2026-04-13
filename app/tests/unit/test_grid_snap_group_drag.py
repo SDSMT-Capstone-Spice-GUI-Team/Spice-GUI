@@ -5,24 +5,11 @@ so each follower snaps independently to its nearest grid point, rather than
 inheriting the leader's grid-aligned jump.
 """
 
-import ast
-import inspect
-import textwrap
-
 import pytest
 from GUI.component_item import ComponentGraphicsItem, Resistor
 from GUI.styles import GRID_SIZE
 from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsScene
-
-
-def _source_uses_name(func, name):
-    """Check if a function's source contains a reference to the given name."""
-    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
-    return any(
-        (isinstance(node, ast.Name) and node.id == name) or (isinstance(node, ast.Attribute) and node.attr == name)
-        for node in ast.walk(tree)
-    )
 
 
 def _add_resistor(scene, comp_id, x, y):
@@ -36,28 +23,83 @@ def _add_resistor(scene, comp_id, x, y):
     return comp
 
 
-class TestRawDeltaSourceInspection:
-    """Verify the itemChange source uses raw delta, not snapped delta."""
+class TestRawDeltaBehavior:
+    """Verify that group drag uses raw (unsnapped) delta for followers."""
 
-    def test_itemchange_uses_raw_delta(self):
-        """itemChange should compute raw_delta from new_pos, not snapped_pos."""
-        assert _source_uses_name(ComponentGraphicsItem.itemChange, "raw_delta")
+    def test_follower_snaps_independently_not_by_snapped_delta(self, qtbot):
+        """Follower should snap to its own nearest grid point, not be displaced by snapped delta.
 
-    def test_itemchange_raw_delta_from_new_pos(self):
-        """raw_delta should be computed from new_pos (unsnapped), not snapped_pos."""
-        tree = ast.parse(textwrap.dedent(inspect.getsource(ComponentGraphicsItem.itemChange)))
-        # Look for an assignment target named 'raw_delta'
-        has_raw_delta_assign = any(
-            isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "raw_delta" for t in node.targets)
-            for node in ast.walk(tree)
+        If snapped delta were used instead of raw delta, the follower would land at a
+        different grid point than the one nearest to (follower_pos + raw_delta).
+        """
+        scene = QGraphicsScene()
+        # Leader on-grid at 100; follower off-grid at 125
+        leader = _add_resistor(scene, "R1", 100, 0)
+        follower = _add_resistor(scene, "R2", 125, 0)
+
+        leader.setSelected(True)
+        follower.setSelected(True)
+
+        # Leader proposed=106 → snaps to 110 (snapped_delta=10)
+        # Raw delta = 106 - 100 = 6
+        # Follower with raw delta:    125 + 6  = 131 → snaps to 130  (correct)
+        # Follower with snapped delta: 125 + 10 = 135 → snaps to 140  (wrong)
+        leader.itemChange(
+            ComponentGraphicsItem.GraphicsItemChange.ItemPositionChange,
+            QPointF(106, 0),
         )
-        assert has_raw_delta_assign, "raw_delta should be assigned in itemChange"
 
-    def test_snapped_delta_only_used_as_guard(self):
-        """snapped_delta should only be used to check if leader moved."""
-        assert _source_uses_name(ComponentGraphicsItem.itemChange, "snapped_delta")
-        # Followers should be moved by raw_delta, not snapped_delta
-        assert _source_uses_name(ComponentGraphicsItem.itemChange, "raw_delta")
+        fx = follower.pos().x()
+        assert fx == 130, f"Expected follower at 130 (raw delta), got {fx}"
+
+    def test_two_off_grid_followers_each_snap_to_own_nearest(self, qtbot):
+        """Each follower snaps to its own nearest grid, not a shared snapped delta.
+
+        Two followers at different off-grid positions should land at their own
+        nearest grid points after the drag, demonstrating independent snapping.
+        """
+        scene = QGraphicsScene()
+        leader = _add_resistor(scene, "R1", 100, 0)
+        # f1 at 113: raw_delta 6 → 119 → snaps to 120; snapped_delta 10 → 123 → snaps to 120 (same here)
+        # f2 at 127: raw_delta 6 → 133 → snaps to 130; snapped_delta 10 → 137 → snaps to 140 (diverges)
+        f1 = _add_resistor(scene, "R2", 113, 0)
+        f2 = _add_resistor(scene, "R3", 127, 0)
+
+        leader.setSelected(True)
+        f1.setSelected(True)
+        f2.setSelected(True)
+
+        # Leader proposed=106 → raw_delta=6, snapped_delta=10
+        leader.itemChange(
+            ComponentGraphicsItem.GraphicsItemChange.ItemPositionChange,
+            QPointF(106, 0),
+        )
+
+        assert f1.pos().x() % GRID_SIZE == 0, f"f1 not on grid: {f1.pos().x()}"
+        # f2 must land at 130, not 140 — proves raw delta was used
+        assert f2.pos().x() == 130, f"Expected f2 at 130 (raw delta), got {f2.pos().x()}"
+
+    def test_raw_delta_used_not_snapped_delta_on_reverse_drag(self, qtbot):
+        """Raw delta should also be used correctly when dragging in the negative direction."""
+        scene = QGraphicsScene()
+        # Leader on-grid at 110; follower off-grid at 123
+        leader = _add_resistor(scene, "R1", 110, 0)
+        follower = _add_resistor(scene, "R2", 123, 0)
+
+        leader.setSelected(True)
+        follower.setSelected(True)
+
+        # Leader proposed=104 → snaps to 100 (snapped_delta=-10)
+        # Raw delta = 104 - 110 = -6
+        # Follower with raw delta:    123 + (-6)  = 117 → snaps to 120  (correct)
+        # Follower with snapped delta: 123 + (-10) = 113 → snaps to 110  (wrong)
+        leader.itemChange(
+            ComponentGraphicsItem.GraphicsItemChange.ItemPositionChange,
+            QPointF(104, 0),
+        )
+
+        fx = follower.pos().x()
+        assert fx == 120, f"Expected follower at 120 (raw delta), got {fx}"
 
 
 class TestOnGridGroupDrag:

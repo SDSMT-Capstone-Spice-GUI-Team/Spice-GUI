@@ -4,7 +4,7 @@ Verifies that cursor colors are defined in both themes and that the
 MeasurementCursors class uses theme_manager instead of hardcoded values.
 """
 
-import inspect
+from unittest.mock import MagicMock, patch
 
 from GUI.styles import theme_manager
 from GUI.styles.dark_theme import DarkTheme
@@ -31,22 +31,34 @@ class TestCursorColorsInThemes:
         assert "cursor_b" in theme._colors
 
 
+def _make_cursors():
+    """Return a MeasurementCursors instance backed by mock ax and canvas."""
+    from GUI.measurement_cursors import MeasurementCursors
+
+    ax = MagicMock()
+    canvas = MagicMock()
+    cursors = MeasurementCursors(ax, canvas)
+    cursors._a_x = 1.0
+    cursors._b_x = 2.0
+    return cursors
+
+
 class TestCursorDrawingUsesTheme:
-    """MeasurementCursors._draw_cursor_* must use theme_manager, not class constants."""
+    """MeasurementCursors._draw_cursor_* must query theme_manager for colors."""
 
     def test_draw_cursor_a_uses_theme(self):
-        from GUI.measurement_cursors import MeasurementCursors
-
-        source = inspect.getsource(MeasurementCursors._draw_cursor_a)
-        assert "theme_manager" in source
-        assert "CURSOR_A_COLOR" not in source
+        cursors = _make_cursors()
+        with patch("GUI.measurement_cursors.theme_manager") as mock_tm:
+            mock_tm.color_hex.return_value = "#ff0000"
+            cursors._draw_cursor_a()
+            mock_tm.color_hex.assert_called_once_with("cursor_a")
 
     def test_draw_cursor_b_uses_theme(self):
-        from GUI.measurement_cursors import MeasurementCursors
-
-        source = inspect.getsource(MeasurementCursors._draw_cursor_b)
-        assert "theme_manager" in source
-        assert "CURSOR_B_COLOR" not in source
+        cursors = _make_cursors()
+        with patch("GUI.measurement_cursors.theme_manager") as mock_tm:
+            mock_tm.color_hex.return_value = "#0000ff"
+            cursors._draw_cursor_b()
+            mock_tm.color_hex.assert_called_once_with("cursor_b")
 
 
 class TestThemeManagerReturnsCursorColors:
