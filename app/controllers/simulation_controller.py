@@ -245,49 +245,80 @@ class SimulationController:
         analysis = self.model.analysis_type
 
         try:
+            # Read the output file once; many parsers need it.
+            output = self.runner.read_output(output_file) if output_file else ""
+
             if analysis in ("DC Operating Point", "Operational Point"):
-                output = self.runner.read_output(output_file)
                 data = ResultParser.parse_op_results(output)
+                # Fallback: print output may have gone to stdout instead
+                # of the -o file in some ngspice versions (#852).
+                if not data.get("node_voltages") and raw_output:
+                    fallback = ResultParser.parse_op_results(raw_output)
+                    if fallback.get("node_voltages"):
+                        data = fallback
             elif analysis == "DC Sweep":
                 # Prefer wrdata file (clean tabular format) over log output.
                 data = None
                 if wrdata_filepath and os.path.isfile(wrdata_filepath):
                     data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
                 if data is None:
-                    output = self.runner.read_output(output_file)
                     data = ResultParser.parse_dc_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_dc_results(raw_output)
             elif analysis == "AC Sweep":
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_ac_results(output)
+                use_db = str(self.model.analysis_params.get("use_db", "No")).lower() in ("yes", "true", "1")
+                # Prefer wrdata file which always has clean tabular data (#805).
+                data = None
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_ac_wrdata(wrdata_filepath)
+                # Fallback: try the -o output file, then raw stdout.
+                if data is None:
+                    data = ResultParser.parse_ac_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_ac_results(raw_output)
                 if data is not None:
-                    use_db = str(self.model.analysis_params.get("use_db", "No")).lower() in ("yes", "true", "1")
                     data["use_db"] = use_db
             elif analysis == "Transient":
                 data = ResultParser.parse_transient_results(wrdata_filepath)
             elif analysis == "Temperature Sweep":
                 # Temperature sweep with .step produces tabular output;
-                # try wrdata file first, then log output, then OP fallback.
+                # try wrdata file first, then log output, then OP fallback (#856).
                 data = None
                 if wrdata_filepath and os.path.isfile(wrdata_filepath):
                     data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
                 if data is None:
-                    output = self.runner.read_output(output_file)
                     data = ResultParser.parse_dc_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_dc_results(raw_output)
                 if data is None:
-                    output = self.runner.read_output(output_file)
                     data = ResultParser.parse_op_results(output)
+                    # Fallback: try stdout for OP results
+                    if not data.get("node_voltages") and raw_output:
+                        fallback = ResultParser.parse_op_results(raw_output)
+                        if fallback.get("node_voltages"):
+                            data = fallback
             elif analysis == "Noise":
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_noise_results(output)
+                # Prefer wrdata file which has clean tabular data (#857).
+                data = None
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_noise_wrdata(wrdata_filepath)
+                # Fallback: try the -o output file, then raw stdout.
+                if data is None:
+                    data = ResultParser.parse_noise_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_noise_results(raw_output)
             elif analysis == "Sensitivity":
-                output = self.runner.read_output(output_file)
                 data = ResultParser.parse_sensitivity_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_sensitivity_results(raw_output)
             elif analysis == "Transfer Function":
-                output = self.runner.read_output(output_file)
                 data = ResultParser.parse_tf_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_tf_results(raw_output)
             elif analysis == "Pole-Zero":
-                output = self.runner.read_output(output_file)
                 data = ResultParser.parse_pz_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_pz_results(raw_output)
             else:
                 return SimulationResult(
                     success=False,

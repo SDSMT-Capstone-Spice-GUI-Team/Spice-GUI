@@ -186,7 +186,85 @@ class TestParseAcResults:
         assert result is None
 
 
-# ── parse_transient_results ──────────────────────────────────────────
+# ── parse_ac_wrdata ─────────────────────────────────────────────────
+
+
+class TestParseAcWrdata:
+    def test_valid_wrdata(self, tmp_path):
+        wrdata = tmp_path / "ac.txt"
+        wrdata.write_text(
+            "frequency vm(out) vp(out)\n"
+            "1.000000e+02 1.000000e+00 -4.500000e+01\n"
+            "1.000000e+03 5.000000e-01 -9.000000e+01\n"
+        )
+        result = ResultParser.parse_ac_wrdata(str(wrdata))
+        assert result is not None
+        assert len(result["frequencies"]) == 2
+        assert result["frequencies"][0] == pytest.approx(100.0)
+        assert "out" in result["magnitude"]
+        assert result["magnitude"]["out"][0] == pytest.approx(1.0)
+        assert "out" in result["phase"]
+        assert result["phase"]["out"][1] == pytest.approx(-90.0)
+
+    def test_vdb_headers(self, tmp_path):
+        wrdata = tmp_path / "ac_db.txt"
+        wrdata.write_text(
+            "frequency vdb(out) vp(out)\n"
+            "1.000000e+02 0.000000e+00 0.000000e+00\n"
+            "1.000000e+03 -6.020000e+00 -9.000000e+01\n"
+        )
+        result = ResultParser.parse_ac_wrdata(str(wrdata))
+        assert result is not None
+        assert "out" in result["magnitude"]
+        assert result["magnitude"]["out"][1] == pytest.approx(-6.02)
+
+    def test_empty_file_returns_none(self, tmp_path):
+        wrdata = tmp_path / "empty.txt"
+        wrdata.write_text("")
+        result = ResultParser.parse_ac_wrdata(str(wrdata))
+        assert result is None
+
+    def test_header_only_returns_none(self, tmp_path):
+        wrdata = tmp_path / "header_only.txt"
+        wrdata.write_text("frequency vm(out) vp(out)\n")
+        result = ResultParser.parse_ac_wrdata(str(wrdata))
+        assert result is None
+
+    def test_missing_file_raises_parse_error(self):
+        with pytest.raises(ResultParseError, match="wrdata file not found"):
+            ResultParser.parse_ac_wrdata("/nonexistent/path.txt")
+
+
+# ── parse_noise_wrdata ──────────────────────────────────────────────
+
+
+class TestParseNoiseWrdata:
+    def test_valid_wrdata(self, tmp_path):
+        wrdata = tmp_path / "noise.txt"
+        wrdata.write_text(
+            "frequency onoise_spectrum inoise_spectrum\n"
+            "1.000000e+00 3.200000e-09 1.600000e-09\n"
+            "1.000000e+01 3.100000e-09 1.550000e-09\n"
+        )
+        result = ResultParser.parse_noise_wrdata(str(wrdata))
+        assert result is not None
+        assert len(result["frequencies"]) == 2
+        assert result["frequencies"][0] == pytest.approx(1.0)
+        assert result["onoise_spectrum"][0] == pytest.approx(3.2e-9)
+        assert result["inoise_spectrum"][1] == pytest.approx(1.55e-9)
+
+    def test_empty_file_returns_none(self, tmp_path):
+        wrdata = tmp_path / "empty.txt"
+        wrdata.write_text("")
+        result = ResultParser.parse_noise_wrdata(str(wrdata))
+        assert result is None
+
+    def test_missing_file_raises_parse_error(self):
+        with pytest.raises(ResultParseError, match="wrdata file not found"):
+            ResultParser.parse_noise_wrdata("/nonexistent/path.txt")
+
+
+# ── parse_transient_results ─────────────────────────────────────���────
 
 
 class TestParseTransientResults:

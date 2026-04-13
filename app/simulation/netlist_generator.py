@@ -620,10 +620,10 @@ class NetlistGenerator:
             # is set. Do NOT add the source name (e.g. "v1") — ngspice does not
             # expose it as a vector; the sweep column is always named "v-sweep".
 
-            # For temperature sweep, prepend the temperature vector so the
-            # parser can extract temperature alongside node voltages.
-            if getattr(self, "_is_temp_sweep", False) and all_print_vars:
-                all_print_vars.insert(0, "temp-sweep")
+            # For temperature sweep, do NOT prepend a temperature vector
+            # to the print list — ngspice may reject unknown names (#856).
+            # The wrdata command with wr_singlescale automatically includes
+            # the scale vector (temp-sweep) as the first column.
 
             print_vars = " ".join(all_print_vars)
 

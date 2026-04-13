@@ -187,6 +187,62 @@ class ResultParser:
             raise ResultParseError(f"Error parsing DC sweep wrdata: {e}") from e
 
     @staticmethod
+    def parse_ac_wrdata(filepath):
+        """Parse AC sweep results from a wrdata file.
+
+        The wrdata file produced by ngspice with ``set wr_vecnames`` and
+        ``set wr_singlescale`` has the frequency as the first column
+        followed by magnitude and phase columns.  Returns a dict compatible
+        with :class:`ACSweepPlotDialog`, or *None* when no data is found.
+        """
+        try:
+            with open(filepath, "r") as f:
+                lines = f.readlines()
+            if not lines:
+                return None
+
+            headers = lines[0].strip().split()
+            if not headers:
+                return None
+
+            ac_data = {"frequencies": [], "magnitude": {}, "phase": {}, "headers": headers}
+
+            for line in lines[1:]:
+                parts = line.strip().split()
+                if len(parts) != len(headers):
+                    continue
+                try:
+                    freq = float(parts[0])
+                    row_mag = {}
+                    row_phase = {}
+                    for j, h in enumerate(headers[1:], start=1):
+                        h_lower = h.lower()
+                        if "vp(" in h_lower:
+                            node = re.sub(r"^vp\(", "", h, flags=re.IGNORECASE).rstrip(")")
+                            row_phase[node] = float(parts[j])
+                        elif "vdb(" in h_lower or "vm(" in h_lower or "v(" in h_lower:
+                            node = re.sub(r"^(?:vdb|vm|v)\(", "", h, flags=re.IGNORECASE).rstrip(")")
+                            row_mag[node] = float(parts[j])
+                        elif "i(" in h_lower:
+                            node = re.sub(r"^i\(", "", h, flags=re.IGNORECASE).rstrip(")")
+                            row_mag[f"i({node})"] = float(parts[j])
+
+                    ac_data["frequencies"].append(freq)
+                    for node, val in row_mag.items():
+                        ac_data["magnitude"].setdefault(node, []).append(val)
+                    for node, val in row_phase.items():
+                        ac_data["phase"].setdefault(node, []).append(val)
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable AC wrdata row: %s", line.strip())
+                    continue
+
+            return ac_data if ac_data["frequencies"] else None
+        except FileNotFoundError as e:
+            raise ResultParseError(f"wrdata file not found at {filepath}") from e
+        except (OSError, ValueError, IndexError) as e:
+            raise ResultParseError(f"Error parsing AC wrdata: {e}") from e
+
+    @staticmethod
     def parse_ac_results(output):
         """Parse AC sweep results"""
         try:
@@ -245,6 +301,54 @@ class ResultParser:
 
         except (ValueError, IndexError, KeyError, AttributeError) as e:
             raise ResultParseError(f"Error parsing AC results: {e}") from e
+
+    @staticmethod
+    def parse_noise_wrdata(filepath):
+        """Parse noise analysis results from a wrdata file.
+
+        The wrdata file produced by ngspice for noise analysis has
+        frequency as the first column followed by onoise_spectrum and
+        inoise_spectrum columns.  Returns a dict compatible with
+        :class:`NoisePlotDialog`, or *None* when no data is found.
+        """
+        try:
+            with open(filepath, "r") as f:
+                lines = f.readlines()
+            if not lines:
+                return None
+
+            headers = lines[0].strip().split()
+            if not headers:
+                return None
+
+            noise_data = {
+                "frequencies": [],
+                "onoise_spectrum": [],
+                "inoise_spectrum": [],
+            }
+
+            for line in lines[1:]:
+                parts = line.strip().split()
+                if len(parts) != len(headers):
+                    continue
+                try:
+                    freq = float(parts[0])
+                    noise_data["frequencies"].append(freq)
+                    for j, h in enumerate(headers[1:], start=1):
+                        h_lower = h.lower()
+                        if "onoise" in h_lower:
+                            noise_data["onoise_spectrum"].append(float(parts[j]))
+                        elif "inoise" in h_lower:
+                            noise_data["inoise_spectrum"].append(float(parts[j]))
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable noise wrdata row: %s", line.strip())
+                    continue
+
+            return noise_data if noise_data["frequencies"] else None
+        except FileNotFoundError as e:
+            raise ResultParseError(f"wrdata file not found at {filepath}") from e
+        except (OSError, ValueError, IndexError) as e:
+            raise ResultParseError(f"Error parsing noise wrdata: {e}") from e
 
     @staticmethod
     def parse_noise_results(output):
