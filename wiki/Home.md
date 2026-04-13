@@ -8,9 +8,9 @@ SDM Spice is an open-source circuit design and simulation platform developed at 
 
 ### Key Features
 - Visual circuit schematic editor with drag-and-drop component placement
-- 20+ components: passives, sources, dependent sources, semiconductors (BJT, MOSFET, diodes), switches
+- 24 components: passives, sources (DC and AC), dependent sources, semiconductors (BJT, MOSFET, diodes), switches, transformer, current probe
 - Intelligent wire routing with automatic pathfinding
-- Integrated ngspice simulation (DC OP, DC Sweep, AC Sweep, Transient, Temperature Sweep)
+- Integrated ngspice simulation (DC OP, DC Sweep, AC Sweep, Transient, Temperature Sweep, Noise, Monte Carlo, Sensitivity)
 - Parameter sweep across component values
 - Interactive waveform viewer with measurement cursors and result overlay
 - FFT/harmonic analysis with THD calculation
