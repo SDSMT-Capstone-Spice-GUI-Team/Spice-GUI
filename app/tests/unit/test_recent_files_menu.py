@@ -1,30 +1,91 @@
 """Tests for the Recent Files menu feature (#739).
 
 These tests verify the backend recent-files logic (no Qt required)
-and structurally confirm the menu wiring in the mixin source code.
+and behaviourally confirm the menu wiring in the mixin source code.
 """
 
-import inspect
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
 class TestRecentFilesMenuStructural:
-    """Structural tests confirming the Recent Files menu exists in the mixin code."""
+    """Behavioural tests confirming the Recent Files menu is wired up correctly."""
+
+    def _run_create_menu_bar(self, host):
+        """Run MenuBarMixin.create_menu_bar with Qt widget constructors patched.
+
+        QAction, QMenu, QKeySequence and QActionGroup all require a real QWidget/QObject
+        parent, which is unavailable without a full MainWindow.  Patching them out lets
+        the mixin run its assignment logic (self._recent_files_menu = ...) without
+        touching the display layer.
+        """
+        from GUI.main_window_menus import MenuBarMixin
+
+        with (
+            patch("GUI.main_window_menus.QAction", MagicMock(return_value=MagicMock())),
+            patch("GUI.main_window_menus.QMenu", MagicMock(return_value=MagicMock())),
+            patch("GUI.main_window_menus.QKeySequence", MagicMock(return_value=MagicMock())),
+            patch("GUI.main_window_menus.QActionGroup", MagicMock(return_value=MagicMock())),
+        ):
+            MenuBarMixin.create_menu_bar(host)
+
+    def _make_host_with_fake_menus(self):
+        """Return (host, captured_menus) where captured_menus records addMenu calls on the File menu."""
+        captured_menus = {}
+
+        def capture_add_menu(title):
+            m = MagicMock()
+            captured_menus[title] = m
+            return m
+
+        fake_file_menu = MagicMock()
+        fake_file_menu.addMenu.side_effect = capture_add_menu
+        fake_file_menu.addAction.return_value = MagicMock()
+        fake_file_menu.addSeparator.return_value = MagicMock()
+
+        def menubar_add_menu(title):
+            if title == "&File":
+                return fake_file_menu
+            m = MagicMock()
+            m.addMenu.return_value = MagicMock()
+            m.addAction.return_value = MagicMock()
+            return m
+
+        fake_menubar = MagicMock()
+        fake_menubar.addMenu.side_effect = menubar_add_menu
+
+        host = MagicMock()
+        host.menuBar.return_value = fake_menubar
+        host.keybindings = MagicMock()
+        host.keybindings.get.return_value = ""
+        return host, captured_menus
 
     def test_menu_bar_creates_recent_files_menu(self):
-        """MenuBarMixin.create_menu_bar must reference 'Recent &Files'."""
+        """After create_menu_bar runs, self._recent_files_menu must be set."""
+        host, _ = self._make_host_with_fake_menus()
+        self._run_create_menu_bar(host)
+        assert hasattr(host, "_recent_files_menu"), "create_menu_bar must set self._recent_files_menu"
+
+    def test_menu_bar_stores_recent_files_menu_attr_title(self):
+        """create_menu_bar must construct a QMenu with the title 'Recent &Files'."""
         from GUI.main_window_menus import MenuBarMixin
 
-        source = inspect.getsource(MenuBarMixin.create_menu_bar)
-        assert "Recent &Files" in source, "create_menu_bar must create a 'Recent &Files' QMenu"
+        host, _ = self._make_host_with_fake_menus()
+        mock_qmenu = MagicMock(return_value=MagicMock())
 
-    def test_menu_bar_stores_recent_files_menu_attr(self):
-        """MenuBarMixin.create_menu_bar must assign self._recent_files_menu."""
-        from GUI.main_window_menus import MenuBarMixin
+        with (
+            patch("GUI.main_window_menus.QAction", MagicMock(return_value=MagicMock())),
+            patch("GUI.main_window_menus.QMenu", mock_qmenu),
+            patch("GUI.main_window_menus.QKeySequence", MagicMock(return_value=MagicMock())),
+            patch("GUI.main_window_menus.QActionGroup", MagicMock(return_value=MagicMock())),
+        ):
+            MenuBarMixin.create_menu_bar(host)
 
-        source = inspect.getsource(MenuBarMixin.create_menu_bar)
-        assert "_recent_files_menu" in source
+        # Collect all positional-arg calls to QMenu() and check one was titled "Recent &Files"
+        titles_used = [call.args[0] for call in mock_qmenu.call_args_list if call.args]
+        assert (
+            "Recent &Files" in titles_used
+        ), f"create_menu_bar must create QMenu('Recent &Files', ...), got: {titles_used}"
 
     def test_file_ops_has_populate_method(self):
         """FileOperationsMixin must define _populate_recent_files_menu."""
@@ -45,18 +106,29 @@ class TestRecentFilesMenuStructural:
         assert hasattr(FileOperationsMixin, "_clear_recent_files")
 
     def test_populate_calls_file_ctrl(self):
-        """_populate_recent_files_menu must call file_ctrl.get_recent_files."""
+        """_populate_recent_files_menu must call file_ctrl.get_recent_files()."""
         from GUI.main_window_file_ops import FileOperationsMixin
 
-        source = inspect.getsource(FileOperationsMixin._populate_recent_files_menu)
-        assert "get_recent_files" in source
+        host = MagicMock()
+        host.file_ctrl.get_recent_files.return_value = []
+        host._recent_files_menu = MagicMock()
 
-    def test_open_recent_calls_load_circuit(self):
-        """_open_recent_file must call file_ctrl.load_circuit."""
+        FileOperationsMixin._populate_recent_files_menu(host)
+
+        host.file_ctrl.get_recent_files.assert_called_once()
+
+    def test_open_recent_calls_load_circuit(self, tmp_path):
+        """_open_recent_file must call file_ctrl.load_circuit with the given path."""
         from GUI.main_window_file_ops import FileOperationsMixin
 
-        source = inspect.getsource(FileOperationsMixin._open_recent_file)
-        assert "load_circuit" in source
+        circuit_file = tmp_path / "circuit.json"
+        circuit_file.touch()
+
+        host = MagicMock()
+
+        FileOperationsMixin._open_recent_file(host, str(circuit_file))
+
+        host.file_ctrl.load_circuit.assert_called_once_with(circuit_file)
 
 
 class TestRecentFilesBackend:

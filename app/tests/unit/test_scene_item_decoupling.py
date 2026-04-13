@@ -66,11 +66,11 @@ class TestComponentItemCanvasInjection:
     def test_no_hierarchy_climbing_in_source(self):
         """Verify no scene().views()[0] patterns remain in component_item.py."""
         import ast
-        import inspect
+        from pathlib import Path
 
         from GUI import component_item
 
-        tree = ast.parse(inspect.getsource(component_item))
+        tree = ast.parse(Path(component_item.__file__).read_text())
         # Walk the AST looking for chained calls: scene().views()[0]
         # This pattern appears as a Subscript(Call(Attribute(Call(...),'views')), 0)
         for node in ast.walk(tree):
@@ -109,11 +109,11 @@ class TestAnnotationItemCanvasInjection:
     def test_no_hierarchy_climbing_in_source(self):
         """Verify no scene().views()[0] patterns remain in annotation_item.py."""
         import ast
-        import inspect
+        from pathlib import Path
 
         from GUI import annotation_item
 
-        tree = ast.parse(inspect.getsource(annotation_item))
+        tree = ast.parse(Path(annotation_item.__file__).read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and node.attr == "views":
                 if isinstance(node.value, ast.Call):
@@ -169,11 +169,11 @@ class TestWireItemDecoupling:
     def test_no_window_statusbar_access_in_source(self):
         """Verify no window().statusBar() patterns remain in wire_item.py."""
         import ast
-        import inspect
+        from pathlib import Path
 
         from GUI import wire_item
 
-        tree = ast.parse(inspect.getsource(wire_item))
+        tree = ast.parse(Path(wire_item.__file__).read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and node.attr == "statusBar":
                 raise AssertionError("Found statusBar() reference in wire_item.py")
@@ -188,11 +188,11 @@ class TestWireItemDecoupling:
     def test_no_private_notify_in_source(self):
         """Verify no controller._notify() calls remain in wire_item.py."""
         import ast
-        import inspect
+        from pathlib import Path
 
         from GUI import wire_item
 
-        tree = ast.parse(inspect.getsource(wire_item))
+        tree = ast.parse(Path(wire_item.__file__).read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and node.attr == "_notify":
                 # Check if accessed on something named 'controller'

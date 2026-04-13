@@ -6,57 +6,91 @@ The fix applies a counter-scale before drawing text so labels remain
 in their original orientation regardless of component flip state.
 """
 
-import inspect
-import textwrap
-
 import pytest
 
 
-def _get_paint_source(cls):
-    """Return dedented source of a class's paint method."""
-    return textwrap.dedent(inspect.getsource(cls.paint))
-
-
-def _find_call_indices(source, method_name):
-    """Return line indices where painter.<method_name>(...) appears."""
-    indices = []
-    for i, line in enumerate(source.splitlines()):
-        stripped = line.strip()
-        if f"painter.{method_name}(" in stripped:
-            indices.append(i)
-    return indices
-
-
 class TestLabelCounterFlipStructural:
-    """Structural tests verifying the paint method counter-flips text.
+    """Behavioral tests verifying paint() delegates label drawing to _draw_label_text().
 
     The counter-scale and drawText logic lives in the shared
     _draw_label_text() helper.  paint() delegates to it, so we verify:
     1. paint() calls _draw_label_text
-    2. _draw_label_text contains scale() before drawText()
+    2. _draw_label_text calls scale() before drawText() when flipped
     """
 
-    def test_base_paint_delegates_to_draw_label_text(self):
+    @pytest.fixture
+    def _make_item_with_canvas(self):
+        """Factory for component items with a mock canvas that enables labels."""
+        from unittest.mock import MagicMock
+
+        from GUI.component_item import ComponentGraphicsItem, Ground
+
+        def factory(cls_or_type, comp_id):
+            if cls_or_type is Ground:
+                item = Ground(comp_id)
+            else:
+                item = ComponentGraphicsItem(comp_id, cls_or_type)
+            mock_canvas = MagicMock()
+            mock_canvas.show_component_labels = True
+            mock_canvas.show_component_values = True
+            item.canvas = mock_canvas
+            return item
+
+        return factory
+
+    def test_base_paint_delegates_to_draw_label_text(self, _make_item_with_canvas):
         """ComponentGraphicsItem.paint() must call _draw_label_text()."""
+        from unittest.mock import MagicMock, patch
+
         from GUI.component_item import ComponentGraphicsItem
 
-        src = _get_paint_source(ComponentGraphicsItem)
-        assert "_draw_label_text(" in src, "paint() must delegate to _draw_label_text()"
+        item = _make_item_with_canvas("Resistor", "R1")
+        painter = MagicMock()
 
-    def test_ground_paint_delegates_to_draw_label_text(self):
+        with patch.object(item, "_draw_label_text") as mock_draw_label:
+            item.paint(painter)
+            mock_draw_label.assert_called_once(), "paint() must delegate to _draw_label_text()"
+
+    def test_ground_paint_delegates_to_draw_label_text(self, _make_item_with_canvas):
         """Ground.paint() must call _draw_label_text()."""
+        from unittest.mock import MagicMock, patch
+
         from GUI.component_item import Ground
 
-        src = _get_paint_source(Ground)
-        assert "_draw_label_text(" in src, "paint() must delegate to _draw_label_text()"
+        item = _make_item_with_canvas(Ground, "GND1")
+        painter = MagicMock()
 
-    def test_draw_label_text_applies_counter_scale_before_drawText(self):
-        """_draw_label_text() must call scale() before drawText()."""
-        from GUI.component_item import ComponentGraphicsItem
+        with patch.object(item, "_draw_label_text") as mock_draw_label:
+            item.paint(painter)
+            mock_draw_label.assert_called_once(), "paint() must delegate to _draw_label_text()"
 
-        src = textwrap.dedent(inspect.getsource(ComponentGraphicsItem._draw_label_text))
-        scale_indices = _find_call_indices(src, "scale")
-        drawtext_indices = _find_call_indices(src, "drawText")
+    def test_draw_label_text_applies_counter_scale_before_drawText(self, _make_item_with_canvas):
+        """_draw_label_text() must call scale() before drawText() when component is flipped."""
+        from unittest.mock import MagicMock, patch
+
+        from PyQt6.QtGui import QColor, QPen
+
+        item = _make_item_with_canvas("Resistor", "R1")
+        item.model.flip_h = True
+
+        painter = MagicMock()
+        call_log = []
+
+        def track_scale(*args):
+            call_log.append(("scale", args))
+
+        def track_drawText(*args):
+            call_log.append(("drawText", args))
+
+        painter.scale = track_scale
+        painter.drawText = track_drawText
+
+        color = QColor(0, 0, 0)
+        # Call _draw_label_text directly with sx=-1 (flipped) to isolate its behavior
+        item._draw_label_text(painter, color, -1, 1, True, True, "R1", "1k")
+
+        scale_indices = [i for i, e in enumerate(call_log) if e[0] == "scale"]
+        drawtext_indices = [i for i, e in enumerate(call_log) if e[0] == "drawText"]
 
         assert len(scale_indices) >= 1, "Must have counter-scale call"
         assert len(drawtext_indices) >= 1, "Must have drawText() call"

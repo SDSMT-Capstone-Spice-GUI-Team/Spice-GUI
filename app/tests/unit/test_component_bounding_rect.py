@@ -7,35 +7,57 @@ were never invalidated during drag, leaving rendering artifacts.
 Fix: boundingRect() now unions _symbol_rect() with QFontMetrics-measured text.
 """
 
-import inspect
-import textwrap
-
 import pytest
 
 
 class TestBoundingRectIncludesText:
-    """Structural tests verifying boundingRect() accounts for text labels."""
+    """Behavioral tests verifying boundingRect() accounts for text labels."""
 
-    def test_base_bounding_rect_calls_symbol_rect(self):
-        """boundingRect() must delegate to _symbol_rect() for the symbol portion."""
-        from GUI.component_item import ComponentGraphicsItem
+    def test_base_bounding_rect_contains_symbol_rect(self):
+        """boundingRect() must contain the entire _symbol_rect() area."""
+        from GUI.component_item import Resistor
 
-        src = textwrap.dedent(inspect.getsource(ComponentGraphicsItem.boundingRect))
-        assert "_symbol_rect()" in src
+        comp = Resistor("R1")
+        symbol = comp._symbol_rect()
+        bounding = comp.boundingRect()
 
-    def test_base_bounding_rect_uses_font_metrics(self):
-        """boundingRect() must measure text with QFontMetricsF."""
-        from GUI.component_item import ComponentGraphicsItem
+        assert bounding.left() <= symbol.left(), "boundingRect left must be <= symbol rect left"
+        assert bounding.top() <= symbol.top(), "boundingRect top must be <= symbol rect top"
+        assert bounding.right() >= symbol.right(), "boundingRect right must be >= symbol rect right"
+        assert bounding.bottom() >= symbol.bottom(), "boundingRect bottom must be >= symbol rect bottom"
 
-        src = textwrap.dedent(inspect.getsource(ComponentGraphicsItem.boundingRect))
-        assert "QFontMetricsF" in src
+    def test_base_bounding_rect_larger_than_symbol_rect_when_labels_shown(self):
+        """boundingRect() must be larger than _symbol_rect() when labels are visible."""
+        from GUI.component_item import Resistor
 
-    def test_base_bounding_rect_unions_text_rect(self):
-        """boundingRect() must union the symbol rect with the text rect."""
-        from GUI.component_item import ComponentGraphicsItem
+        comp = Resistor("R1")
+        symbol = comp._symbol_rect()
+        bounding = comp.boundingRect()
 
-        src = textwrap.dedent(inspect.getsource(ComponentGraphicsItem.boundingRect))
-        assert ".united(" in src
+        # With labels shown (the default when canvas is None), text is included
+        symbol_area = symbol.width() * symbol.height()
+        bounding_area = bounding.width() * bounding.height()
+        assert (
+            bounding_area > symbol_area
+        ), "boundingRect() area must exceed _symbol_rect() area when text labels are included"
+
+    def test_base_bounding_rect_equals_symbol_rect_when_labels_hidden(self):
+        """boundingRect() must equal _symbol_rect() when both label and value are hidden."""
+        from unittest.mock import MagicMock
+
+        from GUI.component_item import Resistor
+
+        comp = Resistor("R1")
+        # Attach a mock canvas that hides both label and value
+        canvas = MagicMock()
+        canvas.show_component_labels = False
+        canvas.show_component_values = False
+        comp.canvas = canvas
+
+        symbol = comp._symbol_rect()
+        bounding = comp.boundingRect()
+
+        assert bounding == symbol, "boundingRect() must equal _symbol_rect() when no text is shown"
 
     def test_label_text_helper_exists(self):
         """_label_text() helper must exist for boundingRect() to measure."""
@@ -80,10 +102,33 @@ class TestBoundingRectIncludesText:
                 cls.boundingRect is ComponentGraphicsItem.boundingRect
             ), f"{cls.__name__} must not override boundingRect() — override _symbol_rect() instead"
 
-    def test_obstacle_shape_uses_symbol_rect(self):
-        """_bounding_rect_obstacle must use _symbol_rect, not boundingRect."""
+    def test_obstacle_shape_matches_symbol_rect_not_bounding_rect(self):
+        """_bounding_rect_obstacle must produce a polygon matching _symbol_rect(), not boundingRect()."""
+        from GUI.component_item import Resistor
         from GUI.renderers import _bounding_rect_obstacle
 
-        src = textwrap.dedent(inspect.getsource(_bounding_rect_obstacle))
-        assert "_symbol_rect()" in src
-        assert "boundingRect" not in src
+        comp = Resistor("R1")
+        symbol = comp._symbol_rect()
+        bounding = comp.boundingRect()
+
+        obstacle = _bounding_rect_obstacle(comp)
+
+        # The obstacle polygon corners must match the symbol rect corners exactly
+        expected = [
+            (symbol.left(), symbol.top()),
+            (symbol.right(), symbol.top()),
+            (symbol.right(), symbol.bottom()),
+            (symbol.left(), symbol.bottom()),
+        ]
+        assert obstacle == expected, "Obstacle shape must be derived from _symbol_rect()"
+
+        # Verify the obstacle does NOT match the (larger) bounding rect corners
+        bounding_corners = [
+            (bounding.left(), bounding.top()),
+            (bounding.right(), bounding.top()),
+            (bounding.right(), bounding.bottom()),
+            (bounding.left(), bounding.bottom()),
+        ]
+        assert (
+            obstacle != bounding_corners
+        ), "Obstacle shape must not be derived from boundingRect() — it would include text area"
