@@ -2,7 +2,7 @@ from controllers.settings_service import settings as app_settings
 from models.builtin_subcircuits import register_builtin_subcircuits
 from models.component import COMPONENT_CATEGORIES
 from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QBrush, QDrag, QFont, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QDrag, QFont, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from .component_item import COMPONENT_CLASSES
@@ -63,7 +63,7 @@ def create_component_icon(component_type, size=48):
         # Fallback icon for subcircuit components without a renderer class
         color = theme_manager.get_component_color(component_type)
         painter.setPen(QPen(color, 2))
-        painter.setBrush(QBrush(color.lighter(150)))
+        painter.setBrush(theme_manager.brush("component_fill"))
         margin = int(size * 0.15)
         painter.drawRect(margin, margin, size - 2 * margin, size - 2 * margin)
         painter.end()
@@ -74,7 +74,7 @@ def create_component_icon(component_type, size=48):
     # Set up painter with theme color
     color = theme_manager.get_component_color(temp_comp.component_type)
     painter.setPen(QPen(color, 2))
-    painter.setBrush(QBrush(color.lighter(150)))
+    painter.setBrush(theme_manager.brush("component_fill"))
 
     # Center and scale to fit icon
     painter.translate(size / 2, size / 2)
