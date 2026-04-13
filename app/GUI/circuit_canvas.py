@@ -107,6 +107,7 @@ class CircuitCanvasView(QGraphicsView):
         self.temp_wire_line = None  # Temporary line while drawing wire
         self._wire_waypoints: list[QPointF] = []  # In-progress waypoints (click-to-place)
         self._wire_waypoint_markers: list = []  # Visual markers for placed waypoints
+        self._wire_path_blocked = False  # True when preview path intersects a component
 
         # Rubber band selection
         self._rubber_band = None
@@ -909,6 +910,18 @@ class CircuitCanvasView(QGraphicsView):
             else:
                 anchor = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
             self.temp_wire_line.setLine(anchor.x(), anchor.y(), scene_pos.x(), scene_pos.y())
+
+            # Check if wire path intersects any component
+            blocked = self._check_wire_preview_blocked(scene_pos)
+            if blocked and not self._wire_path_blocked:
+                self._wire_path_blocked = True
+                pen = QPen(Qt.GlobalColor.red, 2, Qt.PenStyle.DashLine)
+                self.temp_wire_line.setPen(pen)
+                self.statusMessage.emit("Wire path is blocked by a component", 3000)
+            elif not blocked and self._wire_path_blocked:
+                self._wire_path_blocked = False
+                self.temp_wire_line.setPen(theme_manager.pen("wire_preview"))
+
             self.temp_wire_line.update()
             event.accept()
             return
@@ -942,6 +955,40 @@ class CircuitCanvasView(QGraphicsView):
 
         super().mouseReleaseEvent(event)
 
+    def _wire_preview_intersects_component(self, p1: QPointF, p2: QPointF) -> bool:
+        """Check if a line segment intersects any component's bounding rect.
+
+        Excludes the component where wire drawing started.
+        """
+        from PyQt6.QtCore import QLineF
+
+        line = QLineF(p1, p2)
+        for comp in self.components.values():
+            if comp is self.wire_start_comp:
+                continue
+            rect = comp.sceneBoundingRect()
+            # Check intersection with all four edges of the bounding rect
+            edges = [
+                QLineF(rect.topLeft(), rect.topRight()),
+                QLineF(rect.topRight(), rect.bottomRight()),
+                QLineF(rect.bottomRight(), rect.bottomLeft()),
+                QLineF(rect.bottomLeft(), rect.topLeft()),
+            ]
+            for edge in edges:
+                intersection_type = line.intersects(edge)[0]
+                if intersection_type == QLineF.IntersectionType.BoundedIntersection:
+                    return True
+        return False
+
+    def _check_wire_preview_blocked(self, scene_pos: QPointF) -> bool:
+        """Check if the full wire preview path (all waypoints + current segment) is blocked."""
+        start_pos = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+        points = [start_pos] + list(self._wire_waypoints) + [scene_pos]
+        for i in range(len(points) - 1):
+            if self._wire_preview_intersects_component(points[i], points[i + 1]):
+                return True
+        return False
+
     def cancel_wire_drawing(self):
         """Cancel any in-progress wire drawing and clean up the preview line."""
         was_drawing = self.wire_start_comp is not None
@@ -951,6 +998,7 @@ class CircuitCanvasView(QGraphicsView):
         self.wire_start_comp = None
         self.wire_start_term = None
         self._wire_waypoints.clear()
+        self._wire_path_blocked = False
         self._remove_waypoint_markers()
         # Restore default cursor when wire drawing ends
         if was_drawing:
