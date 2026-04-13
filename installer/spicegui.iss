@@ -52,7 +52,7 @@ VersionInfoVersion={#MyAppNumericVersion}.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppName} Installer
 VersionInfoProductName={#MyAppName}
-VersionInfoProductVersion={#MyAppVersion}
+VersionInfoProductVersion={#MyAppNumericVersion}
 ; Uncomment when an .ico file is added:
 ; SetupIconFile=..\app\assets\spicegui.ico
 
