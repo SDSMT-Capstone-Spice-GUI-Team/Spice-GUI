@@ -426,7 +426,14 @@ class ViewOperationsMixin:
 
             painter = QPainter(generator)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            # Override scene background to white so dark-mode theme doesn't leak
+            from PyQt6.QtCore import Qt
+            from PyQt6.QtGui import QBrush
+
+            original_brush = scene.backgroundBrush()
+            scene.setBackgroundBrush(QBrush(Qt.GlobalColor.white))
             scene.render(painter, QRectF(0, 0, width, height), source_rect)
+            scene.setBackgroundBrush(original_brush)
             painter.end()
 
             # Embed circuit data in the SVG for shareable round-trip import
@@ -447,7 +454,13 @@ class ViewOperationsMixin:
             painter = QPainter(image)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             target_rect = QRectF(0, 0, width, height)
+            # Override scene background to white so dark-mode theme doesn't leak
+            from PyQt6.QtGui import QBrush
+
+            original_brush = scene.backgroundBrush()
+            scene.setBackgroundBrush(QBrush(Qt.GlobalColor.white))
             scene.render(painter, target=target_rect, source=source_rect)
+            scene.setBackgroundBrush(original_brush)
             painter.end()
             image.save(filename)
 

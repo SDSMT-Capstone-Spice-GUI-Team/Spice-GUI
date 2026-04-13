@@ -39,7 +39,7 @@ class PrintExportMixin:
         aspect ratio. Forces a white background regardless of theme.
         """
         from PyQt6.QtCore import QRectF, Qt
-        from PyQt6.QtGui import QPainter
+        from PyQt6.QtGui import QBrush, QPainter
 
         source_rect = self._get_circuit_source_rect()
         if source_rect is None:
@@ -63,7 +63,12 @@ class PrintExportMixin:
         target_y = (page_rect.height() - target_h) / 2
         target_rect = QRectF(target_x, target_y, target_w, target_h)
 
-        self.canvas.scene().render(painter, target=target_rect, source=source_rect)
+        # Override scene background to white so dark-mode theme doesn't leak
+        scene = self.canvas.scene()
+        original_brush = scene.backgroundBrush()
+        scene.setBackgroundBrush(QBrush(Qt.GlobalColor.white))
+        scene.render(painter, target=target_rect, source=source_rect)
+        scene.setBackgroundBrush(original_brush)
         painter.end()
 
     def _on_print(self):
