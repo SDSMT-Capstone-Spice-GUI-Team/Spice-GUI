@@ -167,8 +167,7 @@ SDM Spice is currently in **Phase 1 (Student MVP)** development as part of an SD
 
 - **[Installation Guide](docs/installation-guide.md)** - Windows installer setup, troubleshooting, and uninstall instructions
 - **[Architecture Decision Records](Doc/decisions/)** - Important architectural decisions and their rationale
-- **[Development Methodology](Doc/autonomous-workflow.md)** - AI-assisted development approach and autonomous workflow
-- **[Project Evolution](Doc/project-evolution.md)** - How the project evolved from discovery to implementation
+- **[Project Evolution](Doc/project-evolution.md)** - AI-assisted development approach and how the project evolved
 - **[Discovery Documentation](DiscoveryDocs/)** - Initial exploration and requirements gathering (academic assignment)
 
 ## Development Setup
