@@ -200,5 +200,6 @@ def write_csv(csv_content, filepath):
         csv_content: str from one of the export_* functions
         filepath: path to write to
     """
-    with open(filepath, "w", newline="") as f:
-        f.write(csv_content)
+    from utils.atomic_write import atomic_write_text
+
+    atomic_write_text(filepath, csv_content, newline="")

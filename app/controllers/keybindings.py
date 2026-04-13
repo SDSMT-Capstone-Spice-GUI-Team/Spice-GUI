@@ -122,13 +122,14 @@ class KeybindingsRegistry:
         self._bindings = dict(DEFAULTS)
 
     def save(self):
-        """Save user overrides to JSON config file."""
+        """Save user overrides to JSON config file (atomic write)."""
         # Only save non-default bindings
         overrides = {k: v for k, v in self._bindings.items() if v != DEFAULTS.get(k)}
         try:
+            from utils.atomic_write import atomic_write_text
+
             self._config_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._config_path, "w") as f:
-                json.dump(overrides, f, indent=2)
+            atomic_write_text(self._config_path, json.dumps(overrides, indent=2))
         except OSError as e:
             logger.error("Failed to save keybindings: %s", e)
 

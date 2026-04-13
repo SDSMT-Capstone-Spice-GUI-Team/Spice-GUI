@@ -86,8 +86,9 @@ class TemplateController:
             recommended_components=list(recommended_components or []),
         )
 
-        with open(filepath, "w") as f:
-            json.dump(template.to_dict(), f, indent=2)
+        from utils.atomic_write import atomic_write_text
+
+        atomic_write_text(filepath, json.dumps(template.to_dict(), indent=2))
 
     def load_template(self, filepath) -> TemplateData:
         """Load a template file and return parsed TemplateData.

@@ -34,9 +34,10 @@ def save_assignment(bundle: AssignmentBundle, filepath) -> None:
         bundle: The assignment bundle to save.
         filepath: Path to write the file.
     """
+    from utils.atomic_write import atomic_write_text
+
     filepath = Path(filepath)
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(bundle.to_dict(), f, indent=2)
+    atomic_write_text(filepath, json.dumps(bundle.to_dict(), indent=2))
 
 
 def load_assignment(filepath) -> AssignmentBundle:

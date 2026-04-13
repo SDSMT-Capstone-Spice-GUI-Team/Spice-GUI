@@ -122,6 +122,8 @@ def export_student_reports(
     Raises:
         OSError: If the output directory cannot be created or files can't be written.
     """
+    from utils.atomic_write import atomic_write_text
+
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
@@ -133,8 +135,7 @@ def export_student_reports(
         report_path = out_path / report_name
 
         html_content = generate_student_report_html(gr)
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
+        atomic_write_text(report_path, html_content)
 
         created_files.append(str(report_path))
 

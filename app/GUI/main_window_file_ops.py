@@ -852,9 +852,10 @@ class FileOperationsMixin:
             elif export_function == "export_results_excel":
                 self._re_export_results_excel(path)
             elif export_function == "export_circuitikz":
+                from utils.atomic_write import atomic_write_text
+
                 content = self.simulation_ctrl.generate_circuitikz()
-                with open(path, "w") as f:
-                    f.write(content)
+                atomic_write_text(path, content)
             elif export_function == "export_asc":
                 self.file_ctrl.export_asc(path)
             elif export_function == "export_results_markdown":

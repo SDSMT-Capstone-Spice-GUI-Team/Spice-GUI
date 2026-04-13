@@ -501,8 +501,9 @@ class ViewOperationsMixin:
             filename += ".tex"
 
         try:
-            with open(filename, "w", encoding="utf-8") as f:
-                f.write(tikz_code)
+            from utils.atomic_write import atomic_write_text
+
+            atomic_write_text(filename, tikz_code)
             statusBar = self.statusBar()
             if statusBar:
                 statusBar.showMessage(f"CircuiTikZ exported to {filename}", STATUS_DURATION_DEFAULT)

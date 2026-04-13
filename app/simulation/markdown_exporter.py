@@ -153,5 +153,6 @@ def export_noise_results(noise_data, circuit_name=""):
 
 def write_markdown(md_content, filepath):
     """Write Markdown content string to a file."""
-    with open(filepath, "w") as f:
-        f.write(md_content)
+    from utils.atomic_write import atomic_write_text
+
+    atomic_write_text(filepath, md_content)
