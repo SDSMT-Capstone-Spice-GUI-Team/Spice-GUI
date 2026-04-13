@@ -1,5 +1,5 @@
 """
-Unit tests for Phase 4: Full MVC Flow
+Unit tests for MVC flow.
 
 Tests the complete flow from controllers to model, verifying that the MVC
 architecture works end-to-end. These tests do NOT require ngspice.
@@ -313,10 +313,10 @@ class TestMVCErrorPropagation:
 
 
 class TestMVCBackwardCompatibility:
-    """Test that Phase 4 maintains Phase 3 backward compatibility"""
+    """Test that MVC maintains backward compatibility"""
 
     def test_old_imports_still_work(self):
-        """Test that old import names still work after Phase 4"""
+        """Test that old import names still work"""
         # These should all work due to backward compatibility
         # Old names should map to new classes
         from GUI import CircuitCanvas, CircuitCanvasView, WireGraphicsItem, WireItem
@@ -325,15 +325,15 @@ class TestMVCBackwardCompatibility:
         assert WireItem is WireGraphicsItem
 
     def test_phase3_models_work_with_phase4_controllers(self):
-        """Test that Phase 3 models work with Phase 4 controllers"""
+        """Test that models work with controllers"""
         from controllers.file_controller import FileController
         from models.component import ComponentData
 
-        # Create Phase 3 style data
+        # Create model data
         comp = ComponentData("R1", "Resistor", "1k", (0, 0))
         wire = WireData("R1", 0, "R2", 0)
 
-        # Should work with Phase 4 controllers
+        # Should work with controllers
         model = CircuitModel()
         model.components = {"R1": comp}
         model.wires = [wire]

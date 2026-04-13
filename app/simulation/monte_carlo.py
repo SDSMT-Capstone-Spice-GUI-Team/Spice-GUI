@@ -8,7 +8,7 @@ No Qt dependencies — pure computation module.
 import logging
 
 import numpy as np
-from utils.format_utils import parse_spice_value  # noqa: F401  — re-exported for backward compat
+from utils.format_utils import parse_spice_value
 
 logger = logging.getLogger(__name__)
 

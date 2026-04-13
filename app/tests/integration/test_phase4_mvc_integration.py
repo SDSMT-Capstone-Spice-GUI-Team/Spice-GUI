@@ -1,5 +1,5 @@
 """
-Integration tests for Phase 4 MVC that require ngspice.
+Integration tests for MVC that require ngspice.
 
 Non-ngspice tests have been moved to app/tests/unit/test_phase4_mvc.py
 as part of #772 to avoid silent CI skips.
