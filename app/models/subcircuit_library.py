@@ -197,7 +197,7 @@ class SubcircuitLibrary:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 defn = SubcircuitDefinition.from_dict(data)
                 self._definitions[defn.name] = defn
-            except Exception:
+            except (json.JSONDecodeError, OSError, ValueError, KeyError):
                 logger.warning("Failed to load subcircuit from %s", path, exc_info=True)
 
     def _load_builtins(self) -> None:
@@ -306,7 +306,7 @@ def register_subcircuit_component(defn: SubcircuitDefinition) -> None:
         theme = theme_manager.current_theme
         if hasattr(theme, "_colors"):
             theme._colors.setdefault(color_key, "#FF6F00")
-    except Exception:
+    except (ImportError, AttributeError):
         pass  # GUI styles unavailable (headless / test environment)
 
     # Terminal geometry

@@ -180,5 +180,5 @@ class CircuitStatisticsPanel(QWidget):
         try:
             netlist = self.simulation_ctrl.generate_netlist()
             self._netlist_text.setPlainText(netlist)
-        except Exception:
+        except (ValueError, KeyError, TypeError):
             self._netlist_text.setPlainText("(netlist generation requires valid circuit)")

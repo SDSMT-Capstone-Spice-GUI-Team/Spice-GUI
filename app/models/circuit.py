@@ -186,7 +186,7 @@ class CircuitModel:
             try:
                 component = ComponentData.from_dict(comp_data)
                 model.components[component.component_id] = component
-            except Exception as exc:
+            except (ValueError, KeyError, TypeError) as exc:
                 logger.warning("Skipping corrupt component #%d: %s", i + 1, exc)
 
         for i, wire_data in enumerate(data.get("wires", [])):
@@ -200,7 +200,7 @@ class CircuitModel:
                     )
                     continue
                 model.wires.append(wire)
-            except Exception as exc:
+            except (ValueError, KeyError, TypeError) as exc:
                 logger.warning("Skipping corrupt wire #%d: %s", i + 1, exc)
 
         model.rebuild_nodes()
@@ -219,7 +219,7 @@ class CircuitModel:
         for i, ann_data in enumerate(data.get("annotations", [])):
             try:
                 model.annotations.append(AnnotationData.from_dict(ann_data))
-            except Exception as exc:
+            except (ValueError, TypeError, AttributeError) as exc:
                 logger.warning("Skipping corrupt annotation #%d: %s", i + 1, exc)
 
         model.recommended_components = list(data.get("recommended_components", []))

@@ -493,7 +493,7 @@ class ViewOperationsMixin:
                 include_net_labels=opts["include_net_labels"],
                 style=opts["style"],
             )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
             return
 
@@ -533,7 +533,7 @@ class ViewOperationsMixin:
 
         try:
             tikz_code = self.simulation_ctrl.generate_circuitikz(standalone=False)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
             return
 

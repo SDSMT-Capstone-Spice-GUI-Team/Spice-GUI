@@ -10,6 +10,7 @@ No Qt dependencies.
 """
 
 import base64
+import binascii
 import json
 import logging
 import re
@@ -102,5 +103,5 @@ def extract_circuit_data_from_string(svg_text):
     try:
         json_bytes = base64.b64decode(b64_data)
         return json.loads(json_bytes)
-    except Exception as exc:
+    except (binascii.Error, json.JSONDecodeError, TypeError) as exc:
         raise ValueError(f"Corrupt circuit data in SVG: {exc}") from exc

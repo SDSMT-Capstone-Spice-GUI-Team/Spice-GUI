@@ -396,7 +396,7 @@ class ComponentPalette(QWidget):
             child = QTreeWidgetItem(category_item, [component_name])
             try:
                 child.setIcon(0, create_component_icon(component_name))
-            except Exception:
+            except (AttributeError, ValueError, TypeError):
                 pass
             child.setToolTip(
                 0,

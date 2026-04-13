@@ -709,7 +709,7 @@ class FFTAnalysisDialog(QDialog):
             else:
                 self._fft_result = SimulationController.compute_signal_fft(self.time, signal, signal_name, window_type)
             self._replot()
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             QMessageBox.critical(self, "FFT Error", f"Failed to compute FFT: {e}")
 
     def _replot(self):

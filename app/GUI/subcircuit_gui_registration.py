@@ -37,7 +37,7 @@ def register_subcircuit_gui(defn: SubcircuitDefinition) -> None:
             "terminals": defn.terminal_count,
             "color_key": "component_subcircuit",
         }
-    except Exception:
+    except (ImportError, AttributeError):
         pass  # OK if GUI not available (headless tests)
 
     _register_graphics(name, defn)
@@ -61,14 +61,14 @@ def _register_graphics(name: str, defn: SubcircuitDefinition) -> None:
                 },
             )
             COMPONENT_CLASSES[name] = cls
-    except Exception:
+    except (ImportError, AttributeError):
         pass  # GUI not importable in headless/model-only tests
 
     try:
         from GUI.renderers import _make_iec_delegate, register
 
         _register_subcircuit_renderer(name, defn, register, _make_iec_delegate)
-    except Exception:
+    except (ImportError, AttributeError):
         pass
 
 
@@ -118,5 +118,5 @@ def _register_subcircuit_renderer(name, defn, register_fn, make_iec_delegate_fn)
     try:
         register_fn(name, "ieee", renderer)
         register_fn(name, "iec", make_iec_delegate_fn(renderer))
-    except Exception:
+    except (TypeError, ValueError, KeyError, RuntimeError):
         pass
