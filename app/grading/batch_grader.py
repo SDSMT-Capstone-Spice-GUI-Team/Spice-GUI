@@ -108,8 +108,8 @@ class BatchGrader:
                 )
                 result.results.append(grade_result)
                 result.successful += 1
-            except Exception as e:
-                logger.warning("Failed to grade %s: %s", filename, e)
+            except (OSError, json.JSONDecodeError, ValueError, KeyError) as e:
+                logger.exception("Failed to grade %s", filename)
                 result.errors.append((filename, str(e)))
                 result.failed += 1
 
@@ -121,6 +121,9 @@ class BatchGrader:
     @staticmethod
     def _load_circuit(filepath: Path) -> CircuitModel:
         """Load a circuit from a .json or .spice-template file."""
+        from controllers.file_controller import check_file_size
+
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             data = json.load(f)
 

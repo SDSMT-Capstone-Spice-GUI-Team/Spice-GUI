@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,38 +20,24 @@ class TestInit:
 
 
 class TestFindNgspice:
-    """Tests for find_ngspice()."""
+    """Tests for find_ngspice() — delegates to ngspice_config.resolve_ngspice_path."""
 
-    def test_found_via_shutil_which(self, tmp_path):
+    def test_found_sets_cmd(self, tmp_path):
         runner = NgspiceRunner(output_dir=str(tmp_path))
-        with patch("simulation.ngspice_runner.shutil.which", return_value="/usr/bin/ngspice"):
+        with patch(
+            "simulation.ngspice_runner.resolve_ngspice_path",
+            return_value="/usr/bin/ngspice",
+        ):
             result = runner.find_ngspice()
         assert result == "/usr/bin/ngspice"
         assert runner.ngspice_cmd == "/usr/bin/ngspice"
 
     def test_not_found_returns_none(self, tmp_path):
         runner = NgspiceRunner(output_dir=str(tmp_path))
-        with (
-            patch("simulation.ngspice_runner.shutil.which", return_value=None),
-            patch("simulation.ngspice_runner.os.path.exists", return_value=False),
-        ):
+        with patch("simulation.ngspice_runner.resolve_ngspice_path", return_value=None):
             result = runner.find_ngspice()
         assert result is None
         assert runner.ngspice_cmd is None
-
-    def test_fallback_path_found(self, tmp_path):
-        runner = NgspiceRunner(output_dir=str(tmp_path))
-
-        def fake_exists(path):
-            return path == "/usr/local/bin/ngspice"
-
-        with (
-            patch("simulation.ngspice_runner.shutil.which", return_value=None),
-            patch("simulation.ngspice_runner.platform.system", return_value="Linux"),
-            patch("simulation.ngspice_runner.os.path.exists", side_effect=fake_exists),
-        ):
-            result = runner.find_ngspice()
-        assert result == "/usr/local/bin/ngspice"
 
 
 class TestRunSimulation:
@@ -58,10 +45,7 @@ class TestRunSimulation:
 
     def test_ngspice_not_found(self, tmp_path):
         runner = NgspiceRunner(output_dir=str(tmp_path))
-        with (
-            patch("simulation.ngspice_runner.shutil.which", return_value=None),
-            patch("simulation.ngspice_runner.os.path.exists", return_value=False),
-        ):
+        with patch("simulation.ngspice_runner.resolve_ngspice_path", return_value=None):
             success, output_file, stdout, stderr = runner.run_simulation("test netlist")
         assert success is False
         assert "not found" in stderr
@@ -142,6 +126,29 @@ class TestEmptyOutputDetection:
         assert success is False
         assert output_file is None
 
+    def test_nonzero_exit_code_with_output_returns_failure(self, tmp_path):
+        """Non-zero exit code must be treated as failure even when output exists (#508)."""
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/usr/bin/ngspice"
+
+        mock_result = MagicMock()
+        mock_result.stdout = ""
+        mock_result.stderr = "Error: some ngspice error"
+        mock_result.returncode = 1
+
+        def fake_run(cmd, **kwargs):
+            output_path = cmd[4]
+            with open(output_path, "w") as f:
+                f.write("partial output before error\n")
+            return mock_result
+
+        with patch("simulation.ngspice_runner.subprocess.run", side_effect=fake_run):
+            success, output_file, stdout, stderr = runner.run_simulation("test netlist")
+
+        assert success is False
+        assert output_file is not None  # output preserved for diagnosis
+        assert "Error" in stderr
+
     def test_nonempty_output_file_returns_success(self, tmp_path):
         """A non-empty output file should return success=True."""
         runner = NgspiceRunner(output_dir=str(tmp_path))
@@ -181,3 +188,204 @@ class TestEmptyOutputDetection:
         assert success is False
         assert output_file is None
         assert "no output" in stderr.lower() or "not created" in stderr.lower()
+
+
+# ── Temp-file cleanup (issue #780) ───────────────────────────────────
+
+
+def _fake_run_writing_output(output_content="results\n"):
+    """Return a fake subprocess.run side_effect that writes to the output file."""
+
+    def _inner(cmd, **kwargs):
+        output_path = cmd[4]
+        with open(output_path, "w") as f:
+            f.write(output_content)
+        m = MagicMock()
+        m.stdout = ""
+        m.stderr = ""
+        m.returncode = 0
+        return m
+
+    return _inner
+
+
+class TestTempFileCleanup:
+    """Verify that successive runs do not accumulate stale temp files (#780)."""
+
+    def test_second_run_removes_first_run_files(self, tmp_path):
+        """Files from run 1 must be deleted before run 2 starts."""
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/fake/ngspice"
+
+        # Mock datetime so each call returns a unique timestamp, ensuring
+        # run 1 and run 2 produce differently-named files.
+        ts1 = datetime(2024, 1, 1, 0, 0, 1)
+        ts2 = datetime(2024, 1, 1, 0, 0, 2)
+
+        with patch("simulation.ngspice_runner.datetime") as mock_dt:
+            mock_dt.now.return_value = ts1
+            with patch(
+                "simulation.ngspice_runner.subprocess.run",
+                side_effect=_fake_run_writing_output(),
+            ):
+                runner.run_simulation("netlist 1")
+
+        # After run 1, files still exist (accessible for result reading).
+        first_run_files = {f.name for f in tmp_path.iterdir()}
+        assert any("netlist_" in n for n in first_run_files)
+
+        with patch("simulation.ngspice_runner.datetime") as mock_dt:
+            mock_dt.now.return_value = ts2
+            with patch(
+                "simulation.ngspice_runner.subprocess.run",
+                side_effect=_fake_run_writing_output(),
+            ):
+                runner.run_simulation("netlist 2")
+
+        # Run-1 files must be gone; only run-2 files remain.
+        remaining = {f.name for f in tmp_path.iterdir()}
+        for name in first_run_files:
+            assert name not in remaining, f"Stale file from run 1 still present: {name}"
+
+    def test_keep_files_env_var_prevents_cleanup(self, tmp_path, monkeypatch):
+        """SPICE_KEEP_SIM_OUTPUT=1 must suppress all file deletion."""
+        monkeypatch.setenv("SPICE_KEEP_SIM_OUTPUT", "1")
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/fake/ngspice"
+
+        ts1 = datetime(2024, 1, 1, 0, 0, 1)
+        ts2 = datetime(2024, 1, 1, 0, 0, 2)
+
+        with patch("simulation.ngspice_runner.datetime") as mock_dt:
+            mock_dt.now.return_value = ts1
+            with patch(
+                "simulation.ngspice_runner.subprocess.run",
+                side_effect=_fake_run_writing_output(),
+            ):
+                runner.run_simulation("netlist 1")
+
+        first_run_files = {f.name for f in tmp_path.iterdir()}
+
+        with patch("simulation.ngspice_runner.datetime") as mock_dt:
+            mock_dt.now.return_value = ts2
+            with patch(
+                "simulation.ngspice_runner.subprocess.run",
+                side_effect=_fake_run_writing_output(),
+            ):
+                runner.run_simulation("netlist 2")
+
+        # All files from run 1 must still be present (no cleanup).
+        remaining = {f.name for f in tmp_path.iterdir()}
+        for name in first_run_files:
+            assert name in remaining, f"File was deleted despite SPICE_KEEP_SIM_OUTPUT=1: {name}"
+
+    def test_single_run_files_persist_for_result_reading(self, tmp_path):
+        """Files from the current run must still exist after run_simulation returns."""
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/fake/ngspice"
+
+        with patch(
+            "simulation.ngspice_runner.subprocess.run",
+            side_effect=_fake_run_writing_output(),
+        ):
+            success, output_file, _, _ = runner.run_simulation("netlist")
+
+        assert success is True
+        assert output_file is not None
+        assert os.path.exists(output_file), "Output file must exist after run for result reading"
+
+    def test_failed_run_netlist_cleaned_on_next_run(self, tmp_path):
+        """Even when the run fails (no output), the netlist is cleaned up on the next run."""
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/fake/ngspice"
+
+        ts1 = datetime(2024, 1, 1, 0, 0, 1)
+        ts2 = datetime(2024, 1, 1, 0, 0, 2)
+
+        # First run produces no output file → failure
+        noop_result = MagicMock()
+        noop_result.stdout = ""
+        noop_result.stderr = "error"
+        noop_result.returncode = 1
+        with patch("simulation.ngspice_runner.datetime") as mock_dt:
+            mock_dt.now.return_value = ts1
+            with patch("simulation.ngspice_runner.subprocess.run", return_value=noop_result):
+                success, _, _, _ = runner.run_simulation("bad netlist")
+        assert success is False
+
+        files_after_fail = {f.name for f in tmp_path.iterdir()}
+        assert any("netlist_" in n for n in files_after_fail), "Netlist file should exist after failed run"
+
+        # Second run should clean up the netlist from the failed run.
+        with patch("simulation.ngspice_runner.datetime") as mock_dt:
+            mock_dt.now.return_value = ts2
+            with patch(
+                "simulation.ngspice_runner.subprocess.run",
+                side_effect=_fake_run_writing_output(),
+            ):
+                runner.run_simulation("good netlist")
+
+        remaining = {f.name for f in tmp_path.iterdir()}
+        # The failed run's netlist must be gone.
+        for name in files_after_fail:
+            assert name not in remaining, f"Stale netlist from failed run still present: {name}"
+
+    def test_extra_files_cleaned_on_next_run(self, tmp_path):
+        """Extra files registered via register_extra_files are cleaned up."""
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/fake/ngspice"
+
+        # Create a fake wrdata file and register it
+        wrdata = tmp_path / "wrdata_20240101_000001.txt"
+        wrdata.write_text("fake data")
+        runner.register_extra_files([str(wrdata)])
+
+        assert wrdata.exists()
+
+        # Next run should clean up the registered file
+        with patch(
+            "simulation.ngspice_runner.subprocess.run",
+            side_effect=_fake_run_writing_output(),
+        ):
+            runner.run_simulation("netlist")
+
+        assert not wrdata.exists(), "Extra file should be cleaned up on next run"
+
+    def test_extra_files_respected_by_keep_env(self, tmp_path, monkeypatch):
+        """SPICE_KEEP_SIM_OUTPUT suppresses cleanup of extra files too."""
+        monkeypatch.setenv("SPICE_KEEP_SIM_OUTPUT", "1")
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/fake/ngspice"
+
+        wrdata = tmp_path / "wrdata_keep.txt"
+        wrdata.write_text("fake data")
+        runner.register_extra_files([str(wrdata)])
+
+        with patch(
+            "simulation.ngspice_runner.subprocess.run",
+            side_effect=_fake_run_writing_output(),
+        ):
+            runner.run_simulation("netlist")
+
+        assert wrdata.exists(), "Extra file must survive when SPICE_KEEP_SIM_OUTPUT=1"
+
+    def test_register_extra_files_accumulates(self, tmp_path):
+        """Multiple register_extra_files calls accumulate paths."""
+        runner = NgspiceRunner(output_dir=str(tmp_path))
+        runner.ngspice_cmd = "/fake/ngspice"
+
+        files = []
+        for i in range(3):
+            f = tmp_path / f"wrdata_{i}.txt"
+            f.write_text("data")
+            files.append(f)
+            runner.register_extra_files([str(f)])
+
+        with patch(
+            "simulation.ngspice_runner.subprocess.run",
+            side_effect=_fake_run_writing_output(),
+        ):
+            runner.run_simulation("netlist")
+
+        for f in files:
+            assert not f.exists(), f"Extra file {f.name} should be cleaned up"

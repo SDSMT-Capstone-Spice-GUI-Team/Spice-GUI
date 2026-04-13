@@ -60,13 +60,20 @@ class CircuitController:
         if callback in self._observers:
             self._observers.remove(callback)
 
-    def _notify(self, event: str, data: Any) -> None:
-        """Notify all observers of a model change."""
+    def notify(self, event: str, data: Any = None) -> None:
+        """Notify all observers of a model change.
+
+        Public API for use by collaborating controllers (e.g. FileController).
+        """
         for observer in self._observers:
             try:
                 observer(event, data)
             except (TypeError, AttributeError, RuntimeError) as e:
                 logger.error("Error notifying observer: %s", e)
+
+    def _notify(self, event: str, data: Any) -> None:
+        """Notify all observers of a model change."""
+        self.notify(event, data)
 
     # --- Component operations ---
 
@@ -514,6 +521,7 @@ class CircuitController:
             command: A Command instance to execute
         """
         self.undo_manager.execute(command)
+        self._notify("undo_state_changed", None)
 
     def push_already_executed(self, command) -> None:
         """Push a pre-executed command onto the undo stack.
@@ -521,8 +529,7 @@ class CircuitController:
         Used when an action has already been applied (e.g. during a drag)
         and only needs to be recorded for undo/redo.
         """
-        self.undo_manager._undo_stack.append(command)
-        self.undo_manager._redo_stack.clear()
+        self.undo_manager.push_already_executed(command)
 
     def undo(self) -> bool:
         """
@@ -531,7 +538,10 @@ class CircuitController:
         Returns:
             True if an action was undone, False otherwise
         """
-        return self.undo_manager.undo()
+        result = self.undo_manager.undo()
+        if result:
+            self._notify("undo_state_changed", None)
+        return result
 
     def redo(self) -> bool:
         """
@@ -540,7 +550,10 @@ class CircuitController:
         Returns:
             True if an action was redone, False otherwise
         """
-        return self.undo_manager.redo()
+        result = self.undo_manager.redo()
+        if result:
+            self._notify("undo_state_changed", None)
+        return result
 
     def can_undo(self) -> bool:
         """Return whether there are commands to undo."""

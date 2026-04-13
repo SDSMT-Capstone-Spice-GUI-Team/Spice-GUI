@@ -23,13 +23,14 @@ def _find_crossing(x_data, y_data, threshold):
     return crossings
 
 
-def compute_markers(frequencies, magnitude, phase=None):
+def compute_markers(frequencies, magnitude, phase=None, is_db=False):
     """Compute frequency response markers from AC sweep data.
 
     Args:
         frequencies: list of frequency values (Hz)
         magnitude: list of magnitude values (linear scale, e.g. V/V)
         phase: optional list of phase values (degrees)
+        is_db: if True, magnitude values are already in dB (skip conversion)
 
     Returns:
         dict with computed markers:
@@ -48,9 +49,12 @@ def compute_markers(frequencies, magnitude, phase=None):
     freqs = np.array(frequencies, dtype=float)
     mag = np.array(magnitude, dtype=float)
 
-    # Convert to dB, avoiding log of zero
-    mag_clipped = np.clip(mag, 1e-30, None)
-    mag_db = 20.0 * np.log10(mag_clipped)
+    if is_db:
+        mag_db = mag
+    else:
+        # Convert to dB, avoiding log of zero
+        mag_clipped = np.clip(mag, 1e-30, None)
+        mag_db = 20.0 * np.log10(mag_clipped)
 
     # Peak gain
     peak_idx = int(np.argmax(mag_db))

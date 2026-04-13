@@ -28,7 +28,7 @@ class PDFReportRenderer:
             data: Assembled report content from ReportDataBuilder.
             scene: Optional QGraphicsScene for schematic rendering.
         """
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer = QPrinter(QPrinter.PrinterMode.ScreenResolution)
         printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
         printer.setOutputFileName(filepath)
 
@@ -199,8 +199,14 @@ class PDFReportRenderer:
         target_y = avail.top() + (avail.height() - target_h) / 2
         target_rect = QRectF(target_x, target_y, target_w, target_h)
 
+        # Override scene background to white so dark-mode theme doesn't leak
+        from PyQt6.QtGui import QBrush
+
+        original_brush = scene.backgroundBrush()
+        scene.setBackgroundBrush(QBrush(Qt.GlobalColor.white))
         painter.fillRect(target_rect, Qt.GlobalColor.white)
         scene.render(painter, target=target_rect, source=source_rect)
+        scene.setBackgroundBrush(original_brush)
 
     def _render_text_section(
         self,

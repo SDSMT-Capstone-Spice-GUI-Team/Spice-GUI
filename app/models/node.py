@@ -35,7 +35,10 @@ class NodeLabelGenerator:
 
 def _generate_label(index: int) -> str:
     """
-    Generate label like nodeA, nodeB, ..., nodeZ, nodeAA, nodeAB...
+    Generate label like nodeA, nodeB, ..., nodeZ, nodeAA, nodeAB, ..., nodeZZ, nodeAAA, ...
+
+    Uses a bijective base-26 encoding so every non-negative index maps to a
+    unique sequence of uppercase letters (A=0 .. Z=25, AA=26 .. AZ=51, ...).
 
     Args:
         index: Zero-based index for the node.
@@ -43,22 +46,32 @@ def _generate_label(index: int) -> str:
     Returns:
         A string label like "nodeA", "nodeB", etc.
     """
-    if index < 26:
-        return "node" + chr(ord("A") + index)
-    else:
-        # For more than 26 nodes, use AA, AB, AC...
-        first = (index // 26) - 1
-        second = index % 26
-        return "node" + chr(ord("A") + first) + chr(ord("A") + second)
+    chars: list[str] = []
+    n = index
+    while True:
+        chars.append(chr(ord("A") + n % 26))
+        n = n // 26 - 1
+        if n < 0:
+            break
+    return "node" + "".join(reversed(chars))
 
 
 # Default module-level generator used by NodeData.__post_init__
-_default_generator = NodeLabelGenerator()
+# Lazily initialized on first use to avoid module-level mutable state.
+_default_generator: "NodeLabelGenerator | None" = None
 
 
-def reset_node_counter():
+def _get_default_generator() -> NodeLabelGenerator:
+    """Return the shared NodeLabelGenerator, creating it on first call."""
+    global _default_generator
+    if _default_generator is None:
+        _default_generator = NodeLabelGenerator()
+    return _default_generator
+
+
+def reset_node_counter() -> None:
     """Reset the node label counter. Call when starting a new circuit."""
-    _default_generator.reset()
+    _get_default_generator().reset()
 
 
 @dataclass
@@ -91,7 +104,7 @@ class NodeData:
             if self.is_ground:
                 self.auto_label = "0"
             else:
-                self.auto_label = _default_generator.next_label()
+                self.auto_label = _get_default_generator().next_label()
 
     def get_label(self) -> str:
         """

@@ -3,7 +3,7 @@
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsTextItem, QInputDialog
 
-from .styles import theme_manager
+from .styles import Z_ANNOTATION, theme_manager
 
 
 class AnnotationItem(QGraphicsTextItem):
@@ -33,7 +33,7 @@ class AnnotationItem(QGraphicsTextItem):
             | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
             | QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
         )
-        self.setZValue(90)  # Above wires, below debug overlays
+        self.setZValue(Z_ANNOTATION)  # Above wires, below debug overlays
 
     # -- Editing ---------------------------------------------------------------
 

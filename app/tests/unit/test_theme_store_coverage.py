@@ -116,7 +116,12 @@ class TestLoadTheme:
         assert result is None
 
     def test_load_valid(self, tmp_path):
-        data = {"name": "Ocean", "base": "dark", "is_dark": True, "colors": {"bg": "#123"}}
+        data = {
+            "name": "Ocean",
+            "base": "dark",
+            "is_dark": True,
+            "colors": {"bg": "#123"},
+        }
         (tmp_path / "ocean.json").write_text(json.dumps(data), encoding="utf-8")
 
         mock_ct = MagicMock()
@@ -180,7 +185,12 @@ class TestExportTheme:
 
 class TestImportTheme:
     def test_import_valid(self, tmp_path):
-        data = {"name": "Imported", "base": "dark", "is_dark": True, "colors": {"bg": "#000"}}
+        data = {
+            "name": "Imported",
+            "base": "dark",
+            "is_dark": True,
+            "colors": {"bg": "#000"},
+        }
         src_path = tmp_path / "source.json"
         src_path.write_text(json.dumps(data), encoding="utf-8")
 

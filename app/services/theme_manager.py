@@ -320,6 +320,45 @@ class ThemeManager:
         """Load the QSS stylesheet from the current theme."""
         return self._theme.load_qss()
 
+    def stylesheet(self, style_name: str) -> str:
+        """Return a QSS stylesheet snippet for the given named style.
+
+        These are small inline stylesheets used by widgets via setStyleSheet().
+        """
+        c = self._theme.color_hex
+        styles = {
+            # Text styles
+            "muted_small": f"color: {c('text_muted')}; font-size: 11px;",
+            "muted_italic": f"color: {c('text_muted')}; font-style: italic;",
+            "status_muted": f"color: {c('text_secondary')};",
+            "label_bold": f"font-weight: bold;",
+            "label_padded": f"padding: 4px;",
+            # Headings
+            "heading_large": f"font-size: 16px; font-weight: bold;",
+            "heading_medium": f"font-size: 14px; font-weight: bold;",
+            # Error / validation
+            "error_label": f"color: {c('error')};",
+            "error_label_compact": f"color: {c('error')}; font-size: 11px;",
+            "error_border": f"border: 2px solid {c('border_error')};",
+            "error_border_thin": f"border: 1px solid {c('border_error')};",
+            # Status indicators
+            "status_success": f"color: {c('success')};",
+            "status_error": f"color: {c('error')};",
+            "status_warning": f"color: {c('warning')};",
+            # Score styles (grading)
+            "score_bold": f"font-size: 14px; font-weight: bold;",
+            "score_success": f"font-size: 14px; font-weight: bold; color: {c('success')};",
+            "score_warning": f"font-size: 14px; font-weight: bold; color: {c('warning')};",
+            "score_error": f"font-size: 14px; font-weight: bold; color: {c('error')};",
+            # Special
+            "preview_monospace": f"font-family: monospace; color: {c('text_primary')};",
+            "help_panel": f"color: {c('text_secondary')}; font-size: 11px;",
+            "color_swatch": "border: 1px solid gray; border-radius: 3px;",
+            "instructions_panel": f"color: {c('text_secondary')}; padding: 8px;",
+            "ref_info": f"color: {c('text_secondary')}; font-style: italic;",
+        }
+        return styles.get(style_name, "")
+
     # ===== Helper methods delegated to current theme =====
 
     def get_component_color(self, component_type: str):

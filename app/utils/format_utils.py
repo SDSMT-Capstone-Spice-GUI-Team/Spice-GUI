@@ -57,8 +57,9 @@ def parse_value(s: str) -> float:
 
     s = s.strip()
 
-    # Check for SPICE 'MEG' variant first
-    if "MEG" in s.upper():
+    # Check for SPICE 'MEG' variant first — use endswith to avoid matching
+    # substrings like "OMEGA" which contains "MEG" as a substring.
+    if s.upper().endswith("MEG"):
         num_part = s[:-3]
         multiplier = SI_PREFIX_MULTIPLIERS["MEG"]
         try:
@@ -191,6 +192,49 @@ def format_si(value, unit=""):
     threshold, prefix = _SI_PREFIXES[-1]
     scaled = value / threshold
     return f"{scaled:.2f} {prefix}{unit}" if unit else f"{scaled:.2f} {prefix}"
+
+
+def parse_spice_value(value_str):
+    """Parse a SPICE value string (e.g. '1k', '100n', '4.7MEG') to float.
+
+    Unlike :func:`parse_value`, which raises ``ValueError`` on bad input, this
+    function returns ``None`` for unparseable strings (e.g. waveform specs like
+    ``'SIN(0 5 1k)'``).  This makes it suitable for contexts where a value
+    *might* be numeric but could also be a model name or function call.
+    """
+    s = value_str.strip()
+    if not s:
+        return None
+
+    # Map of SPICE suffix -> multiplier (ordered longest-first so "MEG" is
+    # tested before "M" etc.).  Matching is case-insensitive (#543).
+    suffixes = [
+        ("MEG", 1e6),
+        ("T", 1e12),
+        ("G", 1e9),
+        ("K", 1e3),
+        ("M", 1e-3),
+        ("U", 1e-6),
+        ("N", 1e-9),
+        ("P", 1e-12),
+        ("F", 1e-15),
+    ]
+
+    s_upper = s.upper()
+    for suffix, mult in suffixes:
+        if s_upper.endswith(suffix):
+            num_part = s[: -len(suffix)]
+            try:
+                return float(num_part) * mult
+            except ValueError:
+                return None
+
+    # Strip trailing unit letters (V, A, H, F, etc.)
+    stripped = s.rstrip("VAHFhvaf")
+    try:
+        return float(stripped)
+    except ValueError:
+        return None
 
 
 def format_frequency(freq_hz):

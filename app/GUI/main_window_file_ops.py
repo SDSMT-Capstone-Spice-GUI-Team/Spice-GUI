@@ -8,6 +8,8 @@ from controllers.settings_service import settings as app_settings
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
+from .styles import STATUS_DURATION_DEFAULT, STATUS_DURATION_SHORT
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,12 +23,11 @@ class FileOperationsMixin:
 
     def _on_new(self):
         """Create a new circuit"""
-        if len(self.canvas.components) > 0:
+        if len(self.canvas.components) > 0 or self._dirty:
             if not self.dialogs.confirm("New Circuit", "Current circuit will be lost. Continue?"):
                 return
 
         self.file_ctrl.new_circuit()
-        # Phase 5: No sync needed - observer pattern handles canvas update
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.results_text.clear()
         self._apply_default_zoom()
@@ -39,28 +40,52 @@ class FileOperationsMixin:
             n = len(ids)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", 2000)
+                statusBar.showMessage(
+                    f"Copied {n} component{'s' if n != 1 else ''}",
+                    STATUS_DURATION_SHORT,
+                )
 
     def cut_selected(self):
-        """Cut selected components to internal clipboard."""
+        """Cut selected components to internal clipboard (copy + undoable delete)."""
         ids = self.canvas.get_selected_component_ids()
         if ids:
-            self.circuit_ctrl.cut_components(ids)
+            # Copy to clipboard first (non-destructive)
+            self.circuit_ctrl.copy_components(ids)
+
+            # Delete via command so it's undoable
+            from controllers.commands import CompoundCommand, DeleteComponentCommand
+
+            commands = [DeleteComponentCommand(self.circuit_ctrl, comp_id) for comp_id in ids]
+            if len(commands) == 1:
+                self.circuit_ctrl.execute_command(commands[0])
+            else:
+                compound = CompoundCommand(commands, f"Cut {len(commands)} components")
+                self.circuit_ctrl.execute_command(compound)
 
     def paste_components(self):
-        """Paste components from internal clipboard."""
-        new_comps, new_wires = self.circuit_ctrl.paste_components()
-        if new_comps:
+        """Paste components from internal clipboard via undo/redo command."""
+        if not self.circuit_ctrl.has_clipboard_content():
+            return
+
+        from controllers.commands import PasteCommand
+
+        cmd = PasteCommand(self.circuit_ctrl)
+        self.circuit_ctrl.execute_command(cmd)
+
+        if cmd.pasted_component_ids:
             # Select newly pasted items on the canvas
-            self.canvas.scene.clearSelection()
-            for comp_data in new_comps:
-                comp_item = self.canvas.components.get(comp_data.component_id)
+            self.canvas.scene().clearSelection()
+            for comp_id in cmd.pasted_component_ids:
+                comp_item = self.canvas.components.get(comp_id)
                 if comp_item is not None:
                     comp_item.setSelected(True)
-            n = len(new_comps)
+            n = len(cmd.pasted_component_ids)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
+                statusBar.showMessage(
+                    f"Pasted {n} component{'s' if n != 1 else ''}",
+                    STATUS_DURATION_SHORT,
+                )
 
     def copy_circuit_json(self):
         """Copy the entire circuit to system clipboard as JSON."""
@@ -74,7 +99,7 @@ class FileOperationsMixin:
                 clipboard.setText(json_str)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage("Circuit copied to clipboard as JSON", 3000)
+                statusBar.showMessage("Circuit copied to clipboard as JSON", STATUS_DURATION_DEFAULT)
         except (TypeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to copy circuit: {e}")
 
@@ -117,7 +142,7 @@ class FileOperationsMixin:
             self._sync_analysis_menu()
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage("Circuit pasted from clipboard", 3000)
+                statusBar.showMessage("Circuit pasted from clipboard", STATUS_DURATION_DEFAULT)
         except (ValueError, KeyError) as e:
             QMessageBox.critical(self, "Error", f"Failed to paste circuit: {e}")
 
@@ -155,13 +180,15 @@ class FileOperationsMixin:
         """Quick save to current file"""
         if self.file_ctrl.current_file:
             try:
-                # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(self.file_ctrl.current_file)
                 self.file_ctrl.clear_auto_save()
                 self._set_dirty(False)
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Saved to {self.file_ctrl.current_file}", 3000)
+                    statusBar.showMessage(
+                        f"Saved to {self.file_ctrl.current_file}",
+                        STATUS_DURATION_DEFAULT,
+                    )
             except (OSError, TypeError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to save: {e}")
         else:
@@ -172,7 +199,6 @@ class FileOperationsMixin:
         path = self.dialogs.ask_save_file("Save Circuit", "JSON Files (*.json);;All Files (*)")
         if path:
             try:
-                # Phase 5: No sync needed - model always up to date
                 self.file_ctrl.save_circuit(path)
                 self.file_ctrl.clear_auto_save()
                 self._set_dirty(False)
@@ -186,100 +212,12 @@ class FileOperationsMixin:
         if path:
             try:
                 self.file_ctrl.load_circuit(path)
-                # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {path}")
                 self._sync_analysis_menu()
                 self._apply_default_zoom()
                 self.dialogs.show_info("Success", "Circuit loaded successfully!")
             except (OSError, ValueError) as e:
                 self.dialogs.show_error("Error", f"Failed to load: {e}")
-
-    def _on_new_from_template(self):
-        """Create a new circuit from an assignment template"""
-        from controllers.template_controller import TEMPLATE_EXTENSION
-
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open Assignment Template",
-            "",
-            f"Templates (*{TEMPLATE_EXTENSION});;All Files (*)",
-        )
-        if not filename:
-            return
-
-        # Warn if there's unsaved work
-        if len(self.canvas.components) > 0:
-            reply = QMessageBox.question(
-                self,
-                "New from Template",
-                "Opening a template will replace your current circuit. Continue?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if reply == QMessageBox.StandardButton.No:
-                return
-
-        try:
-            from controllers.template_controller import TemplateController
-
-            template_ctrl = TemplateController()
-            template = template_ctrl.load_template(filename)
-            model = template_ctrl.create_circuit_from_template(template)
-
-            self.file_ctrl.load_from_model(model)
-            self.file_ctrl.current_file = None
-
-            title = template.metadata.title or Path(filename).stem
-            self.setWindowTitle(f"Circuit Design GUI - {title} (Template)")
-            self._sync_analysis_menu()
-
-            info = f"Template: {title}"
-            if template.instructions:
-                info += f"\n\nInstructions:\n{template.instructions}"
-            QMessageBox.information(self, "Template Loaded", info)
-        except (OSError, ValueError) as e:
-            QMessageBox.critical(self, "Error", f"Failed to load template:\n{e}")
-
-    def _on_save_as_template(self):
-        """Save current circuit as an assignment template"""
-        from controllers.template_controller import TEMPLATE_EXTENSION
-
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save as Assignment Template",
-            "",
-            f"Templates (*{TEMPLATE_EXTENSION});;All Files (*)",
-        )
-        if not filename:
-            return
-
-        if not filename.endswith(TEMPLATE_EXTENSION):
-            filename += TEMPLATE_EXTENSION
-
-        try:
-            from controllers.template_controller import TemplateController
-
-            from .template_metadata_dialog import TemplateMetadataDialog
-
-            dialog = TemplateMetadataDialog(self)
-            if dialog.exec() != dialog.DialogCode.Accepted:
-                return
-
-            metadata = dialog.get_metadata()
-            instructions = dialog.get_instructions()
-
-            template_ctrl = TemplateController()
-            template_ctrl.save_as_template(
-                filepath=filename,
-                metadata=metadata,
-                starter_circuit=self.model,
-                instructions=instructions,
-            )
-
-            statusBar = self.statusBar()
-            if statusBar:
-                statusBar.showMessage(f"Template saved to {filename}", 3000)
-        except (OSError, TypeError) as e:
-            QMessageBox.critical(self, "Error", f"Failed to save template:\n{e}")
 
     def _on_import_netlist(self):
         """Import a SPICE netlist file"""
@@ -351,6 +289,30 @@ class FileOperationsMixin:
             except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Import Error", f"Failed to import CircuiTikZ LaTeX:\n{e}")
 
+    def _on_import_svg(self):
+        """Import a shareable SVG file containing embedded circuit data."""
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Shareable SVG",
+            "",
+            "SVG Files (*.svg);;All Files (*)",
+        )
+        if filename:
+            try:
+                self.file_ctrl.import_svg(filename)
+                self.setWindowTitle(f"Circuit Design GUI - {Path(filename).name} (imported)")
+                self._sync_analysis_menu()
+                self._set_dirty(True)
+                num_components = len(self.model.components)
+                num_wires = len(self.model.wires)
+                QMessageBox.information(
+                    self,
+                    "Import Successful",
+                    f"Imported {num_components} components and {num_wires} wires from {Path(filename).name}.",
+                )
+            except (OSError, ValueError) as e:
+                QMessageBox.critical(self, "Import Error", f"Failed to import SVG:\n{e}")
+
     def _on_export_bom(self):
         """Export a Bill of Materials (BOM) as CSV or Excel."""
         if not self.model.components:
@@ -383,8 +345,8 @@ class FileOperationsMixin:
 
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"BOM exported to {filename}", 3000)
-        except (OSError, Exception) as e:
+                statusBar.showMessage(f"BOM exported to {filename}", STATUS_DURATION_DEFAULT)
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to export BOM: {e}")
 
     def _on_export_asc(self):
@@ -406,8 +368,8 @@ class FileOperationsMixin:
             self.file_ctrl.export_asc(filename)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"LTspice schematic exported to {filename}", 3000)
-        except (OSError, Exception) as e:
+                statusBar.showMessage(f"LTspice schematic exported to {filename}", STATUS_DURATION_DEFAULT)
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to export LTspice schematic: {e}")
 
     def _on_generate_report(self):
@@ -440,7 +402,7 @@ class FileOperationsMixin:
         if config.include_netlist:
             try:
                 netlist = self.simulation_ctrl.generate_netlist()
-            except Exception:
+            except (OSError, ValueError, RuntimeError):
                 netlist = "(Netlist generation failed)"
 
         results_text = ""
@@ -450,13 +412,14 @@ class FileOperationsMixin:
         try:
             data = ReportDataBuilder.build(config, model=self.model, netlist=netlist, results_text=results_text)
             renderer = PDFReportRenderer()
-            renderer.render(filepath=filename, data=data, scene=self.canvas.scene)
+            renderer.render(filepath=filename, data=data, scene=self.canvas.scene())
             QMessageBox.information(
                 self,
                 "Report Generated",
                 f"Circuit report saved to:\n{filename}",
             )
-        except (OSError, Exception) as e:
+        except (OSError, ValueError) as e:
+            logger.error("Report generation failed", exc_info=True)
             QMessageBox.critical(self, "Report Error", f"Failed to generate report:\n{e}")
 
     def _on_export_bundle(self):
@@ -494,7 +457,7 @@ class FileOperationsMixin:
             netlist = None
             try:
                 netlist = self.simulation_ctrl.generate_netlist()
-            except Exception:
+            except (OSError, ValueError, RuntimeError):
                 logger.warning("Bundle export: netlist generation failed", exc_info=True)
 
             # Schematic PNG (rendered at 2x via canvas)
@@ -506,7 +469,7 @@ class FileOperationsMixin:
                 self.canvas.export_image(tmp_img_path, include_grid=False)
                 with open(tmp_img_path, "rb") as f:
                     schematic_png = f.read()
-            except Exception:
+            except (OSError, ValueError, RuntimeError):
                 logger.warning("Bundle export: schematic PNG export failed", exc_info=True)
 
             # Results CSV (only if simulation was run)
@@ -517,7 +480,7 @@ class FileOperationsMixin:
                     results_csv = self.simulation_ctrl.generate_results_csv(
                         self._last_results, self._last_results_type, cn
                     )
-                except Exception:
+                except (OSError, ValueError, RuntimeError):
                     logger.warning("Bundle export: CSV results export failed", exc_info=True)
 
             # Results Excel (only if simulation was run)
@@ -532,7 +495,7 @@ class FileOperationsMixin:
                         self._last_results, self._last_results_type, tmp_xlsx_path, cn
                     )
                     results_xlsx_path = tmp_xlsx_path
-                except Exception:
+                except (OSError, ValueError, RuntimeError):
                     logger.warning("Bundle export: Excel results export failed", exc_info=True)
 
             included = self.simulation_ctrl.create_bundle(
@@ -550,8 +513,9 @@ class FileOperationsMixin:
                 "Bundle Exported",
                 f"Lab bundle saved to {Path(filename).name}\n\nIncludes: {', '.join(included)}",
             )
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to export bundle: {e}")
+        except (OSError, ValueError, RuntimeError) as e:
+            logger.error("Bundle export failed", exc_info=True)
+            QMessageBox.critical(self, "Error", f"Failed to export bundle:\n{e}")
         finally:
             for path in (tmp_img_path, tmp_xlsx_path):
                 if path:
@@ -566,10 +530,9 @@ class FileOperationsMixin:
         if last_file and last_file.exists():
             try:
                 self.file_ctrl.load_circuit(last_file)
-                # Phase 5: No sync needed - observer pattern rebuilds canvas
                 self.setWindowTitle(f"Circuit Design GUI - {last_file}")
                 self._sync_analysis_menu()
-            except Exception as e:
+            except (OSError, json.JSONDecodeError, ValueError) as e:
                 logger.error("Error loading last session: %s", e)
 
     def _populate_examples_menu(self):
@@ -589,7 +552,10 @@ class FileOperationsMixin:
 
         for example_file in example_files:
             try:
-                with open(example_file, "r") as f:
+                from controllers.file_controller import check_file_size
+
+                check_file_size(example_file)
+                with open(example_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
                 name = data.get("name", example_file.stem)
@@ -602,7 +568,7 @@ class FileOperationsMixin:
                 examples_by_category[category].append(
                     {"name": name, "description": description, "filepath": example_file}
                 )
-            except (json.JSONDecodeError, OSError) as e:
+            except (json.JSONDecodeError, OSError, ValueError) as e:
                 logger.warning(f"Failed to load example {example_file}: {e}")
 
         # Create menu entries organized by category
@@ -677,11 +643,9 @@ class FileOperationsMixin:
         self.templates_menu.addAction(browse_action)
 
     def _on_new_from_template(self):
-        """Open the template browser dialog with preview."""
-        from controllers.template_controller import TemplateController
+        """Open the template browser dialog and load the selected template."""
         from controllers.template_manager import TemplateManager
         from GUI.template_dialog import NewFromTemplateDialog
-        from GUI.template_preview_dialog import TemplatePreviewDialog
 
         if not hasattr(self, "_template_manager"):
             self._template_manager = TemplateManager()
@@ -697,18 +661,7 @@ class FileOperationsMixin:
             if template_info is None:
                 return
 
-            # Load full template data for preview
-            try:
-                template_ctrl = TemplateController()
-                template_data = template_ctrl.load_template(template_info.filepath)
-            except (OSError, ValueError):
-                # If preview load fails, fall back to direct load
-                self._open_template(template_info.filepath)
-                return
-
-            preview = TemplatePreviewDialog(template_data, self)
-            if preview.exec() == TemplatePreviewDialog.DialogCode.Accepted:
-                self._open_template(template_info.filepath)
+            self._open_template(template_info.filepath)
 
     def _open_template(self, filepath: Path):
         """Load a circuit template, replacing the current circuit."""
@@ -761,7 +714,7 @@ class FileOperationsMixin:
                 self._populate_templates_menu()
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Template saved: {name}", 3000)
+                    statusBar.showMessage(f"Template saved: {name}", STATUS_DURATION_DEFAULT)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to save template: {e}")
 
@@ -787,6 +740,53 @@ class FileOperationsMixin:
             self.file_ctrl.current_file = None
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load example: {e}")
+
+    # ------------------------------------------------------------------
+    # Recent files menu
+    # ------------------------------------------------------------------
+
+    def _populate_recent_files_menu(self):
+        """Rebuild the Recent Files submenu from the file controller."""
+        menu = self._recent_files_menu
+        menu.clear()
+        recent = self.file_ctrl.get_recent_files()
+
+        if not recent:
+            empty = menu.addAction("(no recent files)")
+            empty.setEnabled(False)
+            return
+
+        for filepath_str in recent:
+            label = Path(filepath_str).name
+            action = menu.addAction(label)
+            action.setToolTip(filepath_str)
+            action.triggered.connect(lambda checked=False, p=filepath_str: self._open_recent_file(p))
+
+        menu.addSeparator()
+        clear_action = menu.addAction("Clear Recent Files")
+        clear_action.triggered.connect(self._clear_recent_files)
+
+    def _open_recent_file(self, filepath_str):
+        """Open a file from the Recent Files menu."""
+        path = Path(filepath_str)
+        if not path.exists():
+            QMessageBox.warning(
+                self,
+                "File Not Found",
+                f"The file no longer exists:\n{filepath_str}",
+            )
+            return
+        try:
+            self.file_ctrl.load_circuit(path)
+            self.setWindowTitle(f"Circuit Design GUI - {path}")
+            self._sync_analysis_menu()
+            self._apply_default_zoom()
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Error", f"Failed to load: {e}")
+
+    def _clear_recent_files(self):
+        """Clear the recent files list."""
+        self.file_ctrl.clear_recent_files()
 
     # ------------------------------------------------------------------
     # Recent exports tracking and re-export
@@ -848,9 +848,10 @@ class FileOperationsMixin:
             elif export_function == "export_results_excel":
                 self._re_export_results_excel(path)
             elif export_function == "export_circuitikz":
+                from utils.atomic_write import atomic_write_text
+
                 content = self.simulation_ctrl.generate_circuitikz()
-                with open(path, "w") as f:
-                    f.write(content)
+                atomic_write_text(path, content)
             elif export_function == "export_asc":
                 self.file_ctrl.export_asc(path)
             elif export_function == "export_results_markdown":
@@ -864,8 +865,9 @@ class FileOperationsMixin:
 
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Re-exported to {Path(path).name}", 3000)
-        except Exception as e:
+                statusBar.showMessage(f"Re-exported to {Path(path).name}", STATUS_DURATION_DEFAULT)
+        except (OSError, ValueError, RuntimeError) as e:
+            logger.error("Re-export failed", exc_info=True)
             QMessageBox.critical(self, "Re-export Error", f"Failed to re-export:\n{e}")
 
     def _re_export_results_csv(self, path):

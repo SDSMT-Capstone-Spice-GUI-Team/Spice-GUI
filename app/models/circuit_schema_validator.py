@@ -7,6 +7,11 @@ dependencies.
 This module is the canonical location for ``validate_circuit_data``.
 """
 
+from models.circuit import SCHEMA_VERSION
+from models.component import _CLASS_TO_DISPLAY, COMPONENT_TYPES
+
+_VALID_ROTATIONS = {0, 90, 180, 270}
+
 
 def validate_circuit_data(data) -> None:
     """
@@ -16,6 +21,16 @@ def validate_circuit_data(data) -> None:
     """
     if not isinstance(data, dict):
         raise ValueError("File does not contain a valid circuit object.")
+
+    version = data.get("schema_version")
+    if version is not None:
+        if not isinstance(version, int):
+            raise ValueError("'schema_version' must be an integer.")
+        if version > SCHEMA_VERSION:
+            raise ValueError(
+                f"File requires schema version {version}, but this application "
+                f"only supports up to version {SCHEMA_VERSION}. Please update the application."
+            )
 
     if "components" not in data or not isinstance(data["components"], list):
         raise ValueError("Missing or invalid 'components' list.")
@@ -32,6 +47,17 @@ def validate_circuit_data(data) -> None:
             raise ValueError(f"Component '{comp.get('id', i)}' has invalid position data.")
         if not isinstance(pos["x"], (int, float)) or not isinstance(pos["y"], (int, float)):
             raise ValueError(f"Component '{comp['id']}' position values must be numeric.")
+        ctype = comp["type"]
+        # Check both display names and serialized class names; use live
+        # COMPONENT_TYPES list because subcircuit registration can extend it.
+        if ctype not in set(COMPONENT_TYPES) | set(_CLASS_TO_DISPLAY):
+            raise ValueError(f"Component '{comp['id']}' has unknown type '{ctype}'.")
+        rotation = comp.get("rotation", 0)
+        if rotation not in _VALID_ROTATIONS:
+            raise ValueError(
+                f"Component '{comp['id']}' has invalid rotation {rotation}. "
+                f"Must be one of {sorted(_VALID_ROTATIONS)}."
+            )
         comp_ids.add(comp["id"])
 
     for i, wire in enumerate(data["wires"]):

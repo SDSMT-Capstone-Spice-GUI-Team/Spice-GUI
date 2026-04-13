@@ -5,12 +5,7 @@ as read-only and never bypass the controller to mutate the model directly.
 See issue #579.
 """
 
-import os
-import sys
-
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 # ---------------------------------------------------------------------------
 # ComponentGraphicsItem property-setter removal
@@ -85,31 +80,109 @@ class TestWaveformSourceReadOnly:
         assert prop.fset is None, "waveform_params property must not have a setter"
 
 
+def _make_wire_item(canvas=None, waypoints=None):
+    """Construct a WireGraphicsItem with mocked components, skipping if Qt unavailable."""
+    try:
+        from unittest.mock import MagicMock
+
+        from GUI.wire_item import WireGraphicsItem
+        from models.wire import WireData
+        from PyQt6.QtCore import QPointF
+    except (ImportError, RuntimeError):
+        pytest.skip("PyQt6 not available in this environment")
+
+    model = WireData(
+        start_component_id="R1",
+        start_terminal=0,
+        end_component_id="R2",
+        end_terminal=1,
+        waypoints=waypoints or [],
+    )
+
+    start_comp = MagicMock()
+    start_comp.component_id = "R1"
+    start_comp.get_terminal_pos.return_value = QPointF(0, 0)
+
+    end_comp = MagicMock()
+    end_comp.component_id = "R2"
+    end_comp.get_terminal_pos.return_value = QPointF(100, 50)
+
+    wire = WireGraphicsItem(
+        start_comp=start_comp,
+        start_term=0,
+        end_comp=end_comp,
+        end_term=1,
+        canvas=canvas,
+        model=model,
+    )
+    return wire, model
+
+
 class TestWireGraphicsItemNoFallback:
     """Ensure WireGraphicsItem delegates routing persistence to canvas only."""
 
-    def test_persist_routing_result_no_fallback(self):
-        """_persist_routing_result should be a no-op when canvas is unavailable."""
-        try:
-            from GUI.wire_item import WireGraphicsItem
-        except (ImportError, RuntimeError):
-            pytest.skip("PyQt6 not available in this environment")
+    def test_persist_routing_result_delegates_to_canvas(self):
+        """_persist_routing_result should call canvas.on_wire_routing_complete, not mutate model."""
+        from unittest.mock import MagicMock
 
-        import inspect
+        canvas = MagicMock()
+        canvas.on_wire_routing_complete = MagicMock()
 
-        source = inspect.getsource(WireGraphicsItem._persist_routing_result)
-        # The method should NOT contain direct model mutations
-        assert "self.model.waypoints" not in source
+        wire, model = _make_wire_item(canvas=canvas)
+        initial_waypoints = list(model.waypoints)
 
-    def test_finish_waypoint_drag_no_fallback(self):
-        """_finish_waypoint_drag should not contain direct model mutation fallback."""
-        try:
-            from GUI.wire_item import WireGraphicsItem
-        except (ImportError, RuntimeError):
-            pytest.skip("PyQt6 not available in this environment")
+        canvas.on_wire_routing_complete.reset_mock()
+        wire._persist_routing_result([(10, 20), (30, 40)], runtime=0.5, iterations=3)
 
-        import inspect
+        # Canvas method must have been called — routing goes through controller
+        canvas.on_wire_routing_complete.assert_called_once()
+        # Model waypoints must not have been mutated directly by the graphics item
+        assert model.waypoints == initial_waypoints
 
-        source = inspect.getsource(WireGraphicsItem._finish_waypoint_drag)
-        assert "self.model.waypoints" not in source
-        assert "self.model.locked" not in source
+    def test_persist_routing_result_noop_without_canvas(self):
+        """_persist_routing_result is a no-op when canvas is None."""
+        wire, model = _make_wire_item(canvas=None)
+        initial_waypoints = list(model.waypoints)
+
+        # Must not raise and must not mutate the model
+        wire._persist_routing_result([(10, 20), (30, 40)])
+        assert model.waypoints == initial_waypoints
+
+    def test_finish_waypoint_drag_delegates_to_canvas(self):
+        """_finish_waypoint_drag should call canvas.on_waypoint_drag_finished, not mutate model."""
+        from unittest.mock import MagicMock
+
+        from PyQt6.QtCore import QPointF
+
+        canvas = MagicMock()
+        canvas.on_waypoint_drag_finished = MagicMock()
+
+        wire, model = _make_wire_item(canvas=canvas, waypoints=[(0, 0), (50, 0), (100, 50)])
+        # Simulate in-memory waypoints list that the graphics item maintains
+        wire.waypoints = [QPointF(0, 0), QPointF(50, 0), QPointF(100, 50)]
+
+        initial_model_waypoints = list(model.waypoints)
+        initial_model_locked = model.locked
+
+        wire._finish_waypoint_drag()
+
+        # Canvas method must have been called — persistence goes through controller
+        canvas.on_waypoint_drag_finished.assert_called_once()
+        # Model waypoints and locked flag must not have been mutated directly
+        assert model.waypoints == initial_model_waypoints
+        assert model.locked == initial_model_locked
+
+    def test_finish_waypoint_drag_noop_without_canvas(self):
+        """_finish_waypoint_drag is a no-op when canvas is None."""
+        from PyQt6.QtCore import QPointF
+
+        wire, model = _make_wire_item(canvas=None, waypoints=[(0, 0), (50, 0), (100, 50)])
+        wire.waypoints = [QPointF(0, 0), QPointF(50, 0), QPointF(100, 50)]
+
+        initial_model_waypoints = list(model.waypoints)
+        initial_model_locked = model.locked
+
+        # Must not raise and must not mutate the model
+        wire._finish_waypoint_drag()
+        assert model.waypoints == initial_model_waypoints
+        assert model.locked == initial_model_locked

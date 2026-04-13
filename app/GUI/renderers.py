@@ -9,7 +9,7 @@ delegates to the appropriate renderer via ``get_renderer``.
 import math
 from abc import ABC, abstractmethod
 
-from PyQt6.QtGui import QColor, QPen
+from PyQt6.QtGui import QPen
 
 # ---------------------------------------------------------------------------
 # Abstract base & registry
@@ -40,20 +40,52 @@ def register(component_type: str, style: str, renderer: ComponentRenderer):
     _registry[(component_type, style)] = renderer
 
 
+class GenericRenderer(ComponentRenderer):
+    """Fallback renderer for unknown/subcircuit component types.
+
+    Draws a simple rectangle with the component type name inside.
+    """
+
+    def draw(self, painter, component):
+        # Leads
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
+        # Body rectangle
+        painter.drawRect(-15, -10, 30, 20)
+        # Type label inside the box
+        from PyQt6.QtCore import QRectF, Qt
+        from PyQt6.QtGui import QFont
+
+        font = QFont()
+        font.setPointSize(6)
+        painter.setFont(font)
+        painter.drawText(
+            QRectF(-14, -9, 28, 18),
+            Qt.AlignmentFlag.AlignCenter,
+            component.component_type,
+        )
+
+    def get_obstacle_shape(self, component):
+        return [(-15.0, -10.0), (15.0, -10.0), (15.0, 10.0), (-15.0, 10.0)]
+
+
+_generic_renderer = GenericRenderer()
+
+
 def get_renderer(component_type: str, style: str) -> ComponentRenderer:
     """Look up the renderer for (*component_type*, *style*).
 
-    Raises ``KeyError`` if no renderer is registered.
+    Falls back to a generic rectangular renderer for unknown component types.
     """
     renderer = _registry.get((component_type, style))
     if renderer is not None:
         return renderer
-    raise KeyError(f"No renderer for ({component_type!r}, {style!r})")
+    return _generic_renderer
 
 
 def _bounding_rect_obstacle(component) -> list[tuple[float, float]]:
-    """Fallback obstacle shape — bounding rect of the component."""
-    rect = component.boundingRect()
+    """Fallback obstacle shape — symbol rect of the component (excludes text)."""
+    rect = component._symbol_rect()
     return [
         (rect.left(), rect.top()),
         (rect.right(), rect.top()),
@@ -138,9 +170,9 @@ class IEEEWaveformVoltageSource(ComponentRenderer):
         painter.drawLine(15, 0, 30, 0)
         painter.drawEllipse(-15, -15, 30, 30)
         # Draw sine wave symbol
-        from models.component import COMPONENT_COLORS
+        from GUI.styles import theme_manager
 
-        painter.setPen(QPen(QColor(COMPONENT_COLORS.get(component.component_type, "#E91E63")), 2))
+        painter.setPen(QPen(theme_manager.get_component_color(component.component_type), 2))
         from PyQt6.QtGui import QPainterPath
 
         path = QPainterPath()
@@ -152,6 +184,83 @@ class IEEEWaveformVoltageSource(ComponentRenderer):
 
     def get_obstacle_shape(self, component):
         return _bounding_rect_obstacle(component)
+
+
+class IEEEACVoltageSource(ComponentRenderer):
+    """AC Voltage Source — circle with '~' sine symbol and +/- markers."""
+
+    def draw(self, painter, component):
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
+        painter.drawEllipse(-15, -15, 30, 30)
+        # +/- symbols
+        painter.drawLine(-10, 2, -10, -2)
+        painter.drawLine(-12, 0, -8, 0)
+        painter.drawLine(12, 0, 8, 0)
+        # Sine wave symbol inside (smaller, top-center area)
+        from PyQt6.QtGui import QPainterPath
+
+        path = QPainterPath()
+        path.moveTo(-7, -7)
+        for x_i in range(-7, 8):
+            y_i = 3 * math.sin(x_i * math.pi / 7)
+            path.lineTo(x_i, -7 + y_i)
+        painter.drawPath(path)
+
+    def get_obstacle_shape(self, component):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
+class IEEEACCurrentSource(ComponentRenderer):
+    """AC Current Source — circle with arrow and '~' sine symbol."""
+
+    def draw(self, painter, component):
+        painter.drawLine(-30, 0, -15, 0)
+        painter.drawLine(15, 0, 30, 0)
+        painter.drawEllipse(-15, -15, 30, 30)
+        # Arrow showing current direction (left to right)
+        painter.drawLine(-8, 0, 8, 0)
+        painter.drawLine(5, -4, 8, 0)
+        painter.drawLine(5, 4, 8, 0)
+        # Sine wave symbol inside (top-center area)
+        from PyQt6.QtGui import QPainterPath
+
+        path = QPainterPath()
+        path.moveTo(-7, -7)
+        for x_i in range(-7, 8):
+            y_i = 3 * math.sin(x_i * math.pi / 7)
+            path.lineTo(x_i, -7 + y_i)
+        painter.drawPath(path)
+
+    def get_obstacle_shape(self, component):
+        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+
+
+class IEEECurrentProbe(ComponentRenderer):
+    """Current Probe — circle with an arrow showing current measurement direction."""
+
+    def draw(self, painter, component):
+        painter.drawLine(-30, 0, -12, 0)
+        painter.drawLine(12, 0, 30, 0)
+        painter.drawEllipse(-12, -12, 24, 24)
+        # Arrow through circle showing current direction
+        painter.drawLine(-8, 0, 8, 0)
+        painter.drawLine(5, -4, 8, 0)
+        painter.drawLine(5, 4, 8, 0)
+        # "A" label for ampere measurement (small, inside top)
+        from PyQt6.QtCore import QRectF
+        from PyQt6.QtGui import QFont
+
+        old_font = painter.font()
+        small_font = QFont(old_font)
+        small_font.setPixelSize(9)
+        small_font.setBold(True)
+        painter.setFont(small_font)
+        painter.drawText(QRectF(-6, -11, 12, 10), 0x0084, "A")
+        painter.setFont(old_font)
+
+    def get_obstacle_shape(self, component):
+        return [(-14.0, -14.0), (14.0, -14.0), (14.0, 14.0), (-14.0, 14.0)]
 
 
 class IEEEGround(ComponentRenderer):
@@ -186,130 +295,143 @@ class IEEEOpAmp(ComponentRenderer):
         return _bounding_rect_obstacle(component)
 
 
+def _draw_dependent_source_leads(painter):
+    """Draw the four lead lines shared by all IEEE dependent-source renderers."""
+    painter.drawLine(-30, -10, -15, -10)
+    painter.drawLine(-30, 10, -15, 10)
+    painter.drawLine(15, -10, 30, -10)
+    painter.drawLine(15, 10, 30, 10)
+
+
+def _draw_diamond(painter):
+    """Draw the diamond shape shared by all IEEE dependent-source renderers."""
+    painter.drawLine(-15, 0, 0, -15)
+    painter.drawLine(0, -15, 15, 0)
+    painter.drawLine(15, 0, 0, 15)
+    painter.drawLine(0, 15, -15, 0)
+
+
+def _draw_polarity_markers(painter):
+    """+/- polarity markers inside the diamond (voltage sources)."""
+    cur_color = painter.pen().color()
+    painter.setPen(QPen(cur_color, 2))
+    painter.drawLine(5, -6, 9, -6)
+    painter.drawLine(7, -8, 7, -4)
+    painter.drawLine(5, 6, 9, 6)
+
+
+def _draw_current_arrow(painter):
+    """Arrow inside the diamond (current sources)."""
+    cur_color = painter.pen().color()
+    painter.setPen(QPen(cur_color, 2))
+    painter.drawLine(4, 6, 4, -6)
+    painter.drawLine(2, -4, 4, -6)
+    painter.drawLine(6, -4, 4, -6)
+
+
+def _draw_control_arrow(painter):
+    """Arrow on the control side (current-controlled sources)."""
+    painter.drawLine(-12, -2, -8, -2)
+    painter.drawLine(-9, -4, -8, -2)
+    painter.drawLine(-9, 0, -8, -2)
+
+
+_DEPENDENT_SOURCE_OBSTACLE = [
+    (-18.0, -18.0),
+    (18.0, -18.0),
+    (18.0, 18.0),
+    (-18.0, 18.0),
+]
+
+
 class IEEEVCVS(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-30, -10, -15, -10)
-        painter.drawLine(-30, 10, -15, 10)
-        painter.drawLine(15, -10, 30, -10)
-        painter.drawLine(15, 10, 30, 10)
-        # Diamond shape
-        painter.drawLine(-15, 0, 0, -15)
-        painter.drawLine(0, -15, 15, 0)
-        painter.drawLine(15, 0, 0, 15)
-        painter.drawLine(0, 15, -15, 0)
-        # +/- polarity markers (use current pen color for theme compatibility)
-        cur_color = painter.pen().color()
-        painter.setPen(QPen(cur_color, 2))
-        painter.drawLine(5, -6, 9, -6)
-        painter.drawLine(7, -8, 7, -4)
-        painter.drawLine(5, 6, 9, 6)
+        _draw_dependent_source_leads(painter)
+        _draw_diamond(painter)
+        _draw_polarity_markers(painter)
 
     def get_obstacle_shape(self, component):
-        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+        return _DEPENDENT_SOURCE_OBSTACLE
 
 
 class IEEECCVS(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-30, -10, -15, -10)
-        painter.drawLine(-30, 10, -15, 10)
-        painter.drawLine(15, -10, 30, -10)
-        painter.drawLine(15, 10, 30, 10)
-        # Diamond shape
-        painter.drawLine(-15, 0, 0, -15)
-        painter.drawLine(0, -15, 15, 0)
-        painter.drawLine(15, 0, 0, 15)
-        painter.drawLine(0, 15, -15, 0)
-        # +/- polarity markers (use current pen color for theme compatibility)
-        cur_color = painter.pen().color()
-        painter.setPen(QPen(cur_color, 2))
-        painter.drawLine(5, -6, 9, -6)
-        painter.drawLine(7, -8, 7, -4)
-        painter.drawLine(5, 6, 9, 6)
-        # Arrow on control side
-        painter.drawLine(-12, -2, -8, -2)
-        painter.drawLine(-9, -4, -8, -2)
-        painter.drawLine(-9, 0, -8, -2)
+        _draw_dependent_source_leads(painter)
+        _draw_diamond(painter)
+        _draw_polarity_markers(painter)
+        _draw_control_arrow(painter)
 
     def get_obstacle_shape(self, component):
-        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+        return _DEPENDENT_SOURCE_OBSTACLE
 
 
 class IEEEVCCS(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-30, -10, -15, -10)
-        painter.drawLine(-30, 10, -15, 10)
-        painter.drawLine(15, -10, 30, -10)
-        painter.drawLine(15, 10, 30, 10)
-        # Diamond shape
-        painter.drawLine(-15, 0, 0, -15)
-        painter.drawLine(0, -15, 15, 0)
-        painter.drawLine(15, 0, 0, 15)
-        painter.drawLine(0, 15, -15, 0)
-        # Arrow inside diamond (use current pen color for theme compatibility)
-        cur_color = painter.pen().color()
-        painter.setPen(QPen(cur_color, 2))
-        painter.drawLine(4, 6, 4, -6)
-        painter.drawLine(2, -4, 4, -6)
-        painter.drawLine(6, -4, 4, -6)
+        _draw_dependent_source_leads(painter)
+        _draw_diamond(painter)
+        _draw_current_arrow(painter)
 
     def get_obstacle_shape(self, component):
-        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+        return _DEPENDENT_SOURCE_OBSTACLE
 
 
 class IEEECCCS(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-30, -10, -15, -10)
-        painter.drawLine(-30, 10, -15, 10)
-        painter.drawLine(15, -10, 30, -10)
-        painter.drawLine(15, 10, 30, 10)
-        # Diamond shape
-        painter.drawLine(-15, 0, 0, -15)
-        painter.drawLine(0, -15, 15, 0)
-        painter.drawLine(15, 0, 0, 15)
-        painter.drawLine(0, 15, -15, 0)
-        # Arrow inside diamond (use current pen color for theme compatibility)
-        cur_color = painter.pen().color()
-        painter.setPen(QPen(cur_color, 2))
-        painter.drawLine(4, 6, 4, -6)
-        painter.drawLine(2, -4, 4, -6)
-        painter.drawLine(6, -4, 4, -6)
-        # Arrow on control side
-        painter.drawLine(-12, -2, -8, -2)
-        painter.drawLine(-9, -4, -8, -2)
-        painter.drawLine(-9, 0, -8, -2)
+        _draw_dependent_source_leads(painter)
+        _draw_diamond(painter)
+        _draw_current_arrow(painter)
+        _draw_control_arrow(painter)
 
     def get_obstacle_shape(self, component):
-        return [(-18.0, -18.0), (18.0, -18.0), (18.0, 18.0), (-18.0, 18.0)]
+        return _DEPENDENT_SOURCE_OBSTACLE
 
 
 class IEEEBJTNPN(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-20, 0, -8, 0)
+        # Enclosing circle (IEEE standard)
+        painter.drawEllipse(-12, -15, 30, 30)
+        # Base lead (left, into circle)
+        painter.drawLine(-20, 0, -6, 0)
+        # Vertical base bar
+        painter.drawLine(-6, -10, -6, 10)
+        # Collector line (base bar to circle edge)
+        painter.drawLine(-6, -6, 8, -12)
+        # Emitter line (base bar to circle edge)
+        painter.drawLine(-6, 6, 8, 12)
+        # Collector lead (circle to terminal)
         painter.drawLine(8, -12, 20, -20)
+        # Emitter lead (circle to terminal)
         painter.drawLine(8, 12, 20, 20)
-        painter.drawLine(-8, -12, -8, 12)
-        painter.drawLine(-8, -6, 8, -12)
-        painter.drawLine(-8, 6, 8, 12)
+        # Arrow on emitter pointing OUTWARD (away from base bar)
         painter.drawLine(8, 12, 4, 7)
         painter.drawLine(8, 12, 3, 12)
 
     def get_obstacle_shape(self, component):
-        return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
+        return [(-14.0, -17.0), (20.0, -17.0), (20.0, 17.0), (-14.0, 17.0)]
 
 
 class IEEEBJTPNP(ComponentRenderer):
     def draw(self, painter, component):
-        painter.drawLine(-20, 0, -8, 0)
+        # Enclosing circle (IEEE standard)
+        painter.drawEllipse(-12, -15, 30, 30)
+        # Base lead (left, into circle)
+        painter.drawLine(-20, 0, -6, 0)
+        # Vertical base bar
+        painter.drawLine(-6, -10, -6, 10)
+        # Collector line (base bar to circle edge)
+        painter.drawLine(-6, -6, 8, -12)
+        # Emitter line (base bar to circle edge)
+        painter.drawLine(-6, 6, 8, 12)
+        # Collector lead (circle to terminal)
         painter.drawLine(8, -12, 20, -20)
+        # Emitter lead (circle to terminal)
         painter.drawLine(8, 12, 20, 20)
-        painter.drawLine(-8, -12, -8, 12)
-        painter.drawLine(-8, -6, 8, -12)
-        painter.drawLine(-8, 6, 8, 12)
-        painter.drawLine(-8, 6, -3, 2)
-        painter.drawLine(-8, 6, -3, 7)
+        # Arrow on emitter pointing INWARD (toward base bar)
+        painter.drawLine(-6, 6, -1, 2)
+        painter.drawLine(-6, 6, -1, 7)
 
     def get_obstacle_shape(self, component):
-        return [(-12.0, -15.0), (12.0, -15.0), (12.0, 15.0), (-12.0, 15.0)]
+        return [(-14.0, -17.0), (20.0, -17.0), (20.0, 17.0), (-14.0, 17.0)]
 
 
 class IEEEMOSFETNMOS(ComponentRenderer):
@@ -478,6 +600,9 @@ class IECInductor(ComponentRenderer):
 _ieee_voltage_source = IEEEVoltageSource()
 _ieee_current_source = IEEECurrentSource()
 _ieee_waveform_voltage_source = IEEEWaveformVoltageSource()
+_ieee_ac_voltage_source = IEEEACVoltageSource()
+_ieee_ac_current_source = IEEEACCurrentSource()
+_ieee_current_probe = IEEECurrentProbe()
 _ieee_ground = IEEEGround()
 _ieee_opamp = IEEEOpAmp()
 _ieee_vcvs = IEEEVCVS()
@@ -525,6 +650,9 @@ register("Inductor", "ieee", _ieee_inductor)
 register("Voltage Source", "ieee", _ieee_voltage_source)
 register("Current Source", "ieee", _ieee_current_source)
 register("Waveform Source", "ieee", _ieee_waveform_voltage_source)
+register("AC Voltage Source", "ieee", _ieee_ac_voltage_source)
+register("AC Current Source", "ieee", _ieee_ac_current_source)
+register("Current Probe", "ieee", _ieee_current_probe)
 register("Ground", "ieee", _ieee_ground)
 register("Op-Amp", "ieee", _ieee_opamp)
 register("VCVS", "ieee", _ieee_vcvs)
@@ -547,6 +675,9 @@ register("Inductor", "iec", _iec_inductor)
 register("Voltage Source", "iec", _make_iec_delegate(_ieee_voltage_source))
 register("Current Source", "iec", _make_iec_delegate(_ieee_current_source))
 register("Waveform Source", "iec", _make_iec_delegate(_ieee_waveform_voltage_source))
+register("AC Voltage Source", "iec", _make_iec_delegate(_ieee_ac_voltage_source))
+register("AC Current Source", "iec", _make_iec_delegate(_ieee_ac_current_source))
+register("Current Probe", "iec", _make_iec_delegate(_ieee_current_probe))
 register("Ground", "iec", _make_iec_delegate(_ieee_ground))
 register("Op-Amp", "iec", _make_iec_delegate(_ieee_opamp))
 register("VCVS", "iec", _make_iec_delegate(_ieee_vcvs))

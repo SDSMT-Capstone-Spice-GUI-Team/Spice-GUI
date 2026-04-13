@@ -8,7 +8,8 @@ from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDia
 
 from .monte_carlo_results_dialog import MonteCarloResultsDialog
 from .parameter_sweep_plot_dialog import ParameterSweepPlotDialog
-from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
+from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog, NoisePlotDialog
+from .styles import STATUS_DURATION_DEFAULT
 from .waveform_dialog import WaveformDialog
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,6 @@ class SimulationMixin:
     def generate_netlist(self):
         """Generate SPICE netlist"""
         try:
-            # Phase 5: No sync needed - model always up to date
             netlist = self.simulation_ctrl.generate_netlist()
             self.results_panel.display_text("SPICE Netlist:\n\n" + netlist)
             self.results_panel.set_netlist_preview(netlist)
@@ -53,7 +53,7 @@ class SimulationMixin:
             self.simulation_ctrl.export_netlist(filename)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Netlist exported to {filename}", 3000)
+                statusBar.showMessage(f"Netlist exported to {filename}", STATUS_DURATION_DEFAULT)
         except (ValueError, KeyError, TypeError, OSError) as e:
             QMessageBox.critical(self, "Error", f"Failed to export netlist: {e}")
 
@@ -65,7 +65,6 @@ class SimulationMixin:
             elif self.model.analysis_type == "Monte Carlo":
                 result = self._run_monte_carlo()
             else:
-                # Phase 5: No sync needed - model always up to date
                 result = self.simulation_ctrl.run_simulation()
 
             # Display results via ResultsPanel (delegates to _display_simulation_results).
@@ -210,12 +209,17 @@ class SimulationMixin:
         if result.warnings:
             popup_lines.append("")
             popup_lines.extend(result.warnings)
-        if not popup_lines and result.error:
+        if result.error:
+            if popup_lines:
+                popup_lines.append("")
             popup_lines.append(result.error)
+        # Use appropriate title: "Simulation Error" for sim failures,
+        # "Circuit Validation" for pre-run validation errors (#858).
+        title = "Simulation Error" if result.error else "Circuit Validation"
         QMessageBox.warning(
             self,
-            "Circuit Validation",
-            "\n\n".join(popup_lines),
+            title,
+            "\n".join(popup_lines),
         )
 
     def _display_measurement_results(self, measurements):
@@ -260,7 +264,7 @@ class SimulationMixin:
             self.canvas.set_op_results(node_voltages, branch_currents)
 
             # Calculate and display power dissipation
-            self._calculate_power(node_voltages)
+            self._calculate_power(node_voltages, branch_currents)
         else:
             self.results_text.append("\nNo node voltages found in output.")
             self.canvas.clear_op_results()
@@ -387,6 +391,8 @@ class SimulationMixin:
                     self.results_text.append(f"  {f:12.4g}  {o_val:>14s}  {i_val:>14s}")
                 if len(freqs) > 20:
                     self.results_text.append(f"  ... ({len(freqs)} total rows)")
+                self.results_text.append("\nNoise plot opened in a new window.")
+                self._show_plot_dialog(NoisePlotDialog(noise_data, self))
         else:
             self.results_text.append("\nNo noise data found in output.")
         self.canvas.clear_op_results()
@@ -495,27 +501,52 @@ class SimulationMixin:
     def _display_temp_sweep_results(self, result):
         """Display Temperature Sweep results."""
         temp_data = result.data if result.data else {}
-        if isinstance(temp_data, dict) and "node_voltages" in temp_data:
-            node_voltages = temp_data["node_voltages"]
-        else:
-            node_voltages = temp_data
-        if node_voltages:
-            self._last_results = node_voltages
+        params = self.model.analysis_params
+
+        # Check if we have tabular (DC-sweep-style) data with headers and rows
+        has_tabular = isinstance(temp_data, dict) and "headers" in temp_data and "data" in temp_data
+
+        if has_tabular and temp_data.get("data"):
+            self._last_results = temp_data
             self.results_text.append("\nTEMPERATURE SWEEP RESULTS:")
             self.results_text.append("-" * 40)
-            params = self.model.analysis_params
             self.results_text.append(
                 f"Temperature range: {params.get('tempStart', '?')}\u00b0C "
                 f"to {params.get('tempStop', '?')}\u00b0C "
                 f"(step {params.get('tempStep', '?')}\u00b0C)"
             )
-            self.results_text.append("")
-            for node, voltage in sorted(node_voltages.items()):
-                self.results_text.append(f"  {node:15s} : {voltage:12.6f} V")
+            rows = temp_data["data"]
+            headers = temp_data["headers"]
+            self.results_text.append(f"  Data points: {len(rows)}")
+            self.results_text.append(f"  Signals: {', '.join(headers[2:])}")
             self.results_text.append("-" * 40)
-            self.results_text.append("Note: values shown are from the final temperature step.")
+            self.results_text.append("\nPlot opened in a new window.")
+
+            dialog = DCSweepPlotDialog(temp_data, self)
+            dialog.setWindowTitle("Temperature Sweep Results")
+            self._show_plot_dialog(dialog)
         else:
-            self.results_text.append("\nNo results found. Check raw output below.")
+            # Fallback: OP-style single-point results
+            if isinstance(temp_data, dict) and "node_voltages" in temp_data:
+                node_voltages = temp_data["node_voltages"]
+            else:
+                node_voltages = temp_data
+            if node_voltages and isinstance(node_voltages, dict):
+                self._last_results = node_voltages
+                self.results_text.append("\nTEMPERATURE SWEEP RESULTS:")
+                self.results_text.append("-" * 40)
+                self.results_text.append(
+                    f"Temperature range: {params.get('tempStart', '?')}\u00b0C "
+                    f"to {params.get('tempStop', '?')}\u00b0C "
+                    f"(step {params.get('tempStep', '?')}\u00b0C)"
+                )
+                self.results_text.append("")
+                for node, voltage in sorted(node_voltages.items()):
+                    self.results_text.append(f"  {node:15s} : {voltage:12.6f} V")
+                self.results_text.append("-" * 40)
+                self.results_text.append("Note: values shown are from the final temperature step.")
+            else:
+                self.results_text.append("\nNo results found. Check raw output below.")
         self.canvas.clear_op_results()
         self.properties_panel.clear_simulation_results()
 
@@ -588,11 +619,11 @@ class SimulationMixin:
             self.results_text.append("\nNo Monte Carlo data.")
         self.canvas.clear_op_results()
 
-    def _calculate_power(self, node_voltages):
+    def _calculate_power(self, node_voltages, branch_currents=None):
         """Calculate and display power dissipation for all components."""
         components = list(self.circuit_ctrl.get_components().values())
         nodes, _ = self.circuit_ctrl.get_nodes_and_terminal_map()
-        power_data, tp = self.simulation_ctrl.compute_power(components, nodes, node_voltages)
+        power_data, tp = self.simulation_ctrl.compute_power(components, nodes, node_voltages, branch_currents)
 
         if power_data:
             # Build voltage-across data for properties panel
@@ -678,7 +709,7 @@ class SimulationMixin:
                 )
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Results exported to {filename}", 3000)
+                    statusBar.showMessage(f"Results exported to {filename}", STATUS_DURATION_DEFAULT)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export CSV: {e}")
 
@@ -698,7 +729,7 @@ class SimulationMixin:
                 )
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Results exported to {filename}", 3000)
+                    statusBar.showMessage(f"Results exported to {filename}", STATUS_DURATION_DEFAULT)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export Excel: {e}")
 
@@ -720,7 +751,7 @@ class SimulationMixin:
         clipboard.setText(md_content)
         statusBar = self.statusBar()
         if statusBar:
-            statusBar.showMessage("Results copied as Markdown", 3000)
+            statusBar.showMessage("Results copied as Markdown", STATUS_DURATION_DEFAULT)
 
     def export_results_markdown(self):
         """Export the last simulation results to a Markdown (.md) file."""
@@ -741,6 +772,6 @@ class SimulationMixin:
                 )
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage(f"Results exported to {filename}", 3000)
+                    statusBar.showMessage(f"Results exported to {filename}", STATUS_DURATION_DEFAULT)
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export Markdown: {e}")

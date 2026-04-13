@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -34,6 +35,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from .styles import theme_manager
 
 if TYPE_CHECKING:
     from grading.rubric import Rubric
@@ -69,7 +72,7 @@ class RubricEditorDialog(QDialog):
 
         # Points summary
         self.points_label = QLabel("Total Points: 0")
-        self.points_label.setStyleSheet("font-weight: bold;")
+        self.points_label.setStyleSheet(theme_manager.stylesheet("label_bold"))
         layout.addWidget(self.points_label)
 
         # Splitter: check list (left) | check editor (right)
@@ -164,7 +167,7 @@ class RubricEditorDialog(QDialog):
 
         # Validation label
         self.validation_label = QLabel("")
-        self.validation_label.setStyleSheet("color: red;")
+        self.validation_label.setStyleSheet(f"color: {theme_manager.color_hex('error')};")
         self.validation_label.setWordWrap(True)
         layout.addWidget(self.validation_label)
 
@@ -435,7 +438,7 @@ class RubricEditorDialog(QDialog):
 
             save_rubric(rubric, filename)
             QMessageBox.information(self, "Saved", f"Rubric saved to {filename}")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to save rubric:\n{e}")
 
     def _on_load(self):
@@ -454,7 +457,7 @@ class RubricEditorDialog(QDialog):
 
             rubric = load_rubric(filename)
             self._load_rubric_into_ui(rubric)
-        except Exception as e:
+        except (json.JSONDecodeError, OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load rubric:\n{e}")
 
     def _load_rubric_into_ui(self, rubric: Rubric):

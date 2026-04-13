@@ -82,6 +82,31 @@ class TestMeasurementCursors:
         mc = MeasurementCursors(ax, canvas)
         mc.remove()  # should not raise
 
+    def test_draw_cursor_after_axes_clear(self):
+        """_draw_cursor_a/b must not crash when axes was cleared (#863)."""
+        fig, canvas, ax, x = _make_axes_with_data()
+        mc = MeasurementCursors(ax, canvas)
+        mc._a_x = 2.0
+        mc._draw_cursor_a()
+        assert mc._line_a is not None
+
+        # Clearing the axes invalidates the artist; redrawing must not raise
+        ax.clear()
+        mc._a_x = 3.0
+        mc._draw_cursor_a()  # should not raise NotImplementedError
+
+    def test_draw_cursor_b_after_axes_clear(self):
+        """_draw_cursor_b must not crash when axes was cleared (#863)."""
+        fig, canvas, ax, x = _make_axes_with_data()
+        mc = MeasurementCursors(ax, canvas)
+        mc._b_x = 4.0
+        mc._draw_cursor_b()
+        assert mc._line_b is not None
+
+        ax.clear()
+        mc._b_x = 5.0
+        mc._draw_cursor_b()  # should not raise NotImplementedError
+
     def test_callback_called(self):
         fig, canvas, ax, x = _make_axes_with_data()
         calls = []

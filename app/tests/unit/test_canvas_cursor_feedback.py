@@ -30,7 +30,8 @@ class TestWireDrawingCursor:
             canvas._wire_waypoints = []
             canvas._wire_waypoint_markers = []
             canvas.probe_mode = False
-            canvas.scene = MagicMock()
+            canvas._scene = MagicMock()
+            canvas.scene = MagicMock(return_value=canvas._scene)
             canvas.setCursor = MagicMock()
             canvas.unsetCursor = MagicMock()
             return canvas
@@ -74,7 +75,8 @@ class TestProbeModeCursor:
             canvas._wire_waypoints = []
             canvas._wire_waypoint_markers = []
             canvas.probe_mode = False
-            canvas.scene = MagicMock()
+            canvas._scene = MagicMock()
+            canvas.scene = MagicMock(return_value=canvas._scene)
             canvas.setCursor = MagicMock()
             canvas.unsetCursor = MagicMock()
             canvas.probe_results = []

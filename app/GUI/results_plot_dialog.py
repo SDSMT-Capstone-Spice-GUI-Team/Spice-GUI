@@ -10,42 +10,20 @@ Supports overlaying multiple simulation runs on the same plot with:
 
 import logging
 
-import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QPushButton, QTextEdit, QVBoxLayout
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
+from .plot_utils import apply_mpl_theme as _apply_mpl_theme
+from .plot_utils import safe_legend
 from .styles import theme_manager
-
-matplotlib.use("QtAgg")
 
 logger = logging.getLogger(__name__)
 
 # Line styles cycled per dataset for visual distinction
 _LINE_STYLES = ["-", "--", "-.", ":"]
-
-
-def _apply_mpl_theme(fig):
-    """Apply the current application theme colors to a matplotlib figure."""
-    theme = theme_manager.current_theme
-    if theme.is_dark:
-        bg = theme.color_hex("background_primary")
-        fg = theme.color_hex("text_primary")
-        bg2 = theme.color_hex("background_secondary")
-        from PyQt6.QtGui import QColor
-
-        border = QColor(bg2).lighter(150).name()
-        fig.patch.set_facecolor(bg)
-        for ax in fig.axes:
-            ax.set_facecolor(bg2)
-            ax.tick_params(colors=fg)
-            ax.xaxis.label.set_color(fg)
-            ax.yaxis.label.set_color(fg)
-            ax.title.set_color(fg)
-            for spine in ax.spines.values():
-                spine.set_edgecolor(border)
 
 
 def save_plot(fig, parent=None):
@@ -182,7 +160,7 @@ class DCSweepPlotDialog(QDialog):
         self._ax.grid(True, alpha=0.3)
 
         if self._lines:
-            legend = self._ax.legend(loc="best", fontsize="small")
+            legend = safe_legend(self._ax, fontsize="small")
             self._setup_legend_toggle(legend)
 
         _apply_mpl_theme(self._fig)
@@ -408,7 +386,9 @@ class ACSweepPlotDialog(QDialog):
                 transform=self._ax_mag.transAxes,
             )
 
-        self._ax_mag.set_ylabel("Magnitude")
+        # Check if any dataset uses dB output
+        use_db = any(ds[1].get("use_db", False) for ds in self._datasets)
+        self._ax_mag.set_ylabel("Magnitude (dB)" if use_db else "Magnitude (V)")
         self._ax_mag.set_title("Bode Plot")
         self._ax_mag.grid(True, which="both", alpha=0.3)
 
@@ -417,9 +397,9 @@ class ACSweepPlotDialog(QDialog):
         self._ax_phase.grid(True, which="both", alpha=0.3)
 
         if has_data:
-            mag_legend = self._ax_mag.legend(loc="best", fontsize="small")
+            mag_legend = safe_legend(self._ax_mag, fontsize="small")
             self._setup_legend_toggle(mag_legend, self._ax_mag)
-            phase_legend = self._ax_phase.legend(loc="best", fontsize="small")
+            phase_legend = safe_legend(self._ax_phase, fontsize="small")
             self._setup_legend_toggle(phase_legend, self._ax_phase)
 
         _apply_mpl_theme(self._fig)
@@ -461,13 +441,14 @@ class ACSweepPlotDialog(QDialog):
         first_signal = sorted(magnitude.keys())[0]
         mag_vals = magnitude[first_signal]
         phase_vals = phase.get(first_signal)
+        is_db = data.get("use_db", False)
 
         if self._sim_ctrl is not None:
-            markers = self._sim_ctrl.compute_frequency_markers(frequencies, mag_vals, phase_vals)
+            markers = self._sim_ctrl.compute_frequency_markers(frequencies, mag_vals, phase_vals, is_db=is_db)
         else:
             from controllers.simulation_controller import SimulationController
 
-            markers = SimulationController.compute_frequency_markers(frequencies, mag_vals, phase_vals)
+            markers = SimulationController.compute_frequency_markers(frequencies, mag_vals, phase_vals, is_db=is_db)
 
         if markers["peak_gain_db"] is None:
             self._marker_summary.setPlainText("No markers computed (insufficient data).")
@@ -475,10 +456,12 @@ class ACSweepPlotDialog(QDialog):
 
         # Draw -3dB reference line
         ref_level = markers["ref_level_db"]
+        cutoff_color = theme_manager.color_hex("probe_voltage")
+        ugf_color = theme_manager.color_hex("probe_current")
         if ref_level is not None:
             artist = self._ax_mag.axhline(
                 y=ref_level,
-                color="#CC0066",
+                color=cutoff_color,
                 linestyle="--",
                 linewidth=1,
                 alpha=0.7,
@@ -488,7 +471,7 @@ class ACSweepPlotDialog(QDialog):
 
         # Draw -3dB cutoff frequency markers
         for fc in markers["cutoff_3db"]:
-            artist = self._ax_mag.axvline(x=fc, color="#CC0066", linestyle=":", linewidth=1, alpha=0.7)
+            artist = self._ax_mag.axvline(x=fc, color=cutoff_color, linestyle=":", linewidth=1, alpha=0.7)
             self._marker_artists.append(artist)
             artist = self._ax_mag.annotate(
                 f"fc={format_frequency(fc)}",
@@ -496,15 +479,15 @@ class ACSweepPlotDialog(QDialog):
                 xytext=(10, 15),
                 textcoords="offset points",
                 fontsize=8,
-                color="#CC0066",
-                arrowprops=dict(arrowstyle="->", color="#CC0066", lw=0.8),
+                color=cutoff_color,
+                arrowprops=dict(arrowstyle="->", color=cutoff_color, lw=0.8),
             )
             self._marker_artists.append(artist)
 
         # Draw unity gain frequency marker
         if markers["unity_gain_freq"] is not None:
             ugf = markers["unity_gain_freq"]
-            artist = self._ax_mag.axvline(x=ugf, color="#006633", linestyle=":", linewidth=1, alpha=0.7)
+            artist = self._ax_mag.axvline(x=ugf, color=ugf_color, linestyle=":", linewidth=1, alpha=0.7)
             self._marker_artists.append(artist)
             artist = self._ax_mag.annotate(
                 f"0dB @ {format_frequency(ugf)}",
@@ -512,8 +495,8 @@ class ACSweepPlotDialog(QDialog):
                 xytext=(10, -20),
                 textcoords="offset points",
                 fontsize=8,
-                color="#006633",
-                arrowprops=dict(arrowstyle="->", color="#006633", lw=0.8),
+                color=ugf_color,
+                arrowprops=dict(arrowstyle="->", color=ugf_color, lw=0.8),
             )
             self._marker_artists.append(artist)
 
@@ -610,5 +593,58 @@ class ACSweepPlotDialog(QDialog):
     def closeEvent(self, event):
         if self._cursors is not None:
             self._cursors.remove()
+        plt.close(self._canvas.figure)
+        super().closeEvent(event)
+
+
+class NoisePlotDialog(QDialog):
+    """Dialog for displaying noise spectral density plots."""
+
+    analysis_type = "Noise"
+
+    def __init__(self, data, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Noise Spectral Density")
+        self.resize(700, 500)
+
+        layout = QVBoxLayout(self)
+
+        self._fig = Figure(figsize=(8, 5))
+        _apply_mpl_theme(self._fig)
+        self._canvas = FigureCanvas(self._fig)
+        layout.addWidget(self._canvas)
+
+        btn_layout = QHBoxLayout()
+        save_btn = QPushButton("Save Plot...")
+        save_btn.clicked.connect(lambda: save_plot(self._fig, self))
+        btn_layout.addWidget(save_btn)
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
+
+        self._plot(data)
+
+    def _plot(self, data):
+        freqs = data.get("frequencies", [])
+        onoise = data.get("onoise_spectrum", [])
+        inoise = data.get("inoise_spectrum", [])
+
+        if not freqs:
+            return
+
+        ax = self._fig.add_subplot(111)
+        if onoise:
+            ax.loglog(freqs, onoise, label="Output Noise")
+        if inoise:
+            ax.loglog(freqs, inoise, label="Input-Referred Noise")
+
+        ax.set_xlabel("Frequency (Hz)")
+        ax.set_ylabel("Noise Spectral Density (V/\u221aHz)")
+        ax.set_title("Noise Analysis")
+        safe_legend(ax)
+        ax.grid(True, which="both", alpha=0.3)
+        self._fig.tight_layout()
+        self._canvas.draw()
+
+    def closeEvent(self, event):
         plt.close(self._canvas.figure)
         super().closeEvent(event)

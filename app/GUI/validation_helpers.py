@@ -6,8 +6,8 @@ display an error label, plus a function to clear the error state.
 
 from PyQt6.QtWidgets import QLabel, QLineEdit, QWidget
 
-# Stylesheet applied to fields with validation errors
-_ERROR_STYLE = "border: 1.5px solid red; border-radius: 3px;"
+from .styles import theme_manager
+
 _NORMAL_STYLE = ""
 
 # Object name used to locate dynamically-created error labels
@@ -20,7 +20,7 @@ def set_field_error(widget: QLineEdit, message: str) -> None:
     If an error label already exists for this widget it is updated rather
     than duplicated.
     """
-    widget.setStyleSheet(_ERROR_STYLE)
+    widget.setStyleSheet(theme_manager.stylesheet("error_border"))
 
     parent: QWidget | None = widget.parentWidget()
     if parent is None:
@@ -35,7 +35,7 @@ def set_field_error(widget: QLineEdit, message: str) -> None:
 
     # Create a new error label and insert it right after the widget
     label = QLabel(message, parent)
-    label.setStyleSheet("color: red; font-size: 9pt; margin: 0; padding: 0;")
+    label.setStyleSheet(theme_manager.stylesheet("error_label_compact"))
     label.setWordWrap(True)
     label.setObjectName(_ERROR_LABEL_NAME)
     widget.setProperty(_ERROR_LABEL_NAME, label)

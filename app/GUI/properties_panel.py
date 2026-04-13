@@ -63,7 +63,7 @@ class PropertiesPanel(QWidget):
         # Validation error label
         self.error_label = QLabel("")
         self.error_label.setWordWrap(True)
-        self.error_label.setStyleSheet("QLabel { color: red; font-size: 9pt; }")
+        self.error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
         self.error_label.setVisible(False)
         self.form_layout.addRow("", self.error_label)
 

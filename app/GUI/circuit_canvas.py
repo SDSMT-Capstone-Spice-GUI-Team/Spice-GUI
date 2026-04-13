@@ -2,7 +2,8 @@ import logging
 
 from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QPen
-from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsScene, QGraphicsView, QInputDialog, QLineEdit, QRubberBand
+from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsScene, QGraphicsView, QInputDialog, QLineEdit, QRubberBand, \
+    QGraphicsTextItem
 
 logger = logging.getLogger(__name__)
 from models.clipboard import ClipboardData
@@ -15,7 +16,12 @@ from .styles import (
     GRID_EXTENT,
     GRID_SIZE,
     MAJOR_GRID_INTERVAL,
+    STATUS_DURATION_DEFAULT,
+    STATUS_DURATION_SHORT,
     TERMINAL_CLICK_RADIUS,
+    Z_GRID,
+    Z_WAYPOINT_MARKER,
+    Z_WIRE_PREVIEW,
     ZOOM_FACTOR,
     ZOOM_FIT_PADDING,
     ZOOM_MAX,
@@ -41,10 +47,10 @@ class CircuitCanvasView(QGraphicsView):
     def __init__(self, controller=None):
         super().__init__()
         self.controller = controller  # CircuitController reference for observer pattern
-        self.scene = QGraphicsScene()
-        if self.scene is None:
+        self._scene = QGraphicsScene()
+        if self._scene is None:
             exit()
-        self.setScene(self.scene)
+        self.setScene(self._scene)
         self.setSceneRect(-GRID_EXTENT, -GRID_EXTENT, GRID_EXTENT * 2, GRID_EXTENT * 2)
 
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -56,7 +62,7 @@ class CircuitCanvasView(QGraphicsView):
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
 
         self.components = {}  # id -> ComponentGraphicsItem
-        self.wires = []  # All wires (for backward compatibility)
+        self.wires = []  # All wires
         self.nodes = []  # List of Node objects
         self.terminal_to_node = {}  # (comp_id, term_idx) -> Node
         self.component_counter = DEFAULT_COMPONENT_COUNTER.copy()
@@ -94,6 +100,7 @@ class CircuitCanvasView(QGraphicsView):
         self.temp_wire_line = None  # Temporary line while drawing wire
         self._wire_waypoints: list[QPointF] = []  # In-progress waypoints (click-to-place)
         self._wire_waypoint_markers: list = []  # Visual markers for placed waypoints
+        self._wire_path_blocked = False  # True when preview path intersects a component
 
         # Middle-click panning
         self._panning = False
@@ -112,9 +119,8 @@ class CircuitCanvasView(QGraphicsView):
         self.customContextMenuRequested.connect(self.show_context_menu)
 
         # Connect scene selection changes to our signal
-        self.scene.selectionChanged.connect(self.on_selection_changed)
+        self._scene.selectionChanged.connect(self.on_selection_changed)
 
-        # Register as observer of controller events (Phase 5)
         if self.controller:
             self.controller.add_observer(self._on_model_changed)
 
@@ -126,7 +132,7 @@ class CircuitCanvasView(QGraphicsView):
             self._grid_drawn = True
 
     # ===================================================================
-    # Observer Pattern (Phase 5)
+    # Observer Pattern
     # ===================================================================
 
     def _on_model_changed(self, event: str, data) -> None:
@@ -161,9 +167,9 @@ class CircuitCanvasView(QGraphicsView):
             try:
                 handler(data)
             except (AttributeError, KeyError, TypeError) as e:
-                logger.error(f"Error handling event '{event}': {e}")
+                logger.error("Error handling event '%s': %s", event, e)
         else:
-            logger.debug(f"Unhandled observer event: {event}")
+            logger.debug("Unhandled observer event: %s", event)
 
         # Clear stale OP annotations when circuit is modified
         _stale_events = {
@@ -194,7 +200,7 @@ class CircuitCanvasView(QGraphicsView):
         """Create graphics item when component added to model"""
         comp = ComponentGraphicsItem.from_dict(component_data.to_dict())
         comp.canvas = self
-        self.scene.addItem(comp)
+        self._scene.addItem(comp)
         self.components[component_data.component_id] = comp
 
         # Model already handled ground node registration in add_component();
@@ -202,15 +208,15 @@ class CircuitCanvasView(QGraphicsView):
         if component_data.component_type == "Ground":
             self._sync_nodes_from_model()
 
-        self.scene.update()
+        self._scene.update()
 
     def _handle_component_removed(self, component_id: str) -> None:
         """Remove graphics item when component removed from model"""
         comp = self.components.get(component_id)
         if comp:
-            self.scene.removeItem(comp)
+            self._scene.removeItem(comp)
             del self.components[component_id]
-            self.scene.update()
+            self._scene.update()
 
     def _handle_component_moved(self, component_data) -> None:
         """Update graphics item position - disable change flag to prevent recursion"""
@@ -252,7 +258,7 @@ class CircuitCanvasView(QGraphicsView):
             wire.update_position()
 
         if wires_to_reroute:
-            self.scene.update()
+            self._scene.update()
             if self.viewport():
                 self.viewport().update()
 
@@ -295,7 +301,7 @@ class CircuitCanvasView(QGraphicsView):
                 canvas=self,
                 model=wire_data,
             )
-            self.scene.addItem(wire)
+            self._scene.addItem(wire)
             self.wires.append(wire)
             # Model already updated its node graph in add_wire(); sync here.
             self._sync_nodes_from_model()
@@ -306,26 +312,29 @@ class CircuitCanvasView(QGraphicsView):
             wire = self.wires[wire_index]
             # Save connected components before removing, so we can reroute neighbors
             affected_components = {wire.start_comp, wire.end_comp}
-            self.scene.removeItem(wire)
+            self._scene.removeItem(wire)
             del self.wires[wire_index]
             # Model already rebuilt affected nodes in remove_wire(); sync here.
             self._sync_nodes_from_model()
             # Reroute remaining wires connected to the same components —
             # they may have been routed around the now-deleted wire.
             self._reroute_wires_near_components(affected_components)
+            # Force full repaint so foreground node labels/dots are refreshed.
+            # Without this, stale node annotations remain as ghost artifacts
+            # when the deleted wire's node is removed from the model.
+            self._scene.update()
 
     def _handle_wire_routed(self, data) -> None:
-        """Update wire waypoints"""
-        from PyQt6.QtCore import QPointF
-
+        """Update wire waypoints from a (wire_index, wire_data) tuple."""
         wire_index, wire_data = data
         if 0 <= wire_index < len(self.wires):
             wire = self.wires[wire_index]
-            # Convert waypoints to QPointF if they exist
+            # Sync visual path from persisted model waypoints
             if hasattr(wire_data, "waypoints") and wire_data.waypoints:
-                wire.waypoints = [QPointF(x, y) for x, y in wire_data.waypoints]
-                if hasattr(wire, "update_path"):
-                    wire.update_path()
+                wire._restore_waypoints()
+                # Refresh handles if the wire is selected (e.g. after undo/redo)
+                if wire.isSelected():
+                    wire._show_handles()
 
     def _handle_wire_lock_changed(self, data) -> None:
         """Update wire visual when lock state changes."""
@@ -358,6 +367,19 @@ class CircuitCanvasView(QGraphicsView):
             self.controller.update_wire_waypoints(idx, wps)
             self.controller.set_wire_locked(idx, True)
 
+    def on_waypoint_drag_finished(self, wire_item, new_waypoints) -> None:
+        """Push an undoable MoveWaypointCommand after a waypoint drag."""
+        from controllers.commands import MoveWaypointCommand
+
+        if self.controller and wire_item in self.wires:
+            idx = self.wires.index(wire_item)
+            old_waypoints = wire_item._pre_drag_waypoints
+            cmd = MoveWaypointCommand(self.controller, idx, old_waypoints, new_waypoints)
+            self.controller.push_already_executed(cmd)
+            # Sync the model (the visual state is already correct)
+            self.controller.update_wire_waypoints(idx, new_waypoints)
+            self.controller.set_wire_locked(idx, True)
+
     def on_wire_routing_complete(self, wire_item, waypoints, runtime=0.0, iterations=0, routing_failed=False):
         """Persist pathfinding results from a wire item through the controller."""
         if self.controller and wire_item in self.wires:
@@ -383,16 +405,16 @@ class CircuitCanvasView(QGraphicsView):
             color=annotation_data.color,
         )
         ann.canvas = self
-        self.scene.addItem(ann)
+        self._scene.addItem(ann)
         self.annotations.append(ann)
-        self.scene.update()
+        self._scene.update()
 
     def _handle_annotation_removed(self, index: int) -> None:
         """Remove AnnotationItem when annotation removed from model."""
         if 0 <= index < len(self.annotations):
             ann = self.annotations.pop(index)
-            self.scene.removeItem(ann)
-            self.scene.update()
+            self._scene.removeItem(ann)
+            self._scene.update()
 
     def _handle_annotation_updated(self, annotation_data) -> None:
         """Update AnnotationItem text when annotation updated in model."""
@@ -404,11 +426,11 @@ class CircuitCanvasView(QGraphicsView):
                 break
         if idx is not None and idx < len(self.annotations):
             self.annotations[idx].setPlainText(annotation_data.text)
-            self.scene.update()
+            self._scene.update()
 
     def _handle_circuit_cleared(self, data: None) -> None:
         """Clear all graphics items when circuit cleared"""
-        self.scene.clear()
+        self._scene.clear()
         self.draw_grid()
         self.components = {}
         self.wires = []
@@ -419,7 +441,7 @@ class CircuitCanvasView(QGraphicsView):
     def _handle_nodes_rebuilt(self, data: None) -> None:
         """Rebuild node visualization from model"""
         self._sync_nodes_from_model()
-        self.scene.update()
+        self._scene.update()
 
     def _handle_model_loaded(self, data: None) -> None:
         """Rebuild entire canvas when model loaded from file"""
@@ -427,8 +449,7 @@ class CircuitCanvasView(QGraphicsView):
             return
 
         # Clear and rebuild everything
-        self.scene.clear()
-        self._grid_items.clear()  # drop stale C++ refs destroyed by scene.clear()
+        self._scene.clear()
         self.draw_grid()
         self.components = {}
         self.wires = []
@@ -456,22 +477,81 @@ class CircuitCanvasView(QGraphicsView):
     # End Observer Pattern Handlers
     # ===================================================================
 
-    # unsuccessful attempt to get rid of red squiggles
-    # def views(self) -> list | None:
-    #     views = super().views() if super().views() else None
-    #     return views
+    def detach_scene(self):
+        """Replace the live scene with a temporary empty one.
+
+        This prevents ``setStyleSheet()`` from triggering a repaint that
+        destroys the C++ objects backing scene items (see #860).
+        The old scene is discarded — call :meth:`rebuild_scene` afterwards
+        to create a fresh scene populated from the model.
+        """
+        # Orphan the old scene so Qt won't touch its items during repaint.
+        old_scene = self._scene
+        self._scene = QGraphicsScene()
+        self.setScene(self._scene)
+
+        # Prevent dangling-pointer access: clear Python references *before*
+        # deleting the C++ scene.
+        self._grid_items.clear()
+        self.components.clear()
+        self.wires.clear()
+        self.annotations.clear()
+
+        # Schedule the old scene for deletion after control returns to the
+        # event loop (avoids deleting it while Qt may still reference it).
+        if old_scene is not None:
+            old_scene.deleteLater()
+
+    def rebuild_scene(self):
+        """Build a fresh scene from the model with current theme colours.
+
+        Intended to be called after :meth:`detach_scene` + QSS application so
+        that every item is created with up-to-date theme colours and no stale
+        C++ pointers remain.
+        """
+        self.setSceneRect(-GRID_EXTENT, -GRID_EXTENT, GRID_EXTENT * 2, GRID_EXTENT * 2)
+
+        # Theme-aware background
+        bg = theme_manager.color("background_primary")
+        self._scene.setBackgroundBrush(QBrush(bg))
+
+        # Redraw grid
+        self._grid_items.clear()
+        self.draw_grid()
+        self._grid_drawn = True
+
+        if self.controller:
+            # Restore components
+            for comp_data in self.controller.get_components().values():
+                self._handle_component_added(comp_data)
+
+            # Restore wires
+            for wire_data in self.controller.get_wires():
+                self._handle_wire_added(wire_data)
+
+            # Rebuild node visualisation
+            self._sync_nodes_from_model()
+
+            # Restore annotations
+            for ann_data in self.controller.get_annotations():
+                self._handle_annotation_added(ann_data)
+
+            # Restore component counter
+            self.component_counter = self.controller.get_component_counter()
+
+        self._scene.update()
 
     def refresh_theme(self):
         """Redraw grid and repaint all items to reflect the current theme."""
-        if self.scene is None:
+        if self._scene is None:
             return
         # Set scene background
         bg = theme_manager.color("background_primary")
-        self.scene.setBackgroundBrush(QBrush(bg))
+        self._scene.setBackgroundBrush(QBrush(bg))
 
         # Remove old grid items and redraw
         for item in self._grid_items:
-            self.scene.removeItem(item)
+            self._scene.removeItem(item)
         self._grid_items.clear()
         self.draw_grid()
 
@@ -483,11 +563,11 @@ class CircuitCanvasView(QGraphicsView):
                 wire.setPen(QPen(default_wire_color, 2))
 
         # Force full repaint of all items (components pick up theme in paint())
-        self.scene.update()
+        self._scene.update()
 
     def draw_grid(self):
-        """Draw background grid with major and minor grid lines."""
-        if self.scene is None:
+        """Draw background grid with major grid lines labeled with position values"""
+        if self._scene is None:
             return
 
         # Grid pens from theme
@@ -498,17 +578,37 @@ class CircuitCanvasView(QGraphicsView):
         for x in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
             is_major = x % MAJOR_GRID_INTERVAL == 0
             pen = major_pen if is_major else minor_pen
-            line = self.scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
-            line.setZValue(-1)
+            line = self._scene.addLine(x, -GRID_EXTENT, x, GRID_EXTENT, pen)
+            line.setZValue(Z_GRID)
             self._grid_items.append(line)
+
+            # Add label for major grid lines
+            """if is_major:
+                label = QGraphicsTextItem(str(x))
+                label.setDefaultTextColor(grid_label_color)
+                label.setFont(grid_label_font)
+                label.setPos(x - 15, -GRID_EXTENT)  # Position at top
+                label.setZValue(Z_GRID)  # Draw behind components
+                self._scene.addItem(label)
+                self._grid_items.append(label)"""
 
         # Draw horizontal lines
         for y in range(-GRID_EXTENT, GRID_EXTENT + 1, GRID_SIZE):
             is_major = y % MAJOR_GRID_INTERVAL == 0
             pen = major_pen if is_major else minor_pen
-            line = self.scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
-            line.setZValue(-1)
+            line = self._scene.addLine(-GRID_EXTENT, y, GRID_EXTENT, y, pen)
+            line.setZValue(Z_GRID)
             self._grid_items.append(line)
+
+            # Add label for major grid lines
+            """if is_major:
+                label = QGraphicsTextItem(str(y))
+                label.setDefaultTextColor(grid_label_color)
+                label.setFont(grid_label_font)
+                label.setPos(-GRID_EXTENT, y - 10)  # Position at left
+                label.setZValue(Z_GRID)  # Draw behind components
+                self._scene.addItem(label)
+                self._grid_items.append(label)"""
 
     def reroute_connected_wires(self, component):
         """Reroute all wires connected to a component.
@@ -533,7 +633,7 @@ class CircuitCanvasView(QGraphicsView):
 
         # Force a full scene update to ensure wires are redrawn
         if wire_count > 0:
-            self.scene.update()
+            self._scene.update()
             if self.viewport():
                 self.viewport().update()
 
@@ -563,7 +663,7 @@ class CircuitCanvasView(QGraphicsView):
                 wire.update_position()
                 rerouted += 1
         if rerouted > 0:
-            self.scene.update()
+            self._scene.update()
 
     def dragEnterEvent(self, event):
         if event is None:
@@ -580,7 +680,7 @@ class CircuitCanvasView(QGraphicsView):
         event.acceptProposedAction()
 
     def dropEvent(self, event):
-        """Handle component drop from palette - Phase 5: uses controller"""
+        """Handle component drop from palette."""
         if event is None:
             return
         if not self.controller:
@@ -598,14 +698,17 @@ class CircuitCanvasView(QGraphicsView):
             grid_x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
             grid_y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
 
-            # Controller handles component creation, observer creates graphics item
-            component_data = self.controller.add_component(component_type, (grid_x, grid_y))
-            self.componentAdded.emit(component_data.component_id)
+            from controllers.commands import AddComponentCommand
+
+            cmd = AddComponentCommand(self.controller, component_type, (grid_x, grid_y))
+            self.controller.execute_command(cmd)
+            if cmd.component_id:
+                self.componentAdded.emit(cmd.component_id)
 
             event.acceptProposedAction()
 
     def add_component_at_center(self, component_type):
-        """Add a component at the center of the visible canvas area - Phase 5: uses controller"""
+        """Add a component at the center of the visible canvas area."""
         if component_type not in COMPONENTS:
             return
         if not self.controller:
@@ -620,9 +723,12 @@ class CircuitCanvasView(QGraphicsView):
         grid_x = round(scene_pos.x() / GRID_SIZE) * GRID_SIZE
         grid_y = round(scene_pos.y() / GRID_SIZE) * GRID_SIZE
 
-        # Controller handles component creation, observer creates graphics item
-        component_data = self.controller.add_component(component_type, (grid_x, grid_y))
-        self.componentAdded.emit(component_data.component_id)
+        from controllers.commands import AddComponentCommand
+
+        cmd = AddComponentCommand(self.controller, component_type, (grid_x, grid_y))
+        self.controller.execute_command(cmd)
+        if cmd.component_id:
+            self.componentAdded.emit(cmd.component_id)
 
     def mousePressEvent(self, event):
         """Handle wire drawing, probe mode, panning, and component selection"""
@@ -691,8 +797,8 @@ class CircuitCanvasView(QGraphicsView):
                             start_pos.x(), start_pos.y(), start_pos.x(), start_pos.y()
                         )
                         self.temp_wire_line.setPen(theme_manager.pen("wire_preview"))
-                        self.temp_wire_line.setZValue(100)  # Draw on top
-                        self.scene.addItem(self.temp_wire_line)
+                        self.temp_wire_line.setZValue(Z_WIRE_PREVIEW)  # Draw on top
+                        self._scene.addItem(self.temp_wire_line)
 
                         # Show crosshair cursor while drawing a wire
                         self.setCursor(Qt.CursorShape.CrossCursor)
@@ -723,14 +829,18 @@ class CircuitCanvasView(QGraphicsView):
                                         + [(wp.x(), wp.y()) for wp in self._wire_waypoints]
                                         + [(end_pos.x(), end_pos.y())]
                                     )
-                                # Controller creates wire, observer creates graphics item
-                                self.controller.add_wire(
+
+                                from controllers.commands import AddWireCommand
+
+                                cmd = AddWireCommand(
+                                    self.controller,
                                     self.wire_start_comp.component_id,
                                     self.wire_start_term,
                                     clicked_component.component_id,
                                     target_term,
                                     waypoints=manual_wps,
                                 )
+                                self.controller.execute_command(cmd)
                                 self.wireAdded.emit(
                                     self.wire_start_comp.component_id,
                                     clicked_component.component_id,
@@ -746,7 +856,7 @@ class CircuitCanvasView(QGraphicsView):
                                     canvas=self,
                                     algorithm="idastar",
                                 )
-                                self.scene.addItem(wire)
+                                self._scene.addItem(wire)
                                 self.wires.append(wire)
                                 self.wireAdded.emit(
                                     self.wire_start_comp.component_id,
@@ -777,7 +887,7 @@ class CircuitCanvasView(QGraphicsView):
                     self.canvasClicked.emit()
                     # Start rubber band selection on empty space
                     if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
-                        self.scene.clearSelection()
+                        self._scene.clearSelection()
                     self._rubber_band_origin = event.position().toPoint()
                     if self._rubber_band is None:
                         self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self)
@@ -812,6 +922,18 @@ class CircuitCanvasView(QGraphicsView):
             else:
                 anchor = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
             self.temp_wire_line.setLine(anchor.x(), anchor.y(), scene_pos.x(), scene_pos.y())
+
+            # Check if wire path intersects any component
+            blocked = self._check_wire_preview_blocked(scene_pos)
+            if blocked and not self._wire_path_blocked:
+                self._wire_path_blocked = True
+                pen = QPen(Qt.GlobalColor.red, 2, Qt.PenStyle.DashLine)
+                self.temp_wire_line.setPen(pen)
+                self.statusMessage.emit("Wire path is blocked by a component", 3000)
+            elif not blocked and self._wire_path_blocked:
+                self._wire_path_blocked = False
+                self.temp_wire_line.setPen(theme_manager.pen("wire_preview"))
+
             self.temp_wire_line.update()
             event.accept()
             return
@@ -844,7 +966,7 @@ class CircuitCanvasView(QGraphicsView):
                 self.mapToScene(rb_rect.topLeft()),
                 self.mapToScene(rb_rect.bottomRight()),
             )
-            for item in self.scene.items(scene_rect, Qt.ItemSelectionMode.IntersectsItemShape):
+            for item in self._scene.items(scene_rect, Qt.ItemSelectionMode.IntersectsItemShape):
                 if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem)):
                     item.setSelected(True)
             event.accept()
@@ -852,15 +974,50 @@ class CircuitCanvasView(QGraphicsView):
 
         super().mouseReleaseEvent(event)
 
+    def _wire_preview_intersects_component(self, p1: QPointF, p2: QPointF) -> bool:
+        """Check if a line segment intersects any component's bounding rect.
+
+        Excludes the component where wire drawing started.
+        """
+        from PyQt6.QtCore import QLineF
+
+        line = QLineF(p1, p2)
+        for comp in self.components.values():
+            if comp is self.wire_start_comp:
+                continue
+            rect = comp.sceneBoundingRect()
+            # Check intersection with all four edges of the bounding rect
+            edges = [
+                QLineF(rect.topLeft(), rect.topRight()),
+                QLineF(rect.topRight(), rect.bottomRight()),
+                QLineF(rect.bottomRight(), rect.bottomLeft()),
+                QLineF(rect.bottomLeft(), rect.topLeft()),
+            ]
+            for edge in edges:
+                intersection_type = line.intersects(edge)[0]
+                if intersection_type == QLineF.IntersectionType.BoundedIntersection:
+                    return True
+        return False
+
+    def _check_wire_preview_blocked(self, scene_pos: QPointF) -> bool:
+        """Check if the full wire preview path (all waypoints + current segment) is blocked."""
+        start_pos = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+        points = [start_pos] + list(self._wire_waypoints) + [scene_pos]
+        for i in range(len(points) - 1):
+            if self._wire_preview_intersects_component(points[i], points[i + 1]):
+                return True
+        return False
+
     def cancel_wire_drawing(self):
         """Cancel any in-progress wire drawing and clean up the preview line."""
         was_drawing = self.wire_start_comp is not None
         if self.temp_wire_line:
-            self.scene.removeItem(self.temp_wire_line)
+            self._scene.removeItem(self.temp_wire_line)
             self.temp_wire_line = None
         self.wire_start_comp = None
         self.wire_start_term = None
         self._wire_waypoints.clear()
+        self._wire_path_blocked = False
         self._remove_waypoint_markers()
         # Restore default cursor when wire drawing ends
         if was_drawing:
@@ -875,14 +1032,14 @@ class CircuitCanvasView(QGraphicsView):
         marker.setPos(pos)
         marker.setBrush(QBrush(theme_manager.color("wire_preview")))
         marker.setPen(QPen(Qt.PenStyle.NoPen))
-        marker.setZValue(101)
-        self.scene.addItem(marker)
+        marker.setZValue(Z_WAYPOINT_MARKER)
+        self._scene.addItem(marker)
         self._wire_waypoint_markers.append(marker)
 
     def _remove_waypoint_markers(self):
         """Remove all placed-waypoint visual markers."""
         for marker in self._wire_waypoint_markers:
-            self.scene.removeItem(marker)
+            self._scene.removeItem(marker)
         self._wire_waypoint_markers.clear()
 
     def focusOutEvent(self, event):
@@ -914,9 +1071,25 @@ class CircuitCanvasView(QGraphicsView):
                 event.accept()
                 return
             # Deselect all if not wiring
-            self.scene.clearSelection()
+            self._scene.clearSelection()
             event.accept()
             return
+        if event.key() == Qt.Key.Key_Backspace:
+            if self.wire_start_comp is not None and self._wire_waypoints:
+                self._wire_waypoints.pop()
+                if self._wire_waypoint_markers:
+                    marker = self._wire_waypoint_markers.pop()
+                    self._scene.removeItem(marker)
+                # Re-anchor preview line to previous waypoint (or start terminal)
+                if self.temp_wire_line is not None:
+                    if self._wire_waypoints:
+                        anchor = self._wire_waypoints[-1]
+                    else:
+                        anchor = self.wire_start_comp.get_terminal_pos(self.wire_start_term)
+                    line = self.temp_wire_line.line()
+                    self.temp_wire_line.setLine(anchor.x(), anchor.y(), line.x2(), line.y2())
+                event.accept()
+                return
         super().keyPressEvent(event)
 
     def wheelEvent(self, event):
@@ -965,7 +1138,7 @@ class CircuitCanvasView(QGraphicsView):
 
     def zoom_fit(self):
         """Fit all circuit components in view with padding."""
-        items = [item for item in self.scene.items() if isinstance(item, ComponentGraphicsItem)]
+        items = [item for item in self._scene.items() if isinstance(item, ComponentGraphicsItem)]
         if not items:
             self.zoom_reset()
             return
@@ -1020,24 +1193,62 @@ class CircuitCanvasView(QGraphicsView):
             menu.exec(self.mapToGlobal(position))
 
     def delete_selected(self):
-        """Delete all selected items"""
-        selected_items = self.scene.selectedItems()
+        """Delete all selected items as a single undoable operation."""
+        selected_items = self._scene.selectedItems()
         if not selected_items:
             return
+        if not self.controller:
+            return
+
+        from controllers.commands import (
+            CompoundCommand,
+            DeleteAnnotationCommand,
+            DeleteComponentCommand,
+            DeleteWireCommand,
+        )
 
         components_to_delete = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
         wires_to_delete = [item for item in selected_items if isinstance(item, WireItem)]
         annotations_to_delete = [item for item in selected_items if isinstance(item, AnnotationItem)]
 
-        for comp in components_to_delete:
-            self.delete_component(comp)
+        # Collect component IDs being deleted so we skip their cascaded wires
+        deleting_comp_ids = {comp.component_id for comp in components_to_delete}
 
+        commands = []
+
+        # Collect standalone wire indices (skip wires that will cascade from component deletion)
+        wire_indices = []
         for wire in wires_to_delete:
             if wire in self.wires:
-                self.delete_wire(wire)
+                wire_model = self.controller.model.wires[self.wires.index(wire)]
+                if (
+                    wire_model.start_component_id in deleting_comp_ids
+                    or wire_model.end_component_id in deleting_comp_ids
+                ):
+                    continue  # Will be cascade-deleted with the component
+                wire_indices.append(self.wires.index(wire))
 
+        # Sort wire indices descending so higher indices are deleted first,
+        # preventing earlier deletions from shifting later indices (#821)
+        for idx in sorted(wire_indices, reverse=True):
+            commands.append(DeleteWireCommand(self.controller, idx))
+
+        for comp in components_to_delete:
+            commands.append(DeleteComponentCommand(self.controller, comp.component_id))
+
+        # Sort annotation indices descending for the same reason
+        ann_indices = []
         for ann in annotations_to_delete:
-            self._delete_annotation(ann)
+            if ann in self.annotations:
+                ann_indices.append(self.annotations.index(ann))
+        for idx in sorted(ann_indices, reverse=True):
+            commands.append(DeleteAnnotationCommand(self.controller, idx))
+
+        if len(commands) == 1:
+            self.controller.execute_command(commands[0])
+        elif commands:
+            compound = CompoundCommand(commands, f"Delete {len(commands)} items")
+            self.controller.execute_command(compound)
 
     def delete_component(self, component):
         """Delete a component and all connected wires via undo/redo command."""
@@ -1119,41 +1330,66 @@ class CircuitCanvasView(QGraphicsView):
             self.controller.execute_command(compound)
 
     def rotate_component(self, component, clockwise=True):
-        """Rotate a single component - Phase 5: uses controller"""
+        """Rotate a single component via undo/redo command."""
         if component is None or not isinstance(component, ComponentGraphicsItem):
             return
         if not self.controller:
             logger.warning("Cannot rotate component: no controller available")
             return
 
-        # Controller handles rotation, observer updates graphics and wires
-        self.controller.rotate_component(component.component_id, clockwise)
+        from controllers.commands import RotateComponentCommand
+
+        cmd = RotateComponentCommand(self.controller, component.component_id, clockwise)
+        self.controller.execute_command(cmd)
 
     def rotate_selected(self, clockwise=True):
-        """Rotate all selected components"""
-        selected_items = self.scene.selectedItems()
+        """Rotate all selected components as a single undoable operation."""
+        if not self.controller:
+            return
+        selected_items = self._scene.selectedItems()
         components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
+        if not components:
+            return
 
-        for comp in components:
-            self.rotate_component(comp, clockwise)
+        from controllers.commands import CompoundCommand, RotateComponentCommand
+
+        commands = [RotateComponentCommand(self.controller, comp.component_id, clockwise) for comp in components]
+        if len(commands) == 1:
+            self.controller.execute_command(commands[0])
+        else:
+            compound = CompoundCommand(commands, f"Rotate {len(commands)} components")
+            self.controller.execute_command(compound)
 
     def flip_component(self, component, horizontal=True):
-        """Flip a single component - uses controller"""
+        """Flip a single component via undo/redo command."""
         if component is None or not isinstance(component, ComponentGraphicsItem):
             return
         if not self.controller:
             logger.warning("Cannot flip component: no controller available")
             return
 
-        self.controller.flip_component(component.component_id, horizontal)
+        from controllers.commands import FlipComponentCommand
+
+        cmd = FlipComponentCommand(self.controller, component.component_id, horizontal)
+        self.controller.execute_command(cmd)
 
     def flip_selected(self, horizontal=True):
-        """Flip all selected components"""
-        selected_items = self.scene.selectedItems()
+        """Flip all selected components as a single undoable operation."""
+        if not self.controller:
+            return
+        selected_items = self._scene.selectedItems()
         components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
+        if not components:
+            return
 
-        for comp in components:
-            self.flip_component(comp, horizontal)
+        from controllers.commands import CompoundCommand, FlipComponentCommand
+
+        commands = [FlipComponentCommand(self.controller, comp.component_id, horizontal) for comp in components]
+        if len(commands) == 1:
+            self.controller.execute_command(commands[0])
+        else:
+            compound = CompoundCommand(commands, f"Flip {len(commands)} components")
+            self.controller.execute_command(compound)
 
     def add_annotation(self, scene_pos=None):
         """Add a text annotation at the given scene position (or viewport center)."""
@@ -1176,7 +1412,7 @@ class CircuitCanvasView(QGraphicsView):
                 self.controller.execute_command(cmd)
             else:
                 ann = AnnotationItem(text=text, x=x, y=y)
-                self.scene.addItem(ann)
+                self._scene.addItem(ann)
                 self.annotations.append(ann)
 
     def _delete_annotation(self, ann):
@@ -1188,7 +1424,7 @@ class CircuitCanvasView(QGraphicsView):
             cmd = DeleteAnnotationCommand(self.controller, index)
             self.controller.execute_command(cmd)
         else:
-            self.scene.removeItem(ann)
+            self._scene.removeItem(ann)
             if ann in self.annotations:
                 self.annotations.remove(ann)
 
@@ -1208,13 +1444,13 @@ class CircuitCanvasView(QGraphicsView):
 
     def select_all(self):
         """Select all components and wires on the canvas."""
-        for item in self.scene.items():
+        for item in self._scene.items():
             if isinstance(item, (ComponentGraphicsItem, WireGraphicsItem)):
                 item.setSelected(True)
 
     def on_selection_changed(self):
         """Handle selection changes in the scene"""
-        selected_items = self.scene.selectedItems()
+        selected_items = self._scene.selectedItems()
         components = [item for item in selected_items if isinstance(item, ComponentGraphicsItem)]
 
         if len(components) > 1:
@@ -1229,7 +1465,7 @@ class CircuitCanvasView(QGraphicsView):
 
     def get_selected_component_ids(self) -> list[str]:
         """Return component IDs for all selected ComponentItems."""
-        return [item.component_id for item in self.scene.selectedItems() if isinstance(item, ComponentGraphicsItem)]
+        return [item.component_id for item in self._scene.selectedItems() if isinstance(item, ComponentGraphicsItem)]
 
     def copy_selected_components(self, component_ids: list[str]) -> bool:
         """Copy selected components and internal wires to clipboard.
@@ -1250,7 +1486,7 @@ class CircuitCanvasView(QGraphicsView):
                 status = main_window.statusBar()
                 if status:
                     n = len(component_ids)
-                    status.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", 2000)
+                    status.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
 
         return copied
 
@@ -1296,7 +1532,7 @@ class CircuitCanvasView(QGraphicsView):
             return
 
         # Select newly pasted items
-        self.scene.clearSelection()
+        self._scene.clearSelection()
         new_ids = {c.component_id for c in new_components}
         for comp_id, comp_item in self.components.items():
             if comp_id in new_ids:
@@ -1313,7 +1549,7 @@ class CircuitCanvasView(QGraphicsView):
             status = main_window.statusBar()
             if status:
                 n = len(new_components)
-                status.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", 2000)
+                status.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
 
     def drawForeground(self, painter, rect):
         """Draw node labels, voltages, and OP annotations on top of everything."""
@@ -1441,28 +1677,31 @@ class CircuitCanvasView(QGraphicsView):
         """Set node voltages from simulation results."""
         self.node_voltages = voltages_dict
         self.show_node_voltages = True
-        self.scene.update()
+        self._scene.update()
 
     def clear_node_voltages(self):
         """Clear displayed node voltages."""
         self.node_voltages = {}
         self.branch_currents = {}
         self.show_node_voltages = False
-        self.scene.update()
+        self._scene.update()
 
     def set_op_results(self, voltages_dict, currents_dict=None):
         """Set DC operating point results (voltages and branch currents)."""
+        # Ensure nodes are synced from the model — the simulation controller
+        # may have called rebuild_nodes() directly (bypassing notifications).
+        self._sync_nodes_from_model()
         self.node_voltages = voltages_dict
         self.branch_currents = currents_dict or {}
         self.show_node_voltages = True
-        self.scene.update()
+        self._scene.update()
 
     def clear_op_results(self):
         """Clear all operating point annotations."""
         self.node_voltages = {}
         self.branch_currents = {}
         self.show_node_voltages = False
-        self.scene.update()
+        self._scene.update()
 
     # -- Probe subsystem (delegated to self.probe_overlay) ---------------
 
@@ -1532,7 +1771,7 @@ class CircuitCanvasView(QGraphicsView):
                 logger.warning("Cannot set net name: no controller available")
                 return
             self.controller.set_net_name(node, new_label)
-            self.scene.update()
+            self._scene.update()
             viewPort = self.viewport()
             if viewPort is None:
                 logger.warning("Viewport is None, cannot update after node label change")
@@ -1551,45 +1790,32 @@ class CircuitCanvasView(QGraphicsView):
             # Starting a wire — any terminal is valid
             return True
 
-        # Completing a wire — check for duplicate wire
+        # Completing a wire — delegate duplicate check to controller
         start_id = self.wire_start_comp.component_id
         start_term = self.wire_start_term
         end_id = component.component_id
         end_term = terminal_index
 
-        for wire in self.wires:
-            same_fwd = (
-                wire.model.start_component_id == start_id
-                and wire.model.start_terminal == start_term
-                and wire.model.end_component_id == end_id
-                and wire.model.end_terminal == end_term
+        if self.controller and self.controller.has_duplicate_wire(start_id, start_term, end_id, end_term):
+            logger.info(
+                "Duplicate wire rejected: %s[%s] -> %s[%s]",
+                start_id,
+                start_term,
+                end_id,
+                end_term,
             )
-            same_rev = (
-                wire.model.start_component_id == end_id
-                and wire.model.start_terminal == end_term
-                and wire.model.end_component_id == start_id
-                and wire.model.end_terminal == start_term
-            )
-            if same_fwd or same_rev:
-                logger.info(
-                    "Duplicate wire rejected: %s[%s] -> %s[%s]",
-                    start_id,
-                    start_term,
-                    end_id,
-                    end_term,
-                )
-                main_window = self.window() if hasattr(self, "window") else None
-                if main_window and hasattr(main_window, "statusBar"):
-                    status = main_window.statusBar()
-                    if status:
-                        status.showMessage("Wire already exists between these terminals", 3000)
-                return False
+            main_window = self.window() if hasattr(self, "window") else None
+            if main_window and hasattr(main_window, "statusBar"):
+                status = main_window.statusBar()
+                if status:
+                    status.showMessage("Wire already exists between these terminals", STATUS_DURATION_DEFAULT)
+            return False
 
         return True
 
     def clear_circuit(self):
         """Clear all components, wires, and annotations"""
-        self.scene.clear()
+        self._scene.clear()
         self.draw_grid()
         self.components = {}
         self.wires = []
@@ -1621,7 +1847,7 @@ class CircuitCanvasView(QGraphicsView):
                 rect = rect.united(item.sceneBoundingRect())
             rect.adjust(-ZOOM_FIT_PADDING, -ZOOM_FIT_PADDING, ZOOM_FIT_PADDING, ZOOM_FIT_PADDING)
         else:
-            rect = self.scene.sceneRect()
+            rect = self._scene.sceneRect()
 
         try:
             if filepath.lower().endswith(".svg"):
@@ -1648,7 +1874,7 @@ class CircuitCanvasView(QGraphicsView):
         painter = QPainter(image)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        self.scene.render(painter, QRectF(0, 0, width, height), source_rect)
+        self._scene.render(painter, QRectF(0, 0, width, height), source_rect)
         painter.end()
 
         image.save(filepath)
@@ -1671,7 +1897,7 @@ class CircuitCanvasView(QGraphicsView):
         painter = QPainter()
         painter.begin(svg)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.scene.render(painter, QRectF(0, 0, width, height), source_rect)
+        self._scene.render(painter, QRectF(0, 0, width, height), source_rect)
         painter.end()
 
     # --- Protocol wrapper methods (CircuitCanvasProtocol) ---
@@ -1682,7 +1908,7 @@ class CircuitCanvasView(QGraphicsView):
 
     def clear_selection(self) -> None:
         """Deselect all items (CircuitCanvasProtocol)."""
-        self.scene.clearSelection()
+        self._scene.clearSelection()
 
     def select_components(self, component_ids: list[str]) -> None:
         """Programmatically select the given components (CircuitCanvasProtocol)."""
@@ -1692,17 +1918,17 @@ class CircuitCanvasView(QGraphicsView):
     def set_show_component_labels(self, show: bool) -> None:
         """Toggle component ID label visibility (CircuitCanvasProtocol)."""
         self.show_component_labels = show
-        self.scene.update()
+        self._scene.update()
 
     def set_show_component_values(self, show: bool) -> None:
         """Toggle component value label visibility (CircuitCanvasProtocol)."""
         self.show_component_values = show
-        self.scene.update()
+        self._scene.update()
 
     def set_show_node_labels(self, show: bool) -> None:
         """Toggle node label visibility (CircuitCanvasProtocol)."""
         self.show_node_labels = show
-        self.scene.update()
+        self._scene.update()
 
 
 # Backward compatibility alias

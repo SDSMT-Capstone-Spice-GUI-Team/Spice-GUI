@@ -1,10 +1,10 @@
-"""Tests for issue #442 — Ctrl+click multi-select tearing during group drag.
+"""Tests for issue #442 -- Ctrl+click multi-select tearing during group drag.
 
 Verifies that wire drag-preview updates are suppressed for follower
 components during group movement to prevent visual tearing artifacts.
 """
 
-import inspect
+from unittest.mock import MagicMock
 
 from GUI.component_item import ComponentGraphicsItem, Resistor
 from GUI.styles import GRID_SIZE
@@ -26,28 +26,33 @@ class TestWirePreviewSuppression:
     """Verify that followers skip wire preview during group drag (#442)."""
 
     def test_group_moving_guard_in_position_has_changed(self):
-        """ItemPositionHasChanged handler must check _group_moving before wire preview."""
-        source = inspect.getsource(ComponentGraphicsItem.itemChange)
-        # The handler should contain both the enum and the guard
-        assert "ItemPositionHasChanged" in source
-        assert "not self._group_moving" in source
+        """ComponentGraphicsItem must have a _group_moving attribute for the guard."""
+        scene = QGraphicsScene()
+        comp = _add_resistor(scene, "R1", 0, 0)
+        assert hasattr(comp, "_group_moving"), "ComponentGraphicsItem must have a _group_moving attribute"
+        assert comp._group_moving is False, "_group_moving must default to False"
+        assert hasattr(comp, "itemChange"), "ComponentGraphicsItem must have an itemChange method"
 
     def test_show_drag_preview_only_called_when_not_group_moving(self):
-        """show_drag_preview should only appear inside the not _group_moving block."""
-        source = inspect.getsource(ComponentGraphicsItem.itemChange)
-        lines = source.split("\n")
-        # Find the line with _group_moving guard and the line with show_drag_preview
-        guard_line = None
-        preview_line = None
-        for i, line in enumerate(lines):
-            if "not self._group_moving" in line:
-                guard_line = i
-            if "show_drag_preview" in line:
-                preview_line = i
-        assert guard_line is not None, "_group_moving guard not found"
-        assert preview_line is not None, "show_drag_preview not found"
-        # The preview call must come AFTER the guard
-        assert preview_line > guard_line
+        """show_drag_preview on wires should NOT be called while _group_moving is True."""
+        scene = QGraphicsScene()
+        comp = _add_resistor(scene, "R1", 0, 0)
+
+        # Attach a mock canvas with a mock wire
+        mock_wire = MagicMock()
+        mock_canvas = MagicMock()
+        mock_canvas.wires = [mock_wire]
+        mock_wire.start_component = comp
+        mock_wire.end_component = MagicMock()
+        comp.canvas = mock_canvas
+
+        # Simulate the _group_moving guard being active
+        comp._group_moving = True
+        # Manually invoke the position-changed branch of itemChange
+        change = ComponentGraphicsItem.GraphicsItemChange.ItemPositionHasChanged
+        comp.itemChange(change, QPointF(GRID_SIZE, 0))
+
+        mock_wire.show_drag_preview.assert_not_called()
 
     def test_follower_group_moving_flag_during_setpos(self):
         """Follower's _group_moving should be True when leader moves it."""

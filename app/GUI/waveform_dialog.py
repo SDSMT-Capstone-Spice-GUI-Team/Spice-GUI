@@ -1,4 +1,3 @@
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from controllers.simulation_controller import SimulationController
@@ -27,34 +26,13 @@ from PyQt6.QtWidgets import (
 from utils.format_utils import format_value, parse_value
 
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
+from .plot_utils import apply_mpl_theme as _apply_mpl_theme
+from .plot_utils import safe_legend
 from .styles import SCROLL_LOAD_COUNT, theme_manager
-
-matplotlib.use("QtAgg")
 
 # Get colors from the 'Paired' colormap for color-blind friendliness
 cmap = plt.get_cmap("Paired")
 HIGHLIGHT_COLORS = [QColor.fromRgbF(*cmap(i)) for i in range(12)]
-
-
-def _apply_mpl_theme(fig):
-    """Apply the current application theme colors to a matplotlib figure."""
-    theme = theme_manager.current_theme
-    if theme.is_dark:
-        bg = theme.color_hex("background_primary")
-        fg = theme.color_hex("text_primary")
-        bg2 = theme.color_hex("background_secondary")
-        from PyQt6.QtGui import QColor
-
-        border = QColor(bg2).lighter(150).name()
-        fig.patch.set_facecolor(bg)
-        for ax in fig.axes:
-            ax.set_facecolor(bg2)
-            ax.tick_params(colors=fg)
-            ax.xaxis.label.set_color(fg)
-            ax.yaxis.label.set_color(fg)
-            ax.title.set_color(fg)
-            for spine in ax.spines.values():
-                spine.set_edgecolor(border)
 
 
 class MplCanvas(FigureCanvas):
@@ -219,7 +197,7 @@ class WaveformDialog(QDialog):
         scroll_layout = self._toggle_scroll_content.layout()
 
         separator = QLabel(f"── {label} ──")
-        separator.setStyleSheet("color: gray; font-style: italic;")
+        separator.setStyleSheet(theme_manager.stylesheet("muted_italic"))
         scroll_layout.addWidget(separator)
 
         for key in overlay_keys:
@@ -555,7 +533,7 @@ class WaveformDialog(QDialog):
         self.canvas.axes.set_title("Transient Analysis")
         self.canvas.axes.set_xlabel("Time (s)")
         self.canvas.axes.set_ylabel("Voltage (V)")
-        self.canvas.axes.legend(fontsize="small")
+        safe_legend(self.canvas.axes, fontsize="small")
         self.canvas.axes.grid(True)
         _apply_mpl_theme(self.canvas.figure)
         self.canvas.figure.tight_layout()
@@ -731,7 +709,7 @@ class FFTAnalysisDialog(QDialog):
             else:
                 self._fft_result = SimulationController.compute_signal_fft(self.time, signal, signal_name, window_type)
             self._replot()
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             QMessageBox.critical(self, "FFT Error", f"Failed to compute FFT: {e}")
 
     def _replot(self):

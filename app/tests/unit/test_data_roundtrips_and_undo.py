@@ -727,7 +727,7 @@ class TestFileControllerOperations:
         filepath = tmp_path / "valid.json"
         ctrl.save_circuit(filepath)
 
-        with open(filepath) as f:
+        with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
         assert "components" in data
         assert "wires" in data

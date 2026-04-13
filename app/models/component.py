@@ -21,6 +21,8 @@ COMPONENT_TYPES = [
     "Voltage Source",
     "Current Source",
     "Waveform Source",
+    "AC Voltage Source",
+    "AC Current Source",
     "Ground",
     "Op-Amp",
     "VCVS",
@@ -36,12 +38,13 @@ COMPONENT_TYPES = [
     "LED",
     "Zener Diode",
     "Transformer",
+    "Current Probe",
 ]
 
 # Category groupings for the component palette
 COMPONENT_CATEGORIES = {
     "Passive": ["Resistor", "Capacitor", "Inductor"],
-    "Sources": ["Voltage Source", "Current Source", "Waveform Source"],
+    "Sources": ["Voltage Source", "Current Source", "Waveform Source", "AC Voltage Source", "AC Current Source"],
     "Semiconductors": [
         "Diode",
         "LED",
@@ -52,7 +55,7 @@ COMPONENT_CATEGORIES = {
         "MOSFET PMOS",
     ],
     "Controlled Sources": ["VCVS", "CCVS", "VCCS", "CCCS"],
-    "Other": ["Op-Amp", "VC Switch", "Ground", "Transformer"],
+    "Other": ["Op-Amp", "VC Switch", "Ground", "Transformer", "Current Probe"],
 }
 
 # Mapping of component types to SPICE symbols
@@ -63,6 +66,8 @@ SPICE_SYMBOLS = {
     "Voltage Source": "V",
     "Current Source": "I",
     "Waveform Source": "VW",
+    "AC Voltage Source": "VAC",
+    "AC Current Source": "IAC",
     "Ground": "GND",
     "Op-Amp": "OA",
     "VCVS": "E",
@@ -78,6 +83,7 @@ SPICE_SYMBOLS = {
     "LED": "D",
     "Zener Diode": "D",
     "Transformer": "K",
+    "Current Probe": "VP",
 }
 
 # Number of terminals per component type (default is 2)
@@ -104,6 +110,8 @@ DEFAULT_VALUES = {
     "Voltage Source": "5V",
     "Current Source": "1A",
     "Waveform Source": "SIN(0 5 1k)",
+    "AC Voltage Source": "1V 0",
+    "AC Current Source": "1A 0",
     "Ground": "0V",
     "Op-Amp": "Ideal",
     "VCVS": "1",
@@ -119,6 +127,7 @@ DEFAULT_VALUES = {
     "LED": "IS=1e-20 N=1.8 EG=1.9",
     "Zener Diode": "IS=1e-14 N=1 BV=5.1 IBV=1e-3",
     "Transformer": "10mH 10mH 0.99",
+    "Current Probe": "0",
 }
 
 # Available op-amp models (value field choices)
@@ -174,6 +183,8 @@ COMPONENT_COLORS = {
     "Voltage Source": "#F44336",
     "Current Source": "#9C27B0",
     "Waveform Source": "#E91E63",
+    "AC Voltage Source": "#FF5722",
+    "AC Current Source": "#AB47BC",
     "Ground": "#000000",
     "Op-Amp": "#FFC107",
     "VCVS": "#00897B",
@@ -189,6 +200,7 @@ COMPONENT_COLORS = {
     "LED": "#FFEB3B",
     "Zener Diode": "#8D6E63",
     "Transformer": "#6F42C1",
+    "Current Probe": "#00BFA5",
 }
 
 # Terminal geometry configuration per component type
@@ -202,6 +214,8 @@ TERMINAL_GEOMETRY = {
     "Voltage Source": (15, 15, None),
     "Current Source": (15, 15, None),
     "Waveform Source": (15, 15, None),
+    "AC Voltage Source": (15, 15, None),
+    "AC Current Source": (15, 15, None),
     "Ground": (15, 0, [(0, -10)]),
     "Op-Amp": (20, 10, [(-30, -10), (-30, 10), (30, 0)]),
     "VCVS": (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
@@ -217,6 +231,7 @@ TERMINAL_GEOMETRY = {
     "LED": (10, 20, None),
     "Zener Diode": (10, 20, None),
     "Transformer": (20, 10, [(-30, -10), (-30, 10), (30, -10), (30, 10)]),
+    "Current Probe": (15, 15, None),
 }
 
 # Mapping from serialized class names to canonical display names
@@ -225,6 +240,8 @@ _CLASS_TO_DISPLAY = {
     "VoltageSource": "Voltage Source",
     "CurrentSource": "Current Source",
     "WaveformVoltageSource": "Waveform Source",
+    "ACVoltageSource": "AC Voltage Source",
+    "ACCurrentSource": "AC Current Source",
     "OpAmp": "Op-Amp",
     "VoltageControlledVoltageSource": "VCVS",
     "CurrentControlledVoltageSource": "CCVS",
@@ -236,6 +253,7 @@ _CLASS_TO_DISPLAY = {
     "MOSFETPMOS": "MOSFET PMOS",
     "VCSwitch": "VC Switch",
     "ZenerDiode": "Zener Diode",
+    "CurrentProbe": "Current Probe",
 }
 
 # Mapping from display names to Python class names (for serialization)
@@ -243,6 +261,8 @@ _DISPLAY_TO_CLASS = {
     "Voltage Source": "VoltageSource",
     "Current Source": "CurrentSource",
     "Waveform Source": "WaveformVoltageSource",
+    "AC Voltage Source": "ACVoltageSource",
+    "AC Current Source": "ACCurrentSource",
     "Op-Amp": "OpAmp",
     "VCVS": "VoltageControlledVoltageSource",
     "CCVS": "CurrentControlledVoltageSource",
@@ -254,7 +274,45 @@ _DISPLAY_TO_CLASS = {
     "MOSFET PMOS": "MOSFETPMOS",
     "VC Switch": "VCSwitch",
     "Zener Diode": "ZenerDiode",
+    "Current Probe": "CurrentProbe",
 }
+
+
+# ---------------------------------------------------------------------------
+# Test-isolation helpers
+# ---------------------------------------------------------------------------
+
+# Snapshots of the original built-in component registry state, taken once at
+# module load time.  reset_component_registry() uses these to undo subcircuit
+# registrations so tests can run in isolation.
+_ORIGINAL_COMPONENT_TYPES: list[str] = list(COMPONENT_TYPES)
+_ORIGINAL_SPICE_SYMBOLS: dict = dict(SPICE_SYMBOLS)
+_ORIGINAL_TERMINAL_COUNTS: dict = dict(TERMINAL_COUNTS)
+_ORIGINAL_DEFAULT_VALUES: dict = dict(DEFAULT_VALUES)
+_ORIGINAL_COMPONENT_COLORS: dict = dict(COMPONENT_COLORS)
+_ORIGINAL_TERMINAL_GEOMETRY: dict = dict(TERMINAL_GEOMETRY)
+_ORIGINAL_COMPONENT_CATEGORIES: dict = {k: list(v) for k, v in COMPONENT_CATEGORIES.items()}
+
+
+def reset_component_registry() -> None:
+    """Restore all component registry dicts to their built-in state.
+
+    Removes any dynamically registered subcircuit components so tests can
+    start from a clean, predictable registry without inter-test interference.
+    """
+    COMPONENT_TYPES[:] = _ORIGINAL_COMPONENT_TYPES
+    SPICE_SYMBOLS.clear()
+    SPICE_SYMBOLS.update(_ORIGINAL_SPICE_SYMBOLS)
+    TERMINAL_COUNTS.clear()
+    TERMINAL_COUNTS.update(_ORIGINAL_TERMINAL_COUNTS)
+    DEFAULT_VALUES.clear()
+    DEFAULT_VALUES.update(_ORIGINAL_DEFAULT_VALUES)
+    COMPONENT_COLORS.clear()
+    COMPONENT_COLORS.update(_ORIGINAL_COMPONENT_COLORS)
+    TERMINAL_GEOMETRY.clear()
+    TERMINAL_GEOMETRY.update(_ORIGINAL_TERMINAL_GEOMETRY)
+    COMPONENT_CATEGORIES.clear()
+    COMPONENT_CATEGORIES.update({k: list(v) for k, v in _ORIGINAL_COMPONENT_CATEGORIES.items()})
 
 
 @dataclass
@@ -284,7 +342,7 @@ class ComponentData:
     def __post_init__(self):
         """Initialize waveform parameters for waveform sources."""
         if self.component_type == "Waveform Source" and self.waveform_params is None:
-            from simulation.waveform_utils import DEFAULT_WAVEFORM_TYPE, default_waveform_params
+            from models.waveform_defaults import DEFAULT_WAVEFORM_TYPE, default_waveform_params
 
             self.waveform_type = DEFAULT_WAVEFORM_TYPE
             self.waveform_params = default_waveform_params()
@@ -352,13 +410,13 @@ class ComponentData:
         Return the SPICE value string for this component.
 
         For waveform sources, delegates to
-        :func:`simulation.waveform_utils.format_waveform_spice_value`.
+        :func:`models.waveform_defaults.format_waveform_spice_value`.
         For other components, returns the value as-is.
         """
         if self.component_type != "Waveform Source":
             return self.value
 
-        from simulation.waveform_utils import format_waveform_spice_value
+        from models.waveform_defaults import format_waveform_spice_value
 
         return format_waveform_spice_value(self.waveform_type, self.waveform_params, self.value)
 

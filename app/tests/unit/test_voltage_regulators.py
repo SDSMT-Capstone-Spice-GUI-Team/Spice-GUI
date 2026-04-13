@@ -170,13 +170,13 @@ class TestNetlistGeneration:
 
         components, wires, nodes, t2n = self._build_regulator_circuit(name, tmp_path)
 
-        orig_default = sl_mod._DEFAULT_LIBRARY_DIR
-        sl_mod._DEFAULT_LIBRARY_DIR = lib_dir
+        orig_fn = sl_mod._default_library_dir
+        sl_mod._default_library_dir = lambda: lib_dir
         try:
             gen = NetlistGenerator(components, wires, nodes, t2n, "DC Operating Point", {})
             netlist = gen.generate()
         finally:
-            sl_mod._DEFAULT_LIBRARY_DIR = orig_default
+            sl_mod._default_library_dir = orig_fn
 
         assert f".subckt {name}" in netlist
         assert ".ends" in netlist

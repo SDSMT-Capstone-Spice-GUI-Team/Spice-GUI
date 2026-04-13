@@ -4,7 +4,7 @@ from controllers.theme_controller import theme_ctrl
 from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from .results_plot_dialog import ACSweepPlotDialog, DCSweepPlotDialog
-from .styles import theme_manager
+from .styles import STATUS_DURATION_DEFAULT, STATUS_DURATION_SHORT, theme_manager
 from .waveform_dialog import WaveformDialog
 
 
@@ -24,29 +24,38 @@ class ViewOperationsMixin:
             self.refresh_theme_menu()
 
     def apply_theme(self):
-        """Apply the current theme to all top-level widgets.
+        """Apply the current theme to all visual elements.
 
-        Applying a QSS stylesheet via ``app.setStyleSheet()`` triggers Qt to
-        immediately repaint all widgets, including the QGraphicsView.  During
-        that repaint Qt can invalidate or delete the C++ objects backing
-        QGraphicsItems (grid lines, components, wires), causing a segfault
-        when Python later references them (issue #860).
+        QSS ``setStyleSheet()`` triggers an immediate repaint of every widget,
+        including the ``QGraphicsView``.  During that repaint Qt may
+        invalidate/delete the C++ objects backing ``QGraphicsItem`` instances
+        in the scene, leading to a segfault when we later touch those items
+        (see #860).
 
-        To avoid this we clear the scene *before* applying the stylesheet so
-        there are no items for Qt's repaint to destroy, then rebuild the
-        canvas from the model — the same strategy ``_handle_model_loaded``
-        uses after loading a file.
+        The fix: swap the live scene for a temporary empty one *before*
+        applying the stylesheet so the repaint has nothing to destroy, then
+        rebuild the real scene from the model afterwards.
         """
         theme = theme_manager.current_theme
 
-        # 1. Clear the scene so the upcoming repaint finds nothing to destroy.
+        # 1. Park an empty scene on the view so the QSS repaint is harmless.
+        self.canvas.detach_scene()
+
+        """# 1. Clear the scene so the upcoming repaint finds nothing to destroy.
         self.canvas.scene.clear()
         self.canvas._grid_items.clear()
         self.canvas.components.clear()
         self.canvas.wires.clear()
         self.canvas.annotations.clear()
+        THIS IS FROM A MERGE CONFLICT"""
 
-        # 2. Apply the stylesheet (safe — the scene is empty).
+        # 2. Apply the new stylesheet — repaint hits only the empty scene.
+        self.setStyleSheet(theme.load_qss())
+
+        # 3. Rebuild the real scene with correct theme colors and reattach.
+        self.canvas.rebuild_scene()
+
+        """# 2. Apply the stylesheet (safe — the scene is empty).
         app = QApplication.instance()
         if app is not None:
             app.setStyleSheet(theme.load_qss())
@@ -55,6 +64,7 @@ class ViewOperationsMixin:
 
         # 3. Rebuild the canvas from the controller's model data.
         self.canvas._handle_model_loaded(None)
+        THIS IS FROM A MERGE CONFLICT"""
 
     def set_symbol_style(self, style: str):
         """Switch the component symbol drawing style."""
@@ -63,7 +73,7 @@ class ViewOperationsMixin:
             self.iec_style_action.setChecked(True)
         else:
             self.ieee_style_action.setChecked(True)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def set_color_mode(self, mode: str):
         """Switch between per-type color and monochrome rendering."""
@@ -72,7 +82,7 @@ class ViewOperationsMixin:
             self.monochrome_mode_action.setChecked(True)
         else:
             self.color_mode_action.setChecked(True)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def set_wire_thickness(self, thickness: str):
         """Switch wire rendering thickness."""
@@ -80,14 +90,14 @@ class ViewOperationsMixin:
         if hasattr(self, "wire_thickness_actions"):
             for t, action in self.wire_thickness_actions.items():
                 action.setChecked(t == thickness)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def set_show_junction_dots(self, show: bool):
         """Toggle junction dot visibility at wire intersections."""
         theme_ctrl.set_show_junction_dots(show)
         if hasattr(self, "show_junction_dots_action"):
             self.show_junction_dots_action.setChecked(show)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def set_routing_mode(self, mode: str):
         """Switch wire routing mode between orthogonal and diagonal."""
@@ -95,7 +105,7 @@ class ViewOperationsMixin:
         if hasattr(self, "routing_mode_actions"):
             for m, action in self.routing_mode_actions.items():
                 action.setChecked(m == mode)
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def _toggle_statistics_panel(self, checked):
         """Toggle the circuit statistics panel visibility."""
@@ -161,7 +171,7 @@ class ViewOperationsMixin:
             if bundle.template is not None:
                 from controllers.template_controller import TemplateController
 
-                model = TemplateController.create_circuit_from_template(bundle.template)
+                model = TemplateController().create_circuit_from_template(bundle.template)
                 self.file_ctrl.load_from_model(model)
 
             # Load rubric into grading panel if present
@@ -172,7 +182,8 @@ class ViewOperationsMixin:
                 self.grading_panel._update_grade_button()
                 self.grading_panel.setVisible(True)
 
-            self.statusBar().showMessage(f"Assignment loaded: {filename}", 3000)
+            if bar := self.statusBar():
+                bar.showMessage(f"Assignment loaded: {filename}", STATUS_DURATION_DEFAULT)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load assignment:\n{e}")
 
@@ -221,24 +232,26 @@ class ViewOperationsMixin:
             from models.assignment import AssignmentBundle
             from models.template import TemplateData, TemplateMetadata
 
+            circuit_data = self.model.to_dict()
             template = TemplateData(
                 metadata=TemplateMetadata(title=rubric.title),
-                starter_circuit=self.model.to_dict(),
-                reference_circuit=self.model.to_dict(),
+                starter_circuit=circuit_data,
+                reference_circuit=circuit_data,
             )
             bundle = AssignmentBundle(
                 template=template,
                 rubric=rubric.to_dict(),
             )
             save_assignment(bundle, save_path)
-            self.statusBar().showMessage(f"Assignment saved: {save_path}", 3000)
+            if bar := self.statusBar():
+                bar.showMessage(f"Assignment saved: {save_path}", STATUS_DURATION_DEFAULT)
         except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to save assignment:\n{e}")
 
     # Dirty flag (unsaved changes indicator)
 
     def _on_dirty_change(self, event: str, data) -> None:
-        """Mark circuit as dirty on model-modifying events."""
+        """Mark circuit as dirty on model-modifying events and refresh undo/redo menu."""
         dirty_events = {
             "component_added",
             "component_removed",
@@ -255,6 +268,9 @@ class ViewOperationsMixin:
             self._set_dirty(True)
         elif event in ("circuit_cleared", "model_loaded"):
             self._set_dirty(False)
+
+        if event == "undo_state_changed":
+            self._update_undo_redo_actions()
 
         # Sync palette "Used in File" when components change
         if event in (
@@ -286,42 +302,45 @@ class ViewOperationsMixin:
     def toggle_component_labels(self, checked):
         """Toggle component label visibility"""
         self.canvas.show_component_labels = checked
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def toggle_component_values(self, checked):
         """Toggle component value visibility"""
         self.canvas.show_component_values = checked
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def toggle_node_labels(self, checked):
         """Toggle node label visibility"""
         self.canvas.show_node_labels = checked
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def toggle_op_annotations(self, checked):
         """Toggle DC operating point annotation visibility."""
         self.canvas.show_op_annotations = checked
-        self.canvas.scene.update()
+        self.canvas.scene().update()
 
     def _toggle_probe_mode(self, checked):
         """Toggle interactive probe mode on the canvas."""
         self.canvas.set_probe_mode(checked)
         if checked:
-            if not self.canvas.node_voltages and self._last_results is None:
-                self.statusBar().showMessage("Probe mode active. Run a simulation first to see values.", 3000)
-            else:
-                self.statusBar().showMessage(
-                    "Probe mode active. Click nodes or components to see values. Press Escape to exit.",
-                    3000,
-                )
+            if bar := self.statusBar():
+                if not self.canvas.node_voltages and self._last_results is None:
+                    bar.showMessage("Probe mode active. Run a simulation first to see values.", STATUS_DURATION_DEFAULT)
+                else:
+                    bar.showMessage(
+                        "Probe mode active. Click nodes or components to see values. Press Escape to exit.",
+                        3000,
+                    )
         else:
             self.canvas.clear_probes()
-            self.statusBar().showMessage("Probe mode deactivated.", 2000)
+            if bar := self.statusBar():
+                bar.showMessage("Probe mode deactivated.", STATUS_DURATION_SHORT)
 
     def _on_probe_requested(self, signal_name, probe_type):
         """Handle probe click for sweep/transient analyses (no OP data on canvas)."""
         if self._last_results is None:
-            self.statusBar().showMessage("No simulation results available. Run a simulation first.", 3000)
+            if bar := self.statusBar():
+                bar.showMessage("No simulation results available. Run a simulation first.", STATUS_DURATION_DEFAULT)
             return
 
         analysis_type = self._last_results_type
@@ -332,7 +351,8 @@ class ViewOperationsMixin:
         elif analysis_type == "AC Sweep":
             self._probe_open_ac_sweep(signal_name, probe_type)
         else:
-            self.statusBar().showMessage(f"Probe not supported for {analysis_type} analysis.", 3000)
+            if bar := self.statusBar():
+                bar.showMessage(f"Probe not supported for {analysis_type} analysis.", STATUS_DURATION_DEFAULT)
 
     def _probe_open_waveform(self, signal_name, probe_type):
         """Open waveform dialog focused on the probed signal."""
@@ -341,11 +361,12 @@ class ViewOperationsMixin:
             return
         # Open or raise the waveform dialog
         if self._waveform_dialog is None or not self._waveform_dialog.isVisible():
-            self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.sim_ctrl)
+            self._waveform_dialog = WaveformDialog(tran_data, self, sim_ctrl=self.simulation_ctrl)
             self._waveform_dialog.show()
         self._waveform_dialog.raise_()
         self._waveform_dialog.activateWindow()
-        self.statusBar().showMessage(f"Opened waveform plot for {signal_name}.", 2000)
+        if bar := self.statusBar():
+            bar.showMessage(f"Opened waveform plot for {signal_name}.", STATUS_DURATION_SHORT)
 
     def _probe_open_dc_sweep(self, signal_name, probe_type):
         """Open DC sweep plot dialog for the probed signal."""
@@ -356,7 +377,8 @@ class ViewOperationsMixin:
             self._show_plot_dialog(DCSweepPlotDialog(sweep_data, self))
         self._plot_dialog.raise_()
         self._plot_dialog.activateWindow()
-        self.statusBar().showMessage(f"Opened DC sweep plot for {signal_name}.", 2000)
+        if bar := self.statusBar():
+            bar.showMessage(f"Opened DC sweep plot for {signal_name}.", STATUS_DURATION_SHORT)
 
     def _probe_open_ac_sweep(self, signal_name, probe_type):
         """Open AC sweep Bode plot dialog for the probed signal."""
@@ -364,10 +386,11 @@ class ViewOperationsMixin:
         if not ac_data:
             return
         if self._plot_dialog is None or not self._plot_dialog.isVisible():
-            self._show_plot_dialog(ACSweepPlotDialog(ac_data, self, sim_ctrl=self.sim_ctrl))
+            self._show_plot_dialog(ACSweepPlotDialog(ac_data, self, sim_ctrl=self.simulation_ctrl))
         self._plot_dialog.raise_()
         self._plot_dialog.activateWindow()
-        self.statusBar().showMessage(f"Opened AC sweep plot for {signal_name}.", 2000)
+        if bar := self.statusBar():
+            bar.showMessage(f"Opened AC sweep plot for {signal_name}.", STATUS_DURATION_SHORT)
 
     def _on_zoom_changed(self, level):
         """Update the zoom level display"""
@@ -381,7 +404,7 @@ class ViewOperationsMixin:
         if not filename:
             return
 
-        scene = self.canvas.scene
+        scene = self.canvas.scene()
 
         # Compute bounding rect of circuit items (excluding grid)
         from .annotation_item import AnnotationItem
@@ -406,20 +429,36 @@ class ViewOperationsMixin:
         source_rect.adjust(-padding, -padding, padding, padding)
 
         if filename.lower().endswith(".svg"):
-            from PyQt6.QtCore import QSize
+            from PyQt6.QtCore import QRect, QRectF, QSize
             from PyQt6.QtSvg import QSvgGenerator
+
+            width = int(source_rect.width())
+            height = int(source_rect.height())
 
             generator = QSvgGenerator()
             generator.setFileName(filename)
-            generator.setSize(QSize(int(source_rect.width()), int(source_rect.height())))
-            generator.setViewBox(source_rect)
+            generator.setSize(QSize(width, height))
+            generator.setViewBox(QRect(0, 0, width, height))
             generator.setTitle("SDM Spice Circuit")
 
             from PyQt6.QtGui import QPainter
 
             painter = QPainter(generator)
-            scene.render(painter, source=source_rect)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            # Override scene background to white so dark-mode theme doesn't leak
+            from PyQt6.QtCore import Qt
+            from PyQt6.QtGui import QBrush
+
+            original_brush = scene.backgroundBrush()
+            scene.setBackgroundBrush(QBrush(Qt.GlobalColor.white))
+            scene.render(painter, QRectF(0, 0, width, height), source_rect)
+            scene.setBackgroundBrush(original_brush)
             painter.end()
+
+            # Embed circuit data in the SVG for shareable round-trip import
+            from simulation.svg_shareable import embed_circuit_data
+
+            embed_circuit_data(filename, self.model)
         else:
             # PNG
             from PyQt6.QtCore import QRectF, Qt
@@ -434,7 +473,13 @@ class ViewOperationsMixin:
             painter = QPainter(image)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             target_rect = QRectF(0, 0, width, height)
+            # Override scene background to white so dark-mode theme doesn't leak
+            from PyQt6.QtGui import QBrush
+
+            original_brush = scene.backgroundBrush()
+            scene.setBackgroundBrush(QBrush(Qt.GlobalColor.white))
             scene.render(painter, target=target_rect, source=source_rect)
+            scene.setBackgroundBrush(original_brush)
             painter.end()
             image.save(filename)
 
@@ -458,7 +503,7 @@ class ViewOperationsMixin:
         opts = dialog.get_options()
 
         try:
-            tikz_code = self.sim_ctrl.generate_circuitikz(
+            tikz_code = self.simulation_ctrl.generate_circuitikz(
                 standalone=opts["standalone"],
                 circuit_name=(os.path.basename(self.file_ctrl.current_file) if self.file_ctrl.current_file else ""),
                 scale=opts["scale"],
@@ -467,7 +512,7 @@ class ViewOperationsMixin:
                 include_net_labels=opts["include_net_labels"],
                 style=opts["style"],
             )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
             return
 
@@ -488,11 +533,12 @@ class ViewOperationsMixin:
             filename += ".tex"
 
         try:
-            with open(filename, "w", encoding="utf-8") as f:
-                f.write(tikz_code)
+            from utils.atomic_write import atomic_write_text
+
+            atomic_write_text(filename, tikz_code)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"CircuiTikZ exported to {filename}", 3000)
+                statusBar.showMessage(f"CircuiTikZ exported to {filename}", STATUS_DURATION_DEFAULT)
         except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to export: {e}")
 
@@ -500,14 +546,16 @@ class ViewOperationsMixin:
         """Copy the CircuiTikZ environment block to the clipboard."""
         model = self.circuit_ctrl.model
         if not model.components:
-            self.statusBar().showMessage("Nothing to copy — the canvas is empty.", 3000)
+            if bar := self.statusBar():
+                bar.showMessage("Nothing to copy — the canvas is empty.", STATUS_DURATION_DEFAULT)
             return
 
         try:
-            tikz_code = self.sim_ctrl.generate_circuitikz(standalone=False)
-        except Exception as e:
+            tikz_code = self.simulation_ctrl.generate_circuitikz(standalone=False)
+        except (ValueError, KeyError, TypeError) as e:
             QMessageBox.critical(self, "Error", f"Failed to generate CircuiTikZ: {e}")
             return
 
         QApplication.clipboard().setText(tikz_code)
-        self.statusBar().showMessage("CircuiTikZ code copied to clipboard.", 3000)
+        if bar := self.statusBar():
+            bar.showMessage("CircuiTikZ code copied to clipboard.", STATUS_DURATION_DEFAULT)

@@ -25,7 +25,7 @@ CircuitCanvasView (QGraphicsView)     ← primary interaction surface
 
 ```
 QGraphicsView
-└── CircuitCanvasView                    app/GUI/circuit_canvas.py (~2266 lines)
+└── CircuitCanvasView                    app/GUI/circuit_canvas.py (~1916 lines)
     │
     └── QGraphicsScene (aggregated)
             │
@@ -52,7 +52,7 @@ _WireAdapter        — wraps WireGraphicsItem for pathfinding obstacle queries
 ### Rendering
 
 ```
-ComponentRenderer (ABC)                  app/GUI/renderers.py (~585 lines)
+ComponentRenderer (ABC)                  app/GUI/renderers.py (~694 lines)
 ├── IEEEResistor, IEEECapacitor, IEEEInductor, …
 └── (IEC variants follow the same interface)
 ```
@@ -323,12 +323,12 @@ probe_mode: bool                # Probe tool active
 
 | File | Lines | Purpose |
 |---|---|---|
-| `app/GUI/circuit_canvas.py` | ~2266 | Main view: events, editing, serialization, overlays |
-| `app/GUI/component_item.py` | ~872 | Component rendering, drag, terminal detection |
-| `app/GUI/wire_item.py` | ~524 | Wire routing, waypoint handles, pathfinding adapters |
+| `app/GUI/circuit_canvas.py` | ~1916 | Main view: events, editing, serialization, overlays |
+| `app/GUI/component_item.py` | ~971 | Component rendering, drag, terminal detection |
+| `app/GUI/wire_item.py` | ~637 | Wire routing, waypoint handles, pathfinding adapters |
 | `app/GUI/annotation_item.py` | ~72 | Free-form text labels |
-| `app/GUI/renderers.py` | ~585 | Component symbol renderers (IEEE/IEC), obstacle shapes |
-| `app/GUI/styles/constants.py` | ~79 | Grid, zoom, terminal, and layout constants |
+| `app/GUI/renderers.py` | ~694 | Component symbol renderers (IEEE/IEC), obstacle shapes |
+| `app/GUI/styles/constants.py` | ~96 | Grid, zoom, terminal, and layout constants |
 | `app/models/component.py` | — | `ComponentData`, `COMPONENT_TYPES`, `SPICE_SYMBOLS`, `TERMINAL_COUNTS` |
 | `app/models/wire.py` | ~96 | `WireData` |
 | `app/models/node.py` | — | `NodeData`, node label generator |

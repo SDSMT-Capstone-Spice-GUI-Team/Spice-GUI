@@ -24,54 +24,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from controllers.file_controller import FileController
 from models.circuit import CircuitModel
-from models.component import ComponentData
-from models.wire import WireData
-
-
-def _build_simple_circuit():
-    """Build a simple V1-R1-GND circuit model."""
-    model = CircuitModel()
-    model.components["V1"] = ComponentData(
-        component_id="V1",
-        component_type="Voltage Source",
-        value="5V",
-        position=(0.0, 0.0),
-    )
-    model.components["R1"] = ComponentData(
-        component_id="R1",
-        component_type="Resistor",
-        value="1k",
-        position=(100.0, 0.0),
-    )
-    model.components["GND1"] = ComponentData(
-        component_id="GND1",
-        component_type="Ground",
-        value="0V",
-        position=(0.0, 100.0),
-    )
-    model.wires = [
-        WireData(
-            start_component_id="V1",
-            start_terminal=1,
-            end_component_id="R1",
-            end_terminal=0,
-        ),
-        WireData(
-            start_component_id="R1",
-            start_terminal=1,
-            end_component_id="GND1",
-            end_terminal=0,
-        ),
-        WireData(
-            start_component_id="V1",
-            start_terminal=0,
-            end_component_id="GND1",
-            end_terminal=0,
-        ),
-    ]
-    model.component_counter = {"V": 1, "R": 1, "GND": 1}
-    model.rebuild_nodes()
-    return model
+from tests.conftest import build_simple_circuit
 
 
 class TestLoadFromModel:
@@ -80,7 +33,7 @@ class TestLoadFromModel:
     def test_load_from_model_replaces_data(self):
         """load_from_model should replace the model data in place."""
         ctrl = FileController(CircuitModel())
-        new_model = _build_simple_circuit()
+        new_model = build_simple_circuit()
         ctrl.load_from_model(new_model)
         assert "V1" in ctrl.model.components
         assert "R1" in ctrl.model.components
@@ -89,14 +42,14 @@ class TestLoadFromModel:
         """load_from_model should notify circuit_ctrl when present."""
         mock_ctrl = MagicMock()
         ctrl = FileController(CircuitModel(), circuit_ctrl=mock_ctrl)
-        new_model = _build_simple_circuit()
+        new_model = build_simple_circuit()
         ctrl.load_from_model(new_model)
-        mock_ctrl._notify.assert_called_once_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_once_with("model_loaded", None)
 
     def test_load_from_model_without_circuit_ctrl(self):
         """load_from_model should work without circuit_ctrl."""
         ctrl = FileController(CircuitModel())
-        new_model = _build_simple_circuit()
+        new_model = build_simple_circuit()
         ctrl.load_from_model(new_model)
         assert "V1" in ctrl.model.components
 
@@ -109,17 +62,17 @@ class TestCircuitCtrlNotifications:
         """save_circuit should notify circuit_ctrl with 'model_saved'."""
         mock_settings.get_list.return_value = []
         mock_ctrl = MagicMock()
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, circuit_ctrl=mock_ctrl)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
-        mock_ctrl._notify.assert_called_with("model_saved", None)
+        mock_ctrl.notify.assert_called_with("model_saved", None)
 
     @patch("controllers.file_controller.settings")
     def test_load_circuit_notifies_circuit_ctrl(self, mock_settings, tmp_path):
         """load_circuit should notify circuit_ctrl with 'model_loaded'."""
         mock_settings.get_list.return_value = []
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model)
         filepath = tmp_path / "test.json"
         ctrl.save_circuit(filepath)
@@ -127,7 +80,7 @@ class TestCircuitCtrlNotifications:
         mock_ctrl = MagicMock()
         ctrl2 = FileController(circuit_ctrl=mock_ctrl)
         ctrl2.load_circuit(filepath)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
 
 class TestSaveSessionOSError:
@@ -138,7 +91,7 @@ class TestSaveSessionOSError:
         # Use a session file path in a non-existent directory
         session_file = str(tmp_path / "nonexistent_dir" / "deep" / "session.txt")
         ctrl = FileController(
-            _build_simple_circuit(),
+            build_simple_circuit(),
             session_file=session_file,
         )
         ctrl.current_file = Path("/some/file.json")
@@ -150,7 +103,7 @@ class TestSaveSessionOSError:
         """save_circuit should not fail if session file write raises OSError."""
         mock_settings.get_list.return_value = []
         session_file = str(tmp_path / "no_dir" / "session.txt")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         filepath = tmp_path / "test.json"
         ctrl = FileController(model, session_file=session_file)
         # Should not raise despite session file being unwritable
@@ -164,7 +117,7 @@ class TestAutoSaveWriting:
     def test_auto_save_writes_file(self, tmp_path):
         """auto_save should write model data to the autosave file."""
         autosave_file = str(tmp_path / ".autosave_recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
         ctrl.auto_save()
         autosave_path = ctrl._autosave_file
@@ -176,7 +129,7 @@ class TestAutoSaveWriting:
     def test_auto_save_includes_source_path(self, tmp_path):
         """auto_save should store the current_file as _autosave_source."""
         autosave_file = str(tmp_path / ".autosave_recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
         source = tmp_path / "circuit.json"
         ctrl.current_file = source
@@ -187,7 +140,7 @@ class TestAutoSaveWriting:
     def test_auto_save_empty_source_when_no_current_file(self, tmp_path):
         """auto_save should store empty string when no current_file."""
         autosave_file = str(tmp_path / ".autosave_recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
         ctrl.auto_save()
         data = json.loads(ctrl._autosave_file.read_text())
@@ -200,7 +153,7 @@ class TestClearAutoSave:
     def test_clear_auto_save_deletes_file(self, tmp_path):
         """clear_auto_save should delete the autosave file."""
         autosave_file = str(tmp_path / ".autosave_recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
         ctrl.auto_save()
         assert ctrl._autosave_file.exists()
@@ -235,7 +188,7 @@ class TestImportNetlistCtrlNotification:
         netlist.write_text("Test Circuit\nV1 1 0 DC 5V\nR1 1 0 1k\n.op\n.end\n")
         ctrl = FileController(CircuitModel(), circuit_ctrl=mock_ctrl)
         ctrl.import_netlist(netlist)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
 
 class TestImportAscAnalysisAndNotification:
@@ -276,7 +229,7 @@ class TestImportAscAnalysisAndNotification:
         )
         ctrl = FileController(CircuitModel(), circuit_ctrl=mock_ctrl)
         ctrl.import_asc(asc)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
 
 class TestImportCircuitikzCoverage:
@@ -302,7 +255,7 @@ class TestImportCircuitikzCoverage:
         tex.write_text("\\begin{circuitikz}\n\\draw (0,0) to[R, l=$R_1$] (2,0);\n\\end{circuitikz}\n")
         ctrl = FileController(CircuitModel(), circuit_ctrl=mock_ctrl)
         ctrl.import_circuitikz(tex)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
     @patch("controllers.file_controller.settings")
     def test_import_circuitikz_adds_to_recent(self, mock_settings, tmp_path):
@@ -322,11 +275,11 @@ class TestLoadFromDictCtrlNotification:
     def test_load_from_dict_notifies_circuit_ctrl(self):
         """load_from_dict should notify circuit_ctrl with 'model_loaded'."""
         mock_ctrl = MagicMock()
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, circuit_ctrl=mock_ctrl)
         data = model.to_dict()
         ctrl.load_from_dict(data)
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
 
 class TestLoadLastSessionOSError:
@@ -349,7 +302,7 @@ class TestAutoSaveErrorBranch:
     def test_auto_save_oserror_is_logged(self, tmp_path):
         """auto_save should log a warning on OSError, not raise."""
         autosave_file = str(tmp_path / ".autosave_recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
         with patch("builtins.open", side_effect=OSError("disk full")):
             # Should not raise
@@ -362,7 +315,7 @@ class TestHasAutoSave:
     def test_has_auto_save_true(self, tmp_path):
         """has_auto_save should return True when file exists."""
         autosave_file = str(tmp_path / ".autosave_recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
         ctrl.auto_save()
         assert ctrl.has_auto_save() is True
@@ -380,7 +333,7 @@ class TestLoadAutoSaveBranches:
     def test_load_auto_save_restores_source_path(self, tmp_path):
         """load_auto_save should restore current_file from _autosave_source."""
         autosave_file = str(tmp_path / ".autosave_recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
         original_path = tmp_path / "circuit.json"
         ctrl.current_file = original_path
@@ -394,14 +347,14 @@ class TestLoadAutoSaveBranches:
     def test_load_auto_save_notifies_circuit_ctrl(self, tmp_path):
         """load_auto_save should notify circuit_ctrl with 'model_loaded'."""
         autosave_file = str(tmp_path / ".autosave_recovery.json")
-        model = _build_simple_circuit()
+        model = build_simple_circuit()
         ctrl = FileController(model, autosave_file=autosave_file)
         ctrl.auto_save()
 
         mock_ctrl = MagicMock()
         ctrl2 = FileController(autosave_file=autosave_file, circuit_ctrl=mock_ctrl)
         ctrl2.load_auto_save()
-        mock_ctrl._notify.assert_called_with("model_loaded", None)
+        mock_ctrl.notify.assert_called_with("model_loaded", None)
 
     def test_load_auto_save_returns_none_on_oserror(self, tmp_path):
         """load_auto_save should return None on OSError."""

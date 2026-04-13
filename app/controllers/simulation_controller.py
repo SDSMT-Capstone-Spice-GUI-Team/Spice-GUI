@@ -48,7 +48,7 @@ class SimulationController:
         preset_manager=None,
     ):
         self.model = model or CircuitModel()
-        self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
+        self.circuit_ctrl = circuit_ctrl
         self._runner = None
         self._preset_manager = preset_manager
 
@@ -126,14 +126,12 @@ class SimulationController:
 
         Steps: validate -> generate netlist -> find ngspice -> run -> parse
         """
-        # Phase 5: Notify simulation started
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("simulation_started", None)
 
         # 1. Validate
         validation = self.validate_circuit()
         if not validation.success:
-            # Phase 5: Notify even on failure
             if self.circuit_ctrl:
                 self.circuit_ctrl._notify("simulation_completed", validation)
             return validation
@@ -154,7 +152,6 @@ class SimulationController:
                 success=False,
                 error=f"Netlist generation failed: {e}",
             )
-            # Phase 5: Notify even on failure
             if self.circuit_ctrl:
                 self.circuit_ctrl._notify("simulation_completed", result)
             return result
@@ -167,10 +164,12 @@ class SimulationController:
                 error="ngspice executable not found. Please install ngspice.",
                 netlist=netlist,
             )
-            # Phase 5: Notify even on failure
             if self.circuit_ctrl:
                 self.circuit_ctrl._notify("simulation_completed", result)
             return result
+
+        # Track wrdata file for cleanup on next run
+        self.runner.register_extra_files([wrdata_filepath])
 
         # 5. Run simulation
         success, output_file, stdout, stderr = self.runner.run_simulation(netlist)
@@ -213,7 +212,6 @@ class SimulationController:
                 netlist=netlist,
                 raw_output=stdout,
             )
-            # Phase 5: Notify even on failure
             if self.circuit_ctrl:
                 self.circuit_ctrl._notify("simulation_completed", result)
             return result
@@ -227,7 +225,6 @@ class SimulationController:
             warnings=validation.warnings,
         )
 
-        # Phase 5: Notify simulation completed
         if self.circuit_ctrl:
             self.circuit_ctrl._notify("simulation_completed", result)
 
@@ -248,33 +245,80 @@ class SimulationController:
         analysis = self.model.analysis_type
 
         try:
-            if analysis == "DC Operating Point":
-                output = self.runner.read_output(output_file)
+            # Read the output file once; many parsers need it.
+            output = self.runner.read_output(output_file) if output_file else ""
+
+            if analysis in ("DC Operating Point", "Operational Point"):
                 data = ResultParser.parse_op_results(output)
+                # Fallback: print output may have gone to stdout instead
+                # of the -o file in some ngspice versions (#852).
+                if not data.get("node_voltages") and raw_output:
+                    fallback = ResultParser.parse_op_results(raw_output)
+                    if fallback.get("node_voltages"):
+                        data = fallback
             elif analysis == "DC Sweep":
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_dc_results(output)
+                # Prefer wrdata file (clean tabular format) over log output.
+                data = None
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
+                if data is None:
+                    data = ResultParser.parse_dc_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_dc_results(raw_output)
             elif analysis == "AC Sweep":
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_ac_results(output)
+                use_db = str(self.model.analysis_params.get("use_db", "No")).lower() in ("yes", "true", "1")
+                # Prefer wrdata file which always has clean tabular data (#805).
+                data = None
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_ac_wrdata(wrdata_filepath)
+                # Fallback: try the -o output file, then raw stdout.
+                if data is None:
+                    data = ResultParser.parse_ac_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_ac_results(raw_output)
+                if data is not None:
+                    data["use_db"] = use_db
             elif analysis == "Transient":
                 data = ResultParser.parse_transient_results(wrdata_filepath)
             elif analysis == "Temperature Sweep":
-                # Temperature sweep runs DC OP at each temp; parse as OP
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_op_results(output)
+                # Temperature sweep with .step produces tabular output;
+                # try wrdata file first, then log output, then OP fallback (#856).
+                data = None
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_dc_sweep_wrdata(wrdata_filepath)
+                if data is None:
+                    data = ResultParser.parse_dc_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_dc_results(raw_output)
+                if data is None:
+                    data = ResultParser.parse_op_results(output)
+                    # Fallback: try stdout for OP results
+                    if not data.get("node_voltages") and raw_output:
+                        fallback = ResultParser.parse_op_results(raw_output)
+                        if fallback.get("node_voltages"):
+                            data = fallback
             elif analysis == "Noise":
-                output = self.runner.read_output(output_file)
-                data = ResultParser.parse_noise_results(output)
+                # Prefer wrdata file which has clean tabular data (#857).
+                data = None
+                if wrdata_filepath and os.path.isfile(wrdata_filepath):
+                    data = ResultParser.parse_noise_wrdata(wrdata_filepath)
+                # Fallback: try the -o output file, then raw stdout.
+                if data is None:
+                    data = ResultParser.parse_noise_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_noise_results(raw_output)
             elif analysis == "Sensitivity":
-                output = self.runner.read_output(output_file)
                 data = ResultParser.parse_sensitivity_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_sensitivity_results(raw_output)
             elif analysis == "Transfer Function":
-                output = self.runner.read_output(output_file)
                 data = ResultParser.parse_tf_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_tf_results(raw_output)
             elif analysis == "Pole-Zero":
-                output = self.runner.read_output(output_file)
                 data = ResultParser.parse_pz_results(output)
+                if data is None and raw_output:
+                    data = ResultParser.parse_pz_results(raw_output)
             else:
                 return SimulationResult(
                     success=False,
@@ -283,6 +327,22 @@ class SimulationController:
 
             # Parse any .meas measurement results from stdout
             meas_results = ResultParser.parse_measurement_results(raw_output)
+
+            # Check for hidden errors: ngspice may produce an output file
+            # but still fail (e.g. convergence error).  If the parser found
+            # no data, check the raw output for error patterns (#858).
+            if data is None:
+                from simulation.convergence import ErrorCategory, diagnose_error, format_user_message
+
+                combined = (raw_output or "") + "\n" + (self.runner.read_output(output_file) if output_file else "")
+                diagnosis = diagnose_error("", combined)
+                if diagnosis.category != ErrorCategory.UNKNOWN:
+                    return SimulationResult(
+                        success=False,
+                        error=format_user_message(diagnosis),
+                        netlist=netlist,
+                        raw_output=raw_output,
+                    )
 
             return SimulationResult(
                 success=True,
@@ -367,6 +427,7 @@ class SimulationController:
         step_results = []
         errors = []
         cancelled = False
+        wrdata_files: list[str] = []
 
         try:
             for i, val in enumerate(sweep_values):
@@ -380,6 +441,7 @@ class SimulationController:
                 # Generate netlist
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                 wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_sweep_{i}_{timestamp}.txt")
+                wrdata_files.append(wrdata_filepath)
 
                 try:
                     netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
@@ -418,6 +480,8 @@ class SimulationController:
             # Restore original state
             comp.value = original_value
             self.set_analysis(original_analysis, original_params)
+            # Track wrdata files for cleanup on next run
+            self.runner.register_extra_files(wrdata_files)
 
         # Trim sweep_values to match actual results if cancelled
         actual_values = sweep_values[: len(step_results)]
@@ -496,6 +560,7 @@ class SimulationController:
         run_values = []
         errors = []
         cancelled = False
+        wrdata_files: list[str] = []
 
         try:
             for i in range(num_runs):
@@ -521,6 +586,7 @@ class SimulationController:
 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                 wrdata_filepath = os.path.join(self.runner.output_dir, f"wrdata_mc_{i}_{timestamp}.txt")
+                wrdata_files.append(wrdata_filepath)
 
                 try:
                     netlist = self.generate_netlist(wrdata_filepath=wrdata_filepath)
@@ -557,6 +623,8 @@ class SimulationController:
                 if comp:
                     comp.value = orig_val
             self.set_analysis(original_analysis, original_params)
+            # Track wrdata files for cleanup on next run
+            self.runner.register_extra_files(wrdata_files)
 
         any_success = any(r.success for r in step_results)
 
@@ -603,7 +671,7 @@ class SimulationController:
         return [], ""
 
     @staticmethod
-    def compute_power(components, nodes, node_voltages) -> tuple:
+    def compute_power(components, nodes, node_voltages, branch_currents=None) -> tuple:
         """Calculate power dissipation for all components.
 
         Returns:
@@ -612,17 +680,17 @@ class SimulationController:
         """
         from simulation.power_calculator import calculate_power, total_power
 
-        power_data = calculate_power(components, nodes, node_voltages)
+        power_data = calculate_power(components, nodes, node_voltages, branch_currents)
         if power_data:
             return power_data, total_power(power_data)
         return {}, 0.0
 
     @staticmethod
-    def compute_frequency_markers(frequencies, magnitude, phase=None) -> dict:
+    def compute_frequency_markers(frequencies, magnitude, phase=None, is_db=False) -> dict:
         """Compute frequency response markers from AC sweep data."""
         from simulation.freq_markers import compute_markers
 
-        return compute_markers(frequencies, magnitude, phase)
+        return compute_markers(frequencies, magnitude, phase, is_db=is_db)
 
     @staticmethod
     def compute_signal_fft(time, signal, signal_name, window_type="hamming"):
@@ -730,9 +798,10 @@ class SimulationController:
             ValueError, KeyError, TypeError: If netlist generation fails.
             OSError: If the file cannot be written.
         """
+        from utils.atomic_write import atomic_write_text
+
         netlist = self.generate_netlist()
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(netlist)
+        atomic_write_text(filepath, netlist)
 
     def generate_results_csv(self, results, results_type: str, circuit_name: str = "") -> Optional[str]:
         """Generate CSV content from simulation results.

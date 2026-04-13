@@ -9,19 +9,19 @@ from simulation.ngspice_runner import NgspiceRunner
 
 
 class TestNgspiceRunnerPlatformDetection:
-    """Verify ngspice discovery uses platform-appropriate paths."""
+    """Verify ngspice discovery uses platform-appropriate paths via ngspice_config."""
 
     def test_find_ngspice_uses_shutil_which_first(self, tmp_path):
         runner = NgspiceRunner(output_dir=str(tmp_path))
-        with patch("shutil.which", return_value="/usr/bin/ngspice"):
+        with patch("simulation.ngspice_config.shutil.which", return_value="/usr/bin/ngspice"):
             result = runner.find_ngspice()
         assert result == "/usr/bin/ngspice"
 
     def test_find_ngspice_returns_none_when_not_found(self, tmp_path):
         runner = NgspiceRunner(output_dir=str(tmp_path))
         with (
-            patch("shutil.which", return_value=None),
-            patch("os.path.exists", return_value=False),
+            patch("simulation.ngspice_config.shutil.which", return_value=None),
+            patch("simulation.ngspice_config.os.path.isfile", return_value=False),
         ):
             result = runner.find_ngspice()
         assert result is None
@@ -30,10 +30,10 @@ class TestNgspiceRunnerPlatformDetection:
         runner = NgspiceRunner(output_dir=str(tmp_path))
         checked_paths = []
         with (
-            patch("shutil.which", return_value=None),
-            patch("platform.system", return_value="Linux"),
+            patch("simulation.ngspice_config.shutil.which", return_value=None),
+            patch("simulation.ngspice_config.platform.system", return_value="Linux"),
             patch(
-                "os.path.exists",
+                "simulation.ngspice_config.os.path.isfile",
                 side_effect=lambda p: (checked_paths.append(p), False)[1],
             ),
         ):
@@ -45,10 +45,10 @@ class TestNgspiceRunnerPlatformDetection:
         runner = NgspiceRunner(output_dir=str(tmp_path))
         checked_paths = []
         with (
-            patch("shutil.which", return_value=None),
-            patch("platform.system", return_value="Darwin"),
+            patch("simulation.ngspice_config.shutil.which", return_value=None),
+            patch("simulation.ngspice_config.platform.system", return_value="Darwin"),
             patch(
-                "os.path.exists",
+                "simulation.ngspice_config.os.path.isfile",
                 side_effect=lambda p: (checked_paths.append(p), False)[1],
             ),
         ):
@@ -60,10 +60,10 @@ class TestNgspiceRunnerPlatformDetection:
         runner = NgspiceRunner(output_dir=str(tmp_path))
         checked_paths = []
         with (
-            patch("shutil.which", return_value=None),
-            patch("platform.system", return_value="Windows"),
+            patch("simulation.ngspice_config.shutil.which", return_value=None),
+            patch("simulation.ngspice_config.platform.system", return_value="Windows"),
             patch(
-                "os.path.exists",
+                "simulation.ngspice_config.os.path.isfile",
                 side_effect=lambda p: (checked_paths.append(p), False)[1],
             ),
         ):

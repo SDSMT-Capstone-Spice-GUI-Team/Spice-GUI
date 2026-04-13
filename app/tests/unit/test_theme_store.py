@@ -1,6 +1,7 @@
 """Tests for ThemeStore persistence layer."""
 
 import json
+from pathlib import Path
 
 import pytest
 from GUI.styles.custom_theme import CustomTheme
@@ -127,13 +128,13 @@ class TestCanonicalLocation:
     def test_theme_store_no_qt_imports(self):
         import services.theme_store as ts
 
-        source = open(ts.__file__).read()
+        source = Path(ts.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
 
     def test_theme_manager_no_qt_imports(self):
         import services.theme_manager as ts
 
-        source = open(ts.__file__).read()
+        source = Path(ts.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
 
     def test_backward_compat_reexport(self):

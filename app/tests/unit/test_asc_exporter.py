@@ -1,5 +1,7 @@
 """Tests for LTspice .asc schematic export."""
 
+from pathlib import Path
+
 import pytest
 from models.circuit import CircuitModel
 from models.component import ComponentData
@@ -156,6 +158,7 @@ class TestExportAsc:
         assert "Version 4" in content
 
     def test_rotation_code(self):
+        """Spice-GUI 90° (vertical bipole) -> LTspice R0 (vertical)."""
         model = CircuitModel()
         r1 = ComponentData(
             component_id="R1",
@@ -166,7 +169,38 @@ class TestExportAsc:
         )
         model.add_component(r1)
         content = export_asc(model)
+        assert "R0" in content
+
+    def test_horizontal_rotation_code(self):
+        """Spice-GUI 0° (horizontal bipole) -> LTspice R90 (horizontal)."""
+        model = CircuitModel()
+        r1 = ComponentData(
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(100.0, 100.0),
+            rotation=0,
+        )
+        model.add_component(r1)
+        content = export_asc(model)
         assert "R90" in content
+
+    def test_transformer_exported(self):
+        """Regression: Transformer was silently skipped before #500."""
+        model = CircuitModel()
+        model.add_component(
+            ComponentData(
+                component_id="K1",
+                component_type="Transformer",
+                value="10mH 10mH 0.99",
+                position=(200.0, 200.0),
+                rotation=0,
+            )
+        )
+        content = export_asc(model)
+        assert "SYMBOL ind2" in content
+        assert "SYMATTR InstName K1" in content
+        assert "SYMATTR Value 10mH 10mH 0.99" in content
 
     def test_flip_produces_mirror_code(self):
         model = CircuitModel()
@@ -175,7 +209,7 @@ class TestExportAsc:
             component_type="Resistor",
             value="1k",
             position=(100.0, 100.0),
-            rotation=0,
+            rotation=90,
             flip_h=True,
         )
         model.add_component(r1)
@@ -242,6 +276,6 @@ class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import simulation.asc_exporter as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source

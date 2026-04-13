@@ -1,5 +1,7 @@
 """Tests for Excel (.xlsx) export functionality."""
 
+from pathlib import Path
+
 import pytest
 from openpyxl import load_workbook
 from simulation.excel_exporter import export_to_excel
@@ -219,7 +221,7 @@ class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import simulation.excel_exporter as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source

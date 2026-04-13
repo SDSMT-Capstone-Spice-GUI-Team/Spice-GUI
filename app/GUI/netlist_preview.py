@@ -5,8 +5,10 @@ with basic syntax highlighting.
 
 import re
 
-from PyQt6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
+from PyQt6.QtGui import QFont, QSyntaxHighlighter, QTextCharFormat
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextEdit, QVBoxLayout, QWidget
+
+from .styles import theme_manager
 
 
 class SpiceHighlighter(QSyntaxHighlighter):
@@ -15,21 +17,27 @@ class SpiceHighlighter(QSyntaxHighlighter):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._rules = []
+        self._build_rules()
+        theme_manager.on_theme_changed(self._on_theme_changed)
 
-        # Comments: lines starting with * (green)
+    def _build_rules(self):
+        """Build highlighting rules using current theme colors."""
+        self._rules.clear()
+
+        # Comments: lines starting with *
         comment_fmt = QTextCharFormat()
-        comment_fmt.setForeground(QColor("#4CAF50"))
+        comment_fmt.setForeground(theme_manager.color("syntax_comment"))
         self._rules.append((re.compile(r"^\*.*$"), comment_fmt))
 
-        # Directives: lines starting with . (blue)
+        # Directives: lines starting with .
         directive_fmt = QTextCharFormat()
-        directive_fmt.setForeground(QColor("#2196F3"))
+        directive_fmt.setForeground(theme_manager.color("syntax_directive"))
         directive_fmt.setFontWeight(QFont.Weight.Bold)
         self._rules.append((re.compile(r"^\..*$"), directive_fmt))
 
-        # Control block keywords (purple)
+        # Control block keywords
         control_fmt = QTextCharFormat()
-        control_fmt.setForeground(QColor("#9C27B0"))
+        control_fmt.setForeground(theme_manager.color("syntax_keyword"))
         control_fmt.setFontWeight(QFont.Weight.Bold)
         self._rules.append(
             (
@@ -37,6 +45,11 @@ class SpiceHighlighter(QSyntaxHighlighter):
                 control_fmt,
             )
         )
+
+    def _on_theme_changed(self, _theme):
+        """Rebuild rules with new theme colors and rehighlight."""
+        self._build_rules()
+        self.rehighlight()
 
     def highlightBlock(self, text):
         """Apply syntax highlighting rules to a single line of text."""
@@ -86,7 +99,7 @@ class NetlistPreviewWidget(QWidget):
 
         # Status label
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: gray; font-size: 9pt;")
+        self.status_label.setStyleSheet(theme_manager.stylesheet("muted_small"))
         layout.addWidget(self.status_label)
 
     def set_netlist(self, netlist_text):

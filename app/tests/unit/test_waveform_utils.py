@@ -1,11 +1,11 @@
-"""Tests for waveform SPICE utilities (#574, #599).
+"""Tests for waveform SPICE utilities.
 
 Verifies that format_waveform_spice_value produces correct SPICE strings
 for each supported waveform type, and that default_waveform_params provides
 correct defaults.
 """
 
-from simulation.waveform_utils import DEFAULT_WAVEFORM_TYPE, default_waveform_params, format_waveform_spice_value
+from models.waveform_defaults import DEFAULT_WAVEFORM_TYPE, default_waveform_params, format_waveform_spice_value
 
 
 class TestFormatWaveformSpiceValue:
@@ -127,7 +127,7 @@ class TestDefaultWaveformParams:
         assert p2["SIN"]["offset"] == "0"
 
     def test_component_data_uses_extracted_defaults(self):
-        """ComponentData.__post_init__ should use defaults from waveform_utils."""
+        """ComponentData.__post_init__ should use defaults from waveform_defaults."""
         from models.component import ComponentData
 
         comp = ComponentData(

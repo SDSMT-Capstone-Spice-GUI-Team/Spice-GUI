@@ -3,7 +3,8 @@
 **Goal:** Rebuild the 5 canvas files from scratch to reduce bloat and produce
 clean, well-documented code. Each phase is independently testable.
 
-**Current state:** ~4,300 lines across 5 files.
+**Status:** Planning document — this rebuild has not been started.
+**Current state (as of 2026-04-13):** ~4,310 lines across 5 files.
 **Target:** ~3,500 lines (−800, ~19% reduction) with better docs.
 
 ---

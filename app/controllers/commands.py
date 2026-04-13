@@ -331,6 +331,7 @@ class DeleteWireCommand(Command):
             logger.warning("DeleteWireCommand.undo: endpoint component(s) no longer exist, skipping")
             return
         model.wires.insert(self.wire_index, self.wire_data)
+        model.rebuild_nodes()
         self.controller._notify("wire_added", self.wire_data)
 
     def get_description(self) -> str:
@@ -535,6 +536,160 @@ class EditAnnotationCommand(Command):
 
     def get_description(self) -> str:
         return "Edit annotation"
+
+
+class SetRotationCommand(Command):
+    """Command to set a component's rotation to an exact value."""
+
+    def __init__(self, controller, component_id: str, new_rotation: int):
+        self.controller = controller
+        self.component_id = component_id
+        self.new_rotation = new_rotation % 360
+        self.old_rotation: Optional[int] = None
+
+    def execute(self) -> None:
+        """Set the rotation and store the old value."""
+        component = self.controller.model.components.get(self.component_id)
+        if not component:
+            logger.warning(
+                "SetRotationCommand: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        self.old_rotation = component.rotation
+        self.controller.set_component_rotation(self.component_id, self.new_rotation)
+
+    def undo(self) -> None:
+        """Restore the old rotation."""
+        if self.old_rotation is None:
+            return
+        if self.component_id not in self.controller.model.components:
+            logger.warning(
+                "SetRotationCommand.undo: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        self.controller.set_component_rotation(self.component_id, self.old_rotation)
+
+    def get_description(self) -> str:
+        return f"Set {self.component_id} rotation to {self.new_rotation}°"
+
+
+class UpdateWaveformCommand(Command):
+    """Command to update a component's waveform configuration."""
+
+    def __init__(self, controller, component_id: str, waveform_type: str, params: dict):
+        self.controller = controller
+        self.component_id = component_id
+        self.new_waveform_type = waveform_type
+        self.new_params = params
+        self.old_waveform_type: Optional[str] = None
+        self.old_params: Optional[dict] = None
+        self.old_value: Optional[str] = None
+
+    def execute(self) -> None:
+        """Update the waveform and store the old configuration."""
+        component = self.controller.model.components.get(self.component_id)
+        if not component:
+            logger.warning(
+                "UpdateWaveformCommand: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        self.old_waveform_type = component.waveform_type
+        self.old_params = dict(component.waveform_params) if component.waveform_params else None
+        self.old_value = component.value
+        self.controller.update_component_waveform(self.component_id, self.new_waveform_type, self.new_params)
+
+    def undo(self) -> None:
+        """Restore the old waveform configuration."""
+        if self.old_waveform_type is None:
+            return
+        component = self.controller.model.components.get(self.component_id)
+        if not component:
+            logger.warning(
+                "UpdateWaveformCommand.undo: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        component.waveform_type = self.old_waveform_type
+        component.waveform_params = dict(self.old_params) if self.old_params else None
+        component.value = self.old_value
+        self.controller._notify("component_value_changed", component)
+
+    def get_description(self) -> str:
+        return f"Update {self.component_id} waveform"
+
+
+class UpdateInitialConditionCommand(Command):
+    """Command to update a component's initial condition."""
+
+    def __init__(self, controller, component_id: str, new_initial_condition: Optional[str]):
+        self.controller = controller
+        self.component_id = component_id
+        self.new_initial_condition = new_initial_condition
+        self.old_initial_condition: Optional[str] = None
+
+    def execute(self) -> None:
+        """Update the initial condition and store the old value."""
+        component = self.controller.model.components.get(self.component_id)
+        if not component:
+            logger.warning(
+                "UpdateInitialConditionCommand: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        self.old_initial_condition = component.initial_condition
+        self.controller.update_component_initial_condition(self.component_id, self.new_initial_condition)
+
+    def undo(self) -> None:
+        """Restore the old initial condition."""
+        if self.component_id not in self.controller.model.components:
+            logger.warning(
+                "UpdateInitialConditionCommand.undo: component %s not found, skipping",
+                self.component_id,
+            )
+            return
+        self.controller.update_component_initial_condition(self.component_id, self.old_initial_condition)
+
+    def get_description(self) -> str:
+        return f"Update {self.component_id} initial condition"
+
+
+class MoveWaypointCommand(Command):
+    """Command to record a waypoint drag so it can be undone/redone.
+
+    The drag has already been applied visually by the time this command
+    is pushed, so ``execute()`` writes the *new* waypoints into the model
+    and ``undo()`` restores the *old* ones.
+    """
+
+    def __init__(
+        self,
+        controller,
+        wire_index: int,
+        old_waypoints: list[tuple[float, float]],
+        new_waypoints: list[tuple[float, float]],
+    ):
+        self.controller = controller
+        self.wire_index = wire_index
+        self.old_waypoints = old_waypoints
+        self.new_waypoints = new_waypoints
+
+    def execute(self) -> None:
+        if self.wire_index >= len(self.controller.model.wires):
+            return
+        self.controller.update_wire_waypoints(self.wire_index, self.new_waypoints)
+        self.controller.set_wire_locked(self.wire_index, True)
+
+    def undo(self) -> None:
+        if self.wire_index >= len(self.controller.model.wires):
+            return
+        self.controller.update_wire_waypoints(self.wire_index, self.old_waypoints)
+        self.controller.set_wire_locked(self.wire_index, True)
+
+    def get_description(self) -> str:
+        return "Move waypoint"
 
 
 class CompoundCommand(Command):

@@ -6,6 +6,8 @@ Handles SPICE netlist generation from circuit data
 
 import logging
 
+from simulation.spice_sanitizer import sanitize_netlist_text, sanitize_spice_value, validate_wrdata_filepath
+
 logger = logging.getLogger(__name__)
 
 
@@ -120,12 +122,51 @@ class NetlistGenerator:
         self.terminal_to_node = terminal_to_node
         self.analysis_type = analysis_type
         self.analysis_params = analysis_params
-        self.wrdata_filepath = wrdata_filepath
+        self.wrdata_filepath = validate_wrdata_filepath(wrdata_filepath)
         self.spice_options = spice_options or {}
         self.measurements = measurements or []
+        self._is_temp_sweep = False
+
+    # Component types that use non-numeric or compound value formats and
+    # should not be rejected by the simple numeric validator.
+    _SKIP_NUMERIC_VALIDATION = {
+        "Voltage Source",  # may contain "AC 1" or "DC 5V"
+        "Current Source",
+        "AC Voltage Source",
+        "AC Current Source",
+    }
+
+    def _validate_component_values(self):
+        """Validate all component values before netlist generation (#541).
+
+        Raises ValueError with a descriptive message if any component has
+        an invalid value (empty, unparseable, or out of range).
+        Subcircuit instances (SPICE symbol "X") and source types with
+        compound value formats are skipped.
+        """
+        from utils.format_utils import validate_component_value
+
+        errors = []
+        for comp in self.components.values():
+            if comp.get_spice_symbol() == "X":
+                continue  # subcircuit name, not numeric
+            if comp.component_type in self._SKIP_NUMERIC_VALIDATION:
+                continue  # source values can have complex SPICE formats
+            is_valid, msg = validate_component_value(comp.value, comp.component_type)
+            if not is_valid:
+                errors.append(f"{comp.component_id} ({comp.component_type}): {msg}")
+        if errors:
+            raise ValueError("Invalid component values:\n" + "\n".join(errors))
+
+    def _sanitize_value(self, value: str) -> str:
+        """Sanitize a component value before interpolation into the netlist."""
+        return sanitize_spice_value(value)
 
     def generate(self):
         """Generate complete SPICE netlist"""
+        # Validate component values before generation (#541)
+        self._validate_component_values()
+
         lines = ["My Test Circuit", "* Generated netlist", ""]
 
         # Add op-amp subcircuit definitions for each model used
@@ -179,7 +220,8 @@ class NetlistGenerator:
                     if node_map[k] == gnd_node:
                         node_map[k] = 0
 
-        # Create mapping from node numbers to node labels
+        # Create mapping from node numbers to node labels.
+        # Ground (node 0) is never relabeled — SPICE requires literal "0" (#527).
         node_labels = {}  # node_number -> label
         node_comps = [c for c in self.nodes if hasattr(c, "get_label")]
         for node_comp in node_comps:
@@ -188,6 +230,8 @@ class NetlistGenerator:
                 if terminal_node == node_comp:
                     if terminal_key in node_map:
                         node_num = node_map[terminal_key]
+                        if node_num == 0:
+                            break  # ground must stay "0"
                         node_labels[node_num] = node_comp.get_label()
                         break
 
@@ -228,23 +272,39 @@ class NetlistGenerator:
                 nodes.append(node_str)
 
             if comp.component_type == "Resistor":
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} {val}")
             elif comp.component_type == "Capacitor":
+                val = self._sanitize_value(comp.value)
                 ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
+                lines.append(f"{comp_id} {' '.join(nodes)} {val}{ic}")
             elif comp.component_type == "Inductor":
+                val = self._sanitize_value(comp.value)
                 ic = f" IC={comp.initial_condition}" if getattr(comp, "initial_condition", None) else ""
-                lines.append(f"{comp_id} {' '.join(nodes)} {comp.value}{ic}")
+                lines.append(f"{comp_id} {' '.join(nodes)} {val}{ic}")
             elif comp.component_type == "Voltage Source":
-                lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
             elif comp.component_type == "Current Source":
-                lines.append(f"{comp_id} {' '.join(nodes)} DC {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
+            elif comp.component_type == "AC Voltage Source":
+                # Vxxx n+ n- AC magnitude phase
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} AC {val}")
+            elif comp.component_type == "AC Current Source":
+                # Ixxx n+ n- AC magnitude phase
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {' '.join(nodes)} AC {val}")
+            elif comp.component_type == "Current Probe":
+                # 0V voltage source for current measurement
+                lines.append(f"{comp_id} {' '.join(nodes)} 0")
             elif comp.component_type == "Waveform Source":
                 # Use get_spice_value() method if available, otherwise use value
                 if hasattr(comp, "get_spice_value"):
-                    spice_value = comp.get_spice_value()
+                    spice_value = self._sanitize_value(comp.get_spice_value())
                 else:
-                    spice_value = comp.value
+                    spice_value = self._sanitize_value(comp.value)
                 lines.append(f"{comp_id} {' '.join(nodes)} {spice_value}")
             elif comp.component_type == "Op-Amp":
                 # Map terminals to subcircuit nodes: inp, inn, out
@@ -256,37 +316,44 @@ class NetlistGenerator:
             elif comp.component_type == "VCVS":
                 # E<name> out+ out- ctrl+ ctrl- gain
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {val}")
             elif comp.component_type == "VCCS":
                 # G<name> out+ out- ctrl+ ctrl- transconductance
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {nodes[0]} {nodes[1]} {val}")
             elif comp.component_type == "CCVS":
                 # H<name> out+ out- Vname transresistance
                 # Insert hidden 0V voltage source for current sensing
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+                val = self._sanitize_value(comp.value)
                 sense_name = f"Vsense_{comp_id}"
                 lines.append(f"{sense_name} {nodes[0]} {nodes[1]} 0")
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}")
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {val}")
             elif comp.component_type == "CCCS":
                 # F<name> out+ out- Vname gain
                 # Insert hidden 0V voltage source for current sensing
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=out+, 3=out-
+                val = self._sanitize_value(comp.value)
                 sense_name = f"Vsense_{comp_id}"
                 lines.append(f"{sense_name} {nodes[0]} {nodes[1]} 0")
-                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {comp.value}")
+                lines.append(f"{comp_id} {nodes[2]} {nodes[3]} {sense_name} {val}")
             elif comp.component_type == "BJT NPN":
                 # Q<name> collector base emitter model_name
                 # Terminals: 0=collector, 1=base, 2=emitter
-                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {val}")
             elif comp.component_type == "BJT PNP":
                 # Q<name> collector base emitter model_name
-                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {val}")
             elif comp.component_type in ("MOSFET NMOS", "MOSFET PMOS"):
                 # M<name> drain gate source bulk model_name
                 # Terminals: 0=drain, 1=gate, 2=source
                 # Bulk (body) tied to source for simplicity
-                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {nodes[2]} {comp.value}")
+                val = self._sanitize_value(comp.value)
+                lines.append(f"{comp_id} {nodes[0]} {nodes[1]} {nodes[2]} {nodes[2]} {val}")
             elif comp.component_type == "VC Switch":
                 # S<name> switch+ switch- ctrl+ ctrl- model_name
                 # Terminals: 0=ctrl+, 1=ctrl-, 2=switch+, 3=switch-
@@ -301,7 +368,8 @@ class NetlistGenerator:
                 # Transformer modeled as two coupled inductors + K coupling
                 # value = "Lprimary Lsecondary coupling" e.g. "10mH 10mH 0.99"
                 # Terminals: 0=prim+, 1=prim-, 2=sec+, 3=sec-
-                parts = comp.value.split()
+                sanitized_val = self._sanitize_value(comp.value)
+                parts = sanitized_val.split()
                 l_prim = parts[0] if len(parts) > 0 else "10mH"
                 l_sec = parts[1] if len(parts) > 1 else "10mH"
                 coupling = parts[2] if len(parts) > 2 else "0.99"
@@ -399,7 +467,8 @@ class NetlistGenerator:
         lines.append("")
         lines.append(".end")
 
-        return "\n".join(lines)
+        # Defence-in-depth: scan final netlist for dangerous directives
+        return sanitize_netlist_text("\n".join(lines))
 
     def _inject_subcircuit_definitions(self, lines):
         """Inject .subckt definitions for any subcircuit-library components used."""
@@ -407,7 +476,7 @@ class NetlistGenerator:
             from models.subcircuit_library import SubcircuitLibrary
 
             library = SubcircuitLibrary()
-        except Exception:
+        except (ImportError, OSError):
             return
 
         subckt_names_used = set()
@@ -443,6 +512,8 @@ class NetlistGenerator:
             # Temperature sweep needs .op before .step
             lines.append(".op")
             lines.append(generate_analysis_command(self.analysis_type, self.analysis_params))
+            # Mark that we need the temperature vector printed alongside voltages
+            self._is_temp_sweep = True
         else:
             lines.append(generate_analysis_command(self.analysis_type, self.analysis_params))
 
@@ -513,14 +584,46 @@ class NetlistGenerator:
             nodes_to_print.discard(0)
             labeled_nodes_to_print = {num: label for num, label in node_labels.items() if num != 0}
 
+            is_ac = self.analysis_type == "AC Sweep"
+            # For AC analysis, use vm() for magnitude or vdb() for
+            # decibels instead of v() which returns the real part of
+            # the complex voltage.
+            use_db = is_ac and str(self.analysis_params.get("use_db", "No")).lower() in ("yes", "true", "1")
+            ac_mag_func = "vdb" if use_db else "vm"
+
             all_print_vars = []
             if labeled_nodes_to_print:
-                all_print_vars.extend([f"v({label})" for label in sorted(labeled_nodes_to_print.values())])
+                for label in sorted(labeled_nodes_to_print.values()):
+                    if is_ac:
+                        all_print_vars.append(f"{ac_mag_func}({label})")
+                        all_print_vars.append(f"vp({label})")
+                    else:
+                        all_print_vars.append(f"v({label})")
             elif nodes_to_print:
-                all_print_vars.extend([f"v({node})" for node in sorted(list(nodes_to_print))])
+                for node in sorted(list(nodes_to_print)):
+                    if is_ac:
+                        all_print_vars.append(f"{ac_mag_func}({node})")
+                        all_print_vars.append(f"vp({node})")
+                    else:
+                        all_print_vars.append(f"v({node})")
 
             # Add resistor voltages to the print list
             all_print_vars.extend(resistor_voltages_print)
+
+            # Add current probe measurements: i(probe_id) for each Current Probe
+            probes = [c for c in self.components.values() if c.component_type == "Current Probe"]
+            for probe in sorted(probes, key=lambda c: c.component_id):
+                all_print_vars.append(f"i({probe.component_id})")
+
+            # Note: for DC sweep, the sweep variable (v-sweep) is automatically
+            # included as the first column in wrdata output when wr_singlescale
+            # is set. Do NOT add the source name (e.g. "v1") — ngspice does not
+            # expose it as a vector; the sweep column is always named "v-sweep".
+
+            # For temperature sweep, do NOT prepend a temperature vector
+            # to the print list — ngspice may reject unknown names (#856).
+            # The wrdata command with wr_singlescale automatically includes
+            # the scale vector (temp-sweep) as the first column.
 
             print_vars = " ".join(all_print_vars)
 

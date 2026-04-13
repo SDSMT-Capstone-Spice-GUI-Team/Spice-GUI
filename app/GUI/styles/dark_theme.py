@@ -51,6 +51,10 @@ class DarkTheme(BaseTheme):
             "component_diode": "#90A4AE",  # Light blue-gray
             "component_led": "#FFF176",  # Light yellow
             "component_zener": "#A1887F",  # Light brown
+            "component_transformer": "#B388FF",  # Light purple
+            "component_current_probe": "#64FFDA",  # Light teal
+            "component_ac_voltage_source": "#FF8A65",  # Light deep orange
+            "component_ac_current_source": "#CE93D8",  # Light purple
             # ===== Algorithm Layer Colors =====
             "algorithm_astar": "#64B5F6",  # Light blue
             "algorithm_idastar": "#81C784",  # Light green
@@ -92,6 +96,24 @@ class DarkTheme(BaseTheme):
             "probe_current": "#66DDAA",  # Light green for probed currents
             "probe_bg": "#3D1E2D",  # Dark pink-tinted background
             "probe_highlight": "#FF66CC",  # Bright pink for probe crosshair
+            # ===== Semantic UI Colors =====
+            "error": "#FF6B6B",  # Light red for dark bg
+            "success": "#66DD66",  # Light green for dark bg
+            "warning": "#FFAA44",  # Light orange for dark bg
+            "info": "#5BC0DE",  # Light teal for dark bg
+            "border_error": "#FF6B6B",  # Red border for invalid inputs
+            "border_light": "#444444",  # Subtle border for dark bg
+            "panel_bg": "#2D2D2D",  # Match background_secondary
+            # ===== Syntax Highlighting Colors =====
+            "syntax_comment": "#81C784",  # Light green for dark bg
+            "syntax_directive": "#64B5F6",  # Light blue for dark bg
+            "syntax_keyword": "#CE93D8",  # Light purple for dark bg
+            # ===== Grading Overlay Colors (colorblind-friendly) =====
+            "grading_passed": "#33BBEE",  # Light blue for dark bg
+            "grading_failed": "#EE7733",  # Orange for dark bg
+            # ===== Measurement Cursor Colors =====
+            "cursor_a": "#FF6B6B",  # Light red cursor for dark bg
+            "cursor_b": "#5DADE2",  # Light blue cursor for dark bg
         }
 
     def _define_pens(self):

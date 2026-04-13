@@ -8,6 +8,7 @@ No Qt dependencies — pure computation module.
 import logging
 
 import numpy as np
+from utils.format_utils import parse_spice_value
 
 logger = logging.getLogger(__name__)
 
@@ -26,46 +27,6 @@ MC_ELIGIBLE_TYPES = {
     "Voltage Source",
     "Current Source",
 }
-
-
-def parse_spice_value(value_str):
-    """Parse a SPICE value string (e.g. '1k', '100n', '4.7MEG') to float.
-
-    Returns None if the value cannot be parsed (e.g. waveform specs).
-    """
-    s = value_str.strip()
-    if not s:
-        return None
-
-    # Map of SPICE suffix → multiplier
-    suffixes = [
-        ("MEG", 1e6),
-        ("meg", 1e6),
-        ("T", 1e12),
-        ("G", 1e9),
-        ("k", 1e3),
-        ("K", 1e3),
-        ("m", 1e-3),
-        ("u", 1e-6),
-        ("n", 1e-9),
-        ("p", 1e-12),
-        ("f", 1e-15),
-    ]
-
-    for suffix, mult in suffixes:
-        if s.endswith(suffix):
-            num_part = s[: -len(suffix)]
-            try:
-                return float(num_part) * mult
-            except ValueError:
-                return None
-
-    # Strip trailing unit letters (V, A, H, F, etc.)
-    stripped = s.rstrip("VAHFhvaf")
-    try:
-        return float(stripped)
-    except ValueError:
-        return None
 
 
 def format_spice_value(value):

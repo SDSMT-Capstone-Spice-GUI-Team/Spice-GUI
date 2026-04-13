@@ -2,7 +2,7 @@ from controllers.settings_service import settings as app_settings
 from models.builtin_subcircuits import register_builtin_subcircuits
 from models.component import COMPONENT_CATEGORIES
 from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QBrush, QDrag, QFont, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QDrag, QFont, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 from services import palette_profiles
 
@@ -21,6 +21,8 @@ COMPONENT_TOOLTIPS = {
     "Voltage Source": "Voltage Source (V) — Provides a constant voltage",
     "Current Source": "Current Source (I) — Provides a constant current",
     "Waveform Source": "Waveform Source (VW) — Time-varying voltage source",
+    "AC Voltage Source": "AC Voltage Source (V) — AC magnitude and phase for AC sweep",
+    "AC Current Source": "AC Current Source (I) — AC magnitude and phase for AC sweep",
     "Ground": "Ground (GND) — Zero-volt reference node",
     "Op-Amp": "Op-Amp (OA) — Operational amplifier",
     "VCVS": "VCVS (E) — Voltage-controlled voltage source",
@@ -36,6 +38,7 @@ COMPONENT_TOOLTIPS = {
     "LED": "LED (D) — Light-emitting diode",
     "Zener Diode": "Zener Diode (D) — Voltage-regulating diode",
     "Transformer": "Transformer (K) — Coupled inductors / ideal transformer",
+    "Current Probe": "Current Probe (VP) — Measures current through a branch (0V source)",
 }
 
 # Name for the recommended section in the palette
@@ -53,19 +56,26 @@ def create_component_icon(component_type, size=48):
 
     # Get component class and create temp instance
     component_class = COMPONENT_CLASSES.get(component_type)
-    if not component_class:
-        return QIcon()
 
-    temp_comp = component_class("temp")
-
-    # Paint component symbol
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    if not component_class:
+        # Fallback icon for subcircuit components without a renderer class
+        color = theme_manager.get_component_color(component_type)
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(theme_manager.brush("component_fill"))
+        margin = int(size * 0.15)
+        painter.drawRect(margin, margin, size - 2 * margin, size - 2 * margin)
+        painter.end()
+        return QIcon(pixmap)
+
+    temp_comp = component_class("temp")
 
     # Set up painter with theme color
     color = theme_manager.get_component_color(temp_comp.component_type)
     painter.setPen(QPen(color, 2))
-    painter.setBrush(QBrush(color.lighter(150)))
+    painter.setBrush(theme_manager.brush("component_fill"))
 
     # Center and scale to fit icon
     painter.translate(size / 2, size / 2)
@@ -464,7 +474,7 @@ class ComponentPalette(QWidget):
             child = QTreeWidgetItem(category_item, [component_name])
             try:
                 child.setIcon(0, create_component_icon(component_name))
-            except Exception:
+            except (AttributeError, ValueError, TypeError):
                 pass
             child.setToolTip(
                 0,

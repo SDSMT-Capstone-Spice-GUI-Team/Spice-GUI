@@ -31,6 +31,20 @@ CIRCUITIKZ_TRIPOLES = {
     "Op-Amp": "op amp",
 }
 
+CIRCUITIKZ_QUADPOLES = {
+    "Transformer": "transformer core",
+}
+
+# Terminal name suffixes for quadpole node anchors
+QUADPOLE_ANCHORS = {
+    "Transformer": [
+        "A1",
+        "A2",
+        "B1",
+        "B2",
+    ],  # primary+, primary-, secondary+, secondary-
+}
+
 # Terminal name suffixes for tripole node anchors
 TRIPOLE_ANCHORS = {
     "BJT NPN": ["C", "B", "E"],  # collector, base, emitter
@@ -60,6 +74,8 @@ def _escape_latex(s):
     """Escape special LaTeX characters in a string."""
     for ch in ("\\", "&", "%", "$", "#", "_", "{", "}"):
         s = s.replace(ch, "\\" + ch)
+    s = s.replace("~", r"\textasciitilde{}")
+    s = s.replace("^", r"\textasciicircum{}")
     return s
 
 
@@ -173,6 +189,11 @@ def generate(
             _emit_tripole(lines, comp, tikz_name, transform, include_ids)
             continue
 
+        tikz_name = CIRCUITIKZ_QUADPOLES.get(ctype)
+        if tikz_name is not None:
+            _emit_quadpole(lines, comp, tikz_name, transform, include_ids, include_values)
+            continue
+
     # --- Ground symbols ---
     ground_comps = [c for c in components.values() if c.component_type == "Ground"]
     if ground_comps:
@@ -260,14 +281,52 @@ def _emit_tripole(lines, comp, tikz_name, transform, include_ids):
     xscale = ""
     if comp.flip_h:
         xscale = ", xscale=-1"
+    yscale = ""
+    if comp.flip_v:
+        yscale = ", yscale=-1"
 
     label_opt = ""
     if include_ids:
         label_opt = f", label={{right:{comp.component_id}}}"
 
-    lines.append(f"  \\node[{tikz_name}{rotate_opt}{xscale}{label_opt}] ({node_id}) at {_coord(cx, cy)} {{}};")
+    lines.append(f"  \\node[{tikz_name}{rotate_opt}{xscale}{yscale}{label_opt}] ({node_id}) at {_coord(cx, cy)} {{}};")
 
     # Draw short wires from tripole anchors to terminal positions
+    terminals = comp.get_terminal_positions()
+    for i, anchor in enumerate(anchors):
+        tx, ty = transform(*terminals[i])
+        lines.append(f"  \\draw ({node_id}.{anchor}) -- {_coord(tx, ty)};")
+
+
+def _emit_quadpole(lines, comp, tikz_name, transform, include_ids, include_values):
+    """Emit a \\node[component] and terminal connection lines for a 4-terminal component."""
+    cx, cy = transform(*comp.position)
+    anchors = QUADPOLE_ANCHORS[comp.component_type]
+    node_id = comp.component_id.replace(" ", "_")
+
+    rotate_opt = ""
+    if comp.rotation != 0:
+        rotate_opt = f", rotate={comp.rotation}"
+    xscale = ""
+    if comp.flip_h:
+        xscale = ", xscale=-1"
+    yscale = ""
+    if comp.flip_v:
+        yscale = ", yscale=-1"
+
+    label_opt = ""
+    if include_ids:
+        label_opt = f", label={{right:{comp.component_id}}}"
+
+    value_comment = ""
+    if include_values and comp.value:
+        value_comment = f" % value: {comp.value}"
+
+    lines.append(
+        f"  \\node[{tikz_name}{rotate_opt}{xscale}{yscale}{label_opt}] ({node_id}) at {_coord(cx, cy)} {{}};{value_comment}"
+    )
+
+    # Draw short wires from quadpole anchors to terminal positions
     terminals = comp.get_terminal_positions()
     for i, anchor in enumerate(anchors):
         tx, ty = transform(*terminals[i])

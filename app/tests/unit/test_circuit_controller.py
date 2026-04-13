@@ -1,5 +1,7 @@
 """Tests for CircuitController."""
 
+from pathlib import Path
+
 import pytest
 from controllers.circuit_controller import CircuitController
 from models.circuit import CircuitModel
@@ -180,6 +182,22 @@ class TestWireOperations:
         controller.update_wire_waypoints(0, pts)
         assert controller.model.wires[0].waypoints == pts
         assert recorded[-1][0] == "wire_routed"
+
+    def test_wire_routed_event_sends_tuple_format(self, controller, events):
+        """wire_routed data must be (wire_index, WireData) tuple (#482)."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_observer(callback)
+        pts = [(10.0, 0.0), (50.0, 0.0), (90.0, 0.0)]
+        controller.update_wire_waypoints(0, pts)
+        event_name, event_data = recorded[-1]
+        assert event_name == "wire_routed"
+        wire_index, wire_data = event_data  # must unpack without ValueError
+        assert wire_index == 0
+        assert hasattr(wire_data, "waypoints")
+        assert wire_data.waypoints == pts
 
 
 class TestDuplicateWirePrevention:
@@ -504,7 +522,7 @@ class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.circuit_controller as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source

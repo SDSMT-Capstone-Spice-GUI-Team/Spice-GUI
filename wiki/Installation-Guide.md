@@ -1,18 +1,22 @@
-# Installation Guide
+# Developer Setup / Install from Source
 
-This guide covers installing SDM Spice on Windows, macOS, and Linux.
+> **Just want to use Spice GUI?** Download the Windows installer from the [Releases page](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/releases). For step-by-step instructions, see the **[Installation Guide](../docs/installation-guide.md)**.
+>
+> This page is for **developers and contributors** who want to run Spice GUI from source, or for **macOS/Linux users** (no installer is available for these platforms yet).
 
 ## Prerequisites
 
 - **Python 3.10 or higher**
-- **ngspice** (SPICE simulation engine)
+- **ngspice** (SPICE simulation engine) — see platform-specific instructions below
 - **Git** (for cloning the repository)
 
 ## Step 1: Install ngspice
 
-SDM Spice requires ngspice to be installed separately on your system.
+Spice GUI requires ngspice for circuit simulation.
 
 ### Windows
+
+> **Note:** If you installed Spice GUI using the Windows installer, ngspice is already bundled — you can skip this step. Manual ngspice installation is only needed for running from source.
 
 1. Download the latest ngspice installer from [ngspice.sourceforge.io](http://ngspice.sourceforge.io/download.html)
 2. Run the installer (e.g., `ngspice-XX-64.exe`)
@@ -67,14 +71,14 @@ cd Spice-GUI
 
 **Windows:**
 ```cmd
-python -m venv venv
-venv\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate
 ```
 
 **macOS/Linux:**
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
 ### Install Dependencies
@@ -90,7 +94,16 @@ This installs:
 - scipy (scientific computing)
 - PySpice (SPICE utilities)
 
-## Step 4: Run SDM Spice
+### Install Development Dependencies (optional)
+
+If you plan to contribute code:
+
+```bash
+pip install -r app/requirements-dev.txt
+pre-commit install
+```
+
+## Step 4: Run Spice GUI
 
 ```bash
 python app/main.py
@@ -102,7 +115,7 @@ The application window should open with the circuit design interface.
 
 ### "ngspice not found" Error
 
-SDM Spice searches for ngspice in common installation paths. If not found:
+Spice GUI searches for ngspice in common installation paths. If not found:
 
 1. Verify ngspice is installed: `ngspice --version`
 2. Add ngspice to your system PATH
@@ -144,13 +157,13 @@ chmod +x app/main.py
 python app/main.py
 ```
 
-## Updating SDM Spice
+## Updating Spice GUI
 
 To update to the latest version:
 
 ```bash
 cd Spice-GUI
-git pull origin main
+git pull origin develop
 pip install -r app/requirements.txt --upgrade
 ```
 

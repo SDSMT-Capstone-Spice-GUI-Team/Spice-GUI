@@ -220,6 +220,138 @@ class TestAnalysisCommands:
         )
         assert ".ac" in netlist
 
+    def test_ac_sweep_includes_phase_variables(self, simple_resistor_circuit):
+        """AC Sweep print commands must include vp() for phase data (#738)."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
+        )
+        assert "vp(" in netlist, "AC Sweep netlist must include vp() phase variables"
+
+    def test_ac_sweep_uses_vm_for_magnitude(self, simple_resistor_circuit):
+        """AC Sweep must use vm() for magnitude instead of v() (#804)."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
+        )
+        assert "vm(" in netlist, "AC Sweep netlist must use vm() for magnitude"
+
+    def test_ac_sweep_uses_vdb_when_use_db(self, simple_resistor_circuit):
+        """AC Sweep must use vdb() when use_db is set (#804)."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+                "use_db": "Yes",
+            },
+        )
+        assert "vdb(" in netlist, "AC Sweep netlist must use vdb() when use_db=Yes"
+        assert "vm(" not in netlist, "AC Sweep netlist must not use vm() when use_db=Yes"
+
+    def test_ac_sweep_pairs_mag_and_vp(self, simple_resistor_circuit):
+        """Each vm(node) in AC Sweep must have a matching vp(node) (#738, #804)."""
+        import re
+
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
+        )
+        # Extract print line
+        for line in netlist.splitlines():
+            if line.strip().startswith("print "):
+                # Find vm(X) or vdb(X) nodes
+                mag_nodes = set(re.findall(r"\b(?:vm|vdb)\(([^)]+)\)", line))
+                vp_nodes = set(re.findall(r"\bvp\(([^)]+)\)", line))
+                assert mag_nodes, "No vm()/vdb() variables found in print line"
+                assert vp_nodes, "No vp() variables found in print line"
+                assert mag_nodes == vp_nodes, f"Mismatched mag/vp nodes: mag={mag_nodes}, vp={vp_nodes}"
+                break
+
+    def test_dc_sweep_includes_sweep_source_in_print(self, simple_resistor_circuit):
+        """DC Sweep print command must include the sweep source variable (#854)."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Sweep",
+            analysis_params={"min": "0", "max": "10", "step": "0.1"},
+        )
+        # The print line should NOT include the sweep source name (e.g. "v1")
+        # because ngspice does not expose it as a vector. The sweep column
+        # ("v-sweep") is automatically included by wrdata with wr_singlescale.
+        for line in netlist.splitlines():
+            if line.strip().startswith("print "):
+                assert (
+                    "v1" not in line.lower()
+                ), "DC Sweep print must NOT include source name (ngspice has no such vector)"
+                assert "v(" in line.lower(), "DC Sweep print should include node voltages"
+                break
+
+    def test_non_ac_sweep_excludes_vp(self, simple_resistor_circuit):
+        """Non-AC analysis types must NOT include vp() variables."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Operating Point",
+        )
+        assert "vp(" not in netlist
+
+    def test_non_ac_sweep_uses_v_not_vm(self, simple_resistor_circuit):
+        """Non-AC analysis types should use v(), not vm() (#804)."""
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Operating Point",
+        )
+        assert "vm(" not in netlist
+        assert "vdb(" not in netlist
+
     def test_transient(self, simple_resistor_circuit):
         components, wires, nodes, t2n = simple_resistor_circuit
         netlist = _generate(
@@ -394,6 +526,85 @@ class TestUnconnectedTerminal:
         assert "999" not in netlist
 
 
+class TestComponentValueValidation:
+    """Component values must be validated before netlist generation (#541)."""
+
+    def test_invalid_resistor_value_raises(self):
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "R1": make_component("Resistor", "R1", "abc", (100, 0)),  # invalid
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_gnd = NodeData(
+            terminals={("R1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={1, 2},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        with pytest.raises(ValueError, match="Invalid component values"):
+            _generate(components, wires, nodes, t2n)
+
+    def test_negative_resistor_value_raises(self):
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "R1": make_component("Resistor", "R1", "-1k", (100, 0)),  # negative
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_gnd = NodeData(
+            terminals={("R1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={1, 2},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        with pytest.raises(ValueError, match="positive"):
+            _generate(components, wires, nodes, t2n)
+
+    def test_valid_circuit_passes_validation(self, simple_resistor_circuit):
+        components, wires, nodes, t2n = simple_resistor_circuit
+        netlist = _generate(components, wires, nodes, t2n)
+        assert "R1" in netlist  # generation succeeds
+
+
 class TestResistorDivider:
     def test_two_nodes_labeled(self, resistor_divider_circuit):
         components, wires, nodes, t2n = resistor_divider_circuit
@@ -401,6 +612,50 @@ class TestResistorDivider:
         assert "R1" in netlist
         assert "R2" in netlist
         assert "V1" in netlist
+
+
+class TestGroundCustomLabel:
+    """Ground node with a custom label must still produce SPICE node '0' (#527)."""
+
+    def test_ground_custom_label_stays_zero(self):
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "R1": make_component("Resistor", "R1", "1k", (100, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_gnd = NodeData(
+            terminals={("R1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={1, 2},
+            is_ground=True,
+            auto_label="0",
+            custom_label="MyGround",
+        )
+        nodes = [node_a, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        netlist = _generate(components, wires, nodes, t2n)
+        # The netlist must NOT contain the custom label as a node name
+        assert "MyGround" not in netlist
+        assert "(ground)" not in netlist
+        # Ground node must appear as "0" in component lines
+        assert " 0 " in netlist or " 0\n" in netlist
 
 
 class TestWrdataPathCrossPlatform:

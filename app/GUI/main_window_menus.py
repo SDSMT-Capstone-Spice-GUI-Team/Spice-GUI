@@ -48,10 +48,6 @@ class MenuBarMixin:
         save_as_action.triggered.connect(self._on_save_as)
         file_menu.addAction(save_as_action)
 
-        save_template_action = QAction("Save as Tem&plate...", self)
-        save_template_action.triggered.connect(self._on_save_as_template)
-        file_menu.addAction(save_template_action)
-
         file_menu.addSeparator()
 
         new_from_template_action = QAction("New from &Template...", self)
@@ -80,6 +76,11 @@ class MenuBarMixin:
         import_tikz_action.setToolTip("Import a circuit from CircuiTikZ LaTeX code (.tex)")
         import_tikz_action.triggered.connect(self._on_import_circuitikz)
         file_menu.addAction(import_tikz_action)
+
+        import_svg_action = QAction("Import from &SVG...", self)
+        import_svg_action.setToolTip("Import a circuit from a shareable SVG file")
+        import_svg_action.triggered.connect(self._on_import_svg)
+        file_menu.addAction(import_svg_action)
 
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
@@ -132,6 +133,10 @@ class MenuBarMixin:
         re_export_action.setToolTip("Repeat the most recent export operation")
         re_export_action.triggered.connect(self._on_re_export_last)
         file_menu.addAction(re_export_action)
+
+        self._recent_files_menu = QMenu("Recent &Files", self)
+        file_menu.addMenu(self._recent_files_menu)
+        self._recent_files_menu.aboutToShow.connect(self._populate_recent_files_menu)
 
         self._recent_exports_menu = QMenu("Recent E&xports", self)
         file_menu.addMenu(self._recent_exports_menu)
@@ -498,6 +503,24 @@ class MenuBarMixin:
         noise_action.triggered.connect(self.set_analysis_noise)
         analysis_menu.addAction(noise_action)
 
+        sens_action = QAction("&Sensitivity...", self)
+        sens_action.setCheckable(True)
+        sens_action.setToolTip("DC sensitivity analysis — shows impact of each component on output (.sens)")
+        sens_action.triggered.connect(self.set_analysis_sensitivity)
+        analysis_menu.addAction(sens_action)
+
+        tf_action = QAction("Transfer &Function...", self)
+        tf_action.setCheckable(True)
+        tf_action.setToolTip("Small-signal DC transfer function — gain, input and output impedance (.tf)")
+        tf_action.triggered.connect(self.set_analysis_tf)
+        analysis_menu.addAction(tf_action)
+
+        pz_action = QAction("Pole-&Zero...", self)
+        pz_action.setCheckable(True)
+        pz_action.setToolTip("Pole-Zero analysis for stability and frequency response (.pz)")
+        pz_action.triggered.connect(self.set_analysis_pz)
+        analysis_menu.addAction(pz_action)
+
         analysis_menu.addSeparator()
 
         mc_action = QAction("&Monte Carlo...", self)
@@ -514,6 +537,9 @@ class MenuBarMixin:
         self.analysis_group.addAction(tran_action)
         self.analysis_group.addAction(temp_action)
         self.analysis_group.addAction(noise_action)
+        self.analysis_group.addAction(sens_action)
+        self.analysis_group.addAction(tf_action)
+        self.analysis_group.addAction(pz_action)
         self.analysis_group.addAction(sweep_action)
         self.analysis_group.addAction(mc_action)
 
@@ -523,6 +549,9 @@ class MenuBarMixin:
         self.tran_action = tran_action
         self.temp_action = temp_action
         self.noise_action = noise_action
+        self.sens_action = sens_action
+        self.tf_action = tf_action
+        self.pz_action = pz_action
         self.sweep_action = sweep_action
 
         # Store action references for keybinding re-application

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -21,6 +22,8 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
+
+from .styles import theme_manager
 
 if TYPE_CHECKING:
     from grading.batch_grader import BatchGradingResult
@@ -109,7 +112,7 @@ class BatchGradingDialog(QDialog):
         # Reference circuit info
         if self._reference_circuit is not None:
             ref_label = QLabel("Reference circuit: current canvas circuit")
-            ref_label.setStyleSheet("color: green;")
+            ref_label.setStyleSheet(theme_manager.stylesheet("ref_info"))
             layout.addWidget(ref_label)
 
         # Grade button
@@ -204,7 +207,7 @@ class BatchGradingDialog(QDialog):
                 self._rubric = load_rubric(filename)
                 self.rubric_path.setText(filename)
                 self._update_grade_button()
-            except Exception as e:
+            except (json.JSONDecodeError, OSError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to load rubric:\n{e}")
 
     def _update_grade_button(self):
@@ -295,6 +298,7 @@ class BatchGradingDialog(QDialog):
                 self._batch_result,
                 rubric_path=self.rubric_path.text(),
                 student_folder=self.folder_path.text(),
+                rubric_hash=self._rubric.content_hash() if self._rubric else "",
             )
             save_grading_session(filename, session)
             QMessageBox.information(self, "Saved", f"Grading session saved to {filename}")
@@ -316,7 +320,7 @@ class BatchGradingDialog(QDialog):
 
         try:
             session = load_grading_session(filename)
-        except Exception as e:
+        except (json.JSONDecodeError, OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load grading session:\n{e}")
             return
 
@@ -326,6 +330,8 @@ class BatchGradingDialog(QDialog):
         self._display_results(loaded_result)
         self.export_btn.setEnabled(True)
         self.save_grades_btn.setEnabled(True)
+        self.export_reports_btn.setEnabled(bool(loaded_result.results))
+        self.save_histogram_btn.setEnabled(bool(loaded_result.results))
         self.progress_label.setText(f"Loaded session: {session.rubric_title} ({session.timestamp})")
 
     def _show_comparison(self, old_session: GradingSessionData):
@@ -335,14 +341,19 @@ class BatchGradingDialog(QDialog):
 
         from grading.session_persistence import batch_result_to_session, compare_sessions
 
-        new_session = batch_result_to_session(self._batch_result)
-        comparisons = compare_sessions(old_session, new_session)
+        new_session = batch_result_to_session(
+            self._batch_result,
+            rubric_hash=self._rubric.content_hash() if self._rubric else "",
+        )
+        comparison = compare_sessions(old_session, new_session)
 
-        if not comparisons:
+        if not comparison["students"]:
             return
 
         lines = ["", "Comparison with previous session:"]
-        for c in comparisons:
+        if comparison["rubric_changed"] is True:
+            lines.append("  \u26a0 Rubric changed between sessions — deltas may not be directly comparable.")
+        for c in comparison["students"]:
             if c["delta"] is not None:
                 sign = "+" if c["delta"] >= 0 else ""
                 lines.append(
@@ -429,7 +440,7 @@ class BatchGradingDialog(QDialog):
 
             save_histogram_png(self._batch_result, filename)
             QMessageBox.information(self, "Saved", f"Histogram saved to {filename}")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to save histogram:\n{e}")
 
     def _on_export(self):
@@ -471,7 +482,7 @@ class BatchGradingDialog(QDialog):
                 "Reports Exported",
                 f"Created {len(created)} student report(s) in:\n{folder}",
             )
-        except Exception as e:
+        except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to export reports:\n{e}")
 
     def get_result(self) -> Optional[BatchGradingResult]:

@@ -1,7 +1,10 @@
-"""Waveform SPICE command generation utilities.
+"""Waveform source defaults and SPICE formatting for ComponentData.
 
-Extracted from ComponentData (#574, #599) to keep domain-specific
-SPICE formatting logic in the simulation layer rather than the data model.
+Pure Python — no Qt, no simulation layer imports.
+
+Moved here from simulation.waveform_utils (issue #767) so that
+models.component can initialise Waveform Source defaults without
+creating a models → simulation import dependency.
 """
 
 from typing import Optional

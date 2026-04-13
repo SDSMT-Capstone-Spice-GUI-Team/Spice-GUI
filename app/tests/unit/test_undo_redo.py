@@ -14,7 +14,10 @@ from controllers.commands import (
     PasteCommand,
     RerouteWireCommand,
     RotateComponentCommand,
+    SetRotationCommand,
     ToggleWireLockCommand,
+    UpdateInitialConditionCommand,
+    UpdateWaveformCommand,
 )
 from controllers.undo_manager import UndoManager
 from models.circuit import CircuitModel
@@ -305,6 +308,57 @@ class TestWireCommands:
         # Undo should restore wire
         cmd.undo()
         assert len(model.wires) == 1
+
+    def test_delete_wire_undo_rebuilds_node_graph(self):
+        """Test that undoing a wire deletion rebuilds terminal_to_node."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+
+        # Add components and wire
+        r1 = controller.add_component("Resistor", (0, 0))
+        r2 = controller.add_component("Resistor", (10, 0))
+        controller.add_wire(r1.component_id, 0, r2.component_id, 0)
+
+        # Capture the node graph state before deletion
+        nodes_before = len(model.nodes)
+        t2n_before = dict(model.terminal_to_node)
+
+        # Delete wire
+        cmd = DeleteWireCommand(controller, 0)
+        cmd.execute()
+
+        # After deletion the connected terminals should no longer share a node
+        assert len(model.wires) == 0
+
+        # Undo should restore wire AND rebuild node graph
+        cmd.undo()
+        assert len(model.wires) == 1
+        assert len(model.nodes) == nodes_before
+        # The same terminal pairs should be mapped to nodes again
+        for key in t2n_before:
+            assert key in model.terminal_to_node, f"terminal {key} missing from terminal_to_node after undo"
+
+    def test_delete_wire_undo_preserves_topology_for_simulation(self):
+        """Test that delete-wire-undo cycle preserves node topology for simulation."""
+        model = CircuitModel()
+        controller = CircuitController(model)
+
+        # Build a simple circuit: R1 -- R2 -- GND
+        r1 = controller.add_component("Resistor", (0, 0))
+        r2 = controller.add_component("Resistor", (10, 0))
+        controller.add_wire(r1.component_id, 1, r2.component_id, 0)
+
+        # Snapshot state
+        original_t2n = dict(model.terminal_to_node)
+
+        # Delete and undo
+        cmd = DeleteWireCommand(controller, 0)
+        cmd.execute()
+        cmd.undo()
+
+        # Node graph should be equivalent to the original
+        restored_t2n = dict(model.terminal_to_node)
+        assert set(restored_t2n.keys()) == set(original_t2n.keys())
 
 
 class TestPasteCommand:
@@ -727,3 +781,541 @@ class TestStaleStateValidation:
         cmd = RerouteWireCommand(controller, 99)
         cmd.execute()
         cmd.undo()
+
+
+# ===========================================================================
+# Full Workflow Integration Tests (#814)
+# ===========================================================================
+
+
+class TestFullUndoRedoWorkflow:
+    """Issue #814: verify all model-mutating operations are undoable via controller."""
+
+    def test_add_component_undoable(self):
+        """Adding a component via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+
+        cmd = AddComponentCommand(ctrl, "Resistor", (0, 0))
+        ctrl.execute_command(cmd)
+
+        assert len(model.components) == 1
+        assert ctrl.can_undo()
+
+        ctrl.undo()
+        assert len(model.components) == 0
+
+        ctrl.redo()
+        assert len(model.components) == 1
+
+    def test_add_wire_undoable(self):
+        """Adding a wire via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (200, 0))
+
+        cmd = AddWireCommand(ctrl, r1.component_id, 1, r2.component_id, 0)
+        ctrl.execute_command(cmd)
+
+        assert len(model.wires) == 1
+        assert len(model.nodes) == 1
+
+        ctrl.undo()
+        assert len(model.wires) == 0
+        assert len(model.nodes) == 0
+
+        ctrl.redo()
+        assert len(model.wires) == 1
+        assert len(model.nodes) == 1
+
+    def test_add_wire_with_waypoints_undoable(self):
+        """Wire undo must preserve original waypoints on redo."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (200, 0))
+
+        waypoints = [(0.0, 0.0), (50.0, 50.0), (200.0, 0.0)]
+        cmd = AddWireCommand(ctrl, r1.component_id, 1, r2.component_id, 0, waypoints=waypoints)
+        ctrl.execute_command(cmd)
+
+        assert model.wires[0].waypoints == waypoints
+
+        ctrl.undo()
+        assert len(model.wires) == 0
+
+        ctrl.redo()
+        assert len(model.wires) == 1
+        assert model.wires[0].waypoints == waypoints
+
+    def test_rotate_component_undoable(self):
+        """Rotating a component via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+
+        cmd = RotateComponentCommand(ctrl, comp.component_id, clockwise=True)
+        ctrl.execute_command(cmd)
+        assert model.components[comp.component_id].rotation == 90
+
+        ctrl.undo()
+        assert model.components[comp.component_id].rotation == 0
+
+        ctrl.redo()
+        assert model.components[comp.component_id].rotation == 90
+
+    def test_flip_component_undoable(self):
+        """Flipping a component via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+
+        cmd = FlipComponentCommand(ctrl, comp.component_id, horizontal=True)
+        ctrl.execute_command(cmd)
+        assert model.components[comp.component_id].flip_h is True
+
+        ctrl.undo()
+        assert model.components[comp.component_id].flip_h is False
+
+        ctrl.redo()
+        assert model.components[comp.component_id].flip_h is True
+
+    def test_change_value_undoable(self):
+        """Changing a value via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+        original = comp.value
+
+        cmd = ChangeValueCommand(ctrl, comp.component_id, "47k")
+        ctrl.execute_command(cmd)
+        assert model.components[comp.component_id].value == "47k"
+
+        ctrl.undo()
+        assert model.components[comp.component_id].value == original
+
+        ctrl.redo()
+        assert model.components[comp.component_id].value == "47k"
+
+    def test_paste_undoable(self):
+        """Pasting components via execute_command is fully undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        ctrl.copy_components([r1.component_id])
+
+        cmd = PasteCommand(ctrl, offset=(40, 40))
+        ctrl.execute_command(cmd)
+        assert len(model.components) == 2
+
+        ctrl.undo()
+        assert len(model.components) == 1
+
+        ctrl.redo()
+        assert len(model.components) == 2
+
+    def test_compound_rotate_multiple_undoable(self):
+        """Rotating multiple components in a compound command undoes as one step."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (200, 0))
+
+        commands = [
+            RotateComponentCommand(ctrl, r1.component_id, clockwise=True),
+            RotateComponentCommand(ctrl, r2.component_id, clockwise=True),
+        ]
+        compound = CompoundCommand(commands, "Rotate 2 components")
+        ctrl.execute_command(compound)
+
+        assert model.components[r1.component_id].rotation == 90
+        assert model.components[r2.component_id].rotation == 90
+
+        ctrl.undo()
+        assert model.components[r1.component_id].rotation == 0
+        assert model.components[r2.component_id].rotation == 0
+
+    def test_compound_delete_undoable(self):
+        """Deleting multiple items in a compound command undoes as one step."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (200, 0))
+        ctrl.add_wire(r1.component_id, 1, r2.component_id, 0)
+
+        commands = [
+            DeleteComponentCommand(ctrl, r1.component_id),
+            DeleteComponentCommand(ctrl, r2.component_id),
+        ]
+        compound = CompoundCommand(commands, "Delete 2 components")
+        ctrl.execute_command(compound)
+
+        assert len(model.components) == 0
+        assert len(model.wires) == 0
+
+        ctrl.undo()
+        assert len(model.components) == 2
+
+    def test_undo_state_changed_notification(self):
+        """execute_command, undo, and redo all fire undo_state_changed."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        events = []
+        ctrl.add_observer(lambda event, data: events.append(event))
+
+        cmd = AddComponentCommand(ctrl, "Resistor", (0, 0))
+        ctrl.execute_command(cmd)
+        assert "undo_state_changed" in events
+
+        events.clear()
+        ctrl.undo()
+        assert "undo_state_changed" in events
+
+        events.clear()
+        ctrl.redo()
+        assert "undo_state_changed" in events
+
+    def test_mixed_operation_undo_stack_order(self):
+        """Multiple different operations undo in correct LIFO order."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+
+        # 1. Add component
+        cmd1 = AddComponentCommand(ctrl, "Resistor", (0, 0))
+        ctrl.execute_command(cmd1)
+        comp_id = cmd1.component_id
+
+        # 2. Change its value
+        cmd2 = ChangeValueCommand(ctrl, comp_id, "10k")
+        ctrl.execute_command(cmd2)
+
+        # 3. Rotate it
+        cmd3 = RotateComponentCommand(ctrl, comp_id, clockwise=True)
+        ctrl.execute_command(cmd3)
+
+        # Undo in reverse: rotation, value, addition
+        ctrl.undo()  # undo rotate
+        assert model.components[comp_id].rotation == 0
+
+        ctrl.undo()  # undo value change
+        assert model.components[comp_id].value != "10k"
+
+        ctrl.undo()  # undo add
+        assert len(model.components) == 0
+
+
+# ===========================================================================
+# Properties Panel Undo Commands  (#819)
+# ===========================================================================
+
+
+class TestSetRotationCommand:
+    """Test SetRotationCommand for properties-panel rotation changes."""
+
+    def test_execute_and_undo(self):
+        """Setting rotation to exact value is undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+        comp_id = comp.component_id
+
+        assert model.components[comp_id].rotation == 0
+
+        cmd = SetRotationCommand(ctrl, comp_id, 270)
+        cmd.execute()
+        assert model.components[comp_id].rotation == 270
+
+        cmd.undo()
+        assert model.components[comp_id].rotation == 0
+
+    def test_via_controller_undoable(self):
+        """SetRotationCommand through controller is fully undoable/redoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+        comp_id = comp.component_id
+
+        cmd = SetRotationCommand(ctrl, comp_id, 180)
+        ctrl.execute_command(cmd)
+        assert model.components[comp_id].rotation == 180
+        assert ctrl.can_undo()
+
+        ctrl.undo()
+        assert model.components[comp_id].rotation == 0
+
+        ctrl.redo()
+        assert model.components[comp_id].rotation == 180
+
+    def test_normalizes_rotation(self):
+        """Rotation values are normalized mod 360."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Resistor", (0, 0))
+
+        cmd = SetRotationCommand(ctrl, comp.component_id, 450)
+        cmd.execute()
+        assert model.components[comp.component_id].rotation == 90
+
+    def test_missing_component_skips(self):
+        """SetRotationCommand on non-existent component should not crash."""
+        ctrl = CircuitController()
+        cmd = SetRotationCommand(ctrl, "BOGUS", 90)
+        cmd.execute()
+        assert cmd.old_rotation is None
+        cmd.undo()  # should not crash
+
+    def test_undo_missing_component_skips(self):
+        """SetRotationCommand.undo after component deleted should not crash."""
+        ctrl = CircuitController()
+        comp = ctrl.add_component("Resistor", (0, 0))
+        cmd = SetRotationCommand(ctrl, comp.component_id, 90)
+        cmd.execute()
+        ctrl.remove_component(comp.component_id)
+        cmd.undo()  # component gone; should not crash
+
+    def test_description(self):
+        """Command has descriptive get_description."""
+        ctrl = CircuitController()
+        cmd = SetRotationCommand(ctrl, "R1", 270)
+        assert "R1" in cmd.get_description()
+        assert "270" in cmd.get_description()
+
+
+class TestUpdateWaveformCommand:
+    """Test UpdateWaveformCommand for properties-panel waveform changes."""
+
+    def test_execute_and_undo(self):
+        """Updating waveform is undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Waveform Source", (0, 0))
+        comp_id = comp.component_id
+
+        old_type = model.components[comp_id].waveform_type
+        old_value = model.components[comp_id].value
+
+        cmd = UpdateWaveformCommand(ctrl, comp_id, "PULSE", {"v1": "0", "v2": "5"})
+        cmd.execute()
+        assert model.components[comp_id].waveform_type == "PULSE"
+
+        cmd.undo()
+        assert model.components[comp_id].waveform_type == old_type
+        assert model.components[comp_id].value == old_value
+
+    def test_via_controller_undoable(self):
+        """UpdateWaveformCommand through controller is fully undoable/redoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Waveform Source", (0, 0))
+        comp_id = comp.component_id
+        old_type = model.components[comp_id].waveform_type
+
+        cmd = UpdateWaveformCommand(ctrl, comp_id, "PULSE", {"v1": "0", "v2": "3.3"})
+        ctrl.execute_command(cmd)
+        assert model.components[comp_id].waveform_type == "PULSE"
+        assert ctrl.can_undo()
+
+        ctrl.undo()
+        assert model.components[comp_id].waveform_type == old_type
+
+        ctrl.redo()
+        assert model.components[comp_id].waveform_type == "PULSE"
+
+    def test_missing_component_skips(self):
+        """UpdateWaveformCommand on non-existent component should not crash."""
+        ctrl = CircuitController()
+        cmd = UpdateWaveformCommand(ctrl, "BOGUS", "SIN", {"amp": "1"})
+        cmd.execute()
+        assert cmd.old_waveform_type is None
+        cmd.undo()
+
+    def test_undo_missing_component_skips(self):
+        """UpdateWaveformCommand.undo after component deleted should not crash."""
+        ctrl = CircuitController()
+        comp = ctrl.add_component("Waveform Source", (0, 0))
+        cmd = UpdateWaveformCommand(ctrl, comp.component_id, "PULSE", {"v1": "0"})
+        cmd.execute()
+        ctrl.remove_component(comp.component_id)
+        cmd.undo()  # should not crash
+
+    def test_description(self):
+        """Command has descriptive get_description."""
+        ctrl = CircuitController()
+        cmd = UpdateWaveformCommand(ctrl, "VW1", "PULSE", {})
+        assert "VW1" in cmd.get_description()
+
+
+class TestUpdateInitialConditionCommand:
+    """Test UpdateInitialConditionCommand for properties-panel IC changes."""
+
+    def test_execute_and_undo(self):
+        """Updating initial condition is undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Capacitor", (0, 0))
+        comp_id = comp.component_id
+
+        assert model.components[comp_id].initial_condition is None
+
+        cmd = UpdateInitialConditionCommand(ctrl, comp_id, "5V")
+        cmd.execute()
+        assert model.components[comp_id].initial_condition == "5V"
+
+        cmd.undo()
+        assert model.components[comp_id].initial_condition is None
+
+    def test_via_controller_undoable(self):
+        """UpdateInitialConditionCommand through controller is fully undoable/redoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Capacitor", (0, 0))
+        comp_id = comp.component_id
+
+        cmd = UpdateInitialConditionCommand(ctrl, comp_id, "3.3V")
+        ctrl.execute_command(cmd)
+        assert model.components[comp_id].initial_condition == "3.3V"
+        assert ctrl.can_undo()
+
+        ctrl.undo()
+        assert model.components[comp_id].initial_condition is None
+
+        ctrl.redo()
+        assert model.components[comp_id].initial_condition == "3.3V"
+
+    def test_clear_initial_condition_undoable(self):
+        """Clearing an initial condition (setting to None) is undoable."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        comp = ctrl.add_component("Capacitor", (0, 0))
+        comp_id = comp.component_id
+        model.components[comp_id].initial_condition = "2V"
+
+        cmd = UpdateInitialConditionCommand(ctrl, comp_id, None)
+        ctrl.execute_command(cmd)
+        assert model.components[comp_id].initial_condition is None
+
+        ctrl.undo()
+        assert model.components[comp_id].initial_condition == "2V"
+
+    def test_missing_component_skips(self):
+        """UpdateInitialConditionCommand on non-existent component should not crash."""
+        ctrl = CircuitController()
+        cmd = UpdateInitialConditionCommand(ctrl, "BOGUS", "5V")
+        cmd.execute()
+        cmd.undo()
+
+    def test_undo_missing_component_skips(self):
+        """UpdateInitialConditionCommand.undo after component deleted should not crash."""
+        ctrl = CircuitController()
+        comp = ctrl.add_component("Capacitor", (0, 0))
+        cmd = UpdateInitialConditionCommand(ctrl, comp.component_id, "5V")
+        cmd.execute()
+        ctrl.remove_component(comp.component_id)
+        cmd.undo()  # should not crash
+
+    def test_description(self):
+        """Command has descriptive get_description."""
+        ctrl = CircuitController()
+        cmd = UpdateInitialConditionCommand(ctrl, "C1", "5V")
+        assert "C1" in cmd.get_description()
+
+
+# ===========================================================================
+# Wire Index Stability in Compound Delete  (#821)
+# ===========================================================================
+
+
+class TestWireIndexStabilityInCompoundDelete:
+    """Issue #821: deleting multiple wires in a CompoundCommand must use
+    descending index order so earlier deletions don't shift later indices."""
+
+    def test_multi_wire_delete_descending_order(self):
+        """Deleting wires in descending index order removes correct wires."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (100, 0))
+        r3 = ctrl.add_component("Resistor", (200, 0))
+        r4 = ctrl.add_component("Resistor", (300, 0))
+
+        # Create 3 wires: indices 0, 1, 2
+        ctrl.add_wire(r1.component_id, 1, r2.component_id, 0)  # wire 0
+        ctrl.add_wire(r2.component_id, 1, r3.component_id, 0)  # wire 1
+        ctrl.add_wire(r3.component_id, 1, r4.component_id, 0)  # wire 2
+
+        assert len(model.wires) == 3
+
+        # Delete wires 0 and 2 in descending order (as the fix requires)
+        commands = [
+            DeleteWireCommand(ctrl, 2),
+            DeleteWireCommand(ctrl, 0),
+        ]
+        compound = CompoundCommand(commands, "Delete 2 wires")
+        ctrl.execute_command(compound)
+
+        # Only wire 1 (r2-r3) should remain
+        assert len(model.wires) == 1
+        assert model.wires[0].start_component_id == r2.component_id
+        assert model.wires[0].end_component_id == r3.component_id
+
+        # Undo should restore exactly the 2 deleted wires
+        ctrl.undo()
+        assert len(model.wires) == 3
+
+    def test_multi_wire_delete_ascending_fails_without_fix(self):
+        """Ascending order would delete wrong wire; descending order is correct."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (100, 0))
+        r3 = ctrl.add_component("Resistor", (200, 0))
+
+        ctrl.add_wire(r1.component_id, 1, r2.component_id, 0)  # wire 0
+        ctrl.add_wire(r2.component_id, 1, r3.component_id, 0)  # wire 1
+
+        # Capture wire data before deletion for verification
+        wire0_start = model.wires[0].start_component_id
+        wire1_start = model.wires[1].start_component_id
+
+        # Delete both wires in descending order (correct)
+        commands = [
+            DeleteWireCommand(ctrl, 1),
+            DeleteWireCommand(ctrl, 0),
+        ]
+        compound = CompoundCommand(commands, "Delete 2 wires")
+        ctrl.execute_command(compound)
+
+        assert len(model.wires) == 0
+
+        # Undo restores both
+        ctrl.undo()
+        assert len(model.wires) == 2
+        assert model.wires[0].start_component_id == wire0_start
+        assert model.wires[1].start_component_id == wire1_start
+
+    def test_redo_after_multi_wire_delete_undo(self):
+        """Redo after undoing a multi-wire delete works correctly."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        r1 = ctrl.add_component("Resistor", (0, 0))
+        r2 = ctrl.add_component("Resistor", (100, 0))
+        r3 = ctrl.add_component("Resistor", (200, 0))
+
+        ctrl.add_wire(r1.component_id, 1, r2.component_id, 0)
+        ctrl.add_wire(r2.component_id, 1, r3.component_id, 0)
+
+        commands = [
+            DeleteWireCommand(ctrl, 1),
+            DeleteWireCommand(ctrl, 0),
+        ]
+        compound = CompoundCommand(commands, "Delete 2 wires")
+        ctrl.execute_command(compound)
+
+        assert len(model.wires) == 0
+
+        ctrl.undo()
+        assert len(model.wires) == 2
+
+        ctrl.redo()
+        assert len(model.wires) == 0

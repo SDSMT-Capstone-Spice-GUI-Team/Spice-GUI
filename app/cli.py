@@ -419,9 +419,10 @@ def cmd_import(args: argparse.Namespace) -> int:
     else:
         out_path = filepath.with_suffix(".json")
 
+    from utils.atomic_write import atomic_write_text
+
     data = model.to_dict()
-    with open(out_path, "w") as f:
-        json.dump(data, f, indent=2)
+    atomic_write_text(out_path, json.dumps(data, indent=2))
 
     print(f"Imported {filepath.name} -> {out_path}", file=sys.stderr)
     return 0
@@ -747,7 +748,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format (default: text)",
     )
 
+    # selftest
+    subparsers.add_parser("selftest", help="Run post-install smoke tests to verify the installation")
+
     return parser
+
+
+def cmd_selftest(args: argparse.Namespace) -> int:
+    """Run post-install smoke tests."""
+    from simulation.selftest import print_selftest, run_selftest
+
+    result = run_selftest()
+    print_selftest(result)
+    return 0 if result.passed else 1
 
 
 def main(argv=None) -> int:
@@ -764,6 +777,7 @@ def main(argv=None) -> int:
         "import": cmd_import,
         "diff": cmd_diff,
         "stats": cmd_stats,
+        "selftest": cmd_selftest,
     }
 
     handler = handlers.get(args.command)

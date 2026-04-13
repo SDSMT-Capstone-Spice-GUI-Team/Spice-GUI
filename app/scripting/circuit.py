@@ -49,10 +49,12 @@ class Circuit:
             ValueError: If the JSON structure is invalid.
         """
         path = Path(path)
+
+        from controllers.file_controller import check_file_size, validate_circuit_data
+
+        check_file_size(path)
         with open(path, "r") as f:
             data = json.load(f)
-
-        from controllers.file_controller import validate_circuit_data
 
         validate_circuit_data(data)
         model = CircuitModel.from_dict(data)
@@ -227,10 +229,11 @@ class Circuit:
         Args:
             path: Destination file path.
         """
+        from utils.atomic_write import atomic_write_text
+
         path = Path(path)
         data = self._model.to_dict()
-        with open(path, "w") as f:
-            json.dump(data, f, indent=2)
+        atomic_write_text(path, json.dumps(data, indent=2))
 
     # --- Properties ---
 
@@ -402,32 +405,47 @@ class Circuit:
 
 def _write_op_csv(data: dict, path: Path) -> None:
     """Write DC Operating Point results as name,value rows."""
-    with open(path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["name", "value"])
-        for name, value in data.get("node_voltages", {}).items():
-            writer.writerow([name, value])
-        for name, value in data.get("branch_currents", {}).items():
-            writer.writerow([name, value])
+    import io
+
+    from utils.atomic_write import atomic_write_text
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["name", "value"])
+    for name, value in data.get("node_voltages", {}).items():
+        writer.writerow([name, value])
+    for name, value in data.get("branch_currents", {}).items():
+        writer.writerow([name, value])
+    atomic_write_text(path, output.getvalue(), newline="")
 
 
 def _write_tabular_csv(data, path: Path) -> None:
     """Write list-of-dicts data as a CSV table."""
     if isinstance(data, list) and data:
+        import io
+
+        from utils.atomic_write import atomic_write_text
+
         keys = list(data[0].keys())
-        with open(path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=keys)
-            writer.writeheader()
-            writer.writerows(data)
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(data)
+        atomic_write_text(path, output.getvalue(), newline="")
     elif isinstance(data, dict):
         _write_generic_csv(data, path)
 
 
 def _write_generic_csv(data, path: Path) -> None:
     """Fallback: write dict data as key,value rows."""
-    with open(path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["key", "value"])
-        if isinstance(data, dict):
-            for key, value in data.items():
-                writer.writerow([key, value])
+    import io
+
+    from utils.atomic_write import atomic_write_text
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["key", "value"])
+    if isinstance(data, dict):
+        for key, value in data.items():
+            writer.writerow([key, value])
+    atomic_write_text(path, output.getvalue(), newline="")

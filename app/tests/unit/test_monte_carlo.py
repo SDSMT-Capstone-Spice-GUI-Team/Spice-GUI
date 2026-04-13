@@ -1,5 +1,6 @@
 """Tests for Monte Carlo simulation module and controller integration."""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -14,8 +15,8 @@ from simulation.monte_carlo import (
     apply_tolerance,
     compute_mc_statistics,
     format_spice_value,
-    parse_spice_value,
 )
+from utils.format_utils import parse_spice_value
 
 
 class TestParseSpiceValue:
@@ -315,7 +316,7 @@ class TestNoQtInMonteCarloModule:
     def test_no_pyqt_imports(self):
         import simulation.monte_carlo as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source

@@ -94,7 +94,9 @@ class TestSettingsServiceTypedHelpers:
         assert result == []
 
     def test_singleton_is_settings_service(self):
-        assert isinstance(settings, SettingsService)
+        from controllers.settings_service import _LazySettingsProxy
+
+        assert isinstance(settings, _LazySettingsProxy)
 
 
 class TestSettingsServiceJsonFile:

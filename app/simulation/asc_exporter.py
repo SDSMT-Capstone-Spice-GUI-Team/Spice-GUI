@@ -27,13 +27,14 @@ _TYPE_TO_SYMBOL = {
     "VCCS": "g",
     "CCVS": "h",
     "Waveform Source": "voltage",
+    "Transformer": "ind2",
 }
 
-# Pin offsets (same as asc_parser._PIN_OFFSETS)
+# Pin offsets (same as asc_parser._PIN_OFFSETS, with corrected pin spacing)
 _PIN_OFFSETS = {
-    "Resistor": [(0, 0), (0, 80)],
+    "Resistor": [(0, 0), (0, 96)],
     "Capacitor": [(0, 0), (0, 64)],
-    "Inductor": [(0, 0), (0, 80)],
+    "Inductor": [(0, 0), (0, 96)],
     "Voltage Source": [(0, 0), (0, 112)],
     "Current Source": [(0, 0), (0, 112)],
     "Waveform Source": [(0, 0), (0, 112)],
@@ -49,15 +50,40 @@ _PIN_OFFSETS = {
     "CCVS": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
     "VCCS": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
     "CCCS": [(-32, 32), (-32, -32), (32, -32), (32, 32)],
+    "Transformer": [(-32, -32), (-32, 32), (32, -32), (32, 32)],
     "Ground": [(0, 0)],
 }
 
 
-def _degrees_to_rotation_code(rotation, flip_h=False):
-    """Convert Spice-GUI rotation + flip to LTspice rotation code."""
+def _degrees_to_rotation_code(rotation, flip_h=False, is_bipole=True):
+    """Convert Spice-GUI rotation + flip to LTspice rotation code.
+
+    For 2-terminal (bipole) components, applies the self-inverse transform
+    ``(450 - angle) % 360`` because LTspice R0 is vertical while Spice-GUI
+    0° is horizontal, and they rotate in opposite directions.
+    """
     prefix = "M" if flip_h else "R"
     angle = int(rotation) % 360
+    if is_bipole:
+        angle = (450 - angle) % 360
     return f"{prefix}{angle}"
+
+
+def _center_to_origin(comp_type, rotation, flip_h=False):
+    """Convert Spice-GUI center position back to LTspice SYMBOL origin.
+
+    Returns (dx, dy) to subtract from the Spice-GUI center to get the
+    LTspice SYMBOL position.
+    """
+    offsets = _PIN_OFFSETS.get(comp_type)
+    if not offsets or len(offsets) < 2:
+        return 0, 0
+    avg_x = sum(o[0] for o in offsets) / len(offsets)
+    avg_y = sum(o[1] for o in offsets) / len(offsets)
+    # For bipoles we need the LTspice rotation (reverse of the import transform)
+    is_bipole = len(offsets) == 2
+    lt_angle = (450 - int(rotation)) % 360 if is_bipole else int(rotation) % 360
+    return _transform_pin(avg_x, avg_y, lt_angle, flip_h)
 
 
 def _transform_pin(dx, dy, rotation, flip_h=False):
@@ -127,19 +153,25 @@ def export_asc(model):
         if symbol is None:
             continue
 
-        x = int(comp.position[0])
-        y = int(comp.position[1])
-        rot_code = _degrees_to_rotation_code(comp.rotation, comp.flip_h)
+        offsets = _PIN_OFFSETS.get(comp.component_type, [(0, 0), (0, 80)])
+        is_bipole = len(offsets) == 2
+
+        # Convert Spice-GUI center back to LTspice SYMBOL origin
+        cx, cy = _center_to_origin(comp.component_type, comp.rotation, comp.flip_h)
+        x = int(comp.position[0] - cx)
+        y = int(comp.position[1] - cy)
+        rot_code = _degrees_to_rotation_code(comp.rotation, comp.flip_h, is_bipole=is_bipole)
 
         lines.append(f"SYMBOL {symbol} {x} {y} {rot_code}")
         lines.append(f"SYMATTR InstName {comp_id}")
         if comp.value:
             lines.append(f"SYMATTR Value {comp.value}")
 
-        # Compute pin positions
-        offsets = _PIN_OFFSETS.get(comp.component_type, [(0, 0), (0, 80)])
+        # Compute pin positions using LTspice rotation/flip
+        lt_angle = int(rot_code[1:])
+        lt_flip = rot_code.startswith("M")
         for term_idx, (dx, dy) in enumerate(offsets):
-            tx, ty = _transform_pin(dx, dy, comp.rotation, comp.flip_h)
+            tx, ty = _transform_pin(dx, dy, lt_angle, lt_flip)
             pin_positions[(comp_id, term_idx)] = (x + tx, y + ty)
 
     # Export Ground components as FLAG entries
@@ -160,7 +192,8 @@ def export_asc(model):
         if start_key in pin_positions and end_key in pin_positions:
             x1, y1 = pin_positions[start_key]
             x2, y2 = pin_positions[end_key]
-            lines.append(f"WIRE {x1} {y1} {x2} {y2}")
+            if (x1, y1) != (x2, y2):  # skip zero-length wires
+                lines.append(f"WIRE {x1} {y1} {x2} {y2}")
 
     # Export analysis directive
     if model.analysis_type:
@@ -179,5 +212,6 @@ def write_asc(content, filepath):
         content: str from export_asc()
         filepath: output file path
     """
-    with open(filepath, "w") as f:
-        f.write(content)
+    from utils.atomic_write import atomic_write_text
+
+    atomic_write_text(filepath, content)

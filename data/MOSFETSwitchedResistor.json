@@ -1,0 +1,73 @@
+{
+  "components": [
+    {
+      "type": "VoltageSource",
+      "id": "V1",
+      "value": "12V",
+      "pos": {"x": -240.0, "y": 0.0},
+      "rotation": 0
+    },
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "10",
+      "pos": {"x": -120.0, "y": -100.0},
+      "rotation": 0
+    },
+    {
+      "type": "VoltageSource",
+      "id": "V2",
+      "value": "0V",
+      "pos": {"x": 0.0, "y": -100.0},
+      "rotation": 0
+    },
+    {
+      "type": "MOSFETNMOS",
+      "id": "M1",
+      "value": "NMOS1",
+      "pos": {"x": 120.0, "y": 0.0},
+      "rotation": 0
+    },
+    {
+      "type": "WaveformVoltageSource",
+      "id": "VW1",
+      "value": "PULSE(0 10 0 1n 1n 2m 4m)",
+      "pos": {"x": -20.0, "y": 80.0},
+      "rotation": 0,
+      "waveform_type": "PULSE",
+      "waveform_params": {
+        "PULSE": {
+          "v1": "0",
+          "v2": "10",
+          "td": "0",
+          "tr": "1n",
+          "tf": "1n",
+          "pw": "2m",
+          "per": "4m"
+        }
+      }
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "0V",
+      "pos": {"x": 0.0, "y": 160.0},
+      "rotation": 0
+    }
+  ],
+  "wires": [
+    {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
+    {"start_comp": "R1", "start_term": 1, "end_comp": "V2", "end_term": 0},
+    {"start_comp": "V2", "start_term": 1, "end_comp": "M1", "end_term": 0},
+    {"start_comp": "VW1", "start_term": 0, "end_comp": "M1", "end_term": 1},
+    {"start_comp": "M1", "start_term": 2, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "VW1", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0}
+  ],
+  "counters": {"V": 2, "R": 1, "M": 1, "VW": 1, "GND": 1},
+  "analysis_type": "Transient",
+  "analysis_params": {
+    "step_time": "1n",
+    "stop_time": "10m"
+  }
+}

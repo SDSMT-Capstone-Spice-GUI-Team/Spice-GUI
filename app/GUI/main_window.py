@@ -48,7 +48,13 @@ from .main_window_simulation import SimulationMixin
 from .main_window_view import ViewOperationsMixin
 from .properties_panel import PropertiesPanel
 from .results_panel import ResultsPanel
-from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
+from .styles import (
+    DEFAULT_SPLITTER_SIZES,
+    DEFAULT_WINDOW_SIZE,
+    STATUS_DURATION_DEFAULT,
+    STATUS_DURATION_SHORT,
+    theme_manager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +89,7 @@ class MainWindow(
         # Create model (single source of truth)
         self.model = CircuitModel()
 
-        # Create controllers (Phase 5: wire them together)
+        # Create controllers
         self._circuit_ctrl = CircuitController(self.model)
         self._file_ctrl = FileController(self.model, self._circuit_ctrl)
         self._simulation_ctrl = SimulationController(self.model, self._circuit_ctrl)
@@ -135,7 +141,7 @@ class MainWindow(
 
     # --- ApplicationShellProtocol methods ---
 
-    def show_status_message(self, message: str, timeout_ms: int = 3000) -> None:
+    def show_status_message(self, message: str, timeout_ms: int = STATUS_DURATION_DEFAULT) -> None:
         """Show a transient message in the status bar (ApplicationShellProtocol)."""
         status = self.statusBar()
         if status:
@@ -170,13 +176,14 @@ class MainWindow(
         left_panel.addWidget(QLabel("Component Palette"))
         self.palette = ComponentPalette()
         left_panel.addWidget(self.palette)
+        kb = self.keybindings
         '''instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
             "🖱️ Drag components to move (wires follow!)\n"
-            "🔄 Press R to rotate selected\n"
+            f"🔄 Press {kb.get('edit.rotate_cw')} to rotate selected\n"
             "🗑️ Right-click for context menu\n"
-            "⌫ Delete key to remove selected\n"
+            f"⌫ {kb.get('edit.delete')} key to remove selected\n"
             "\n"
             "Wires auto-route using IDA* path finding!"
         )
@@ -195,12 +202,12 @@ class MainWindow(
         canvas_toolbar.addWidget(QLabel("Circuit Canvas"))
         btn_zoom_in = QPushButton("+")
         btn_zoom_in.setFixedWidth(30)
-        btn_zoom_in.setToolTip("Zoom In (Ctrl++)")
+        btn_zoom_in.setToolTip(f"Zoom In ({self.keybindings.get('view.zoom_in')})")
         btn_zoom_out = QPushButton("-")
         btn_zoom_out.setFixedWidth(30)
-        btn_zoom_out.setToolTip("Zoom Out (Ctrl+-)")
+        btn_zoom_out.setToolTip(f"Zoom Out ({self.keybindings.get('view.zoom_out')})")
         btn_zoom_fit = QPushButton("Fit")
-        btn_zoom_fit.setToolTip("Fit to Circuit (Ctrl+0)")
+        btn_zoom_fit.setToolTip(f"Fit to Circuit ({self.keybindings.get('view.zoom_fit')})")
         self.zoom_label = QLabel("100%")
         self.zoom_label.setFixedWidth(45)
         canvas_toolbar.addStretch()
@@ -210,7 +217,6 @@ class MainWindow(
         canvas_toolbar.addWidget(btn_zoom_fit)
         canvas_layout.addLayout(canvas_toolbar)
 
-        # Phase 5: Pass controller to canvas for observer pattern
         self.canvas = CircuitCanvasView(self.circuit_ctrl)
         btn_zoom_in.clicked.connect(lambda: self.canvas.zoom_in())
         btn_zoom_out.clicked.connect(lambda: self.canvas.zoom_out())
@@ -226,7 +232,7 @@ class MainWindow(
         self.results_panel.btn_export_csv.clicked.connect(self.export_results_csv)
         self.results_panel.btn_export_excel.clicked.connect(self.export_results_excel)
         self.results_panel.btn_copy_markdown.clicked.connect(self.copy_results_markdown)
-        # Backward-compat aliases so existing SimulationMixin code works unchanged.
+        # Convenience aliases used by SimulationMixin.
         self.results_text = self.results_panel.results_text
         self.btn_export_csv = self.results_panel.btn_export_csv
         self.btn_export_excel = self.results_panel.btn_export_excel
@@ -272,24 +278,29 @@ class MainWindow(
         right_panel_layout.addWidget(QLabel("Actions"))
 
         self.btn_save = QPushButton("Save Circuit")
+        self.btn_save.setToolTip(f"Save Circuit ({self.keybindings.get('file.save_as')})")
         self.btn_save.clicked.connect(self._on_save_as)
         right_panel_layout.addWidget(self.btn_save)
 
         self.btn_load = QPushButton("Load Circuit")
+        self.btn_load.setToolTip(f"Load Circuit ({self.keybindings.get('file.open')})")
         self.btn_load.clicked.connect(self._on_load)
         right_panel_layout.addWidget(self.btn_load)
 
         self.btn_clear = QPushButton("Clear Canvas")
+        self.btn_clear.setToolTip("Clear Canvas")
         self.btn_clear.clicked.connect(self.clear_canvas)
         right_panel_layout.addWidget(self.btn_clear)
 
         right_panel_layout.addWidget(QLabel(""))  # Spacer
 
         self.btn_netlist = QPushButton("Generate Netlist")
+        self.btn_netlist.setToolTip(f"Generate Netlist ({self.keybindings.get('sim.netlist')})")
         self.btn_netlist.clicked.connect(self.generate_netlist)
         right_panel_layout.addWidget(self.btn_netlist)
 
         self.btn_simulate = QPushButton("Run Simulation")
+        self.btn_simulate.setToolTip(f"Run Simulation ({self.keybindings.get('sim.run')})")
         self.btn_simulate.clicked.connect(self.run_simulation)
         right_panel_layout.addWidget(self.btn_simulate)
 
@@ -364,37 +375,51 @@ class MainWindow(
     def on_property_changed(self, component_id, property_name, new_value):
         """Handle property changes from properties panel via controller."""
         if property_name == "value":
-            self.circuit_ctrl.update_component_value(component_id, new_value)
+            from controllers.commands import ChangeValueCommand
+
+            cmd = ChangeValueCommand(self.circuit_ctrl, component_id, new_value)
+            self.circuit_ctrl.execute_command(cmd)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
+                statusBar.showMessage(f"Updated {component_id} value to {new_value}", STATUS_DURATION_SHORT)
 
         elif property_name == "rotation":
-            self.circuit_ctrl.set_component_rotation(component_id, new_value)
+            from controllers.commands import SetRotationCommand
+
+            cmd = SetRotationCommand(self.circuit_ctrl, component_id, new_value)
+            self.circuit_ctrl.execute_command(cmd)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
+                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", STATUS_DURATION_SHORT)
             component = self.canvas.components.get(component_id)
             if component:
                 self.properties_panel.show_component(component)
 
         elif property_name == "waveform":
+            from controllers.commands import UpdateWaveformCommand
+
             waveform_type, params = new_value
-            self.circuit_ctrl.update_component_waveform(component_id, waveform_type, params)
+            cmd = UpdateWaveformCommand(self.circuit_ctrl, component_id, waveform_type, params)
+            self.circuit_ctrl.execute_command(cmd)
             # Refresh properties panel to show updated SPICE value
             component = self.canvas.components.get(component_id)
             if component:
                 self.properties_panel.show_component(component)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
+                statusBar.showMessage(f"Updated {component_id} waveform configuration", STATUS_DURATION_SHORT)
 
         elif property_name == "initial_condition":
-            self.circuit_ctrl.update_component_initial_condition(component_id, new_value)
+            from controllers.commands import UpdateInitialConditionCommand
+
+            cmd = UpdateInitialConditionCommand(self.circuit_ctrl, component_id, new_value)
+            self.circuit_ctrl.execute_command(cmd)
             ic_display = new_value if new_value else "none"
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} initial condition to {ic_display}", 2000)
+                statusBar.showMessage(
+                    f"Updated {component_id} initial condition to {ic_display}", STATUS_DURATION_SHORT
+                )
 
     def _refresh_netlist_preview(self):
         """Regenerate and display the netlist in the preview panel."""
@@ -484,7 +509,7 @@ class MainWindow(
 
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Imported {Path(filepath).name}", 3000)
+                statusBar.showMessage(f"Imported {Path(filepath).name}", STATUS_DURATION_DEFAULT)
         except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Import Error", f"Failed to import file:\n{e}")
 

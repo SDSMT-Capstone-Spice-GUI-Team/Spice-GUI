@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from controllers.file_controller import validate_circuit_data
+from controllers.file_controller import check_file_size, validate_circuit_data
 from models.circuit import CircuitModel
 
 logger = logging.getLogger(__name__)
@@ -65,6 +65,7 @@ class TemplateManager:
 
         for filepath in sorted(directory.glob("*.json")):
             try:
+                check_file_size(filepath)
                 with open(filepath, "r") as f:
                     data = json.load(f)
                 templates.append(
@@ -76,7 +77,7 @@ class TemplateManager:
                         is_builtin=is_builtin,
                     )
                 )
-            except (json.JSONDecodeError, OSError) as e:
+            except (json.JSONDecodeError, OSError, ValueError) as e:
                 logger.warning("Failed to read template %s: %s", filepath, e)
 
         return templates
@@ -100,6 +101,7 @@ class TemplateManager:
             ValueError: If file structure is invalid.
             OSError: If file cannot be read.
         """
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             data = json.load(f)
 
@@ -177,8 +179,9 @@ class TemplateManager:
             filepath = self.user_dir / f"{stem}_{counter}.json"
             counter += 1
 
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=2)
+        from utils.atomic_write import atomic_write_text
+
+        atomic_write_text(filepath, json.dumps(data, indent=2))
 
         return filepath
 

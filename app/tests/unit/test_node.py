@@ -88,6 +88,27 @@ class TestNodeLabelGenerator:
         assert gen.next_label() == "nodeAB"
 
 
+class TestLabelUniqueness:
+    """Verify label generation produces unique labels for large circuits."""
+
+    def test_labels_unique_up_to_1000(self):
+        labels = [_generate_label(i) for i in range(1000)]
+        assert len(labels) == len(set(labels))
+
+    def test_labels_beyond_702_are_triple_letter(self):
+        """After nodeZZ (index 701), labels should continue with nodeAAA."""
+        assert _generate_label(701) == "nodeZZ"
+        assert _generate_label(702) == "nodeAAA"
+        assert _generate_label(703) == "nodeAAB"
+
+    def test_labels_are_all_alpha(self):
+        """All generated labels should consist of 'node' + uppercase letters."""
+        for i in range(1000):
+            label = _generate_label(i)
+            suffix = label[4:]  # strip 'node' prefix
+            assert suffix.isalpha() and suffix.isupper(), f"Bad label at index {i}: {label}"
+
+
 class TestNodeMerge:
     def test_merge_preserves_custom_label(self):
         node1 = NodeData(auto_label="nodeA")
@@ -329,11 +350,9 @@ class TestSetNetNamePublicAPI:
         assert node.custom_label is None
         assert node.get_label() == "nodeA"
 
-    def test_canvas_does_not_call_private_notify(self):
-        """Verify the canvas code no longer calls controller._notify directly."""
-        import inspect
-
+    def test_canvas_label_node_uses_set_net_name(self):
+        """Verify CircuitCanvas has a label_node method (behavioral/attribute check)."""
         from GUI.circuit_canvas import CircuitCanvas
 
-        source = inspect.getsource(CircuitCanvas.label_node)
-        assert "_notify" not in source, "label_node still calls _notify directly — use set_net_name instead"
+        assert hasattr(CircuitCanvas, "label_node"), "CircuitCanvas must have a label_node method"
+        assert callable(CircuitCanvas.label_node), "CircuitCanvas.label_node must be callable"

@@ -112,6 +112,20 @@ class UndoManager:
             return self._redo_stack[-1].get_description()
         return None
 
+    def push_already_executed(self, command: Command) -> None:
+        """Push a pre-executed command onto the undo stack.
+
+        Used when an action has already been applied (e.g. during a drag)
+        and only needs to be recorded for undo/redo.
+
+        Args:
+            command: The already-executed command to record
+        """
+        self._undo_stack.append(command)
+        if len(self._undo_stack) > self.max_depth:
+            self._undo_stack.pop(0)
+        self._redo_stack.clear()
+
     def clear(self) -> None:
         """Clear both undo and redo stacks."""
         self._undo_stack.clear()

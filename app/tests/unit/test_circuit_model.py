@@ -1,5 +1,7 @@
 """Tests for CircuitModel central data store."""
 
+from pathlib import Path
+
 import pytest
 from models.circuit import CircuitModel
 from models.component import ComponentData
@@ -245,7 +247,12 @@ class TestSerialization:
     def test_empty_circuit_round_trip(self):
         model = CircuitModel()
         data = model.to_dict()
-        assert data == {"components": [], "wires": [], "counters": {}}
+        assert data == {
+            "schema_version": 1,
+            "components": [],
+            "wires": [],
+            "counters": {},
+        }
 
         reset_node_counter()
         model2 = CircuitModel.from_dict(data)
@@ -385,7 +392,7 @@ class TestSerialization:
         """Verify CircuitModel has no Qt dependencies."""
         import models.circuit as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source

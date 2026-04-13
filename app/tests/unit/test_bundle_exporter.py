@@ -2,6 +2,7 @@
 
 import json
 import zipfile
+from pathlib import Path
 
 from simulation.bundle_exporter import create_bundle, suggest_bundle_name
 
@@ -123,7 +124,7 @@ class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import simulation.bundle_exporter as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source

@@ -62,6 +62,21 @@ def build_context_menu(canvas, scene_pos):
     return menu
 
 
+def _get_keybinding(canvas, action_name):
+    """Return the shortcut string for *action_name*, or '' if unavailable."""
+    main_window = canvas.window()
+    if main_window and hasattr(main_window, "keybindings"):
+        return main_window.keybindings.get(action_name)
+    return ""
+
+
+def _action_label_with_shortcut(label, shortcut):
+    """Return 'Label (Shortcut)' when a shortcut is defined."""
+    if shortcut:
+        return f"{label} ({shortcut})"
+    return label
+
+
 def _build_component_menu(menu, canvas, item):
     """Populate *menu* with actions for a right-clicked component."""
     delete_action = QAction(f"Delete {item.component_id}", canvas)
@@ -70,21 +85,29 @@ def _build_component_menu(menu, canvas, item):
 
     menu.addSeparator()
 
-    rotate_cw_action = QAction("Rotate Clockwise (R)", canvas)
+    rotate_cw_action = QAction(
+        _action_label_with_shortcut("Rotate Clockwise", _get_keybinding(canvas, "edit.rotate_cw")), canvas
+    )
     rotate_cw_action.triggered.connect(lambda: canvas.rotate_component(item, True))
     menu.addAction(rotate_cw_action)
 
-    rotate_ccw_action = QAction("Rotate Counter-Clockwise (Shift+R)", canvas)
+    rotate_ccw_action = QAction(
+        _action_label_with_shortcut("Rotate Counter-Clockwise", _get_keybinding(canvas, "edit.rotate_ccw")), canvas
+    )
     rotate_ccw_action.triggered.connect(lambda: canvas.rotate_component(item, False))
     menu.addAction(rotate_ccw_action)
 
     menu.addSeparator()
 
-    flip_h_action = QAction("Flip Horizontal (F)", canvas)
+    flip_h_action = QAction(
+        _action_label_with_shortcut("Flip Horizontal", _get_keybinding(canvas, "edit.flip_h")), canvas
+    )
     flip_h_action.triggered.connect(lambda: canvas.flip_component(item, True))
     menu.addAction(flip_h_action)
 
-    flip_v_action = QAction("Flip Vertical (Shift+F)", canvas)
+    flip_v_action = QAction(
+        _action_label_with_shortcut("Flip Vertical", _get_keybinding(canvas, "edit.flip_v")), canvas
+    )
     flip_v_action.triggered.connect(lambda: canvas.flip_component(item, False))
     menu.addAction(flip_v_action)
 
@@ -118,7 +141,7 @@ def _build_wire_menu(menu, canvas, item, scene_pos):
     menu.addAction(lock_action)
 
     # Check if multiple wires are selected
-    selected_wires = [i for i in canvas.scene.selectedItems() if isinstance(i, WireItem)]
+    selected_wires = [i for i in canvas.scene().selectedItems() if isinstance(i, WireItem)]
     if len(selected_wires) > 1 and item in selected_wires:
         reroute_action = QAction(f"Reroute Selected Wires ({len(selected_wires)})", canvas)
         reroute_action.triggered.connect(lambda: canvas.reroute_selected_wires(selected_wires))
@@ -147,7 +170,7 @@ def _build_empty_area_menu(menu, canvas, scene_pos):
         menu.addSeparator()
 
     # No specific item, offer to delete all selected
-    selected_items = canvas.scene.selectedItems()
+    selected_items = canvas.scene().selectedItems()
     if selected_items:
         delete_action = QAction(f"Delete Selected ({len(selected_items)} items)", canvas)
         delete_action.triggered.connect(canvas.delete_selected)

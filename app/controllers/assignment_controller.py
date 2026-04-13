@@ -7,6 +7,7 @@ No Qt dependencies.
 import json
 from pathlib import Path
 
+from controllers.file_controller import check_file_size
 from grading.rubric import Rubric, validate_rubric
 from models.assignment import AssignmentBundle
 from models.template import TemplateData
@@ -33,9 +34,10 @@ def save_assignment(bundle: AssignmentBundle, filepath) -> None:
         bundle: The assignment bundle to save.
         filepath: Path to write the file.
     """
+    from utils.atomic_write import atomic_write_text
+
     filepath = Path(filepath)
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(bundle.to_dict(), f, indent=2)
+    atomic_write_text(filepath, json.dumps(bundle.to_dict(), indent=2))
 
 
 def load_assignment(filepath) -> AssignmentBundle:
@@ -52,6 +54,7 @@ def load_assignment(filepath) -> AssignmentBundle:
         ValueError: If the data structure is invalid.
     """
     filepath = Path(filepath)
+    check_file_size(filepath)
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
     validate_assignment_data(data)

@@ -15,8 +15,11 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Default persistence directory
-_DEFAULT_LIBRARY_DIR = Path.home() / ".spice-gui" / "library"
+
+# Default persistence directory — evaluated lazily to avoid module-level I/O.
+def _default_library_dir() -> Path:
+    """Return the default subcircuit library directory (deferred until needed)."""
+    return Path.home() / ".spice-gui" / "library"
 
 
 @dataclass
@@ -111,7 +114,7 @@ class SubcircuitLibrary:
     """
 
     def __init__(self, library_dir: str | Path | None = None):
-        self._library_dir = Path(library_dir) if library_dir else _DEFAULT_LIBRARY_DIR
+        self._library_dir = Path(library_dir) if library_dir else _default_library_dir()
         self._definitions: dict[str, SubcircuitDefinition] = {}
         self._load()
         self._load_builtins()
@@ -194,7 +197,7 @@ class SubcircuitLibrary:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 defn = SubcircuitDefinition.from_dict(data)
                 self._definitions[defn.name] = defn
-            except Exception:
+            except (json.JSONDecodeError, OSError, ValueError, KeyError):
                 logger.warning("Failed to load subcircuit from %s", path, exc_info=True)
 
     def _load_builtins(self) -> None:
@@ -285,6 +288,27 @@ def register_subcircuit_component(defn: SubcircuitDefinition) -> None:
     # Color -- use a consistent colour for all subcircuits
     COMPONENT_COLORS[name] = "#FF6F00"
 
+    # Also register in the theme system so theme_manager.get_component_color()
+    # returns the correct color for dynamically registered subcircuits.
+    try:
+        from GUI.styles.constants import _COLOR_KEYS, COMPONENTS
+
+        color_key = f"component_subcircuit_{name.lower().replace(' ', '_')}"
+        _COLOR_KEYS[name] = color_key
+        COMPONENTS[name] = {
+            "symbol": "X",
+            "terminals": defn.terminal_count,
+            "color_key": color_key,
+        }
+        # Inject the color into the current theme's color dict
+        from GUI.styles import theme_manager
+
+        theme = theme_manager.current_theme
+        if hasattr(theme, "_colors"):
+            theme._colors.setdefault(color_key, "#FF6F00")
+    except (ImportError, AttributeError):
+        pass  # GUI styles unavailable (headless / test environment)
+
     # Terminal geometry
     TERMINAL_GEOMETRY[name] = _generate_terminal_geometry(defn.terminal_count)
 
@@ -293,98 +317,3 @@ def register_subcircuit_component(defn: SubcircuitDefinition) -> None:
         COMPONENT_CATEGORIES["Subcircuits"] = []
     if name not in COMPONENT_CATEGORIES["Subcircuits"]:
         COMPONENT_CATEGORIES["Subcircuits"].append(name)
-
-    # Update COMPONENTS dict in styles/constants
-    try:
-        from GUI.styles.constants import _COLOR_KEYS, COMPONENTS
-
-        _COLOR_KEYS[name] = "component_subcircuit"
-        COMPONENTS[name] = {
-            "symbol": "X",
-            "terminals": defn.terminal_count,
-            "color_key": "component_subcircuit",
-        }
-    except Exception:
-        pass  # OK if GUI not available (headless tests)
-
-    # Register graphics class and renderer
-    _register_graphics(name, defn)
-
-
-def _register_graphics(name: str, defn: SubcircuitDefinition) -> None:
-    """Register a ComponentGraphicsItem subclass and renderer for *name*."""
-    try:
-        from GUI.component_item import COMPONENT_CLASSES, ComponentGraphicsItem
-
-        # Create a dynamic subclass for this subcircuit type
-        if name not in COMPONENT_CLASSES:
-            cls = type(
-                f"Subcircuit_{name}",
-                (ComponentGraphicsItem,),
-                {
-                    "type_name": name,
-                    "__init__": lambda self, component_id, model=None, _tn=name: ComponentGraphicsItem.__init__(
-                        self, component_id, _tn, model=model
-                    ),
-                },
-            )
-            COMPONENT_CLASSES[name] = cls
-    except Exception:
-        pass  # GUI not importable in headless/model-only tests
-
-    try:
-        from GUI.renderers import _make_iec_delegate, register
-
-        _register_subcircuit_renderer(name, defn, register, _make_iec_delegate)
-    except Exception:
-        pass
-
-
-def _register_subcircuit_renderer(name, defn, register_fn, make_iec_delegate_fn):
-    """Register IEEE + IEC renderers for a subcircuit component."""
-    from GUI.renderers import ComponentRenderer, _bounding_rect_obstacle
-
-    class SubcircuitRenderer(ComponentRenderer):
-        """Generic box renderer for subcircuit components."""
-
-        def __init__(self, defn):
-            self._defn = defn
-
-        def draw(self, painter, component):
-            # Draw a rectangular box
-            painter.drawRect(-18, -15, 36, 30)
-
-            # Draw terminal connection lines
-            if component.scene() is not None:
-                tc = self._defn.terminal_count
-                if tc == 2:
-                    painter.drawLine(-30, 0, -18, 0)
-                    painter.drawLine(18, 0, 30, 0)
-                elif tc == 3:
-                    painter.drawLine(-30, -10, -18, -10)
-                    painter.drawLine(-30, 10, -18, 10)
-                    painter.drawLine(18, 0, 30, 0)
-                else:
-                    # Draw leads for custom terminal positions
-                    geom = self._defn and _generate_terminal_geometry(tc)
-                    if geom and geom[2]:
-                        for tx, ty in geom[2]:
-                            if tx < 0:
-                                painter.drawLine(int(tx), int(ty), -18, int(ty))
-                            else:
-                                painter.drawLine(18, int(ty), int(tx), int(ty))
-
-            # Draw subcircuit name inside the box
-            from PyQt6.QtCore import QRectF
-
-            painter.drawText(QRectF(-16, -12, 32, 24), 0x0084, self._defn.name)
-
-        def get_obstacle_shape(self, component):
-            return _bounding_rect_obstacle(component)
-
-    renderer = SubcircuitRenderer(defn)
-    try:
-        register_fn(name, "ieee", renderer)
-        register_fn(name, "iec", make_iec_delegate_fn(renderer))
-    except Exception:
-        pass

@@ -167,7 +167,10 @@ class ThemeEditorDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def _update_swatch(self, btn, hex_color):
-        btn.setStyleSheet(f"background-color: {hex_color}; border: 1px solid #888; border-radius: 3px;")
+        from .styles import theme_manager
+
+        base = theme_manager.stylesheet("color_swatch")
+        btn.setStyleSheet(f"background-color: {hex_color}; {base}")
 
     def _pick_color(self, key):
         current = QColor(self._colors.get(key, "#FF00FF"))
