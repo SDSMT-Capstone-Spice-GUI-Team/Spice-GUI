@@ -247,7 +247,12 @@ class TestSerialization:
     def test_empty_circuit_round_trip(self):
         model = CircuitModel()
         data = model.to_dict()
-        assert data == {"components": [], "wires": [], "counters": {}}
+        assert data == {
+            "schema_version": 1,
+            "components": [],
+            "wires": [],
+            "counters": {},
+        }
 
         reset_node_counter()
         model2 = CircuitModel.from_dict(data)

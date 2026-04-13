@@ -23,6 +23,8 @@ from .wire import WireData
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_VERSION = 1
+
 
 @dataclass
 class CircuitModel:
@@ -139,6 +141,7 @@ class CircuitModel:
     def to_dict(self) -> dict:
         """Serialize circuit to dictionary (matches existing JSON format)."""
         data = {
+            "schema_version": SCHEMA_VERSION,
             "components": [c.to_dict() for c in self.components.values()],
             "wires": [w.to_dict() for w in self.wires],
             "counters": self.component_counter.copy(),

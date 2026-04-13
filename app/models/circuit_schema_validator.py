@@ -7,6 +7,7 @@ dependencies.
 This module is the canonical location for ``validate_circuit_data``.
 """
 
+from models.circuit import SCHEMA_VERSION
 from models.component import _CLASS_TO_DISPLAY, COMPONENT_TYPES
 
 _VALID_ROTATIONS = {0, 90, 180, 270}
@@ -20,6 +21,16 @@ def validate_circuit_data(data) -> None:
     """
     if not isinstance(data, dict):
         raise ValueError("File does not contain a valid circuit object.")
+
+    version = data.get("schema_version")
+    if version is not None:
+        if not isinstance(version, int):
+            raise ValueError("'schema_version' must be an integer.")
+        if version > SCHEMA_VERSION:
+            raise ValueError(
+                f"File requires schema version {version}, but this application "
+                f"only supports up to version {SCHEMA_VERSION}. Please update the application."
+            )
 
     if "components" not in data or not isinstance(data["components"], list):
         raise ValueError("Missing or invalid 'components' list.")
