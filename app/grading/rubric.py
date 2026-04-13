@@ -155,9 +155,10 @@ def validate_rubric(data: dict) -> None:
 
 def save_rubric(rubric: Rubric, filepath) -> None:
     """Save a rubric to a .spice-rubric JSON file."""
+    from utils.atomic_write import atomic_write_text
+
     filepath = Path(filepath)
-    with open(filepath, "w") as f:
-        json.dump(rubric.to_dict(), f, indent=2)
+    atomic_write_text(filepath, json.dumps(rubric.to_dict(), indent=2))
 
 
 def load_rubric(filepath) -> Rubric:

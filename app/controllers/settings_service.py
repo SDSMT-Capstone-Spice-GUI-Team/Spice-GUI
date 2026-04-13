@@ -53,11 +53,11 @@ class SettingsService:
             self._data = {}
 
     def _save(self) -> None:
-        """Persist settings to disk."""
+        """Persist settings to disk (atomic write)."""
         try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._path, "w") as f:
-                json.dump(self._data, f, indent=2)
+            from utils.atomic_write import atomic_write_text
+
+            atomic_write_text(self._path, json.dumps(self._data, indent=2))
         except OSError:
             logger.warning("Failed to save settings to %s", self._path, exc_info=True)
 

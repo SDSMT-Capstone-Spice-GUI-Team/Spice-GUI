@@ -419,9 +419,10 @@ def cmd_import(args: argparse.Namespace) -> int:
     else:
         out_path = filepath.with_suffix(".json")
 
+    from utils.atomic_write import atomic_write_text
+
     data = model.to_dict()
-    with open(out_path, "w") as f:
-        json.dump(data, f, indent=2)
+    atomic_write_text(out_path, json.dumps(data, indent=2))
 
     print(f"Imported {filepath.name} -> {out_path}", file=sys.stderr)
     return 0

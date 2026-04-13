@@ -177,8 +177,9 @@ class TemplateManager:
             filepath = self.user_dir / f"{stem}_{counter}.json"
             counter += 1
 
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=2)
+        from utils.atomic_write import atomic_write_text
+
+        atomic_write_text(filepath, json.dumps(data, indent=2))
 
         return filepath
 

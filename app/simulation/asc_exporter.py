@@ -212,5 +212,6 @@ def write_asc(content, filepath):
         content: str from export_asc()
         filepath: output file path
     """
-    with open(filepath, "w") as f:
-        f.write(content)
+    from utils.atomic_write import atomic_write_text
+
+    atomic_write_text(filepath, content)

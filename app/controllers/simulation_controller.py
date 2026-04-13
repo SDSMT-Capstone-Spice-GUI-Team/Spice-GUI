@@ -767,9 +767,10 @@ class SimulationController:
             ValueError, KeyError, TypeError: If netlist generation fails.
             OSError: If the file cannot be written.
         """
+        from utils.atomic_write import atomic_write_text
+
         netlist = self.generate_netlist()
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(netlist)
+        atomic_write_text(filepath, netlist)
 
     def generate_results_csv(self, results, results_type: str, circuit_name: str = "") -> Optional[str]:
         """Generate CSV content from simulation results.

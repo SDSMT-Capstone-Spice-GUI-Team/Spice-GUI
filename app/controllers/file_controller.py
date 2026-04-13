@@ -8,7 +8,6 @@ Recent files tracking uses the centralized settings service for cross-session pe
 import json
 import logging
 import os
-import tempfile
 from dataclasses import fields
 from pathlib import Path
 from typing import List, Optional
@@ -107,14 +106,9 @@ class FileController:
         """
         filepath = Path(filepath)
         data = self.model.to_dict()
-        fd, tmp = tempfile.mkstemp(dir=filepath.parent, suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-            os.replace(tmp, filepath)
-        except BaseException:
-            os.unlink(tmp)
-            raise
+        from utils.atomic_write import atomic_write_text
+
+        atomic_write_text(filepath, json.dumps(data, indent=2))
         self.current_file = filepath
         self._save_session()
         self.add_recent_file(filepath)  # Track in recent files
@@ -183,14 +177,9 @@ class FileController:
         try:
             session_path = Path(self._session_file)
             content = os.path.abspath(str(self.current_file)) if self.current_file else ""
-            fd, tmp = tempfile.mkstemp(dir=session_path.parent, suffix=".tmp")
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    f.write(content)
-                os.replace(tmp, session_path)
-            except BaseException:
-                os.unlink(tmp)
-                raise
+            from utils.atomic_write import atomic_write_text
+
+            atomic_write_text(session_path, content)
         except OSError:
             logger.warning("Failed to save session file %s", self._session_file, exc_info=True)
 
@@ -272,14 +261,9 @@ class FileController:
         try:
             data = self.model.to_dict()
             data["_autosave_source"] = str(self.current_file) if self.current_file else ""
-            fd, tmp = tempfile.mkstemp(dir=self._autosave_file.parent, suffix=".tmp")
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2)
-                os.replace(tmp, self._autosave_file)
-            except BaseException:
-                os.unlink(tmp)
-                raise
+            from utils.atomic_write import atomic_write_text
+
+            atomic_write_text(self._autosave_file, json.dumps(data, indent=2))
         except (OSError, TypeError):
             logger.warning("Auto-save failed for %s", self._autosave_file, exc_info=True)
 

@@ -164,5 +164,6 @@ def write_bom_csv(csv_content, filepath):
         csv_content: str from export_bom_csv()
         filepath: path to write to
     """
-    with open(filepath, "w", newline="") as f:
-        f.write(csv_content)
+    from utils.atomic_write import atomic_write_text
+
+    atomic_write_text(filepath, csv_content)

@@ -733,8 +733,8 @@ class TestAtomicWrites:
         ctrl.save_circuit(filepath)
         original_content = filepath.read_text()
 
-        # Now make json.dump raise mid-write
-        with patch("controllers.file_controller.json.dump", side_effect=OSError("disk full")):
+        # Now make json.dumps raise mid-write
+        with patch("controllers.file_controller.json.dumps", side_effect=OSError("disk full")):
             with pytest.raises(OSError, match="disk full"):
                 ctrl.save_circuit(filepath)
 
