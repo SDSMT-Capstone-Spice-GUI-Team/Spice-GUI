@@ -49,10 +49,12 @@ class Circuit:
             ValueError: If the JSON structure is invalid.
         """
         path = Path(path)
+
+        from controllers.file_controller import check_file_size, validate_circuit_data
+
+        check_file_size(path)
         with open(path, "r") as f:
             data = json.load(f)
-
-        from controllers.file_controller import validate_circuit_data
 
         validate_circuit_data(data)
         model = CircuitModel.from_dict(data)

@@ -7,6 +7,7 @@ No Qt dependencies.
 import json
 from pathlib import Path
 
+from controllers.file_controller import check_file_size
 from grading.rubric import Rubric, validate_rubric
 from models.assignment import AssignmentBundle
 from models.template import TemplateData
@@ -52,6 +53,7 @@ def load_assignment(filepath) -> AssignmentBundle:
         ValueError: If the data structure is invalid.
     """
     filepath = Path(filepath)
+    check_file_size(filepath)
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
     validate_assignment_data(data)

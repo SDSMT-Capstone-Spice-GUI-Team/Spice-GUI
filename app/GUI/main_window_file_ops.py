@@ -543,6 +543,9 @@ class FileOperationsMixin:
 
         for example_file in example_files:
             try:
+                from controllers.file_controller import check_file_size
+
+                check_file_size(example_file)
                 with open(example_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
@@ -556,7 +559,7 @@ class FileOperationsMixin:
                 examples_by_category[category].append(
                     {"name": name, "description": description, "filepath": example_file}
                 )
-            except (json.JSONDecodeError, OSError) as e:
+            except (json.JSONDecodeError, OSError, ValueError) as e:
                 logger.warning(f"Failed to load example {example_file}: {e}")
 
         # Create menu entries organized by category
