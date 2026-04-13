@@ -277,24 +277,29 @@ class MainWindow(
         right_panel_layout.addWidget(QLabel("Actions"))
 
         self.btn_save = QPushButton("Save Circuit")
+        self.btn_save.setToolTip(f"Save Circuit ({self.keybindings.get('file.save_as')})")
         self.btn_save.clicked.connect(self._on_save_as)
         right_panel_layout.addWidget(self.btn_save)
 
         self.btn_load = QPushButton("Load Circuit")
+        self.btn_load.setToolTip(f"Load Circuit ({self.keybindings.get('file.open')})")
         self.btn_load.clicked.connect(self._on_load)
         right_panel_layout.addWidget(self.btn_load)
 
         self.btn_clear = QPushButton("Clear Canvas")
+        self.btn_clear.setToolTip("Clear Canvas")
         self.btn_clear.clicked.connect(self.clear_canvas)
         right_panel_layout.addWidget(self.btn_clear)
 
         right_panel_layout.addWidget(QLabel(""))  # Spacer
 
         self.btn_netlist = QPushButton("Generate Netlist")
+        self.btn_netlist.setToolTip(f"Generate Netlist ({self.keybindings.get('sim.netlist')})")
         self.btn_netlist.clicked.connect(self.generate_netlist)
         right_panel_layout.addWidget(self.btn_netlist)
 
         self.btn_simulate = QPushButton("Run Simulation")
+        self.btn_simulate.setToolTip(f"Run Simulation ({self.keybindings.get('sim.run')})")
         self.btn_simulate.clicked.connect(self.run_simulation)
         right_panel_layout.addWidget(self.btn_simulate)
 

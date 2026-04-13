@@ -31,14 +31,17 @@ class ResultsPanel(QWidget):
         header.addWidget(QLabel("Simulation Results"))
 
         self.btn_export_csv = QPushButton("Export CSV")
+        self.btn_export_csv.setToolTip("Export simulation results to CSV")
         self.btn_export_csv.setEnabled(False)
         header.addWidget(self.btn_export_csv)
 
         self.btn_export_excel = QPushButton("Export Excel")
+        self.btn_export_excel.setToolTip("Export simulation results to Excel")
         self.btn_export_excel.setEnabled(False)
         header.addWidget(self.btn_export_excel)
 
         self.btn_copy_markdown = QPushButton("Copy Markdown")
+        self.btn_copy_markdown.setToolTip("Copy simulation results as Markdown")
         self.btn_copy_markdown.setEnabled(False)
         header.addWidget(self.btn_copy_markdown)
 
