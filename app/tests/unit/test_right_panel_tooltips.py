@@ -1,20 +1,25 @@
 """Tests for right-panel and results-panel button tooltips (#910).
 
 Structural tests verify that setToolTip() is called on buttons that
-previously lacked tooltips, without instantiating a full MainWindow.
+previously lacked tooltips, by reading source files directly
+(not via inspect.getsource).
 """
 
-import ast
-import inspect
+from pathlib import Path
+
+
+def _module_source(module):
+    """Return the source text of a module by reading its __file__."""
+    return Path(module.__file__).read_text()
 
 
 class TestRightPanelTooltipsStructural:
     """Verify setToolTip is called on right-panel action buttons in MainWindow."""
 
     def _get_source(self):
-        from GUI.main_window import MainWindow
+        from GUI import main_window
 
-        return inspect.getsource(MainWindow._init_ui)
+        return _module_source(main_window)
 
     def test_btn_save_has_tooltip(self):
         src = self._get_source()
@@ -41,9 +46,9 @@ class TestResultsPanelTooltipsStructural:
     """Verify setToolTip is called on results-panel export buttons."""
 
     def _get_source(self):
-        from GUI.results_panel import ResultsPanel
+        from GUI import results_panel
 
-        return inspect.getsource(ResultsPanel._init_ui)
+        return _module_source(results_panel)
 
     def test_btn_export_csv_has_tooltip(self):
         src = self._get_source()
