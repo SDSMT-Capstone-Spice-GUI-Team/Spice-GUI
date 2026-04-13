@@ -476,7 +476,7 @@ class NetlistGenerator:
             from models.subcircuit_library import SubcircuitLibrary
 
             library = SubcircuitLibrary()
-        except Exception:
+        except (ImportError, OSError):
             return
 
         subckt_names_used = set()

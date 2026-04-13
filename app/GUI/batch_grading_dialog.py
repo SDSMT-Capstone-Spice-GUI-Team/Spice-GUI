@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -206,7 +207,7 @@ class BatchGradingDialog(QDialog):
                 self._rubric = load_rubric(filename)
                 self.rubric_path.setText(filename)
                 self._update_grade_button()
-            except Exception as e:
+            except (json.JSONDecodeError, OSError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to load rubric:\n{e}")
 
     def _update_grade_button(self):
@@ -319,7 +320,7 @@ class BatchGradingDialog(QDialog):
 
         try:
             session = load_grading_session(filename)
-        except Exception as e:
+        except (json.JSONDecodeError, OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load grading session:\n{e}")
             return
 
@@ -439,7 +440,7 @@ class BatchGradingDialog(QDialog):
 
             save_histogram_png(self._batch_result, filename)
             QMessageBox.information(self, "Saved", f"Histogram saved to {filename}")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to save histogram:\n{e}")
 
     def _on_export(self):
@@ -481,7 +482,7 @@ class BatchGradingDialog(QDialog):
                 "Reports Exported",
                 f"Created {len(created)} student report(s) in:\n{folder}",
             )
-        except Exception as e:
+        except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to export reports:\n{e}")
 
     def get_result(self) -> Optional[BatchGradingResult]:

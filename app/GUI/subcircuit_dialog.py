@@ -98,7 +98,7 @@ class SubcircuitLibraryDialog(QDialog):
                     register_subcircuit_component(d)
                     register_subcircuit_gui(d)
                 imported.extend(defs)
-            except Exception as exc:
+            except (ValueError, OSError, KeyError) as exc:
                 errors.append(f"{path}: {exc}")
 
         self._refresh_table()

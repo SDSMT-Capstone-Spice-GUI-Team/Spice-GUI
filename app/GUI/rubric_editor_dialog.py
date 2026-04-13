@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -437,7 +438,7 @@ class RubricEditorDialog(QDialog):
 
             save_rubric(rubric, filename)
             QMessageBox.information(self, "Saved", f"Rubric saved to {filename}")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to save rubric:\n{e}")
 
     def _on_load(self):
@@ -456,7 +457,7 @@ class RubricEditorDialog(QDialog):
 
             rubric = load_rubric(filename)
             self._load_rubric_into_ui(rubric)
-        except Exception as e:
+        except (json.JSONDecodeError, OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to load rubric:\n{e}")
 
     def _load_rubric_into_ui(self, rubric: Rubric):
