@@ -26,8 +26,9 @@ def main():
         print_selftest(result)
         sys.exit(0 if result.passed else 1)
 
-    from GUI.main_window import MainWindow #, SplashScreen
     from PyQt6.QtWidgets import QApplication
+
+    from GUI.main_window import MainWindow  # , SplashScreen
     from GUI.styles.font_loader import DEFAULT_FONT_FAMILY, load_bundled_fonts
 
     app = QApplication(sys.argv)

@@ -14,13 +14,10 @@ MainWindow is composed from focused mixin modules:
 import logging
 from pathlib import Path
 
-from controllers.circuit_controller import CircuitController
-from controllers.file_controller import FileController
-from controllers.keybindings import KeybindingsRegistry
-from controllers.simulation_controller import SimulationController
-from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
+    QApplication,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -30,8 +27,14 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
-    QWidget, QGridLayout, QApplication,
+    QWidget,
 )
+
+from controllers.circuit_controller import CircuitController
+from controllers.file_controller import FileController
+from controllers.keybindings import KeybindingsRegistry
+from controllers.simulation_controller import SimulationController
+from models.circuit import CircuitModel
 
 from .circuit_canvas import CircuitCanvasView
 from .circuit_statistics_panel import CircuitStatisticsPanel
