@@ -53,7 +53,6 @@ from .styles import (
     DEFAULT_WINDOW_SIZE,
     STATUS_DURATION_DEFAULT,
     STATUS_DURATION_SHORT,
-    theme_manager,
 )
 
 logger = logging.getLogger(__name__)
@@ -176,7 +175,6 @@ class MainWindow(
         left_panel.addWidget(QLabel("Component Palette"))
         self.palette = ComponentPalette()
         left_panel.addWidget(self.palette)
-        kb = self.keybindings
         '''instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"

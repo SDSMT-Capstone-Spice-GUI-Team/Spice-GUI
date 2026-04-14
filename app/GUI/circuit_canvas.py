@@ -2,8 +2,7 @@ import logging
 
 from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QPen
-from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsScene, QGraphicsView, QInputDialog, QLineEdit, QRubberBand, \
-    QGraphicsTextItem
+from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsScene, QGraphicsView, QInputDialog, QLineEdit, QRubberBand
 
 logger = logging.getLogger(__name__)
 from models.clipboard import ClipboardData
