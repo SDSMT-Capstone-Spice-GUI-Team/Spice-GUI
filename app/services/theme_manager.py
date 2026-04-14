@@ -331,11 +331,11 @@ class ThemeManager:
             "muted_small": f"color: {c('text_muted')}; font-size: 11px;",
             "muted_italic": f"color: {c('text_muted')}; font-style: italic;",
             "status_muted": f"color: {c('text_secondary')};",
-            "label_bold": f"font-weight: bold;",
-            "label_padded": f"padding: 4px;",
+            "label_bold": "font-weight: bold;",
+            "label_padded": "padding: 4px;",
             # Headings
-            "heading_large": f"font-size: 16px; font-weight: bold;",
-            "heading_medium": f"font-size: 14px; font-weight: bold;",
+            "heading_large": "font-size: 16px; font-weight: bold;",
+            "heading_medium": "font-size: 14px; font-weight: bold;",
             # Error / validation
             "error_label": f"color: {c('error')};",
             "error_label_compact": f"color: {c('error')}; font-size: 11px;",
@@ -346,7 +346,7 @@ class ThemeManager:
             "status_error": f"color: {c('error')};",
             "status_warning": f"color: {c('warning')};",
             # Score styles (grading)
-            "score_bold": f"font-size: 14px; font-weight: bold;",
+            "score_bold": "font-size: 14px; font-weight: bold;",
             "score_success": f"font-size: 14px; font-weight: bold; color: {c('success')};",
             "score_warning": f"font-size: 14px; font-weight: bold; color: {c('warning')};",
             "score_error": f"font-size: 14px; font-weight: bold; color: {c('error')};",
