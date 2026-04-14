@@ -312,6 +312,9 @@ class CircuitCanvasView(QGraphicsView):
             wire = self.wires[wire_index]
             # Save connected components before removing, so we can reroute neighbors
             affected_components = {wire.start_comp, wire.end_comp}
+            # Remove waypoint handles before removing the wire itself —
+            # handles are separate scene items that would otherwise become orphans.
+            wire._hide_handles()
             self._scene.removeItem(wire)
             del self.wires[wire_index]
             # Model already rebuilt affected nodes in remove_wire(); sync here.

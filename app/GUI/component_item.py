@@ -262,7 +262,9 @@ class ComponentGraphicsItem(QGraphicsItem):
     def boundingRect(self):
         base = self._symbol_rect()
 
-        # Expand to include text labels that paint() draws above the symbol
+        # Expand to include text labels that paint() draws above the symbol.
+        # paint() draws text inside a rotated/flipped painter context, so
+        # the text rect must be transformed to match.
         show_label = (
             self.canvas.show_component_labels if self.canvas and hasattr(self.canvas, "show_component_labels") else True
         )
@@ -272,13 +274,56 @@ class ComponentGraphicsItem(QGraphicsItem):
         if show_label or show_value:
             text = self._label_text(show_label, show_value)
             fm = QFontMetricsF(QFont())
-            text_rect = fm.boundingRect(text)
-            # Text is drawn at (-20, -25); that's the left-baseline position
-            text_rect.moveLeft(-20)
-            text_rect.moveBottom(-25)
+            # Use horizontalAdvance for true pixel width (boundingRect can undercount)
+            text_width = fm.horizontalAdvance(text)
+            text_height = fm.height()
+            # drawText(-20, -25) uses -25 as the text baseline
+            text_top = -25 - fm.ascent()
+            text_rect = QRectF(-20, text_top, text_width, text_height)
+            # Generous padding — waveform source labels can be very wide
+            # (e.g. "W1 (SINE(0 10 60 0 0 90))") and font metrics undercount.
+            text_rect.adjust(-4, -4, 40, 4)
+
+            # Transform text rect through the same rotation/flip that paint() uses
+            from PyQt6.QtGui import QTransform
+            xf = QTransform()
+            xf.rotate(self.rotation_angle)
+            if self.model.flip_h:
+                xf.scale(-1, 1)
+            if self.model.flip_v:
+                xf.scale(1, -1)
+            text_rect = xf.mapRect(text_rect)
+
             base = base.united(text_rect)
 
-        return base
+        # Also expand base for rotation of the symbol itself
+        if self.rotation_angle % 360 not in (0,):
+            from PyQt6.QtGui import QTransform
+            xf = QTransform()
+            xf.rotate(self.rotation_angle)
+            base = base.united(xf.mapRect(self._symbol_rect()))
+
+        # Make the rect symmetric around the origin so that any rotation
+        # or flip keeps the full extent covered. Text above at -25 needs
+        # the same extent below for 180° rotation, and wide labels need
+        # equal horizontal extent for 90° rotation.
+        extent = max(abs(base.left()), abs(base.right()),
+                     abs(base.top()), abs(base.bottom()))
+        return QRectF(-extent, -extent, extent * 2, extent * 2)
+
+    def shape(self):
+        """Return the hit-test area — just the symbol, not the text.
+
+        boundingRect() is intentionally large to cover text labels at any
+        rotation for repaint purposes. shape() keeps the clickable/draggable
+        area tight to the component body so users don't accidentally grab
+        a component by clicking on empty space near a long label.
+        """
+        from PyQt6.QtGui import QPainterPath
+        path = QPainterPath()
+        # Use the symbol rect with a small margin for comfortable clicking
+        path.addRect(self._symbol_rect().adjusted(-5, -5, 5, 5))
+        return path
 
     def get_obstacle_shape(self):
         """Return the obstacle boundary for pathfinding, respecting symbol style.
