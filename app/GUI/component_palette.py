@@ -144,6 +144,7 @@ class ComponentPalette(QWidget):
 
     def _on_theme_changed(self, _theme=None) -> None:
         """Regenerate all cached palette icons using current theme settings."""
+
         def walk(parent: QTreeWidgetItem) -> None:
             for i in range(parent.childCount()):
                 child = parent.child(i)

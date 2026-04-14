@@ -275,9 +275,7 @@ class PreferencesDialog(QDialog):
 
         # Palette profile
         if self._snap_palette_profile in self._palette_profile_keys:
-            self.palette_profile_combo.setCurrentIndex(
-                self._palette_profile_keys.index(self._snap_palette_profile)
-            )
+            self.palette_profile_combo.setCurrentIndex(self._palette_profile_keys.index(self._snap_palette_profile))
         else:
             self.palette_profile_combo.setCurrentIndex(0)
 

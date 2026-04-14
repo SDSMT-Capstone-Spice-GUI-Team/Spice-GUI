@@ -171,4 +171,3 @@ class DarkTheme(BaseTheme):
             "monospace": {"family": "JetBrains Mono", "size": 9, "bold": False},
             "probe_label": {"size": 10, "bold": True},
         }
-

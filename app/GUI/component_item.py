@@ -286,6 +286,7 @@ class ComponentGraphicsItem(QGraphicsItem):
 
             # Transform text rect through the same rotation/flip that paint() uses
             from PyQt6.QtGui import QTransform
+
             xf = QTransform()
             xf.rotate(self.rotation_angle)
             if self.model.flip_h:
@@ -299,6 +300,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         # Also expand base for rotation of the symbol itself
         if self.rotation_angle % 360 not in (0,):
             from PyQt6.QtGui import QTransform
+
             xf = QTransform()
             xf.rotate(self.rotation_angle)
             base = base.united(xf.mapRect(self._symbol_rect()))
@@ -307,8 +309,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         # or flip keeps the full extent covered. Text above at -25 needs
         # the same extent below for 180° rotation, and wide labels need
         # equal horizontal extent for 90° rotation.
-        extent = max(abs(base.left()), abs(base.right()),
-                     abs(base.top()), abs(base.bottom()))
+        extent = max(abs(base.left()), abs(base.right()), abs(base.top()), abs(base.bottom()))
         return QRectF(-extent, -extent, extent * 2, extent * 2)
 
     def shape(self):
@@ -320,6 +321,7 @@ class ComponentGraphicsItem(QGraphicsItem):
         a component by clicking on empty space near a long label.
         """
         from PyQt6.QtGui import QPainterPath
+
         path = QPainterPath()
         # Use the symbol rect with a small margin for comfortable clicking
         path.addRect(self._symbol_rect().adjusted(-5, -5, 5, 5))

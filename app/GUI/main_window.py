@@ -177,7 +177,7 @@ class MainWindow(
         left_panel.addWidget(QLabel("Component Palette"))
         self.palette = ComponentPalette()
         left_panel.addWidget(self.palette)
-        '''instructions = QLabel(
+        """instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
             "🖱️ Drag components to move (wires follow!)\n"
@@ -189,7 +189,7 @@ class MainWindow(
         )
         ##instructions.setWordWrap(True)
         ##instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
-        ##left_panel.addWidget(instructions)'''
+        ##left_panel.addWidget(instructions)"""
         main_layout.addLayout(left_panel, 1)
 
         # Center - Canvas and results

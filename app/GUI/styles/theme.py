@@ -195,9 +195,7 @@ class BaseTheme:
 
         # Strip CSS comments before substitution, then substitute on the
         # original template by only replacing @var@ outside of comments.
-        comment_ranges = [
-            (m.start(), m.end()) for m in re.finditer(r"/\*.*?\*/", template, re.DOTALL)
-        ]
+        comment_ranges = [(m.start(), m.end()) for m in re.finditer(r"/\*.*?\*/", template, re.DOTALL)]
 
         def in_comment(pos: int) -> bool:
             return any(start <= pos < end for start, end in comment_ranges)
