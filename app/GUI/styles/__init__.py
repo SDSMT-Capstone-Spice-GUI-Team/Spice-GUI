@@ -1,6 +1,9 @@
 """
 Styles module - Centralized styling system for the Spice-GUI application.
 
+Widget styling is defined in QSS files (dark_theme.qss, light_theme.qss).
+Canvas rendering (pens, brushes, fonts) remains in Python theme classes.
+
 Usage:
     from app.GUI.styles import GRID_SIZE, COMPONENTS, theme_manager
 
@@ -8,22 +11,24 @@ Usage:
     color = theme_manager.color('component_resistor')
     hex_color = theme_manager.color_hex('grid_minor')
 
-    # Get pre-configured pens/brushes/fonts
+    # Get pre-configured pens/brushes/fonts (for QPainter/canvas)
     pen = theme_manager.pen('grid_minor')
     brush = theme_manager.brush('node_label_bg')
     font = theme_manager.font('node_label')
 
-    # Get stylesheets
-    style = theme_manager.stylesheet('instructions_panel')
+    # Load QSS stylesheet for the current theme
+    qss = theme_manager.load_qss()
 
     # Get component-specific styles
     comp_color = theme_manager.get_component_color('Resistor')
     comp_pen = theme_manager.create_component_pen('Resistor')
 
-    # Future: switch themes at runtime
+    # Switch themes at runtime
     # from app.GUI.styles import DarkTheme
     # theme_manager.set_theme(DarkTheme())
 """
+
+from . import theme_store
 
 # Core constants (always available, theme-independent)
 from .constants import (
@@ -36,22 +41,41 @@ from .constants import (
     INITIAL_LOAD_COUNT,
     MAJOR_GRID_INTERVAL,
     SCROLL_LOAD_COUNT,
-    SIMULATION_TIMEOUT,
+    STATUS_DURATION_DEFAULT,
+    STATUS_DURATION_LONG,
+    STATUS_DURATION_SHORT,
     TERMINAL_CLICK_RADIUS,
     TERMINAL_HOVER_RADIUS,
     WIRE_CLICK_WIDTH,
     WIRE_UPDATE_DELAY_MS,
+    Z_ANNOTATION,
+    Z_COMPONENT,
+    Z_GRID,
+    Z_SEGMENT_HANDLE,
+    Z_WAYPOINT_HANDLE,
+    Z_WAYPOINT_MARKER,
+    Z_WIRE,
+    Z_WIRE_PREVIEW,
     ZOOM_FACTOR,
     ZOOM_FIT_PADDING,
     ZOOM_MAX,
     ZOOM_MIN,
 )
+from .custom_theme import CustomTheme
 from .dark_theme import DarkTheme
 from .light_theme import LightTheme
 
 # Theme system
 from .theme import BaseTheme, ThemeProtocol
-from .theme_manager import COLOR_MODES, SYMBOL_STYLES, ThemeManager, theme_manager
+from .theme_manager import (
+    COLOR_MODES,
+    ROUTING_MODES,
+    SYMBOL_STYLES,
+    WIRE_THICKNESS_PX,
+    WIRE_THICKNESSES,
+    ThemeManager,
+    theme_manager,
+)
 
 __all__ = [
     # Constants
@@ -65,7 +89,6 @@ __all__ = [
     "WIRE_CLICK_WIDTH",
     "DEFAULT_WINDOW_SIZE",
     "DEFAULT_SPLITTER_SIZES",
-    "SIMULATION_TIMEOUT",
     "WIRE_UPDATE_DELAY_MS",
     "INITIAL_LOAD_COUNT",
     "SCROLL_LOAD_COUNT",
@@ -73,6 +96,19 @@ __all__ = [
     "ZOOM_MIN",
     "ZOOM_MAX",
     "ZOOM_FIT_PADDING",
+    # Z-value layering
+    "Z_GRID",
+    "Z_COMPONENT",
+    "Z_WIRE",
+    "Z_ANNOTATION",
+    "Z_WIRE_PREVIEW",
+    "Z_WAYPOINT_MARKER",
+    "Z_SEGMENT_HANDLE",
+    "Z_WAYPOINT_HANDLE",
+    # Status bar durations
+    "STATUS_DURATION_SHORT",
+    "STATUS_DURATION_DEFAULT",
+    "STATUS_DURATION_LONG",
     # Theme system
     "ThemeProtocol",
     "BaseTheme",
@@ -80,6 +116,11 @@ __all__ = [
     "theme_manager",
     "LightTheme",
     "DarkTheme",
+    "CustomTheme",
+    "theme_store",
     "SYMBOL_STYLES",
     "COLOR_MODES",
+    "WIRE_THICKNESSES",
+    "WIRE_THICKNESS_PX",
+    "ROUTING_MODES",
 ]

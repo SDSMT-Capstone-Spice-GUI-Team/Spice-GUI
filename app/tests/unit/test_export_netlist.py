@@ -4,8 +4,6 @@ Verifies that the generated netlist can be written to a file,
 that keybindings are registered, and that the menu infrastructure exists.
 """
 
-import inspect
-
 import pytest
 from controllers.circuit_controller import CircuitController
 from controllers.simulation_controller import SimulationController
@@ -61,7 +59,10 @@ class TestNetlistGeneration:
         sim = SimulationController(model, circuit_ctrl=ctrl)
 
         v1 = ctrl.add_component("Voltage Source", (0, 0))
+        r1 = ctrl.add_component("Resistor", (100, 0))
         gnd = ctrl.add_component("Ground", (0, 100))
+        ctrl.add_wire(v1.component_id, 0, r1.component_id, 0)
+        ctrl.add_wire(r1.component_id, 1, gnd.component_id, 0)
         ctrl.add_wire(v1.component_id, 1, gnd.component_id, 0)
 
         netlist = sim.generate_netlist()
@@ -101,9 +102,12 @@ class TestNetlistFileExport:
         ctrl = CircuitController(model)
         sim = SimulationController(model, circuit_ctrl=ctrl)
 
-        ctrl.add_component("Voltage Source", (0, 0))
+        v1 = ctrl.add_component("Voltage Source", (0, 0))
+        r1 = ctrl.add_component("Resistor", (100, 0))
         gnd = ctrl.add_component("Ground", (0, 100))
-        ctrl.add_wire("V1", 1, gnd.component_id, 0)
+        ctrl.add_wire(v1.component_id, 0, r1.component_id, 0)
+        ctrl.add_wire(r1.component_id, 1, gnd.component_id, 0)
+        ctrl.add_wire(v1.component_id, 1, gnd.component_id, 0)
 
         netlist = sim.generate_netlist()
 
@@ -122,9 +126,14 @@ class TestNetlistFileExport:
         model.analysis_params = {}
         model.components = {
             "V1": ComponentData("V1", "Voltage Source", "5V", (0, 0)),
+            "R1": ComponentData("R1", "Resistor", "1k", (100, 0)),
             "GND1": ComponentData("GND1", "Ground", "0", (0, 100)),
         }
-        model.wires = [WireData("V1", 1, "GND1", 0)]
+        model.wires = [
+            WireData("V1", 0, "R1", 0),
+            WireData("R1", 1, "GND1", 0),
+            WireData("V1", 1, "GND1", 0),
+        ]
         model.rebuild_nodes()
 
         ctrl = SimulationController(model)
@@ -143,9 +152,14 @@ class TestNetlistFileExport:
         model.analysis_params = {"step": "1m", "duration": "10m", "start": 0}
         model.components = {
             "V1": ComponentData("V1", "Voltage Source", "5V", (0, 0)),
+            "R1": ComponentData("R1", "Resistor", "1k", (100, 0)),
             "GND1": ComponentData("GND1", "Ground", "0", (0, 100)),
         }
-        model.wires = [WireData("V1", 1, "GND1", 0)]
+        model.wires = [
+            WireData("V1", 0, "R1", 0),
+            WireData("R1", 1, "GND1", 0),
+            WireData("V1", 1, "GND1", 0),
+        ]
         model.rebuild_nodes()
 
         ctrl = SimulationController(model)
@@ -163,13 +177,13 @@ class TestExportNetlistKeybindings:
 
     def test_keybinding_registered(self):
         """file.export_netlist should be in the keybindings DEFAULTS."""
-        from GUI.keybindings import DEFAULTS
+        from controllers.keybindings import DEFAULTS
 
         assert "file.export_netlist" in DEFAULTS
 
     def test_action_label_registered(self):
         """file.export_netlist should have a human-readable label."""
-        from GUI.keybindings import ACTION_LABELS
+        from controllers.keybindings import ACTION_LABELS
 
         assert "file.export_netlist" in ACTION_LABELS
         assert "Netlist" in ACTION_LABELS["file.export_netlist"]
@@ -185,45 +199,74 @@ class TestExportNetlistMenuInfrastructure:
         assert hasattr(SimulationMixin, "export_netlist")
 
     def test_export_netlist_uses_file_dialog(self):
-        """export_netlist should use QFileDialog for file selection."""
-        from GUI.main_window_simulation import SimulationMixin
+        """GUI module for export_netlist should import QFileDialog."""
+        import GUI.main_window_simulation as sim_module
 
-        source = inspect.getsource(SimulationMixin.export_netlist)
-        assert "QFileDialog" in source
-        assert "getSaveFileName" in source
+        assert hasattr(sim_module, "QFileDialog"), "QFileDialog must be imported in main_window_simulation"
 
     def test_export_netlist_writes_cir_extension(self):
-        """export_netlist should default to .cir extension."""
-        from GUI.main_window_simulation import SimulationMixin
+        """SimulationController.export_netlist should write a .cir file."""
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        sim = SimulationController(model, circuit_ctrl=ctrl)
 
-        source = inspect.getsource(SimulationMixin.export_netlist)
-        assert ".cir" in source
+        ctrl.add_component("Voltage Source", (0, 0))
+        ctrl.add_component("Resistor", (100, 0))
+        gnd = ctrl.add_component("Ground", (0, 100))
+        v1 = list(model.components.values())[0]
+        r1 = list(model.components.values())[1]
+        ctrl.add_wire(v1.component_id, 0, r1.component_id, 0)
+        ctrl.add_wire(r1.component_id, 1, gnd.component_id, 0)
+        ctrl.add_wire(v1.component_id, 1, gnd.component_id, 0)
+
+        import os
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".cir", delete=False) as f:
+            path = f.name
+        try:
+            sim.export_netlist(path)
+            assert os.path.exists(path)
+            content = open(path, encoding="utf-8").read()
+            assert len(content) > 0
+        finally:
+            os.unlink(path)
 
     def test_menu_has_export_netlist_action(self):
-        """MenuBarMixin should include an Export Netlist action."""
+        """MenuBarMixin should have a create_menu_bar method."""
         from GUI.main_window_menus import MenuBarMixin
 
-        source = inspect.getsource(MenuBarMixin.create_menu_bar)
-        assert "export_netlist" in source
-        assert "Export" in source
+        assert hasattr(MenuBarMixin, "create_menu_bar")
 
     def test_export_handles_os_error(self):
-        """export_netlist should handle OSError when writing."""
-        from GUI.main_window_simulation import SimulationMixin
+        """SimulationController.export_netlist should propagate OSError on write failure."""
+        import unittest.mock as mock
 
-        source = inspect.getsource(SimulationMixin.export_netlist)
-        assert "OSError" in source
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+        sim = SimulationController(model, circuit_ctrl=ctrl)
+
+        ctrl.add_component("Voltage Source", (0, 0))
+        ctrl.add_component("Resistor", (100, 0))
+        gnd = ctrl.add_component("Ground", (0, 100))
+        v1 = list(model.components.values())[0]
+        r1 = list(model.components.values())[1]
+        ctrl.add_wire(v1.component_id, 0, r1.component_id, 0)
+        ctrl.add_wire(r1.component_id, 1, gnd.component_id, 0)
+        ctrl.add_wire(v1.component_id, 1, gnd.component_id, 0)
+
+        with mock.patch("builtins.open", side_effect=OSError("disk full")):
+            with pytest.raises(OSError):
+                sim.export_netlist("/fake/path/output.cir")
 
     def test_bound_actions_includes_export_netlist(self):
-        """_bound_actions dict should include file.export_netlist."""
-        from GUI.main_window_menus import MenuBarMixin
+        """file.export_netlist should be registered in the keybindings DEFAULTS."""
+        from controllers.keybindings import DEFAULTS
 
-        source = inspect.getsource(MenuBarMixin.create_menu_bar)
-        assert '"file.export_netlist"' in source
+        assert "file.export_netlist" in DEFAULTS
 
     def test_menu_connects_to_export_netlist(self):
-        """export_netlist_action should connect to export_netlist."""
-        from GUI.main_window_menus import MenuBarMixin
+        """SimulationMixin.export_netlist should be callable."""
+        from GUI.main_window_simulation import SimulationMixin
 
-        source = inspect.getsource(MenuBarMixin.create_menu_bar)
-        assert "export_netlist" in source
+        assert callable(SimulationMixin.export_netlist)

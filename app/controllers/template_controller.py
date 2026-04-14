@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from controllers.file_controller import validate_circuit_data
+from controllers.file_controller import check_file_size, validate_circuit_data
 from models.circuit import CircuitModel
 from models.template import TemplateData, TemplateMetadata
 
@@ -57,6 +57,8 @@ class TemplateController:
         reference_circuit: Optional[CircuitModel] = None,
         instructions: str = "",
         required_analysis: Optional[dict] = None,
+        locked_components: Optional[list[str]] = None,
+        recommended_components: Optional[list[str]] = None,
     ) -> None:
         """Save a circuit as an assignment template.
 
@@ -80,10 +82,13 @@ class TemplateController:
             starter_circuit=(starter_circuit.to_dict() if starter_circuit else None),
             reference_circuit=(reference_circuit.to_dict() if reference_circuit else None),
             required_analysis=required_analysis,
+            locked_components=list(locked_components or []),
+            recommended_components=list(recommended_components or []),
         )
 
-        with open(filepath, "w") as f:
-            json.dump(template.to_dict(), f, indent=2)
+        from utils.atomic_write import atomic_write_text
+
+        atomic_write_text(filepath, json.dumps(template.to_dict(), indent=2))
 
     def load_template(self, filepath) -> TemplateData:
         """Load a template file and return parsed TemplateData.
@@ -100,6 +105,7 @@ class TemplateController:
             OSError: If the file cannot be read.
         """
         filepath = Path(filepath)
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             data = json.load(f)
 
@@ -131,6 +137,10 @@ class TemplateController:
             analysis_params = template.required_analysis.get("params")
             if analysis_params:
                 model.analysis_params = analysis_params.copy()
+
+        # Template-level recommended_components override the starter circuit's
+        if template.recommended_components:
+            model.recommended_components = list(template.recommended_components)
 
         return model
 
@@ -164,6 +174,7 @@ class TemplateController:
             OSError: If the file cannot be read.
         """
         filepath = Path(filepath)
+        check_file_size(filepath)
         with open(filepath, "r") as f:
             data = json.load(f)
 

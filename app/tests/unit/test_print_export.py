@@ -4,7 +4,7 @@ import os
 import tempfile
 
 import pytest
-from GUI.keybindings import ACTION_LABELS, DEFAULTS
+from controllers.keybindings import ACTION_LABELS, DEFAULTS
 from PyQt6.QtCore import QRectF
 
 
@@ -28,7 +28,7 @@ class TestPrintKeybindings:
 
     def test_no_shortcut_conflicts(self):
         """Print shortcuts should not conflict with existing ones."""
-        from GUI.keybindings import KeybindingsRegistry
+        from controllers.keybindings import KeybindingsRegistry
 
         registry = KeybindingsRegistry(config_path="/dev/null")
         conflicts = registry.get_conflicts()
@@ -179,3 +179,44 @@ class TestPdfExportEndToEnd:
         assert corner_color.red() == 255
         assert corner_color.green() == 255
         assert corner_color.blue() == 255
+
+    def test_dark_mode_scene_exports_white_background(self, qtbot):
+        """Scene with dark background brush should still export white (#867)."""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QBrush, QColor, QImage, QPainter
+        from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsScene
+
+        scene = QGraphicsScene()
+        scene.addItem(QGraphicsRectItem(0, 0, 50, 50))
+
+        # Simulate dark mode by setting a dark background brush
+        dark_color = QColor(30, 30, 30)
+        scene.setBackgroundBrush(QBrush(dark_color))
+
+        # Render using the same pattern as _render_to_printer:
+        # fill white, override scene background, render, restore
+        image = QImage(200, 200, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(Qt.GlobalColor.white)
+
+        painter = QPainter(image)
+        source = scene.itemsBoundingRect()
+        source.adjust(-10, -10, 10, 10)
+        target = QRectF(0, 0, 200, 200)
+
+        original_brush = scene.backgroundBrush()
+        scene.setBackgroundBrush(QBrush(Qt.GlobalColor.white))
+        scene.render(painter, target=target, source=source)
+        scene.setBackgroundBrush(original_brush)
+        painter.end()
+
+        # Corner pixel should be white, not dark
+        corner_color = QColor(image.pixel(0, 0))
+        assert corner_color.red() == 255
+        assert corner_color.green() == 255
+        assert corner_color.blue() == 255
+
+        # Scene background should be restored to dark
+        restored = scene.backgroundBrush().color()
+        assert restored.red() == 30
+        assert restored.green() == 30
+        assert restored.blue() == 30

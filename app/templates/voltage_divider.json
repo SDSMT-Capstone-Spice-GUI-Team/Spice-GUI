@@ -1,0 +1,42 @@
+{
+  "name": "Voltage Divider",
+  "description": "Resistive voltage divider. Output voltage is determined by R2/(R1+R2) ratio. A fundamental building block in analog circuit design.",
+  "category": "Passives",
+  "components": [
+    {
+      "type": "VoltageSource",
+      "id": "V1",
+      "value": "5V",
+      "pos": {"x": 100.0, "y": 200.0},
+      "rotation": 0
+    },
+    {
+      "type": "Resistor",
+      "id": "R1",
+      "value": "10k",
+      "pos": {"x": 250.0, "y": 100.0},
+      "rotation": 0
+    },
+    {
+      "type": "Resistor",
+      "id": "R2",
+      "value": "10k",
+      "pos": {"x": 400.0, "y": 200.0},
+      "rotation": 90
+    },
+    {
+      "type": "Ground",
+      "id": "GND1",
+      "value": "0V",
+      "pos": {"x": 250.0, "y": 340.0},
+      "rotation": 0
+    }
+  ],
+  "wires": [
+    {"start_comp": "V1", "start_term": 0, "end_comp": "R1", "end_term": 0},
+    {"start_comp": "R1", "start_term": 1, "end_comp": "R2", "end_term": 0},
+    {"start_comp": "R2", "start_term": 1, "end_comp": "GND1", "end_term": 0},
+    {"start_comp": "V1", "start_term": 1, "end_comp": "GND1", "end_term": 0}
+  ],
+  "counters": {"V": 1, "R": 2, "GND": 1}
+}

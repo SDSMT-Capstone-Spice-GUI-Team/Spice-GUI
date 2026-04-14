@@ -4,14 +4,13 @@ dark_theme.py - Dark theme implementation.
 Provides a dark color scheme for reduced eye-strain during long lab sessions.
 """
 
-from PyQt6.QtGui import QBrush, QColor, QPen
-
-from .constants import COMPONENTS
 from .theme import BaseTheme
 
 
 class DarkTheme(BaseTheme):
     """Dark theme with high-contrast colors on a dark background."""
+
+    _qss_filename = "dark_theme.qss"
 
     def __init__(self):
         super().__init__()
@@ -19,11 +18,14 @@ class DarkTheme(BaseTheme):
         self._define_pens()
         self._define_brushes()
         self._define_fonts()
-        self._define_stylesheets()
 
     @property
     def name(self) -> str:
         return "Dark Theme"
+
+    @property
+    def is_dark(self) -> bool:
+        return True
 
     def _define_colors(self):
         """Define all color values for dark mode."""
@@ -49,6 +51,10 @@ class DarkTheme(BaseTheme):
             "component_diode": "#90A4AE",  # Light blue-gray
             "component_led": "#FFF176",  # Light yellow
             "component_zener": "#A1887F",  # Light brown
+            "component_transformer": "#B388FF",  # Light purple
+            "component_current_probe": "#64FFDA",  # Light teal
+            "component_ac_voltage_source": "#FF8A65",  # Light deep orange
+            "component_ac_current_source": "#CE93D8",  # Light purple
             # ===== Algorithm Layer Colors =====
             "algorithm_astar": "#64B5F6",  # Light blue
             "algorithm_idastar": "#81C784",  # Light green
@@ -58,11 +64,14 @@ class DarkTheme(BaseTheme):
             "grid_major": "#4A4A4A",  # Medium dark gray
             "grid_label": "#888888",  # Lighter gray for readability
             # ===== Canvas/UI Colors =====
-            "background_primary": "#1E1E1E",  # Dark background
-            "background_secondary": "#2D2D2D",  # Slightly lighter
-            "text_primary": "#D4D4D4",  # Light gray text
+            "background_primary": "#2F2F2F",  # Dark background
+            "background_secondary": "#4F4F4F",  # Slightly lighter
+            "text_primary": "#EDEDED",  # Light gray text
             "text_secondary": "#999999",  # Medium gray
             "text_muted": "#666666",  # Dimmed text
+            # ===== Accent Colors (Mines brand) =====
+            "accent_primary": "#002554",  # Mines Navy Blue (default/intended)
+            "accent_hover": "#C5A55A",  # Mines Old Gold (hover/selected)
             # ===== Selection & Highlight =====
             "selection_highlight": "#FFFF00",  # Yellow (kept bright)
             "node_label": "#FF80FF",  # Bright magenta
@@ -87,6 +96,24 @@ class DarkTheme(BaseTheme):
             "probe_current": "#66DDAA",  # Light green for probed currents
             "probe_bg": "#3D1E2D",  # Dark pink-tinted background
             "probe_highlight": "#FF66CC",  # Bright pink for probe crosshair
+            # ===== Semantic UI Colors =====
+            "error": "#FF6B6B",  # Light red for dark bg
+            "success": "#66DD66",  # Light green for dark bg
+            "warning": "#FFAA44",  # Light orange for dark bg
+            "info": "#5BC0DE",  # Light teal for dark bg
+            "border_error": "#FF6B6B",  # Red border for invalid inputs
+            "border_light": "#444444",  # Subtle border for dark bg
+            "panel_bg": "#2D2D2D",  # Match background_secondary
+            # ===== Syntax Highlighting Colors =====
+            "syntax_comment": "#81C784",  # Light green for dark bg
+            "syntax_directive": "#64B5F6",  # Light blue for dark bg
+            "syntax_keyword": "#CE93D8",  # Light purple for dark bg
+            # ===== Grading Overlay Colors (colorblind-friendly) =====
+            "grading_passed": "#33BBEE",  # Light blue for dark bg
+            "grading_failed": "#EE7733",  # Orange for dark bg
+            # ===== Measurement Cursor Colors =====
+            "cursor_a": "#FF6B6B",  # Light red cursor for dark bg
+            "cursor_b": "#5DADE2",  # Light blue cursor for dark bg
         }
 
     def _define_pens(self):
@@ -116,7 +143,11 @@ class DarkTheme(BaseTheme):
             # Probe pens
             "probe_voltage": {"color": "probe_voltage", "width": 1.5},
             "probe_current": {"color": "probe_current", "width": 1.5},
-            "probe_highlight": {"color": "probe_highlight", "width": 2.0, "style": "dash"},
+            "probe_highlight": {
+                "color": "probe_highlight",
+                "width": 2.0,
+                "style": "dash",
+            },
         }
 
     def _define_brushes(self):
@@ -137,51 +168,6 @@ class DarkTheme(BaseTheme):
             "op_annotation": {"size": 9, "bold": True},
             "panel_title": {"size": 10, "bold": True},
             "panel_subtitle": {"size": 12, "bold": True},
-            "monospace": {"family": "monospace", "size": 9, "bold": False},
+            "monospace": {"family": "JetBrains Mono", "size": 9, "bold": False},
             "probe_label": {"size": 10, "bold": True},
         }
-
-    def _define_stylesheets(self):
-        """Define all stylesheet strings for dark mode."""
-        self._stylesheets = {
-            "instructions_panel": """
-                QLabel {
-                    background-color: #2D2D2D;
-                    color: #D4D4D4;
-                    padding: 10px;
-                    border-radius: 5px;
-                }
-            """,
-            "muted_label": "QLabel { color: #999; }",
-            "title_bold": "font-weight: bold; font-size: 12pt; color: #D4D4D4;",
-            "metrics_text": "font-family: monospace; font-size: 9pt; color: #D4D4D4;",
-        }
-
-    # ===== Helper methods (inherited from BaseTheme, same logic) =====
-
-    def get_component_color(self, component_type: str) -> QColor:
-        """Get the themed color for a component type."""
-        comp_info = COMPONENTS.get(component_type, {})
-        color_key = comp_info.get("color_key", "text_primary")
-        return self.color(color_key)
-
-    def get_component_color_hex(self, component_type: str) -> str:
-        """Get the hex color string for a component type."""
-        comp_info = COMPONENTS.get(component_type, {})
-        color_key = comp_info.get("color_key", "text_primary")
-        return self.color_hex(color_key)
-
-    def get_algorithm_color(self, algorithm: str) -> QColor:
-        """Get the themed color for an algorithm layer."""
-        key = f"algorithm_{algorithm}"
-        return self.color(key)
-
-    def create_component_pen(self, component_type: str, width: float = 2.0) -> QPen:
-        """Create a pen for drawing a specific component type."""
-        color = self.get_component_color(component_type)
-        return QPen(color, width)
-
-    def create_component_brush(self, component_type: str) -> QBrush:
-        """Create a brush for filling a specific component type."""
-        color = self.get_component_color(component_type)
-        return QBrush(color.lighter(150))

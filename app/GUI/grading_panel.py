@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
+from grading.component_mapper import extract_component_ids
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QFileDialog,
     QGroupBox,
@@ -23,6 +22,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from .styles import theme_manager
 
 if TYPE_CHECKING:
     from grading.grader import GradingResult
@@ -39,12 +40,14 @@ class GradingPanel(QWidget):
     running the grader, and exporting results.
     """
 
-    def __init__(self, model: CircuitModel, parent=None):
+    def __init__(self, model: CircuitModel, parent=None, canvas=None):
         super().__init__(parent)
         self._model = model
+        self._canvas = canvas
         self._grader = None  # Lazy-initialized to avoid circular import
         self._rubric: Optional[Rubric] = None
         self._student_circuit: Optional[CircuitModel] = None
+        self._reference_circuit: Optional[CircuitModel] = None
         self._student_file: str = ""
         self._result: Optional[GradingResult] = None
         self._highlighted_components: list = []
@@ -56,7 +59,7 @@ class GradingPanel(QWidget):
         outer.setContentsMargins(5, 5, 5, 5)
 
         title = QLabel("Instructor Grading")
-        title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        title.setStyleSheet(theme_manager.stylesheet("heading_medium"))
         outer.addWidget(title)
 
         # --- Action buttons ---
@@ -104,7 +107,7 @@ class GradingPanel(QWidget):
 
         # --- Score display ---
         self.score_label = QLabel("")
-        self.score_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        self.score_label.setStyleSheet(theme_manager.stylesheet("score_bold"))
         self.score_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         outer.addWidget(self.score_label)
 
@@ -119,7 +122,7 @@ class GradingPanel(QWidget):
 
         self.feedback_label = QLabel("")
         self.feedback_label.setWordWrap(True)
-        self.feedback_label.setStyleSheet("padding: 4px;")
+        self.feedback_label.setStyleSheet(theme_manager.stylesheet("label_padded"))
         results_layout.addWidget(self.feedback_label)
 
         outer.addWidget(results_group)
@@ -127,7 +130,7 @@ class GradingPanel(QWidget):
     # --- Load operations ---
 
     def _on_load_student(self):
-        """Load a student circuit file."""
+        """Load a student circuit file and display it on the canvas."""
         from controllers.file_controller import validate_circuit_data
 
         filename, _ = QFileDialog.getOpenFileName(
@@ -140,6 +143,9 @@ class GradingPanel(QWidget):
             return
 
         try:
+            from controllers.file_controller import check_file_size
+
+            check_file_size(filename)
             with open(filename, "r") as f:
                 data = json.load(f)
 
@@ -153,6 +159,15 @@ class GradingPanel(QWidget):
             else:
                 validate_circuit_data(data)
                 self._student_circuit = CircuitModel.from_dict(data)
+
+            # Snapshot the current (reference) circuit before replacing the canvas
+            if self._reference_circuit is None:
+                self._reference_circuit = CircuitModel.from_dict(self._model.to_dict())
+
+            # Display student circuit on canvas so highlights target the correct components
+            parent = self.parent()
+            if parent is not None and hasattr(parent, "file_ctrl"):
+                parent.file_ctrl.load_from_model(self._student_circuit)
 
             self._student_file = Path(filename).name
             self.student_label.setText(f"Student: {self._student_file}")
@@ -196,10 +211,11 @@ class GradingPanel(QWidget):
 
             self._grader = CircuitGrader()
 
+        reference = self._reference_circuit if self._reference_circuit is not None else self._model
         self._result = self._grader.grade(
             student_circuit=self._student_circuit,
             rubric=self._rubric,
-            reference_circuit=self._model,
+            reference_circuit=reference,
             student_file=self._student_file,
         )
 
@@ -209,17 +225,17 @@ class GradingPanel(QWidget):
     def _display_results(self, result: GradingResult):
         """Populate the results list with check outcomes."""
         self.results_list.clear()
-        self._highlighted_components.clear()
+        self._clear_highlights()
 
         # Score header
         pct = result.percentage
         self.score_label.setText(f"{result.earned_points}/{result.total_points} — {pct:.0f}%")
         if pct >= 90:
-            self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: green;")
+            self.score_label.setStyleSheet(theme_manager.stylesheet("score_success"))
         elif pct >= 70:
-            self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #CC8800;")
+            self.score_label.setStyleSheet(theme_manager.stylesheet("score_warning"))
         else:
-            self.score_label.setStyleSheet("font-size: 16px; font-weight: bold; color: red;")
+            self.score_label.setStyleSheet(theme_manager.stylesheet("score_error"))
 
         # Check results
         for cr in result.check_results:
@@ -234,16 +250,18 @@ class GradingPanel(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, cr)
 
             if cr.passed:
-                item.setForeground(QColor("green"))
+                item.setForeground(theme_manager.color("grading_passed"))
             else:
-                item.setForeground(QColor("red"))
+                item.setForeground(theme_manager.color("grading_failed"))
 
             self.results_list.addItem(item)
 
         self.feedback_label.setText("Click a check to see feedback")
 
     def _on_check_selected(self, current, previous):
-        """Show feedback for the selected check."""
+        """Show feedback for the selected check and highlight affected components."""
+        self._clear_highlights()
+
         if current is None:
             self.feedback_label.setText("")
             return
@@ -253,6 +271,39 @@ class GradingPanel(QWidget):
             return
 
         self.feedback_label.setText(cr.feedback)
+
+        # Highlight components associated with this check
+        comp_ids = extract_component_ids(cr.check_id)
+        canvas = self._get_canvas()
+        if canvas is None:
+            return
+
+        state = "passed" if cr.passed else "failed"
+        for comp_id in comp_ids:
+            comp_item = canvas.components.get(comp_id)
+            if comp_item is not None:
+                comp_item.set_grading_state(state, cr.feedback)
+                self._highlighted_components.append(comp_id)
+
+    # --- Highlight management ---
+
+    def set_canvas(self, canvas):
+        """Inject the circuit canvas reference for highlight management."""
+        self._canvas = canvas
+
+    def _get_canvas(self):
+        """Return the injected circuit canvas, or None."""
+        return self._canvas
+
+    def _clear_highlights(self):
+        """Remove all grading overlays from canvas components."""
+        canvas = self._get_canvas()
+        if canvas is not None:
+            for comp_id in self._highlighted_components:
+                comp_item = canvas.components.get(comp_id)
+                if comp_item is not None:
+                    comp_item.clear_grading_state()
+        self._highlighted_components.clear()
 
     # --- Export ---
 
@@ -279,34 +330,23 @@ class GradingPanel(QWidget):
     @staticmethod
     def _export_result_csv(result: GradingResult, filepath: str):
         """Write a single student's grading result to CSV."""
-        with open(filepath, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Student File", "Rubric", "Score", "Percentage"])
-            writer.writerow(
-                [
-                    result.student_file,
-                    result.rubric_title,
-                    f"{result.earned_points}/{result.total_points}",
-                    f"{result.percentage:.1f}%",
-                ]
-            )
-            writer.writerow([])
-            writer.writerow(["Check ID", "Passed", "Points Earned", "Points Possible", "Feedback"])
-            for cr in result.check_results:
-                writer.writerow(
-                    [
-                        cr.check_id,
-                        "Yes" if cr.passed else "No",
-                        cr.points_earned,
-                        cr.points_possible,
-                        cr.feedback,
-                    ]
-                )
+        from grading.grade_exporter import export_single_result_csv
+
+        export_single_result_csv(result, filepath)
 
     # --- Public API ---
 
     def clear_results(self):
-        """Clear all grading results and reset the panel."""
+        """Clear all grading results, overlays, and reset the panel."""
+        self._clear_highlights()
+
+        # Restore the reference (instructor) circuit on the canvas
+        if self._reference_circuit is not None:
+            parent = self.parent()
+            if parent is not None and hasattr(parent, "file_ctrl"):
+                parent.file_ctrl.load_from_model(self._reference_circuit)
+            self._reference_circuit = None
+
         self._result = None
         self._student_circuit = None
         self._student_file = ""

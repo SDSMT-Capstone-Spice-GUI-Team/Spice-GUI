@@ -1,5 +1,5 @@
 """
-Unit tests for Phase 4: MainWindow MVC Architecture
+Unit tests for MainWindow MVC architecture.
 
 Tests that MainWindow properly delegates to controllers and maintains
 separation between View and business logic.

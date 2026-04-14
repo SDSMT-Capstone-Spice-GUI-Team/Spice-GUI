@@ -1,7 +1,7 @@
 """Menu bar construction and keybinding management for MainWindow."""
 
-from PyQt6.QtGui import QAction, QActionGroup
-from PyQt6.QtWidgets import QDialog
+from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
+from PyQt6.QtWidgets import QDialog, QMenu
 
 
 class MenuBarMixin:
@@ -34,6 +34,10 @@ class MenuBarMixin:
         self.examples_menu = file_menu.addMenu("Open &Example")
         self._populate_examples_menu()
 
+        # Templates
+        self.templates_menu = file_menu.addMenu("New from &Template")
+        self._populate_templates_menu()
+
         save_action = QAction("&Save", self)
         save_action.setShortcut(kb.get("file.save"))
         save_action.triggered.connect(self._on_save)
@@ -63,6 +67,21 @@ class MenuBarMixin:
         import_netlist_action.triggered.connect(self._on_import_netlist)
         file_menu.addAction(import_netlist_action)
 
+        import_asc_action = QAction("Import &LTspice Schematic...", self)
+        import_asc_action.setToolTip("Import an LTspice schematic file (.asc)")
+        import_asc_action.triggered.connect(self._on_import_asc)
+        file_menu.addAction(import_asc_action)
+
+        import_tikz_action = QAction("Import Circui&TikZ LaTeX...", self)
+        import_tikz_action.setToolTip("Import a circuit from CircuiTikZ LaTeX code (.tex)")
+        import_tikz_action.triggered.connect(self._on_import_circuitikz)
+        file_menu.addAction(import_tikz_action)
+
+        import_svg_action = QAction("Import from &SVG...", self)
+        import_svg_action.setToolTip("Import a circuit from a shareable SVG file")
+        import_svg_action.triggered.connect(self._on_import_svg)
+        file_menu.addAction(import_svg_action)
+
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
         export_netlist_action.setToolTip("Export the generated SPICE netlist to a .cir file")
@@ -83,6 +102,45 @@ class MenuBarMixin:
         export_latex_action.setToolTip("Export circuit as CircuiTikZ LaTeX code (.tex file)")
         export_latex_action.triggered.connect(self.export_circuitikz)
         file_menu.addAction(export_latex_action)
+
+        export_asc_action = QAction("Export as LTspice (.&asc)...", self)
+        export_asc_action.setToolTip("Export circuit as LTspice .asc schematic file")
+        export_asc_action.triggered.connect(self._on_export_asc)
+        file_menu.addAction(export_asc_action)
+
+        export_bom_action = QAction("Export &BOM...", self)
+        export_bom_action.setToolTip("Export Bill of Materials listing all components with quantities")
+        export_bom_action.triggered.connect(self._on_export_bom)
+        file_menu.addAction(export_bom_action)
+
+        export_markdown_action = QAction("Export Results as &Markdown...", self)
+        export_markdown_action.setToolTip("Export simulation results as a Markdown table (.md file)")
+        export_markdown_action.triggered.connect(self.export_results_markdown)
+        file_menu.addAction(export_markdown_action)
+
+        generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
+        generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
+        generate_report_action.triggered.connect(self._on_generate_report)
+        file_menu.addAction(generate_report_action)
+
+        export_bundle_action = QAction("Export Lab &Bundle (.zip)...", self)
+        export_bundle_action.setToolTip("Export all circuit artifacts as a ZIP bundle for lab submission")
+        export_bundle_action.triggered.connect(self._on_export_bundle)
+        file_menu.addAction(export_bundle_action)
+
+        re_export_action = QAction("Re-export &Last", self)
+        re_export_action.setShortcut(QKeySequence("Ctrl+Shift+E"))
+        re_export_action.setToolTip("Repeat the most recent export operation")
+        re_export_action.triggered.connect(self._on_re_export_last)
+        file_menu.addAction(re_export_action)
+
+        self._recent_files_menu = QMenu("Recent &Files", self)
+        file_menu.addMenu(self._recent_files_menu)
+        self._recent_files_menu.aboutToShow.connect(self._populate_recent_files_menu)
+
+        self._recent_exports_menu = QMenu("Recent E&xports", self)
+        file_menu.addMenu(self._recent_exports_menu)
+        self._recent_exports_menu.aboutToShow.connect(self._populate_recent_exports_menu)
 
         file_menu.addSeparator()
 
@@ -116,7 +174,7 @@ class MenuBarMixin:
         self.undo_action = undo_action  # Store reference to update enabled state
 
         redo_action = QAction("&Redo", self)
-        redo_action.setShortcut(kb.get("edit.redo"))
+        redo_action.setShortcuts([kb.get("edit.redo"), "Ctrl+Y"])
         redo_action.triggered.connect(self._on_redo)
         edit_menu.addAction(redo_action)
         self.redo_action = redo_action  # Store reference to update enabled state
@@ -157,6 +215,16 @@ class MenuBarMixin:
         copy_latex_action.triggered.connect(self.copy_circuitikz)
         edit_menu.addAction(copy_latex_action)
 
+        copy_json_action = QAction("Copy Circuit as &JSON", self)
+        copy_json_action.setToolTip("Copy entire circuit to system clipboard as JSON")
+        copy_json_action.triggered.connect(self.copy_circuit_json)
+        edit_menu.addAction(copy_json_action)
+
+        paste_json_action = QAction("Paste Circuit from JS&ON", self)
+        paste_json_action.setToolTip("Replace current circuit with JSON from clipboard")
+        paste_json_action.triggered.connect(self.paste_circuit_json)
+        edit_menu.addAction(paste_json_action)
+
         edit_menu.addSeparator()
 
         rotate_cw_action = QAction("Rotate Clockwise", self)
@@ -178,6 +246,13 @@ class MenuBarMixin:
         flip_v_action.setShortcut(kb.get("edit.flip_v"))
         flip_v_action.triggered.connect(lambda: self.canvas.flip_selected(False))
         edit_menu.addAction(flip_v_action)
+
+        edit_menu.addSeparator()
+
+        recommended_action = QAction("Edit &Recommended Components...", self)
+        recommended_action.setToolTip("Edit file-level recommended components shown at the top of the palette")
+        recommended_action.triggered.connect(self._edit_recommended_components)
+        edit_menu.addAction(recommended_action)
 
         edit_menu.addSeparator()
 
@@ -234,34 +309,37 @@ class MenuBarMixin:
 
         view_menu.addSeparator()
 
-        # Theme submenu
-        theme_menu = view_menu.addMenu("&Theme")
+        # Theme submenu (dynamic — includes custom themes)
+        self.theme_menu = view_menu.addMenu("&Theme")
+        self.theme_group = QActionGroup(self)
+
         self.light_theme_action = QAction("&Light", self)
         self.light_theme_action.setCheckable(True)
         self.light_theme_action.setChecked(True)
-        self.light_theme_action.triggered.connect(lambda: self._set_theme("light"))
-        theme_menu.addAction(self.light_theme_action)
+        self.light_theme_action.triggered.connect(lambda: self._set_theme_by_key("light"))
+        self.theme_menu.addAction(self.light_theme_action)
+        self.theme_group.addAction(self.light_theme_action)
 
         self.dark_theme_action = QAction("&Dark", self)
         self.dark_theme_action.setCheckable(True)
-        self.dark_theme_action.triggered.connect(lambda: self._set_theme("dark"))
-        theme_menu.addAction(self.dark_theme_action)
-
-        self.theme_group = QActionGroup(self)
-        self.theme_group.addAction(self.light_theme_action)
+        self.dark_theme_action.triggered.connect(lambda: self._set_theme_by_key("dark"))
+        self.theme_menu.addAction(self.dark_theme_action)
         self.theme_group.addAction(self.dark_theme_action)
+
+        self._custom_theme_actions = []
+        self.refresh_theme_menu()
 
         # Symbol Style submenu
         symbol_style_menu = view_menu.addMenu("&Symbol Style")
         self.ieee_style_action = QAction("&IEEE / ANSI (American)", self)
         self.ieee_style_action.setCheckable(True)
         self.ieee_style_action.setChecked(True)
-        self.ieee_style_action.triggered.connect(lambda: self._set_symbol_style("ieee"))
+        self.ieee_style_action.triggered.connect(lambda: self.set_symbol_style("ieee"))
         symbol_style_menu.addAction(self.ieee_style_action)
 
         self.iec_style_action = QAction("I&EC (European)", self)
         self.iec_style_action.setCheckable(True)
-        self.iec_style_action.triggered.connect(lambda: self._set_symbol_style("iec"))
+        self.iec_style_action.triggered.connect(lambda: self.set_symbol_style("iec"))
         symbol_style_menu.addAction(self.iec_style_action)
 
         self.symbol_style_group = QActionGroup(self)
@@ -273,17 +351,73 @@ class MenuBarMixin:
         self.color_mode_action = QAction("&Color (per component type)", self)
         self.color_mode_action.setCheckable(True)
         self.color_mode_action.setChecked(True)
-        self.color_mode_action.triggered.connect(lambda: self._set_color_mode("color"))
+        self.color_mode_action.triggered.connect(lambda: self.set_color_mode("color"))
         color_mode_menu.addAction(self.color_mode_action)
 
         self.monochrome_mode_action = QAction("&Monochrome", self)
         self.monochrome_mode_action.setCheckable(True)
-        self.monochrome_mode_action.triggered.connect(lambda: self._set_color_mode("monochrome"))
+        self.monochrome_mode_action.triggered.connect(lambda: self.set_color_mode("monochrome"))
         color_mode_menu.addAction(self.monochrome_mode_action)
 
         self.color_mode_group = QActionGroup(self)
         self.color_mode_group.addAction(self.color_mode_action)
         self.color_mode_group.addAction(self.monochrome_mode_action)
+
+        # Wire Thickness submenu
+        wire_thickness_menu = view_menu.addMenu("&Wire Thickness")
+        self.wire_thickness_actions = {}
+
+        thin_action = QAction("&Thin (1px)", self)
+        thin_action.setCheckable(True)
+        thin_action.triggered.connect(lambda: self.set_wire_thickness("thin"))
+        wire_thickness_menu.addAction(thin_action)
+        self.wire_thickness_actions["thin"] = thin_action
+
+        normal_action = QAction("&Normal (2px)", self)
+        normal_action.setCheckable(True)
+        normal_action.setChecked(True)
+        normal_action.triggered.connect(lambda: self.set_wire_thickness("normal"))
+        wire_thickness_menu.addAction(normal_action)
+        self.wire_thickness_actions["normal"] = normal_action
+
+        thick_action = QAction("Thic&k (3px)", self)
+        thick_action.setCheckable(True)
+        thick_action.triggered.connect(lambda: self.set_wire_thickness("thick"))
+        wire_thickness_menu.addAction(thick_action)
+        self.wire_thickness_actions["thick"] = thick_action
+
+        self.wire_thickness_group = QActionGroup(self)
+        self.wire_thickness_group.addAction(thin_action)
+        self.wire_thickness_group.addAction(normal_action)
+        self.wire_thickness_group.addAction(thick_action)
+
+        # Junction dots toggle
+        self.show_junction_dots_action = QAction("Show &Junction Dots", self)
+        self.show_junction_dots_action.setCheckable(True)
+        self.show_junction_dots_action.setChecked(True)
+        self.show_junction_dots_action.triggered.connect(self.set_show_junction_dots)
+        view_menu.addAction(self.show_junction_dots_action)
+
+        # Wire Routing Mode submenu
+        routing_mode_menu = view_menu.addMenu("Wire &Routing Mode")
+        self.routing_mode_actions = {}
+
+        orthogonal_action = QAction("&Orthogonal (4-direction)", self)
+        orthogonal_action.setCheckable(True)
+        orthogonal_action.setChecked(True)
+        orthogonal_action.triggered.connect(lambda: self.set_routing_mode("orthogonal"))
+        routing_mode_menu.addAction(orthogonal_action)
+        self.routing_mode_actions["orthogonal"] = orthogonal_action
+
+        diagonal_action = QAction("&Diagonal (8-direction, 45°)", self)
+        diagonal_action.setCheckable(True)
+        diagonal_action.triggered.connect(lambda: self.set_routing_mode("diagonal"))
+        routing_mode_menu.addAction(diagonal_action)
+        self.routing_mode_actions["diagonal"] = diagonal_action
+
+        self.routing_mode_group = QActionGroup(self)
+        self.routing_mode_group.addAction(orthogonal_action)
+        self.routing_mode_group.addAction(diagonal_action)
 
         view_menu.addSeparator()
 
@@ -369,6 +503,24 @@ class MenuBarMixin:
         noise_action.triggered.connect(self.set_analysis_noise)
         analysis_menu.addAction(noise_action)
 
+        sens_action = QAction("&Sensitivity...", self)
+        sens_action.setCheckable(True)
+        sens_action.setToolTip("DC sensitivity analysis — shows impact of each component on output (.sens)")
+        sens_action.triggered.connect(self.set_analysis_sensitivity)
+        analysis_menu.addAction(sens_action)
+
+        tf_action = QAction("Transfer &Function...", self)
+        tf_action.setCheckable(True)
+        tf_action.setToolTip("Small-signal DC transfer function — gain, input and output impedance (.tf)")
+        tf_action.triggered.connect(self.set_analysis_tf)
+        analysis_menu.addAction(tf_action)
+
+        pz_action = QAction("Pole-&Zero...", self)
+        pz_action.setCheckable(True)
+        pz_action.setToolTip("Pole-Zero analysis for stability and frequency response (.pz)")
+        pz_action.triggered.connect(self.set_analysis_pz)
+        analysis_menu.addAction(pz_action)
+
         analysis_menu.addSeparator()
 
         mc_action = QAction("&Monte Carlo...", self)
@@ -385,6 +537,9 @@ class MenuBarMixin:
         self.analysis_group.addAction(tran_action)
         self.analysis_group.addAction(temp_action)
         self.analysis_group.addAction(noise_action)
+        self.analysis_group.addAction(sens_action)
+        self.analysis_group.addAction(tf_action)
+        self.analysis_group.addAction(pz_action)
         self.analysis_group.addAction(sweep_action)
         self.analysis_group.addAction(mc_action)
 
@@ -394,6 +549,9 @@ class MenuBarMixin:
         self.tran_action = tran_action
         self.temp_action = temp_action
         self.noise_action = noise_action
+        self.sens_action = sens_action
+        self.tf_action = tf_action
+        self.pz_action = pz_action
         self.sweep_action = sweep_action
 
         # Store action references for keybinding re-application
@@ -432,6 +590,20 @@ class MenuBarMixin:
         # Instructor menu
         instructor_menu = menubar.addMenu("&Instructor")
         if instructor_menu:
+            create_rubric_action = QAction("&Create Rubric...", self)
+            create_rubric_action.setToolTip("Open the rubric editor to create or edit a grading rubric")
+            create_rubric_action.triggered.connect(self._on_create_rubric)
+            instructor_menu.addAction(create_rubric_action)
+
+            generate_rubric_action = QAction("&Generate Rubric from Circuit...", self)
+            generate_rubric_action.setToolTip(
+                "Auto-generate a rubric skeleton from the current circuit as reference solution"
+            )
+            generate_rubric_action.triggered.connect(self._on_generate_rubric)
+            instructor_menu.addAction(generate_rubric_action)
+
+            instructor_menu.addSeparator()
+
             grade_action = QAction("&Grade Student Circuit...", self)
             grade_action.setToolTip("Open the grading panel to grade a student submission")
             grade_action.triggered.connect(self._toggle_grading_panel)
@@ -442,14 +614,58 @@ class MenuBarMixin:
             batch_grade_action.triggered.connect(self._on_batch_grade)
             instructor_menu.addAction(batch_grade_action)
 
+            instructor_menu.addSeparator()
+
+            open_assignment_action = QAction("&Open Assignment...", self)
+            open_assignment_action.setToolTip("Open a .spice-assignment bundle (template + rubric)")
+            open_assignment_action.triggered.connect(self._on_open_assignment)
+            instructor_menu.addAction(open_assignment_action)
+
+            save_assignment_action = QAction("&Save as Assignment...", self)
+            save_assignment_action.setToolTip("Bundle the current circuit and a rubric into a .spice-assignment file")
+            save_assignment_action.triggered.connect(self._on_save_assignment)
+            instructor_menu.addAction(save_assignment_action)
+
         # Settings menu
         settings_menu = menubar.addMenu("Se&ttings")
         if settings_menu:
+            preferences_action = QAction("&Preferences...", self)
+            preferences_action.triggered.connect(self._open_preferences_dialog)
+            settings_menu.addAction(preferences_action)
+
+            settings_menu.addSeparator()
+
             keybindings_action = QAction("&Keybindings...", self)
-            keybindings_action.triggered.connect(self._open_keybindings_dialog)
+            keybindings_action.triggered.connect(self.open_keybindings_dialog)
             settings_menu.addAction(keybindings_action)
 
-    def _open_keybindings_dialog(self):
+        # Help menu
+        help_menu = menubar.addMenu("&Help")
+        if help_menu:
+            help_action = QAction("&Help Topics...", self)
+            help_action.setShortcut(QKeySequence("F1"))
+            help_action.setToolTip("Open searchable help")
+            help_action.triggered.connect(self._show_help)
+            help_menu.addAction(help_action)
+
+            tutorial_action = QAction("Guided &Tutorial...", self)
+            tutorial_action.setToolTip("Step-by-step tutorial for building your first circuit")
+            tutorial_action.triggered.connect(self._start_tutorial)
+            help_menu.addAction(tutorial_action)
+
+    def _open_preferences_dialog(self):
+        """Open the unified preferences dialog (single-instance, non-modal)."""
+        from .preferences_dialog import PreferencesDialog
+
+        existing = getattr(self, "_preferences_dialog", None)
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            return
+        self._preferences_dialog = PreferencesDialog(self)
+        self._preferences_dialog.show()
+
+    def open_keybindings_dialog(self):
         """Open the keybindings preferences dialog."""
         from .keybindings_dialog import KeybindingsDialog
 
@@ -463,3 +679,50 @@ class MenuBarMixin:
         kb = self.keybindings
         for action_name, qaction in self._bound_actions.items():
             qaction.setShortcut(kb.get(action_name))
+
+    def refresh_theme_menu(self):
+        """Rebuild custom theme entries in the Theme submenu."""
+        from .styles import theme_manager
+
+        # Remove old custom actions
+        for action in self._custom_theme_actions:
+            self.theme_menu.removeAction(action)
+            self.theme_group.removeAction(action)
+        self._custom_theme_actions.clear()
+
+        # Add custom themes after a separator
+        available = theme_manager.get_available_themes()
+        custom_themes = [(name, key) for name, key in available if key.startswith("custom:")]
+        if custom_themes:
+            sep = self.theme_menu.addSeparator()
+            self._custom_theme_actions.append(sep)
+            for display_name, key in custom_themes:
+                action = QAction(display_name, self)
+                action.setCheckable(True)
+                action.triggered.connect(lambda checked, k=key: self._set_theme_by_key(k))
+                self.theme_menu.addAction(action)
+                self.theme_group.addAction(action)
+                self._custom_theme_actions.append(action)
+
+        # Sync checkmarks with current theme
+        current_key = theme_manager.get_theme_key()
+        if current_key == "light":
+            self.light_theme_action.setChecked(True)
+        elif current_key == "dark":
+            self.dark_theme_action.setChecked(True)
+        else:
+            for action in self._custom_theme_actions:
+                if hasattr(action, "text") and action.text():
+                    # Find matching custom action
+                    for name, key in custom_themes:
+                        if key == current_key and action.text() == name:
+                            action.setChecked(True)
+                            break
+
+    def _set_theme_by_key(self, key):
+        """Switch theme by key and apply it."""
+        from controllers.theme_controller import theme_ctrl
+
+        theme_ctrl.set_theme_by_key(key)
+        self.apply_theme()
+        self.refresh_theme_menu()

@@ -27,6 +27,7 @@ class WireData:
     runtime: float = 0.0  # Time taken to route (seconds)
     iterations: int = 0  # Pathfinding iterations
     routing_failed: bool = False  # True when pathfinding fell back to straight line
+    locked: bool = False  # True when wire path is locked (skip auto-reroute)
 
     def get_terminals(self) -> list[tuple[str, int]]:
         """
@@ -55,28 +56,45 @@ class WireData:
         Serialize wire to dictionary.
 
         Format matches the existing JSON circuit file format for compatibility.
-        Note: waypoints are NOT serialized (they are recomputed on load).
+        Waypoints are persisted so wire layouts survive save/load.
         """
-        return {
+        data = {
             "start_comp": self.start_component_id,
             "start_term": self.start_terminal,
             "end_comp": self.end_component_id,
             "end_term": self.end_terminal,
         }
+        if self.waypoints:
+            data["waypoints"] = [[x, y] for x, y in self.waypoints]
+        if self.locked:
+            data["locked"] = True
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "WireData":
         """
         Deserialize wire from dictionary.
 
-        Handles the existing JSON circuit file format.
+        Handles both old format (no waypoints) and new format (with waypoints).
+
+        Raises:
+            ValueError: If required fields are missing or have wrong types.
         """
-        return cls(
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected dict, got {type(data).__name__}")
+        for key in ("start_comp", "start_term", "end_comp", "end_term"):
+            if key not in data:
+                raise ValueError(f"Missing required field '{key}' in wire data")
+        wire = cls(
             start_component_id=data["start_comp"],
             start_terminal=data["start_term"],
             end_component_id=data["end_comp"],
             end_terminal=data["end_term"],
+            locked=data.get("locked", False),
         )
+        if "waypoints" in data:
+            wire.waypoints = [(float(x), float(y)) for x, y in data["waypoints"]]
+        return wire
 
     def __repr__(self) -> str:
         return (

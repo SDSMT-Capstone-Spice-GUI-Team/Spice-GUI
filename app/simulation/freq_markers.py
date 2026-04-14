@@ -23,13 +23,14 @@ def _find_crossing(x_data, y_data, threshold):
     return crossings
 
 
-def compute_markers(frequencies, magnitude, phase=None):
+def compute_markers(frequencies, magnitude, phase=None, is_db=False):
     """Compute frequency response markers from AC sweep data.
 
     Args:
         frequencies: list of frequency values (Hz)
         magnitude: list of magnitude values (linear scale, e.g. V/V)
         phase: optional list of phase values (degrees)
+        is_db: if True, magnitude values are already in dB (skip conversion)
 
     Returns:
         dict with computed markers:
@@ -48,9 +49,12 @@ def compute_markers(frequencies, magnitude, phase=None):
     freqs = np.array(frequencies, dtype=float)
     mag = np.array(magnitude, dtype=float)
 
-    # Convert to dB, avoiding log of zero
-    mag_clipped = np.clip(mag, 1e-30, None)
-    mag_db = 20.0 * np.log10(mag_clipped)
+    if is_db:
+        mag_db = mag
+    else:
+        # Convert to dB, avoiding log of zero
+        mag_clipped = np.clip(mag, 1e-30, None)
+        mag_db = 20.0 * np.log10(mag_clipped)
 
     # Peak gain
     peak_idx = int(np.argmax(mag_db))
@@ -118,15 +122,6 @@ def _empty_markers():
     }
 
 
-def format_frequency(freq_hz):
-    """Format a frequency value with appropriate SI prefix."""
-    if freq_hz is None:
-        return "N/A"
-    if freq_hz >= 1e9:
-        return f"{freq_hz / 1e9:.2f} GHz"
-    elif freq_hz >= 1e6:
-        return f"{freq_hz / 1e6:.2f} MHz"
-    elif freq_hz >= 1e3:
-        return f"{freq_hz / 1e3:.2f} kHz"
-    else:
-        return f"{freq_hz:.2f} Hz"
+__all__ = [
+    "compute_markers",
+]

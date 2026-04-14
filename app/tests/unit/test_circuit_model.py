@@ -1,5 +1,7 @@
 """Tests for CircuitModel central data store."""
 
+from pathlib import Path
+
 import pytest
 from models.circuit import CircuitModel
 from models.component import ComponentData
@@ -245,7 +247,12 @@ class TestSerialization:
     def test_empty_circuit_round_trip(self):
         model = CircuitModel()
         data = model.to_dict()
-        assert data == {"components": [], "wires": [], "counters": {}}
+        assert data == {
+            "schema_version": 1,
+            "components": [],
+            "wires": [],
+            "counters": {},
+        }
 
         reset_node_counter()
         model2 = CircuitModel.from_dict(data)
@@ -385,10 +392,158 @@ class TestSerialization:
         """Verify CircuitModel has no Qt dependencies."""
         import models.circuit as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source
+
+
+class TestFromDictResilience:
+    """Issue #488: from_dict must skip corrupt items instead of crashing."""
+
+    def test_corrupt_component_skipped(self):
+        """A single corrupt component should not crash the entire load."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {"type": "Capacitor"},  # Missing id, value, pos
+                {
+                    "type": "Resistor",
+                    "id": "R2",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
+            ],
+            "wires": [],
+            "counters": {"R": 2},
+        }
+        model = CircuitModel.from_dict(data)
+        assert "R1" in model.components
+        assert "R2" in model.components
+        assert len(model.components) == 2
+
+    def test_corrupt_wire_skipped(self):
+        """A single corrupt wire should not crash the entire load."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R2",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
+            ],
+            "wires": [
+                {"start_comp": "R1", "start_term": 1, "end_comp": "R2", "end_term": 0},
+                {"bad": "wire data"},  # Corrupt
+                {"start_comp": "R1", "start_term": 0, "end_comp": "R2", "end_term": 1},
+            ],
+            "counters": {"R": 2},
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.wires) == 2
+        assert len(model.components) == 2
+
+    def test_wire_referencing_missing_component_skipped(self):
+        """A wire referencing a non-existent component should be skipped."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+            ],
+            "wires": [
+                {
+                    "start_comp": "R1",
+                    "start_term": 0,
+                    "end_comp": "GHOST",
+                    "end_term": 0,
+                },
+            ],
+            "counters": {"R": 1},
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.components) == 1
+        assert len(model.wires) == 0
+
+    def test_all_components_corrupt_returns_empty(self):
+        """If every component is corrupt, the model should be empty but not crash."""
+        data = {
+            "components": [
+                {"bad": "data"},
+                {},
+            ],
+            "wires": [],
+            "counters": {},
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.components) == 0
+        assert len(model.wires) == 0
+
+    def test_corrupt_annotation_skipped(self):
+        """A corrupt annotation should not crash the load."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+            ],
+            "wires": [],
+            "counters": {},
+            "annotations": [
+                {"text": "Hello", "x": 10, "y": 20},
+                None,  # Corrupt
+            ],
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.annotations) == 1
+        assert model.annotations[0].text == "Hello"
+
+    def test_corrupt_net_name_skipped(self):
+        """A corrupt net name entry should not crash the load."""
+        data = {
+            "components": [
+                {
+                    "type": "Resistor",
+                    "id": "R1",
+                    "value": "1k",
+                    "pos": {"x": 0, "y": 0},
+                },
+                {
+                    "type": "Resistor",
+                    "id": "R2",
+                    "value": "2k",
+                    "pos": {"x": 100, "y": 0},
+                },
+            ],
+            "wires": [
+                {"start_comp": "R1", "start_term": 1, "end_comp": "R2", "end_term": 0},
+            ],
+            "counters": {},
+            "net_names": {
+                "R1:1": "Vout",
+                "bad_key": "broken",  # No colon separator
+            },
+        }
+        model = CircuitModel.from_dict(data)
+        assert len(model.components) == 2
 
 
 class TestIncrementalWireRemoval:

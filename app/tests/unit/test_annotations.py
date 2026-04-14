@@ -21,7 +21,7 @@ class TestAnnotationData:
         assert ann.y == 0.0
         assert ann.font_size == 10
         assert ann.bold is False
-        assert ann.color == "#FFFFFF"
+        assert ann.color == ""
 
     def test_custom_values(self):
         ann = AnnotationData(text="Hello", x=100.0, y=200.0, font_size=14, bold=True, color="#FF0000")
@@ -40,10 +40,17 @@ class TestAnnotationData:
         assert d["y"] == 75.0
         assert d["font_size"] == 10
         assert d["bold"] is False
-        assert d["color"] == "#FFFFFF"
+        assert d["color"] == ""
 
     def test_from_dict(self):
-        d = {"text": "Loaded", "x": 10.0, "y": 20.0, "font_size": 12, "bold": True, "color": "#00FF00"}
+        d = {
+            "text": "Loaded",
+            "x": 10.0,
+            "y": 20.0,
+            "font_size": 12,
+            "bold": True,
+            "color": "#00FF00",
+        }
         ann = AnnotationData.from_dict(d)
         assert ann.text == "Loaded"
         assert ann.x == 10.0

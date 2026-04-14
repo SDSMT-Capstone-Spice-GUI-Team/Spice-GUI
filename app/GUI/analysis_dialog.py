@@ -1,3 +1,4 @@
+from controllers.simulation_controller import SimulationController
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -11,8 +12,14 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
+from utils.format_utils import parse_value
 
-from .format_utils import parse_value
+from .meas_dialog import MeasurementDialog
+from .styles import theme_manager
+from .validation_helpers import clear_field_error, set_field_error
+
+# Analysis types that support .meas directives
+_MEAS_SUPPORTED_TYPES = set(SimulationController.get_analysis_domain_map().keys())
 
 
 class AnalysisDialog(QDialog):
@@ -46,6 +53,7 @@ class AnalysisDialog(QDialog):
                 ("Stop Frequency (Hz)", "fStop", "float", "1e6"),
                 ("Points per Decade", "points", "int", "100"),
                 ("Sweep Type", "sweepType", "combo", ["dec", "oct", "lin"], "dec"),
+                ("Output in dB", "use_db", "combo", ["No", "Yes"], "No"),
             ],
             "description": "Frequency domain analysis",
             "tooltips": {
@@ -53,6 +61,7 @@ class AnalysisDialog(QDialog):
                 "fStop": "Ending frequency for the AC sweep (Hz)",
                 "points": "Number of frequency points per decade (log scale)",
                 "sweepType": "Frequency scale: dec (decade/log), oct (octave), lin (linear)",
+                "use_db": "Output voltage magnitudes in decibels (dB) instead of volts",
             },
         },
         "Transient": {
@@ -103,17 +112,72 @@ class AnalysisDialog(QDialog):
                 "sweepType": "Frequency scale: dec (decade/log), oct (octave), lin (linear)",
             },
         },
+        "Sensitivity": {
+            "fields": [
+                ("Output Node", "output_node", "text", "out"),
+            ],
+            "description": (
+                "DC sensitivity analysis — shows how much each component value "
+                "affects the selected output voltage. Useful for identifying the "
+                "most critical components in your circuit."
+            ),
+            "tooltips": {
+                "output_node": (
+                    "Node name (or number) to analyze, e.g. 'out' or '2'. "
+                    "The analysis computes dV(node)/d(parameter) for every component."
+                ),
+            },
+        },
+        "Transfer Function": {
+            "fields": [
+                ("Output Variable", "output_var", "text", "v(out)"),
+                ("Input Source", "input_source", "text", "V1"),
+            ],
+            "description": (
+                "Small-signal DC transfer function — computes voltage gain (or "
+                "transresistance), input impedance, and output impedance"
+            ),
+            "tooltips": {
+                "output_var": "Output variable: v(node) for voltage gain or i(Vname) for transresistance",
+                "input_source": "Name of the independent source to vary (e.g. V1, I1)",
+            },
+        },
+        "Pole-Zero": {
+            "fields": [
+                ("Input Node (+)", "input_pos", "text", "1"),
+                ("Input Node (-)", "input_neg", "text", "0"),
+                ("Output Node (+)", "output_pos", "text", "2"),
+                ("Output Node (-)", "output_neg", "text", "0"),
+                ("Transfer Type", "transfer_type", "combo", ["vol", "cur"], "vol"),
+                ("Analysis", "pz_type", "combo", ["pz", "pol", "zer"], "pz"),
+            ],
+            "description": (
+                "Pole-Zero analysis — computes poles and zeros of the circuit "
+                "transfer function for stability and frequency response analysis"
+            ),
+            "tooltips": {
+                "input_pos": "Positive input port node (number or name)",
+                "input_neg": "Negative input port node (number or name, 0 for ground)",
+                "output_pos": "Positive output port node (number or name)",
+                "output_neg": "Negative output port node (number or name, 0 for ground)",
+                "transfer_type": "Transfer type: vol (voltage gain) or cur (current gain)",
+                "pz_type": "Analysis scope: pz (poles and zeros), pol (poles only), zer (zeros only)",
+            },
+        },
     }
 
-    def __init__(self, analysis_type=None, parent=None, preset_manager=None):
+    def __init__(self, analysis_type=None, parent=None, simulation_ctrl=None, preset_manager=None):
         super().__init__(parent)
         self.analysis_type = analysis_type
         self.field_widgets = {}
-        if preset_manager is None:
-            from simulation.preset_manager import PresetManager
+        self._measurements = []  # list of measurement entry dicts
+        if simulation_ctrl is not None:
+            self._ctrl = simulation_ctrl
+        else:
+            # Backward compatibility: wrap a preset_manager in a controller
+            from controllers.simulation_controller import SimulationController
 
-            preset_manager = PresetManager()
-        self._preset_manager = preset_manager
+            self._ctrl = SimulationController(preset_manager=preset_manager)
         self.init_ui()
 
     def init_ui(self):
@@ -160,9 +224,27 @@ class AnalysisDialog(QDialog):
         self.form_layout = QFormLayout()
         layout.addLayout(self.form_layout)
 
+        # Measurements button (shown only for supported analysis types)
+        meas_layout = QHBoxLayout()
+        self.meas_btn = QPushButton("Measurements...")
+        self.meas_btn.setToolTip("Configure automated .meas directives for this analysis")
+        self.meas_btn.clicked.connect(self._open_meas_dialog)
+        meas_layout.addWidget(self.meas_btn)
+        self.meas_label = QLabel("No measurements configured")
+        self.meas_label.setStyleSheet(theme_manager.stylesheet("status_muted"))
+        meas_layout.addWidget(self.meas_label, 1)
+        layout.addLayout(meas_layout)
+
+        # Error label for validation feedback
+        self._error_label = QLabel("")
+        self._error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
+        self._error_label.setWordWrap(True)
+        self._error_label.hide()
+        layout.addWidget(self._error_label)
+
         # Buttons
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        button_box.accepted.connect(self.accept)
+        button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
 
@@ -209,8 +291,59 @@ class AnalysisDialog(QDialog):
             self.field_widgets[key] = (widget, field_type)
             self.form_layout.addRow(f"{label}:", widget)
 
+        # Show/hide measurements button based on analysis type
+        meas_visible = self.analysis_type in _MEAS_SUPPORTED_TYPES
+        self.meas_btn.setVisible(meas_visible)
+        self.meas_label.setVisible(meas_visible)
+        if not meas_visible:
+            self._measurements.clear()
+        self._update_meas_label()
+
         # Refresh preset dropdown for this analysis type
         self._refresh_preset_combo()
+
+    def _on_accept(self):
+        """Validate fields before accepting the dialog."""
+        errors = self._validate()
+        if errors:
+            self._error_label.setText("\n".join(errors))
+            self._error_label.show()
+            return
+        self._error_label.hide()
+        self.accept()
+
+    def _validate(self):
+        """Validate all fields and return a list of error messages (empty if valid)."""
+        errors = []
+        for key, (widget, field_type) in self.field_widgets.items():
+            if field_type == "combo":
+                continue
+            if field_type == "text":
+                if not widget.text().strip():
+                    label = self._label_for_key(key)
+                    errors.append(f"{label} cannot be empty.")
+                    set_field_error(widget, f"{label} is required")
+                else:
+                    clear_field_error(widget)
+            elif field_type in ("float", "int"):
+                try:
+                    val = parse_value(widget.text())
+                    if field_type == "int":
+                        int(val)
+                    clear_field_error(widget)
+                except (ValueError, TypeError):
+                    label = self._label_for_key(key)
+                    errors.append(f"{label} must be a valid number.")
+                    set_field_error(widget, "Invalid number")
+        return errors
+
+    def _label_for_key(self, key):
+        """Return a human-readable label for a field key."""
+        config = self.ANALYSIS_CONFIGS.get(self.analysis_type, {})
+        for field_config in config.get("fields", []):
+            if field_config[1] == key:
+                return field_config[0].rstrip(":")
+        return key
 
     def get_parameters(self):
         """Get parameters from dialog with validation"""
@@ -227,56 +360,49 @@ class AnalysisDialog(QDialog):
                 else:  # text
                     params[key] = widget.text()
 
+            # Include measurement directives if any are configured
+            if self._measurements:
+                params["measurements"] = [e["directive"] for e in self._measurements if e.get("directive")]
+
             return params
 
         except ValueError:
             return None
 
     def get_ngspice_command(self):
-        """Generate NGSPICE command from parameters"""
+        """Generate NGSPICE command from parameters."""
         params = self.get_parameters()
         if params is None:
             return None
 
-        if self.analysis_type == "DC Operating Point":
-            return ".op"
+        return SimulationController.generate_analysis_command(self.analysis_type, params)
 
-        elif self.analysis_type == "DC Sweep":
-            source = params.get("source", "V1")
-            start = params.get("min", 0)
-            stop = params.get("max", 10)
-            step = params.get("step", 0.1)
-            return f".dc {source} {start} {stop} {step}"
+    # --- Measurement management ---
 
-        elif self.analysis_type == "AC Sweep":
-            fstart = params.get("fStart", 1)
-            fstop = params.get("fStop", 1e6)
-            points = params.get("points", 100)
-            sweep_type = params.get("sweepType", "dec")
-            return f".ac {sweep_type} {points} {fstart} {fstop}"
+    def _open_meas_dialog(self):
+        """Open the measurement configuration dialog."""
+        domain = SimulationController.get_analysis_domain_map().get(self.analysis_type, "tran")
+        dialog = MeasurementDialog(
+            domain=domain,
+            parent=self,
+            measurements=self._measurements,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._measurements = dialog.get_entries()
+            self._update_meas_label()
 
-        elif self.analysis_type == "Transient":
-            tstep = params.get("step", 0.001)
-            tstop = params.get("duration", 1)
-            tstart = params.get("startTime", 0)
-            return f".tran {tstep} {tstop} {tstart}"
-
-        elif self.analysis_type == "Temperature Sweep":
-            tstart = params.get("tempStart", -40)
-            tstop = params.get("tempStop", 85)
-            tstep = params.get("tempStep", 25)
-            return f".step temp {tstart} {tstop} {tstep}"
-
-        elif self.analysis_type == "Noise":
-            output = params.get("output_node", "out")
-            source = params.get("source", "V1")
-            fstart = params.get("fStart", 1)
-            fstop = params.get("fStop", 1e6)
-            points = params.get("points", 100)
-            sweep_type = params.get("sweepType", "dec")
-            return f".noise v({output}) {source} {sweep_type} {points} {fstart} {fstop}"
-
-        return ""
+    def _update_meas_label(self):
+        """Update the label showing measurement count."""
+        count = len(self._measurements)
+        if count == 0:
+            self.meas_label.setText("No measurements configured")
+            self.meas_label.setStyleSheet(theme_manager.stylesheet("status_muted"))
+        elif count == 1:
+            self.meas_label.setText("1 measurement configured")
+            self.meas_label.setStyleSheet("")
+        else:
+            self.meas_label.setText(f"{count} measurements configured")
+            self.meas_label.setStyleSheet("")
 
     # --- Preset management ---
 
@@ -286,7 +412,7 @@ class AnalysisDialog(QDialog):
         self.preset_combo.clear()
         self.preset_combo.addItem("(none)")
 
-        presets = self._preset_manager.get_presets(self.analysis_type)
+        presets = self._ctrl.get_presets(self.analysis_type)
         for p in presets:
             suffix = " [built-in]" if p.get("builtin") else ""
             self.preset_combo.addItem(f"{p['name']}{suffix}", p["name"])
@@ -305,7 +431,7 @@ class AnalysisDialog(QDialog):
         if preset_name is None:
             return
 
-        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        preset = self._ctrl.get_preset_by_name(preset_name, self.analysis_type)
         if preset is None:
             return
 
@@ -327,7 +453,11 @@ class AnalysisDialog(QDialog):
         """Save current parameters as a named preset."""
         params = self.get_parameters()
         if params is None:
-            QMessageBox.warning(self, "Invalid Parameters", "Please enter valid parameters before saving a preset.")
+            QMessageBox.warning(
+                self,
+                "Invalid Parameters",
+                "Please enter valid parameters before saving a preset.",
+            )
             return
 
         # Remove analysis_type key from params (stored separately)
@@ -339,7 +469,7 @@ class AnalysisDialog(QDialog):
 
         name = name.strip()
         try:
-            self._preset_manager.save_preset(name, self.analysis_type, save_params)
+            self._ctrl.save_preset(name, self.analysis_type, save_params)
             self._refresh_preset_combo()
             # Select the newly saved preset
             for i in range(self.preset_combo.count()):
@@ -359,7 +489,7 @@ class AnalysisDialog(QDialog):
         if preset_name is None:
             return
 
-        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        preset = self._ctrl.get_preset_by_name(preset_name, self.analysis_type)
         if preset and preset.get("builtin"):
             QMessageBox.information(self, "Built-in Preset", "Built-in presets cannot be deleted.")
             return
@@ -371,7 +501,7 @@ class AnalysisDialog(QDialog):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
-            self._preset_manager.delete_preset(preset_name, self.analysis_type)
+            self._ctrl.delete_preset(preset_name, self.analysis_type)
             self._refresh_preset_combo()
 
     def _update_delete_button(self):
@@ -382,5 +512,5 @@ class AnalysisDialog(QDialog):
             return
 
         preset_name = self.preset_combo.itemData(index)
-        preset = self._preset_manager.get_preset_by_name(preset_name, self.analysis_type)
+        preset = self._ctrl.get_preset_by_name(preset_name, self.analysis_type)
         self.delete_preset_btn.setEnabled(preset is not None and not preset.get("builtin", False))

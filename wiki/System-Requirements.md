@@ -177,4 +177,3 @@ For long simulations, consider:
 
 - [[Installation Guide]] - Step-by-step setup
 - [[Technology Stack]] - Technical details
-- [[Troubleshooting]] - Common issues

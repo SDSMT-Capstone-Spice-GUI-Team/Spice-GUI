@@ -40,10 +40,30 @@ def _build_rc_filter(r_value="1k", c_value="100n", analysis="AC Sweep"):
         position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="C1", end_terminal=0),
-        WireData(start_component_id="C1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="R1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="C1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="C1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
     ]
     model.component_counter = {"V": 1, "R": 1, "C": 1, "GND": 1}
     model.analysis_type = analysis
@@ -77,7 +97,11 @@ def _build_rc_rubric():
                 check_id="r1_value",
                 check_type="component_value",
                 points=20,
-                params={"component_id": "R1", "expected_value": "1k", "tolerance_pct": 10},
+                params={
+                    "component_id": "R1",
+                    "expected_value": "1k",
+                    "tolerance_pct": 10,
+                },
                 feedback_pass="R1 value correct",
                 feedback_fail="R1 value should be approximately 1k",
             ),
@@ -331,22 +355,49 @@ class TestCircuitGraderTopology:
         """R1 and C1 not connected should fail topology check."""
         model = CircuitModel()
         model.components["V1"] = ComponentData(
-            component_id="V1", component_type="Voltage Source", value="5V", position=(0.0, 0.0)
+            component_id="V1",
+            component_type="Voltage Source",
+            value="5V",
+            position=(0.0, 0.0),
         )
         model.components["R1"] = ComponentData(
-            component_id="R1", component_type="Resistor", value="1k", position=(100.0, 0.0)
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(100.0, 0.0),
         )
         model.components["C1"] = ComponentData(
-            component_id="C1", component_type="Capacitor", value="100n", position=(200.0, 0.0)
+            component_id="C1",
+            component_type="Capacitor",
+            value="100n",
+            position=(200.0, 0.0),
         )
         model.components["GND1"] = ComponentData(
-            component_id="GND1", component_type="Ground", value="0V", position=(0.0, 100.0)
+            component_id="GND1",
+            component_type="Ground",
+            value="0V",
+            position=(0.0, 100.0),
         )
         # Wire V1-R1 and C1-GND but NOT R1-C1
         model.wires = [
-            WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-            WireData(start_component_id="C1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-            WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+            WireData(
+                start_component_id="V1",
+                start_terminal=1,
+                end_component_id="R1",
+                end_terminal=0,
+            ),
+            WireData(
+                start_component_id="C1",
+                start_terminal=1,
+                end_component_id="GND1",
+                end_terminal=0,
+            ),
+            WireData(
+                start_component_id="V1",
+                start_terminal=0,
+                end_component_id="GND1",
+                end_terminal=0,
+            ),
         ]
         model.analysis_type = "AC Sweep"
         model.rebuild_nodes()
@@ -363,7 +414,10 @@ class TestCircuitGraderGround:
     def test_missing_ground_fails(self):
         model = CircuitModel()
         model.components["R1"] = ComponentData(
-            component_id="R1", component_type="Resistor", value="1k", position=(0.0, 0.0)
+            component_id="R1",
+            component_type="Resistor",
+            value="1k",
+            position=(0.0, 0.0),
         )
         model.rebuild_nodes()
 
@@ -469,6 +523,55 @@ class TestCircuitGraderExistsByType:
         grader = CircuitGrader()
         result = grader.grade(student, rubric)
         assert result.check_results[0].passed is True
+
+
+class TestComponentExistsEmptyParams:
+    """Regression test for #536: component_exists should not silently fail with empty params."""
+
+    def test_empty_params_returns_misconfigured_feedback(self):
+        student = _build_rc_filter()
+        rubric = Rubric(
+            title="Empty Params Test",
+            total_points=10,
+            checks=[
+                RubricCheck(
+                    check_id="bad_check",
+                    check_type="component_exists",
+                    points=10,
+                    params={},
+                    feedback_pass="OK",
+                    feedback_fail="Missing",
+                )
+            ],
+        )
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        cr = result.check_results[0]
+        assert cr.passed is False
+        assert "Misconfigured" in cr.feedback
+        assert "component_id" in cr.feedback
+
+    def test_empty_string_params_returns_misconfigured_feedback(self):
+        student = _build_rc_filter()
+        rubric = Rubric(
+            title="Empty String Params Test",
+            total_points=10,
+            checks=[
+                RubricCheck(
+                    check_id="bad_check",
+                    check_type="component_exists",
+                    points=10,
+                    params={"component_id": "", "component_type": ""},
+                    feedback_pass="OK",
+                    feedback_fail="Missing",
+                )
+            ],
+        )
+        grader = CircuitGrader()
+        result = grader.grade(student, rubric)
+        cr = result.check_results[0]
+        assert cr.passed is False
+        assert "Misconfigured" in cr.feedback
 
 
 class TestGradingResult:

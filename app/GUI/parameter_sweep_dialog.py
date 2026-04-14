@@ -14,8 +14,10 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
+from utils.format_utils import format_value, parse_value
 
-from .format_utils import format_value, parse_value
+from .styles import theme_manager
+from .validation_helpers import clear_field_error, set_field_error
 
 # Component types whose primary value can be swept
 SWEEPABLE_TYPES = {
@@ -118,9 +120,16 @@ class ParameterSweepDialog(QDialog):
         # Build initial base analysis form
         self._build_base_form()
 
+        # Error label for validation feedback
+        self._error_label = QLabel("")
+        self._error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
+        self._error_label.setWordWrap(True)
+        self._error_label.hide()
+        layout.addWidget(self._error_label)
+
         # --- Buttons ---
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(self.accept)
+        buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
@@ -148,35 +157,68 @@ class ParameterSweepDialog(QDialog):
 
     def _build_base_form(self):
         """Build form fields for the selected base analysis type."""
-        # Clear existing
-        while self._base_form.count():
-            item = self._base_form.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self._base_field_widgets.clear()
+        from .plot_utils import build_analysis_base_form
 
-        from .analysis_dialog import AnalysisDialog
+        build_analysis_base_form(self._base_form, self._base_field_widgets, self.analysis_combo)
 
-        analysis_type = self.analysis_combo.currentText()
-        config = AnalysisDialog.ANALYSIS_CONFIGS.get(analysis_type, {})
+    def _on_accept(self):
+        """Validate fields before accepting the dialog."""
+        errors = self._validate()
+        if errors:
+            self._error_label.setText("\n".join(errors))
+            self._error_label.show()
+            return
+        self._error_label.hide()
+        self.accept()
 
-        tooltips = config.get("tooltips", {})
-        for field_config in config.get("fields", []):
-            if field_config[2] == "combo":
-                label, key, _, options, default = field_config
-                widget = QComboBox()
-                widget.addItems(options)
-                widget.setCurrentText(default)
-            else:
-                label, key, field_type, default = field_config
-                widget = QLineEdit(str(default))
+    def _validate(self):
+        """Validate all fields and return a list of error messages (empty if valid)."""
+        errors = []
 
-            tooltip = tooltips.get(key)
-            if tooltip:
-                widget.setToolTip(tooltip)
+        if not self.component_combo.currentData():
+            errors.append("No component selected for sweep.")
 
-            self._base_field_widgets[key] = (widget, field_config[2])
-            self._base_form.addRow(f"{label}:", widget)
+        # Validate start/stop values
+        start_ok, stop_ok = True, True
+        try:
+            parse_value(self.start_edit.text())
+            clear_field_error(self.start_edit)
+        except (ValueError, TypeError):
+            errors.append("Start value must be a valid number.")
+            set_field_error(self.start_edit, "Invalid number")
+            start_ok = False
+
+        try:
+            parse_value(self.stop_edit.text())
+            clear_field_error(self.stop_edit)
+        except (ValueError, TypeError):
+            errors.append("Stop value must be a valid number.")
+            set_field_error(self.stop_edit, "Invalid number")
+            stop_ok = False
+
+        if start_ok and stop_ok:
+            start = parse_value(self.start_edit.text())
+            stop = parse_value(self.stop_edit.text())
+            if start == stop:
+                errors.append("Start and stop values must be different.")
+                set_field_error(self.stop_edit, "Must differ from start")
+
+        # Validate base analysis params
+        for key, (widget, field_type) in self._base_field_widgets.items():
+            if field_type == "combo":
+                continue
+            if isinstance(widget, QLineEdit):
+                if field_type in ("float", "int"):
+                    try:
+                        val = parse_value(widget.text())
+                        if field_type == "int":
+                            int(val)
+                        clear_field_error(widget)
+                    except (ValueError, TypeError):
+                        errors.append(f"Base analysis parameter '{key}' must be a valid number.")
+                        set_field_error(widget, "Invalid number")
+
+        return errors
 
     def get_parameters(self):
         """

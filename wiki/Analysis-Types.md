@@ -240,6 +240,71 @@ Performs Fast Fourier Transform on transient simulation results to show the freq
 
 ---
 
+## Noise Analysis
+
+### Description
+Computes the noise contribution of each component in a circuit at a specified output node. Shows noise spectral density as a function of frequency.
+
+### When to Use
+- Analyzing noise performance of amplifier circuits
+- Identifying dominant noise sources
+- Designing low-noise signal chains
+
+### How to Run
+1. Go to **Analysis > Noise Analysis**
+2. Select the output node and reference node
+3. Configure frequency range
+4. Click **Run**
+
+### Output
+- Noise spectral density vs frequency
+- Per-component noise contribution breakdown
+
+---
+
+## Monte Carlo Analysis
+
+### Description
+Runs multiple simulations with randomized component values within specified tolerances. Shows statistical distribution of circuit behavior to assess manufacturing yield and worst-case performance.
+
+### When to Use
+- Evaluating circuit sensitivity to component tolerances
+- Estimating manufacturing yield
+- Finding worst-case operating conditions
+
+### How to Run
+1. Go to **Analysis > Monte Carlo**
+2. Set tolerances for target components
+3. Configure number of iterations and base analysis type
+4. Click **Run**
+
+### Output
+- Overlaid traces from all iterations
+- Statistical summary (mean, std dev, min/max)
+
+---
+
+## Sensitivity Analysis
+
+### Description
+Measures how much each component's value affects a circuit output. Ranks components by their impact, helping identify which tolerances matter most.
+
+### When to Use
+- Prioritizing which component tolerances to tighten
+- Understanding circuit sensitivity to parameter changes
+- Design optimization
+
+### How to Run
+1. Go to **Analysis > Sensitivity**
+2. Select the output variable to measure
+3. Click **Run**
+
+### Output
+- Table of components ranked by sensitivity and normalized sensitivity
+- Identifies which components have the most impact on circuit behavior
+
+---
+
 ## Analysis Comparison
 
 | Analysis | Domain | Typical Use | Output |
@@ -251,6 +316,9 @@ Performs Fast Fourier Transform on transient simulation results to show the freq
 | Temperature Sweep | Temperature | Thermal sensitivity | Parameters vs temperature |
 | Parameter Sweep | Varies | Component sensitivity | Overlaid traces per value |
 | FFT Analysis | Frequency | Harmonic distortion | Spectrum from transient data |
+| Noise | Frequency | Amplifier noise | Noise spectral density |
+| Monte Carlo | Statistical | Manufacturing yield | Distribution of results |
+| Sensitivity | Parametric | Component ranking | Sensitivity table |
 
 ---
 

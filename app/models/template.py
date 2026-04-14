@@ -49,6 +49,8 @@ class TemplateData:
     starter_circuit: Optional[dict] = None
     reference_circuit: Optional[dict] = None
     required_analysis: Optional[dict] = None
+    locked_components: list[str] = field(default_factory=list)
+    recommended_components: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         data = {
@@ -58,19 +60,31 @@ class TemplateData:
         }
         if self.starter_circuit is not None:
             data["starter_circuit"] = self.starter_circuit
-        if self.reference_circuit is not None:
+        if self.reference_circuit is not None and self.reference_circuit != self.starter_circuit:
             data["reference_circuit"] = self.reference_circuit
         if self.required_analysis is not None:
             data["required_analysis"] = self.required_analysis
+        if self.locked_components:
+            data["locked_components"] = list(self.locked_components)
+        if self.recommended_components:
+            data["recommended_components"] = list(self.recommended_components)
         return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "TemplateData":
+        starter = data.get("starter_circuit")
+        reference = data.get("reference_circuit")
+        # When reference_circuit was omitted because it matched starter_circuit,
+        # fall back to starter_circuit so the loaded template is complete.
+        if reference is None and starter is not None:
+            reference = starter
         return cls(
             template_version=data.get("template_version", "1.0"),
             metadata=TemplateMetadata.from_dict(data.get("metadata", {})),
             instructions=data.get("instructions", ""),
-            starter_circuit=data.get("starter_circuit"),
-            reference_circuit=data.get("reference_circuit"),
+            starter_circuit=starter,
+            reference_circuit=reference,
             required_analysis=data.get("required_analysis"),
+            locked_components=list(data.get("locked_components", [])),
+            recommended_components=list(data.get("recommended_components", [])),
         )

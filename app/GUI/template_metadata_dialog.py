@@ -3,6 +3,8 @@
 from models.template import TemplateMetadata
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QPlainTextEdit, QVBoxLayout
 
+from .styles import theme_manager
+
 
 class TemplateMetadataDialog(QDialog):
     """Dialog for entering assignment template metadata.
@@ -53,7 +55,7 @@ class TemplateMetadataDialog(QDialog):
     def _on_accept(self):
         if not self.title_edit.text().strip():
             self.title_edit.setFocus()
-            self.title_edit.setStyleSheet("border: 1px solid red;")
+            self.title_edit.setStyleSheet(theme_manager.stylesheet("error_border_thin"))
             return
         self.accept()
 

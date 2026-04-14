@@ -26,9 +26,6 @@ DEFAULT_TERMINAL_PADDING = 15  # Gap between body edge and terminal (grid-aligne
 DEFAULT_WINDOW_SIZE = (1200, 800)
 DEFAULT_SPLITTER_SIZES = [500, 300]  # Canvas height : results height
 
-# Simulation settings
-SIMULATION_TIMEOUT = 60  # Seconds before ngspice is killed
-
 # Component drag settings
 WIRE_UPDATE_DELAY_MS = 50  # Delay before rerouting wires after drag
 
@@ -37,6 +34,21 @@ ZOOM_FACTOR = 1.15  # Multiplier per zoom step
 ZOOM_MIN = 0.1  # Minimum zoom level (10%)
 ZOOM_MAX = 5.0  # Maximum zoom level (500%)
 ZOOM_FIT_PADDING = 50  # Pixels of padding when fitting to circuit
+
+# Z-value layering (higher values are drawn on top)
+Z_GRID = -1  # Grid lines and labels (background)
+Z_COMPONENT = 0  # Components (default QGraphicsItem z)
+Z_WIRE = 1  # Wires (above components)
+Z_ANNOTATION = 90  # Text annotations
+Z_WIRE_PREVIEW = 100  # Temporary wire preview during drawing
+Z_WAYPOINT_MARKER = 101  # Waypoint placement markers
+Z_SEGMENT_HANDLE = 199  # Wire segment drag handles
+Z_WAYPOINT_HANDLE = 200  # Waypoint drag handles (topmost)
+
+# Status bar message durations (milliseconds)
+STATUS_DURATION_SHORT = 2000  # Brief feedback (property edits, copy/paste)
+STATUS_DURATION_DEFAULT = 3000  # Standard messages (exports, analysis, save)
+STATUS_DURATION_LONG = 5000  # Important notices (auto-save recovery)
 
 # Waveform viewer
 INITIAL_LOAD_COUNT = 50  # Rows loaded on first display
@@ -50,6 +62,8 @@ _COLOR_KEYS = {
     "Voltage Source": "component_voltage_source",
     "Current Source": "component_current_source",
     "Waveform Source": "component_waveform_source",
+    "AC Voltage Source": "component_ac_voltage_source",
+    "AC Current Source": "component_ac_current_source",
     "Ground": "component_ground",
     "Op-Amp": "component_opamp",
     "VCVS": "component_vcvs",
@@ -64,6 +78,8 @@ _COLOR_KEYS = {
     "Diode": "component_diode",
     "LED": "component_led",
     "Zener Diode": "component_zener",
+    "Transformer": "component_transformer",
+    "Current Probe": "component_current_probe",
 }
 
 # Component definitions - symbol and terminals sourced from models

@@ -48,6 +48,7 @@ class CircuitController:
         self._observers: list[Callable[[str, Any], None]] = []
         self._clipboard = ClipboardData()
         self.undo_manager = UndoManager(max_depth=max_undo_depth)
+        self._locked_components: set[str] = set()
 
     def add_observer(self, callback: Callable[[str, Any], None]) -> None:
         """Register a callback for model change events."""
@@ -59,13 +60,20 @@ class CircuitController:
         if callback in self._observers:
             self._observers.remove(callback)
 
-    def _notify(self, event: str, data: Any) -> None:
-        """Notify all observers of a model change."""
+    def notify(self, event: str, data: Any = None) -> None:
+        """Notify all observers of a model change.
+
+        Public API for use by collaborating controllers (e.g. FileController).
+        """
         for observer in self._observers:
             try:
                 observer(event, data)
             except (TypeError, AttributeError, RuntimeError) as e:
                 logger.error("Error notifying observer: %s", e)
+
+    def _notify(self, event: str, data: Any) -> None:
+        """Notify all observers of a model change."""
+        self.notify(event, data)
 
     # --- Component operations ---
 
@@ -98,7 +106,11 @@ class CircuitController:
         Remove a component and all connected wires.
 
         Wires are removed in reverse index order to preserve indices.
+        Locked components cannot be removed.
         """
+        if self.is_component_locked(component_id):
+            logger.info("Cannot remove locked component: %s", component_id)
+            return
         wire_indices = self.model.remove_component(component_id)
         for idx in sorted(wire_indices, reverse=True):
             self.model.remove_wire(idx)
@@ -106,7 +118,9 @@ class CircuitController:
         self._notify("component_removed", component_id)
 
     def rotate_component(self, component_id: str, clockwise: bool = True) -> None:
-        """Rotate a component 90 degrees."""
+        """Rotate a component 90 degrees. Locked components cannot be rotated."""
+        if self.is_component_locked(component_id):
+            return
         component = self.model.components.get(component_id)
         if component is None:
             return
@@ -114,8 +128,20 @@ class CircuitController:
         component.rotation = (component.rotation + delta) % 360
         self._notify("component_rotated", component)
 
+    def set_component_rotation(self, component_id: str, rotation: int) -> None:
+        """Set a component's rotation to an exact value. Locked components cannot be rotated."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.rotation = rotation % 360
+        self._notify("component_rotated", component)
+
     def flip_component(self, component_id: str, horizontal: bool = True) -> None:
-        """Flip (mirror) a component horizontally or vertically."""
+        """Flip (mirror) a component. Locked components cannot be flipped."""
+        if self.is_component_locked(component_id):
+            return
         component = self.model.components.get(component_id)
         if component is None:
             return
@@ -126,20 +152,68 @@ class CircuitController:
         self._notify("component_flipped", component)
 
     def update_component_value(self, component_id: str, value: str) -> None:
-        """Update a component's value."""
+        """Update a component's value. Locked components cannot be changed."""
+        if self.is_component_locked(component_id):
+            return
         component = self.model.components.get(component_id)
         if component is None:
             return
         component.value = value
         self._notify("component_value_changed", component)
 
+    def update_component_waveform(self, component_id: str, waveform_type: str, params: dict) -> None:
+        """Update a component's waveform configuration. Locked components cannot be changed."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.waveform_type = waveform_type
+        if component.waveform_params is None:
+            component.waveform_params = {}
+        component.waveform_params[waveform_type] = params
+        component.value = component.get_spice_value()
+        self._notify("component_value_changed", component)
+
+    def update_component_initial_condition(self, component_id: str, initial_condition: Optional[str]) -> None:
+        """Update a component's initial condition. Locked components cannot be changed."""
+        if self.is_component_locked(component_id):
+            return
+        component = self.model.components.get(component_id)
+        if component is None:
+            return
+        component.initial_condition = initial_condition
+        self._notify("component_value_changed", component)
+
     def move_component(self, component_id: str, position: tuple[float, float]) -> None:
-        """Move a component to a new position."""
+        """Move a component to a new position. Locked components cannot be moved."""
+        if self.is_component_locked(component_id):
+            return
         component = self.model.components.get(component_id)
         if component is None:
             return
         component.position = position
         self._notify("component_moved", component)
+
+    # --- Locked component management ---
+
+    def set_locked_components(self, component_ids: list[str]) -> None:
+        """Set which components are locked (non-editable by students)."""
+        self._locked_components = set(component_ids)
+        self._notify("locked_components_changed", list(self._locked_components))
+
+    def is_component_locked(self, component_id: str) -> bool:
+        """Check if a component is locked."""
+        return component_id in self._locked_components
+
+    def get_locked_components(self) -> set[str]:
+        """Return the set of locked component IDs."""
+        return set(self._locked_components)
+
+    def clear_locked_components(self) -> None:
+        """Remove all component locks."""
+        self._locked_components.clear()
+        self._notify("locked_components_changed", [])
 
     # --- Wire operations ---
 
@@ -216,6 +290,34 @@ class CircuitController:
             wire.waypoints = waypoints
             self._notify("wire_routed", (wire_index, wire))
 
+    def update_wire_routing_result(
+        self,
+        wire_index: int,
+        waypoints: list[tuple[float, float]],
+        runtime: float = 0.0,
+        iterations: int = 0,
+        routing_failed: bool = False,
+    ) -> None:
+        """Store pathfinding results for a wire.
+
+        Called after the view runs pathfinding so routing metadata
+        is persisted through the controller rather than via direct model writes.
+        """
+        if 0 <= wire_index < len(self.model.wires):
+            wire = self.model.wires[wire_index]
+            wire.waypoints = waypoints
+            wire.runtime = runtime
+            wire.iterations = iterations
+            wire.routing_failed = routing_failed
+            self._notify("wire_routed", (wire_index, wire))
+
+    def set_wire_locked(self, wire_index: int, locked: bool) -> None:
+        """Set whether a wire's path is locked (skip auto-reroute)."""
+        if 0 <= wire_index < len(self.model.wires):
+            wire = self.model.wires[wire_index]
+            wire.locked = locked
+            self._notify("wire_lock_changed", (wire_index, wire))
+
     # --- Circuit operations ---
 
     def clear_circuit(self) -> None:
@@ -228,10 +330,34 @@ class CircuitController:
         self.model.rebuild_nodes()
         self._notify("nodes_rebuilt", None)
 
+    def get_nodes_and_terminal_map(self) -> tuple[list, dict]:
+        """Return (nodes, terminal_to_node) from the model.
+
+        Returns copies so callers cannot mutate the model's internal state.
+        """
+        return list(self.model.nodes), dict(self.model.terminal_to_node)
+
+    def find_node_for_terminal(self, comp_id: str, term_idx: int):
+        """Look up the node for a given terminal, or None."""
+        return self.model.terminal_to_node.get((comp_id, term_idx))
+
+    def get_component_counter(self) -> dict:
+        """Return a copy of the component counter."""
+        return dict(self.model.component_counter)
+
     def set_net_name(self, node, label) -> None:
         """Set a custom net name on a node and notify observers."""
         node.set_custom_label(label)
         self._notify("net_name_changed", node)
+
+    def to_dict(self) -> dict:
+        """Serialize the circuit model to a dictionary."""
+        return self.model.to_dict()
+
+    def set_recommended_components(self, components: list[str]) -> None:
+        """Update the file-level recommended components list."""
+        self.model.recommended_components = list(components)
+        self._notify("recommended_components_changed", self.model.recommended_components)
 
     # --- Annotation operations ---
 
@@ -374,6 +500,14 @@ class CircuitController:
         """Return whether the clipboard has content to paste."""
         return not self._clipboard.is_empty()
 
+    def set_clipboard(self, clipboard: ClipboardData) -> None:
+        """Replace the controller's clipboard with the given data."""
+        self._clipboard = clipboard
+
+    def get_clipboard_paste_count(self) -> int:
+        """Return the current clipboard paste count."""
+        return self._clipboard.paste_count
+
     # --- Undo/Redo operations ---
 
     def execute_command(self, command) -> None:
@@ -387,6 +521,15 @@ class CircuitController:
             command: A Command instance to execute
         """
         self.undo_manager.execute(command)
+        self._notify("undo_state_changed", None)
+
+    def push_already_executed(self, command) -> None:
+        """Push a pre-executed command onto the undo stack.
+
+        Used when an action has already been applied (e.g. during a drag)
+        and only needs to be recorded for undo/redo.
+        """
+        self.undo_manager.push_already_executed(command)
 
     def undo(self) -> bool:
         """
@@ -395,7 +538,10 @@ class CircuitController:
         Returns:
             True if an action was undone, False otherwise
         """
-        return self.undo_manager.undo()
+        result = self.undo_manager.undo()
+        if result:
+            self._notify("undo_state_changed", None)
+        return result
 
     def redo(self) -> bool:
         """
@@ -404,7 +550,10 @@ class CircuitController:
         Returns:
             True if an action was redone, False otherwise
         """
-        return self.undo_manager.redo()
+        result = self.undo_manager.redo()
+        if result:
+            self._notify("undo_state_changed", None)
+        return result
 
     def can_undo(self) -> bool:
         """Return whether there are commands to undo."""
@@ -425,3 +574,42 @@ class CircuitController:
     def clear_undo_history(self) -> None:
         """Clear the undo/redo history."""
         self.undo_manager.clear()
+
+    # --- Read-only query methods ---
+    # Views should use these instead of accessing self.model directly.
+
+    def get_component(self, component_id: str) -> Optional[ComponentData]:
+        """Return a single component by ID, or None."""
+        return self.model.components.get(component_id)
+
+    def get_components(self) -> dict[str, ComponentData]:
+        """Return a copy of the components dict."""
+        return dict(self.model.components)
+
+    def get_component_count(self) -> int:
+        """Return the number of components in the circuit."""
+        return len(self.model.components)
+
+    def get_wires(self) -> list[WireData]:
+        """Return a copy of the wires list."""
+        return list(self.model.wires)
+
+    def get_wire_count(self) -> int:
+        """Return the number of wires in the circuit."""
+        return len(self.model.wires)
+
+    def get_nodes(self) -> list:
+        """Return a copy of the nodes list."""
+        return list(self.model.nodes)
+
+    def get_annotations(self) -> list[AnnotationData]:
+        """Return a copy of the annotations list."""
+        return list(self.model.annotations)
+
+    def has_ground(self) -> bool:
+        """Return whether the circuit has a ground component."""
+        return any(n.is_ground for n in self.model.nodes)
+
+    def get_terminal_to_node(self) -> dict:
+        """Return a copy of the terminal-to-node mapping."""
+        return dict(self.model.terminal_to_node)

@@ -6,7 +6,7 @@ Calculates power dissipation for each component from DC operating point results.
 
 import logging
 
-from GUI.format_utils import parse_value
+from utils.format_utils import parse_value
 
 logger = logging.getLogger(__name__)
 

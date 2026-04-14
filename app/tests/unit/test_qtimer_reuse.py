@@ -24,13 +24,11 @@ class TestScheduleControllerUpdateTimerReuse:
     """_schedule_controller_update() should reuse the same QTimer."""
 
     def _make_comp_with_scene(self):
-        """Create a mock component with mocked scene and controller."""
+        """Create a mock component with mocked canvas and controller."""
         comp = _make_mock_comp()
         mock_canvas = MagicMock()
         mock_canvas.controller = MagicMock()
-        mock_scene = MagicMock()
-        mock_scene.views.return_value = [mock_canvas]
-        comp.scene.return_value = mock_scene
+        comp.canvas = mock_canvas
         return comp
 
     @patch("GUI.component_item.QTimer")
@@ -60,10 +58,10 @@ class TestScheduleControllerUpdateTimerReuse:
         assert mock_timer.start.call_count == 2
 
     @patch("GUI.component_item.QTimer")
-    def test_position_timer_no_scene_skips(self, MockQTimer):
-        """If no scene, should not create timer."""
+    def test_position_timer_no_canvas_skips(self, MockQTimer):
+        """If no canvas, should not create timer."""
         comp = _make_mock_comp()
-        comp.scene.return_value = None
+        comp.canvas = None
 
         comp._schedule_controller_update()
 

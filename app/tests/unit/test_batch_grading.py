@@ -40,10 +40,30 @@ def _build_circuit(r_value="1k", c_value="100n"):
         position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="C1", end_terminal=0),
-        WireData(start_component_id="C1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="R1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="C1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="C1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
     ]
     model.component_counter = {"V": 1, "R": 1, "C": 1, "GND": 1}
     model.analysis_type = "AC Sweep"
@@ -68,7 +88,11 @@ def _build_rubric():
                 check_id="r1_value",
                 check_type="component_value",
                 points=25,
-                params={"component_id": "R1", "expected_value": "1k", "tolerance_pct": 10},
+                params={
+                    "component_id": "R1",
+                    "expected_value": "1k",
+                    "tolerance_pct": 10,
+                },
                 feedback_pass="R1 value OK",
                 feedback_fail="R1 value wrong",
             ),
@@ -295,6 +319,80 @@ class TestGradeExporter:
         assert "r1_exists (25pts)" in header
         assert "r1_value (25pts)" in header
 
+    def test_csv_handles_differing_check_results(self, tmp_path):
+        """Regression test for #534: CSV export should not assume identical check_results."""
+        from grading.grader import CheckGradeResult, GradingResult
+
+        # Student A has checks [r1_exists, r1_value]
+        # Student B has only [r1_exists] (different checks)
+        gr_a = GradingResult(
+            student_file="alice.json",
+            rubric_title="Test",
+            total_points=50,
+            earned_points=50,
+            check_results=[
+                CheckGradeResult(
+                    check_id="r1_exists",
+                    passed=True,
+                    points_earned=25,
+                    points_possible=25,
+                    feedback="OK",
+                ),
+                CheckGradeResult(
+                    check_id="r1_value",
+                    passed=True,
+                    points_earned=25,
+                    points_possible=25,
+                    feedback="OK",
+                ),
+            ],
+        )
+        gr_b = GradingResult(
+            student_file="bob.json",
+            rubric_title="Test",
+            total_points=50,
+            earned_points=25,
+            check_results=[
+                CheckGradeResult(
+                    check_id="r1_exists",
+                    passed=True,
+                    points_earned=25,
+                    points_possible=25,
+                    feedback="OK",
+                ),
+            ],
+        )
+        result = BatchGradingResult(
+            rubric_title="Test",
+            total_students=2,
+            successful=2,
+            failed=0,
+            results=[gr_a, gr_b],
+        )
+
+        csv_path = tmp_path / "gradebook.csv"
+        export_gradebook_csv(result, str(csv_path))
+
+        with open(csv_path) as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            row_a = next(reader)
+            row_b = next(reader)
+
+        # Both check columns should be in the header
+        assert "r1_exists (25pts)" in header
+        assert "r1_value (25pts)" in header
+
+        # Alice should have scores in both columns
+        r1_exists_idx = header.index("r1_exists (25pts)")
+        r1_value_idx = header.index("r1_value (25pts)")
+        assert row_a[r1_exists_idx] == "25"
+        assert row_a[r1_value_idx] == "25"
+
+        # Bob should have r1_exists but empty for r1_value
+        assert row_b[r1_exists_idx] == "25"
+        assert row_b[r1_value_idx] == ""
+
 
 class TestBatchGradingDialog:
     def test_dialog_creates(self, qtbot):
@@ -329,3 +427,87 @@ class TestBatchGradingDialog:
         dialog = BatchGradingDialog()
         qtbot.addWidget(dialog)
         assert not dialog.results_group.isVisible()
+
+    def test_show_comparison_does_not_crash(self, qtbot):
+        """Regression test for #501: NameError on undefined 'result' variable."""
+        from grading.batch_grader import BatchGradingResult
+        from grading.grader import CheckGradeResult, GradingResult
+        from GUI.batch_grading_dialog import BatchGradingDialog
+        from models.grading_session import GradingSessionData
+
+        dialog = BatchGradingDialog()
+        qtbot.addWidget(dialog)
+
+        # Set up a batch result on the dialog
+        gr = GradingResult(
+            student_file="alice.json",
+            rubric_title="Test",
+            total_points=10,
+            earned_points=10,
+            check_results=[
+                CheckGradeResult(
+                    check_id="r1_exists",
+                    passed=True,
+                    points_earned=10,
+                    points_possible=10,
+                    feedback="OK",
+                )
+            ],
+        )
+        dialog._batch_result = BatchGradingResult(
+            rubric_title="Test",
+            total_students=1,
+            successful=1,
+            failed=0,
+            results=[gr],
+        )
+
+        # Build a previous session to compare against
+        old_session = GradingSessionData(
+            rubric_title="Test",
+            results=[
+                {
+                    "student_file": "alice.json",
+                    "rubric_title": "Test",
+                    "total_points": 10,
+                    "earned_points": 5,
+                    "check_results": [],
+                }
+            ],
+        )
+
+        # This previously raised NameError: name 'result' is not defined
+        dialog._show_comparison(old_session)
+
+    def test_grading_runs_in_background_thread(self, qtbot, tmp_path):
+        """Regression test for #533: grading should run in a QThread, not the UI thread."""
+        from GUI.batch_grading_dialog import BatchGradingDialog, _GradingWorker
+
+        submissions = tmp_path / "submissions"
+        submissions.mkdir()
+        _save_circuit(_build_circuit(), submissions / "student.json")
+
+        rubric = _build_rubric()
+
+        dialog = BatchGradingDialog()
+        qtbot.addWidget(dialog)
+        dialog._rubric = rubric
+        dialog.folder_path.setText(str(submissions))
+
+        # Trigger grading — should launch a _GradingWorker, not block
+        dialog._on_grade()
+        assert dialog._worker is not None
+        assert isinstance(dialog._worker, _GradingWorker)
+
+        # Wait for the worker thread to finish
+        dialog._worker.wait(5000)
+
+        # Process pending signals so _on_grading_finished fires
+        from PyQt6.QtCore import QCoreApplication
+
+        QCoreApplication.processEvents()
+
+        # After finishing, results should be populated
+        assert dialog._batch_result is not None
+        assert dialog._batch_result.successful == 1
+        assert dialog._worker is None  # Worker cleaned up

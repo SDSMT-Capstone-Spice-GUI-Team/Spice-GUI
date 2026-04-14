@@ -1,0 +1,500 @@
+"""Unified Preferences dialog for application settings."""
+
+from controllers.settings_service import settings
+from controllers.theme_controller import theme_ctrl
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+from services import palette_profiles
+
+from .styles import CustomTheme, theme_manager, theme_store
+from .styles.font_loader import DYSLEXIA_FONT_FAMILY, available_font_families
+
+_STYLE_ITEMS = [("IEEE / ANSI", "ieee"), ("IEC (European)", "iec")]
+_STYLE_VALUES = {"ieee": 0, "iec": 1}
+
+_COLOR_ITEMS = [("Color", "color"), ("Monochrome", "monochrome")]
+_COLOR_VALUES = {"color": 0, "monochrome": 1}
+
+_WIRE_THICKNESS_ITEMS = [
+    ("Thin (1px)", "thin"),
+    ("Normal (2px)", "normal"),
+    ("Thick (3px)", "thick"),
+]
+_WIRE_THICKNESS_VALUES = {"thin": 0, "normal": 1, "thick": 2}
+
+_ZOOM_ITEMS = [("50%", 50), ("75%", 75), ("100%", 100), ("125%", 125), ("150%", 150)]
+_ZOOM_VALUES = {50: 0, 75: 1, 100: 2, 125: 3, 150: 4}
+
+_SENTINEL = object()
+
+
+class PreferencesDialog(QDialog):
+    """Tabbed preferences dialog with live preview and snapshot-revert on cancel."""
+
+    def __init__(self, main_window, parent=_SENTINEL):
+        super().__init__(main_window if parent is _SENTINEL else parent)
+        self.main_window = main_window
+        self._accepted = False
+        self.setWindowTitle("Preferences")
+        self.setMinimumWidth(480)
+
+        self._snapshot_settings()
+        self._build_ui()
+        self._load_current_values()
+        self._connect_signals()
+
+    # ---- snapshot / revert ------------------------------------------------
+
+    def _snapshot_settings(self):
+        """Capture current appearance and autosave settings for revert."""
+        self._snap_theme_key = theme_manager.get_theme_key()
+        self._snap_theme_obj = theme_manager.current_theme
+        self._snap_symbol_style = theme_manager.symbol_style
+        self._snap_color_mode = theme_manager.color_mode
+        self._snap_wire_thickness = theme_manager.wire_thickness
+        self._snap_show_junction_dots = theme_manager.show_junction_dots
+        self._snap_autosave_enabled = settings.get("autosave/enabled", True)
+        self._snap_autosave_interval = settings.get_int("autosave/interval", 60)
+        self._snap_default_zoom = settings.get_int("view/default_zoom", 100)
+        self._snap_font_family = theme_manager.font_family
+        self._snap_palette_profile = palette_profiles.get_active_profile_key()
+
+    def _revert_settings(self):
+        """Restore appearance and autosave to snapshot values."""
+        theme_ctrl.set_theme(self._snap_theme_obj)
+        self.main_window.apply_theme()
+        self.main_window.set_symbol_style(self._snap_symbol_style)
+        self.main_window.set_color_mode(self._snap_color_mode)
+        self.main_window.set_wire_thickness(self._snap_wire_thickness)
+        self.main_window.set_show_junction_dots(self._snap_show_junction_dots)
+        settings.set("autosave/enabled", self._snap_autosave_enabled)
+        settings.set("autosave/interval", self._snap_autosave_interval)
+        settings.set("view/default_zoom", self._snap_default_zoom)
+        theme_ctrl.set_font_family(self._snap_font_family)
+        self.main_window.apply_theme()
+        # Restore palette profile
+        if palette_profiles.get_active_profile_key() != self._snap_palette_profile:
+            palette_profiles.set_active_profile_key(self._snap_palette_profile)
+            if hasattr(self.main_window, "palette") and hasattr(self.main_window.palette, "reload_layout"):
+                self.main_window.palette.reload_layout()
+        self.main_window.start_autosave_timer()
+
+    # ---- UI construction --------------------------------------------------
+
+    def _build_ui(self):
+        layout = QVBoxLayout(self)
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
+
+        self.tabs.addTab(self._build_appearance_tab(), "Appearance")
+        self.tabs.addTab(self._build_grid_tab(), "Grid")
+        self.tabs.addTab(self._build_behavior_tab(), "Behavior")
+        self.tabs.addTab(self._build_keybindings_tab(), "Keybindings")
+
+        # Button row
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        ok_btn = QPushButton("OK")
+        ok_btn.clicked.connect(self._on_ok)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self._on_cancel)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+    def _build_appearance_tab(self):
+        widget = QWidget()
+        form = QFormLayout(widget)
+
+        # Theme combo — dynamically populated
+        self.theme_combo = QComboBox()
+        self._populate_theme_combo()
+        form.addRow("Theme:", self.theme_combo)
+
+        # Theme management buttons
+        theme_btn_layout = QHBoxLayout()
+        self.new_theme_btn = QPushButton("New...")
+        self.new_theme_btn.clicked.connect(self._on_new_theme)
+        self.edit_theme_btn = QPushButton("Edit...")
+        self.edit_theme_btn.clicked.connect(self._on_edit_theme)
+        self.delete_theme_btn = QPushButton("Delete")
+        self.delete_theme_btn.clicked.connect(self._on_delete_theme)
+        theme_btn_layout.addWidget(self.new_theme_btn)
+        theme_btn_layout.addWidget(self.edit_theme_btn)
+        theme_btn_layout.addWidget(self.delete_theme_btn)
+        form.addRow("", theme_btn_layout)
+
+        # Import/Export
+        ie_layout = QHBoxLayout()
+        import_btn = QPushButton("Import...")
+        import_btn.clicked.connect(self._on_import_theme)
+        export_btn = QPushButton("Export...")
+        export_btn.clicked.connect(self._on_export_theme)
+        ie_layout.addWidget(import_btn)
+        ie_layout.addWidget(export_btn)
+        ie_layout.addStretch()
+        form.addRow("", ie_layout)
+
+        self.style_combo = QComboBox()
+        for label, _val in _STYLE_ITEMS:
+            self.style_combo.addItem(label)
+        form.addRow("Symbol Style:", self.style_combo)
+
+        self.color_combo = QComboBox()
+        for label, _val in _COLOR_ITEMS:
+            self.color_combo.addItem(label)
+        form.addRow("Color Mode:", self.color_combo)
+
+        # Wire rendering preferences
+        self.wire_thickness_combo = QComboBox()
+        for label, _val in _WIRE_THICKNESS_ITEMS:
+            self.wire_thickness_combo.addItem(label)
+        form.addRow("Wire Thickness:", self.wire_thickness_combo)
+
+        self.junction_dots_checkbox = QCheckBox("Show junction dots at wire intersections")
+        form.addRow(self.junction_dots_checkbox)
+
+        # Font family
+        self.font_combo = QComboBox()
+        self.font_combo.addItem("System Default", "")
+        for family in available_font_families():
+            self.font_combo.addItem(family, family)
+        form.addRow("Font:", self.font_combo)
+
+        # Dyslexia-friendly shortcut
+        self.dyslexia_checkbox = QCheckBox("Use dyslexia-friendly font (OpenDyslexic)")
+        form.addRow(self.dyslexia_checkbox)
+
+        # Palette profile (component palette layout)
+        self.palette_profile_combo = QComboBox()
+        self._palette_profile_keys: list[str] = []
+        for display_name, key in palette_profiles.list_profiles():
+            self.palette_profile_combo.addItem(display_name)
+            self._palette_profile_keys.append(key)
+        form.addRow("Palette Profile:", self.palette_profile_combo)
+
+        self._update_theme_buttons()
+        return widget
+
+    def _populate_theme_combo(self):
+        """Fill theme combo from theme_manager.get_available_themes()."""
+        self.theme_combo.blockSignals(True)
+        self.theme_combo.clear()
+        self._theme_keys = []
+        for display_name, key in theme_manager.get_available_themes():
+            self.theme_combo.addItem(display_name)
+            self._theme_keys.append(key)
+        self.theme_combo.blockSignals(False)
+
+    def _update_theme_buttons(self):
+        """Enable/disable Edit and Delete based on current selection."""
+        idx = self.theme_combo.currentIndex()
+        is_custom = idx >= 0 and idx < len(self._theme_keys) and self._theme_keys[idx].startswith("custom:")
+        self.edit_theme_btn.setEnabled(is_custom)
+        self.delete_theme_btn.setEnabled(is_custom)
+
+    def _build_grid_tab(self):
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.addWidget(QLabel("Grid settings will be available in a future update."))
+        layout.addStretch()
+        return widget
+
+    def _build_behavior_tab(self):
+        widget = QWidget()
+        form = QFormLayout(widget)
+
+        self.autosave_checkbox = QCheckBox("Enable auto-save")
+        form.addRow(self.autosave_checkbox)
+
+        self.autosave_spin = QSpinBox()
+        self.autosave_spin.setRange(10, 600)
+        self.autosave_spin.setSingleStep(10)
+        self.autosave_spin.setSuffix(" seconds")
+        form.addRow("Auto-save interval:", self.autosave_spin)
+
+        self.default_zoom_combo = QComboBox()
+        for label, _val in _ZOOM_ITEMS:
+            self.default_zoom_combo.addItem(label)
+        form.addRow("Default zoom level:", self.default_zoom_combo)
+
+        return widget
+
+    def _build_keybindings_tab(self):
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.addWidget(QLabel("Keyboard shortcuts can be customized in the keybindings editor."))
+        self.keybindings_btn = QPushButton("Open Keybindings Editor...")
+        self.keybindings_btn.clicked.connect(self._open_keybindings)
+        layout.addWidget(self.keybindings_btn)
+        layout.addStretch()
+        return widget
+
+    # ---- Load current values into widgets ---------------------------------
+
+    def _load_current_values(self):
+        current_key = theme_manager.get_theme_key()
+        if current_key in self._theme_keys:
+            self.theme_combo.setCurrentIndex(self._theme_keys.index(current_key))
+        else:
+            self.theme_combo.setCurrentIndex(0)
+
+        self.style_combo.setCurrentIndex(_STYLE_VALUES.get(self._snap_symbol_style, 0))
+        self.color_combo.setCurrentIndex(_COLOR_VALUES.get(self._snap_color_mode, 0))
+        self.wire_thickness_combo.setCurrentIndex(_WIRE_THICKNESS_VALUES.get(self._snap_wire_thickness, 1))
+        self.junction_dots_checkbox.setChecked(self._snap_show_junction_dots)
+
+        enabled = self._snap_autosave_enabled
+        autosave_on = enabled != "false" and enabled is not False
+        self.autosave_checkbox.setChecked(autosave_on)
+        self.autosave_spin.setValue(self._snap_autosave_interval)
+        self.autosave_spin.setEnabled(autosave_on)
+
+        self.default_zoom_combo.setCurrentIndex(_ZOOM_VALUES.get(self._snap_default_zoom, 2))
+
+        # Font family
+        current_family = self._snap_font_family
+        self.dyslexia_checkbox.setChecked(current_family == DYSLEXIA_FONT_FAMILY)
+        idx = self.font_combo.findData(current_family)
+        if idx >= 0:
+            self.font_combo.setCurrentIndex(idx)
+        self.font_combo.setEnabled(current_family != DYSLEXIA_FONT_FAMILY)
+
+        # Palette profile
+        if self._snap_palette_profile in self._palette_profile_keys:
+            self.palette_profile_combo.setCurrentIndex(self._palette_profile_keys.index(self._snap_palette_profile))
+        else:
+            self.palette_profile_combo.setCurrentIndex(0)
+
+    # ---- Signal wiring (live preview) -------------------------------------
+
+    def _connect_signals(self):
+        self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
+        self.style_combo.currentIndexChanged.connect(self._on_style_changed)
+        self.color_combo.currentIndexChanged.connect(self._on_color_changed)
+        self.wire_thickness_combo.currentIndexChanged.connect(self._on_wire_thickness_changed)
+        self.junction_dots_checkbox.toggled.connect(self._on_junction_dots_changed)
+        self.font_combo.currentIndexChanged.connect(self._on_font_changed)
+        self.dyslexia_checkbox.toggled.connect(self._on_dyslexia_toggled)
+        self.autosave_checkbox.toggled.connect(self.autosave_spin.setEnabled)
+        self.palette_profile_combo.currentIndexChanged.connect(self._on_palette_profile_changed)
+
+    def _on_palette_profile_changed(self, index):
+        if 0 <= index < len(self._palette_profile_keys):
+            key = self._palette_profile_keys[index]
+            palette_profiles.set_active_profile_key(key)
+            if hasattr(self.main_window, "palette") and hasattr(self.main_window.palette, "reload_layout"):
+                self.main_window.palette.reload_layout()
+
+    def _on_theme_changed(self, index):
+        if 0 <= index < len(self._theme_keys):
+            key = self._theme_keys[index]
+            theme_ctrl.set_theme_by_key(key)
+            self.main_window.apply_theme()
+            self._update_theme_buttons()
+            # Sync the View > Theme menu checkmarks
+            if hasattr(self.main_window, "refresh_theme_menu"):
+                self.main_window.refresh_theme_menu()
+
+    def _on_style_changed(self, index):
+        self.main_window.set_symbol_style(_STYLE_ITEMS[index][1])
+
+    def _on_color_changed(self, index):
+        self.main_window.set_color_mode(_COLOR_ITEMS[index][1])
+
+    def _on_wire_thickness_changed(self, index):
+        self.main_window.set_wire_thickness(_WIRE_THICKNESS_ITEMS[index][1])
+
+    def _on_junction_dots_changed(self, checked):
+        self.main_window.set_show_junction_dots(checked)
+
+    def _on_font_changed(self, index):
+        family = self.font_combo.itemData(index) or ""
+        theme_ctrl.set_font_family(family)
+        self.main_window.apply_theme()
+        # Uncheck dyslexia box if user picks a different font
+        if family != DYSLEXIA_FONT_FAMILY:
+            self.dyslexia_checkbox.blockSignals(True)
+            self.dyslexia_checkbox.setChecked(False)
+            self.dyslexia_checkbox.blockSignals(False)
+
+    def _on_dyslexia_toggled(self, checked):
+        if checked:
+            self._font_index_before_dyslexia = self.font_combo.currentIndex()
+            theme_ctrl.set_font_family(DYSLEXIA_FONT_FAMILY)
+            idx = self.font_combo.findData(DYSLEXIA_FONT_FAMILY)
+            if idx >= 0:
+                self.font_combo.blockSignals(True)
+                self.font_combo.setCurrentIndex(idx)
+                self.font_combo.blockSignals(False)
+            self.font_combo.setEnabled(False)
+        else:
+            self.font_combo.setEnabled(True)
+            restore_idx = getattr(self, "_font_index_before_dyslexia", 0)
+            self.font_combo.blockSignals(True)
+            self.font_combo.setCurrentIndex(restore_idx)
+            self.font_combo.blockSignals(False)
+            family = self.font_combo.itemData(restore_idx) or ""
+            theme_ctrl.set_font_family(family)
+        self.main_window.apply_theme()
+
+    # ---- Theme management -------------------------------------------------
+
+    def _on_new_theme(self):
+        from .theme_editor_dialog import ThemeEditorDialog
+
+        dialog = ThemeEditorDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            theme = dialog.get_theme()
+            if theme is not None:
+                theme_store.save_theme(theme)
+                self._populate_theme_combo()
+                key = f"custom:{theme_store._filename_safe(theme.name)}"
+                if key in self._theme_keys:
+                    self.theme_combo.setCurrentIndex(self._theme_keys.index(key))
+                self._update_theme_buttons()
+                if hasattr(self.main_window, "refresh_theme_menu"):
+                    self.main_window.refresh_theme_menu()
+
+    def _on_edit_theme(self):
+        idx = self.theme_combo.currentIndex()
+        if idx < 0 or idx >= len(self._theme_keys):
+            return
+        key = self._theme_keys[idx]
+        if not key.startswith("custom:"):
+            return
+
+        current_theme = theme_manager.current_theme
+        if not isinstance(current_theme, CustomTheme):
+            return
+
+        from .theme_editor_dialog import ThemeEditorDialog
+
+        dialog = ThemeEditorDialog(self, edit_theme=current_theme)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            theme = dialog.get_theme()
+            if theme is not None:
+                # Delete old file if name changed
+                old_stem = key[len("custom:") :]
+                new_stem = theme_store._filename_safe(theme.name)
+                if old_stem != new_stem:
+                    theme_store.delete_theme(old_stem)
+                theme_store.save_theme(theme)
+                self._populate_theme_combo()
+                new_key = f"custom:{new_stem}"
+                if new_key in self._theme_keys:
+                    self.theme_combo.setCurrentIndex(self._theme_keys.index(new_key))
+                self._update_theme_buttons()
+                if hasattr(self.main_window, "refresh_theme_menu"):
+                    self.main_window.refresh_theme_menu()
+
+    def _on_delete_theme(self):
+        idx = self.theme_combo.currentIndex()
+        if idx < 0 or idx >= len(self._theme_keys):
+            return
+        key = self._theme_keys[idx]
+        if not key.startswith("custom:"):
+            return
+
+        name = self.theme_combo.currentText()
+        reply = QMessageBox.question(
+            self,
+            "Delete Theme",
+            f'Delete custom theme "{name}"?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        stem = key[len("custom:") :]
+        theme_store.delete_theme(stem)
+        # Switch to Light theme
+        theme_ctrl.set_theme_by_key("light")
+        self.main_window.apply_theme()
+        self._populate_theme_combo()
+        self.theme_combo.setCurrentIndex(0)
+        self._update_theme_buttons()
+        if hasattr(self.main_window, "refresh_theme_menu"):
+            self.main_window.refresh_theme_menu()
+
+    def _on_import_theme(self):
+        from pathlib import Path
+
+        path, _ = QFileDialog.getOpenFileName(self, "Import Theme", "", "Theme Files (*.json);;All Files (*)")
+        if not path:
+            return
+        theme = theme_store.import_theme(Path(path))
+        if theme is not None:
+            self._populate_theme_combo()
+            key = f"custom:{theme_store._filename_safe(theme.name)}"
+            if key in self._theme_keys:
+                self.theme_combo.setCurrentIndex(self._theme_keys.index(key))
+            self._update_theme_buttons()
+            if hasattr(self.main_window, "refresh_theme_menu"):
+                self.main_window.refresh_theme_menu()
+        else:
+            QMessageBox.warning(self, "Import Failed", "Could not import the theme file.")
+
+    def _on_export_theme(self):
+        from pathlib import Path
+
+        current = theme_manager.current_theme
+        if not isinstance(current, CustomTheme):
+            QMessageBox.information(self, "Export Theme", "Only custom themes can be exported.")
+            return
+
+        default_name = theme_store._filename_safe(current.name) + ".json"
+        path, _ = QFileDialog.getSaveFileName(self, "Export Theme", default_name, "Theme Files (*.json);;All Files (*)")
+        if not path:
+            return
+        theme_store.export_theme(current, Path(path))
+
+    # ---- Button handlers --------------------------------------------------
+
+    def _on_ok(self):
+        """Persist all settings and close."""
+        settings.set("autosave/enabled", self.autosave_checkbox.isChecked())
+        settings.set("autosave/interval", self.autosave_spin.value())
+        zoom_index = self.default_zoom_combo.currentIndex()
+        settings.set("view/default_zoom", _ZOOM_ITEMS[zoom_index][1])
+        self.main_window.start_autosave_timer()
+        # Persist theme key
+        settings.set("view/theme_key", theme_manager.get_theme_key())
+        settings.set("view/theme", theme_manager.current_theme.name)
+        settings.set("view/symbol_style", theme_manager.symbol_style)
+        settings.set("view/color_mode", theme_manager.color_mode)
+        settings.set("view/wire_thickness", theme_manager.wire_thickness)
+        settings.set("view/show_junction_dots", theme_manager.show_junction_dots)
+        settings.set("view/font_family", theme_manager.font_family)
+        self._accepted = True
+        self.close()
+
+    def _on_cancel(self):
+        """Revert to snapshot and close."""
+        self._revert_settings()
+        self.close()
+
+    def closeEvent(self, event):
+        """Treat window close (X button) as Cancel if not accepted."""
+        if not self._accepted:
+            self._revert_settings()
+        super().closeEvent(event)
+
+    # ---- Helpers ----------------------------------------------------------
+
+    def _open_keybindings(self):
+        """Open the keybindings editor dialog."""
+        self.main_window.open_keybindings_dialog()

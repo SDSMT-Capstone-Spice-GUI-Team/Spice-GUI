@@ -1,17 +1,163 @@
 import logging
-import os
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # path_finding imported lazily in update_position() for faster startup
 from models.wire import WireData
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPainterPath, QPainterPathStroker, QPen
-from PyQt6.QtWidgets import QGraphicsPathItem
+from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtGui import QBrush, QPainterPath, QPainterPathStroker, QPen
+from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem
 
-from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, theme_manager
+from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, Z_SEGMENT_HANDLE, Z_WAYPOINT_HANDLE, Z_WIRE, theme_manager
+
+# Radius of the draggable waypoint handles (in scene units)
+_HANDLE_RADIUS = 5
 
 logger = logging.getLogger(__name__)
+
+
+class WaypointHandle(QGraphicsEllipseItem):
+    """Small draggable circle displayed at a wire waypoint.
+
+    When the user drags a handle the parent wire's waypoints list are
+    updated in real time and the wire path is redrawn.  On release the
+    model is synced via an undoable command so Ctrl+Z works.
+
+    Movement is constrained to one axis (horizontal **or** vertical)
+    to preserve orthogonal routing.
+    """
+
+    def __init__(self, wire: "WireGraphicsItem", index: int, pos: QPointF):
+        r = _HANDLE_RADIUS
+        super().__init__(-r, -r, 2 * r, 2 * r)
+        self._wire = wire
+        self._index = index
+        self._drag_origin: QPointF | None = None
+        self._axis: str | None = None  # "h" or "v" once locked
+        self.setPos(pos)
+        self.setBrush(QBrush(theme_manager.color("wire_selected")))
+        self.setPen(QPen(Qt.GlobalColor.white, 1))
+        self.setZValue(Z_WAYPOINT_HANDLE)  # Above everything
+        self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.setCursor(Qt.CursorShape.SizeAllCursor)
+
+    def mousePressEvent(self, event):
+        self._drag_origin = self.pos()
+        self._axis = None
+        super().mousePressEvent(event)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsEllipseItem.GraphicsItemChange.ItemPositionHasChanged:
+            new_pos = value
+            # Snap to grid
+            snapped = QPointF(
+                round(new_pos.x() / GRID_SIZE) * GRID_SIZE,
+                round(new_pos.y() / GRID_SIZE) * GRID_SIZE,
+            )
+            # Enforce single-axis movement for orthogonal routing
+            if self._drag_origin is not None:
+                if self._axis is None:
+                    dx = abs(snapped.x() - self._drag_origin.x())
+                    dy = abs(snapped.y() - self._drag_origin.y())
+                    if dx > 0 or dy > 0:
+                        self._axis = "h" if dx >= dy else "v"
+                if self._axis == "h":
+                    snapped = QPointF(snapped.x(), self._drag_origin.y())
+                elif self._axis == "v":
+                    snapped = QPointF(self._drag_origin.x(), snapped.y())
+            self._wire._move_waypoint(self._index, snapped)
+        return super().itemChange(change, value)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        # Snap position visually after drag
+        snapped = QPointF(
+            round(self.pos().x() / GRID_SIZE) * GRID_SIZE,
+            round(self.pos().y() / GRID_SIZE) * GRID_SIZE,
+        )
+        if self._drag_origin is not None:
+            if self._axis == "h":
+                snapped = QPointF(snapped.x(), self._drag_origin.y())
+            elif self._axis == "v":
+                snapped = QPointF(self._drag_origin.x(), snapped.y())
+        self.setPos(snapped)
+        self._wire._finish_waypoint_drag()
+        self._drag_origin = None
+        self._axis = None
+
+
+class SegmentHandle(QGraphicsEllipseItem):
+    """Handle placed at the midpoint of a wire segment.
+
+    Dragging this handle inserts a new waypoint pair that creates an
+    orthogonal detour while keeping the wire path orthogonal.
+    """
+
+    def __init__(self, wire: "WireGraphicsItem", segment_index: int, pos: QPointF):
+        r = _HANDLE_RADIUS - 1
+        super().__init__(-r, -r, 2 * r, 2 * r)
+        self._wire = wire
+        self._segment_index = segment_index
+        self._drag_origin: QPointF | None = None
+        self._inserted = False
+        self._handle_index: int | None = None
+        self.setPos(pos)
+        color = theme_manager.color("wire_selected").lighter(140)
+        self.setBrush(QBrush(color))
+        self.setPen(QPen(Qt.GlobalColor.white, 1))
+        self.setZValue(Z_SEGMENT_HANDLE)
+        self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.setCursor(Qt.CursorShape.SizeAllCursor)
+
+    def mousePressEvent(self, event):
+        self._drag_origin = self.pos()
+        super().mousePressEvent(event)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsEllipseItem.GraphicsItemChange.ItemPositionHasChanged:
+            new_pos = value
+            snapped = QPointF(
+                round(new_pos.x() / GRID_SIZE) * GRID_SIZE,
+                round(new_pos.y() / GRID_SIZE) * GRID_SIZE,
+            )
+            if not self._inserted and self._drag_origin is not None:
+                dx = abs(snapped.x() - self._drag_origin.x())
+                dy = abs(snapped.y() - self._drag_origin.y())
+                if dx > 0 or dy > 0:
+                    self._insert_pair(snapped)
+            elif self._inserted and self._handle_index is not None:
+                # Constrain to the axis determined at insertion
+                if self._axis == "h":
+                    snapped = QPointF(snapped.x(), self._drag_origin.y())
+                else:
+                    snapped = QPointF(self._drag_origin.x(), snapped.y())
+                self._wire._move_waypoint(self._handle_index, snapped)
+        return super().itemChange(change, value)
+
+    def _insert_pair(self, pos: QPointF):
+        """Insert two new waypoints to create an orthogonal detour."""
+        origin = self._drag_origin
+        dx = abs(pos.x() - origin.x())
+        dy = abs(pos.y() - origin.y())
+        # Determine axis: user is dragging perpendicular to the segment
+        self._axis = "v" if dx >= dy else "h"
+
+        seg = self._segment_index
+        # Insert two waypoints at the origin position; the dragged one will move
+        wp1 = QPointF(origin.x(), origin.y())
+        wp2 = QPointF(origin.x(), origin.y())
+        self._wire.waypoints.insert(seg + 1, wp1)
+        self._wire.waypoints.insert(seg + 2, wp2)
+        # The user drags wp at seg+1
+        self._handle_index = seg + 1
+        self._inserted = True
+        self._wire._rebuild_path_from_waypoints()
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        if self._inserted:
+            self._wire._finish_waypoint_drag()
+        self._drag_origin = None
 
 
 class WireGraphicsItem(QGraphicsPathItem):
@@ -64,10 +210,21 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         self.waypoints = []  # List of QPointF waypoints (computed during routing)
 
-        self.setPen(QPen(self.layer_color, 2))
+        self._waypoint_handles: list[WaypointHandle] = []
+        self._pre_drag_waypoints: list[tuple[float, float]] = []
+
+        self._hovered = False
+
+        self.setPen(QPen(self.layer_color, theme_manager.wire_thickness_px))
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable)
-        self.setZValue(1)  # Render wires above components (z=0)
-        self.update_position()
+        self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+        self.setAcceptHoverEvents(True)
+        self.setZValue(Z_WIRE)  # Render wires above components (z=0)
+
+        if self.model.waypoints:
+            self._restore_waypoints()
+        else:
+            self.update_position()
 
     # --- Data delegation properties ---
 
@@ -75,19 +232,16 @@ class WireGraphicsItem(QGraphicsPathItem):
     def runtime(self):
         return self.model.runtime
 
-    @runtime.setter
-    def runtime(self, value):
-        self.model.runtime = value
-
     @property
     def iterations(self):
         return self.model.iterations
 
-    @iterations.setter
-    def iterations(self, value):
-        self.model.iterations = value
-
     # --- Methods ---
+
+    def _persist_routing_result(self, waypoints, runtime=0.0, iterations=0, routing_failed=False):
+        """Persist pathfinding results through the canvas/controller."""
+        if self.canvas and hasattr(self.canvas, "on_wire_routing_complete"):
+            self.canvas.on_wire_routing_complete(self, waypoints, runtime, iterations, routing_failed)
 
     def show_drag_preview(self):
         """Show a straight-line preview during component drag.
@@ -115,7 +269,7 @@ class WireGraphicsItem(QGraphicsPathItem):
     def update_position(self):
         """Update wire path using selected algorithm"""
         # Lazy import for faster startup - only loaded when wires are created
-        from .path_finding import IDAStarPathfinder, get_component_obstacles
+        from algorithms.path_finding import IDAStarPathfinder, get_component_obstacles
 
         # Get old bounding rect for invalidation
         old_rect = self.boundingRect()
@@ -123,8 +277,8 @@ class WireGraphicsItem(QGraphicsPathItem):
         # Prepare for update by invalidating current bounds
         self.prepareGeometryChange()
 
-        start = self.start_comp.get_terminal_pos(self.start_term)
-        end = self.end_comp.get_terminal_pos(self.end_term)
+        start_qpt = self.start_comp.get_terminal_pos(self.start_term)
+        end_qpt = self.end_comp.get_terminal_pos(self.end_term)
 
         # Get obstacles from canvas
         if self.canvas:
@@ -156,27 +310,35 @@ class WireGraphicsItem(QGraphicsPathItem):
             all_wires = self.canvas.wires if hasattr(self.canvas, "wires") else []
             existing_wires = [w for w in all_wires if w.algorithm == self.algorithm]
 
+            # Adapt Qt objects for the Qt-free pathfinding module
+            adapted_components = {cid: _ComponentAdapter(c) for cid, c in self.canvas.components.items()}
+            adapted_wires = [_WireAdapter(w) for w in existing_wires]
+
             obstacles = get_component_obstacles(
-                self.canvas.components,
+                adapted_components,
                 GRID_SIZE,
                 terminal_clearance_only=terminal_clearance,
                 active_terminals=active_terminals,
-                existing_wires=existing_wires,
+                existing_wires=adapted_wires,
                 current_node=self.node,
             )
 
-            pathfinder = IDAStarPathfinder(GRID_SIZE)
-            result = pathfinder.find_path(start, end, obstacles, algorithm=self.algorithm)
+            # Convert QPointF positions to tuples for the pathfinder
+            start_tuple = (start_qpt.x(), start_qpt.y())
+            end_tuple = (end_qpt.x(), end_qpt.y())
+
+            allow_diagonal = theme_manager.routing_mode == "diagonal"
+            pathfinder = IDAStarPathfinder(GRID_SIZE, allow_diagonal=allow_diagonal)
+            result = pathfinder.find_path(start_tuple, end_tuple, obstacles, algorithm=self.algorithm)
 
             # Unpack result (waypoints, runtime, iterations, routing_failed)
-            self.waypoints, runtime, iterations, routing_failed = result
+            tuple_waypoints, runtime, iterations, routing_failed = result
 
-            # Store in model
-            self.model.runtime = runtime
-            self.model.iterations = iterations
-            self.model.routing_failed = routing_failed
-            # Convert QPointF waypoints to tuples for model storage
-            self.model.waypoints = [(wp.x(), wp.y()) for wp in self.waypoints]
+            # Convert tuple waypoints back to QPointF for Qt drawing
+            self.waypoints = [QPointF(wp[0], wp[1]) for wp in tuple_waypoints]
+
+            # Persist through controller (falls back to direct model write during init)
+            self._persist_routing_result(list(tuple_waypoints), runtime, iterations, routing_failed)
 
             if routing_failed:
                 logger.warning(
@@ -190,11 +352,12 @@ class WireGraphicsItem(QGraphicsPathItem):
                 self._notify_routing_failed()
         else:
             # Fallback to direct line
-            self.waypoints = [start, end]
-            self.model.runtime = 0.0
-            self.model.iterations = 0
-            self.model.routing_failed = False
-            self.model.waypoints = [(start.x(), start.y()), (end.x(), end.y())]
+            self.waypoints = [start_qpt, end_qpt]
+            fallback_wps = [
+                (start_qpt.x(), start_qpt.y()),
+                (end_qpt.x(), end_qpt.y()),
+            ]
+            self._persist_routing_result(fallback_wps)
 
         # Create path from waypoints
         path = QPainterPath()
@@ -212,31 +375,75 @@ class WireGraphicsItem(QGraphicsPathItem):
 
         self.update()  # Force item redraw
 
+    def _restore_waypoints(self):
+        """Restore wire path from persisted waypoints without running pathfinding."""
+        self.waypoints = [QPointF(x, y) for x, y in self.model.waypoints]
+        path = QPainterPath()
+        if self.waypoints:
+            path.moveTo(self.waypoints[0])
+            for waypoint in self.waypoints[1:]:
+                path.lineTo(waypoint)
+        self.setPath(path)
+
     def _notify_routing_failed(self):
-        """Show status bar message when wire routing fails."""
-        if not self.canvas:
-            return
-        main_window = self.canvas.window() if hasattr(self.canvas, "window") else None
-        if main_window and hasattr(main_window, "statusBar"):
-            status = main_window.statusBar()
-            if status:
-                status.showMessage("Wire routing failed — move components to create space", 5000)
+        """Notify canvas that wire routing failed (canvas relays to UI)."""
+        if self.canvas and hasattr(self.canvas, "on_routing_failed"):
+            self.canvas.on_routing_failed("Wire routing failed — move components to create space")
+
+    def hoverEnterEvent(self, event):
+        """Highlight wire on hover."""
+        self._hovered = True
+        self.update()
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        """Remove highlight when hover ends."""
+        self._hovered = False
+        self.update()
+        super().hoverLeaveEvent(event)
 
     def paint(self, painter, option=None, widget=None):
-        """Override paint to show selection highlight and layer color"""
+        """Override paint to show selection highlight, layer color, and junction dots."""
         if painter is None:
             return
+
+        width = theme_manager.wire_thickness_px
 
         # Draw wire with appropriate style
         if self.isSelected():
             painter.setPen(theme_manager.pen("wire_selected"))
+        elif self._hovered:
+            hover_color = self.layer_color.lighter(150)
+            painter.setPen(QPen(hover_color, width + 1))
         elif self.model.routing_failed:
-            pen = QPen(Qt.GlobalColor.red, 2, Qt.PenStyle.DashLine)
+            pen = QPen(Qt.GlobalColor.red, width, Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+        elif self.model.locked:
+            pen = QPen(self.layer_color, width, Qt.PenStyle.DotLine)
             painter.setPen(pen)
         else:
-            painter.setPen(QPen(self.layer_color, 2))
+            painter.setPen(QPen(self.layer_color, width))
 
         painter.drawPath(self.path())
+
+        # Draw junction dots at waypoints (excluding start/end terminals)
+        if theme_manager.show_junction_dots and len(self.waypoints) > 2:
+            dot_radius = max(width, 2) + 1
+            painter.setBrush(QBrush(self.layer_color))
+            painter.setPen(Qt.PenStyle.NoPen)
+            for wp in self.waypoints[1:-1]:
+                if isinstance(wp, QPointF):
+                    painter.drawEllipse(wp, dot_radius, dot_radius)
+                else:
+                    painter.drawEllipse(QPointF(wp[0], wp[1]), dot_radius, dot_radius)
+
+    def boundingRect(self):
+        """Extend bounding rect to include junction dots."""
+        rect = super().boundingRect()
+        if theme_manager.show_junction_dots and len(self.waypoints) > 2:
+            margin = max(theme_manager.wire_thickness_px, 2) + 2
+            rect.adjust(-margin, -margin, margin, margin)
+        return rect
 
     def shape(self):
         """Return a wider path for easier click detection"""
@@ -245,6 +452,98 @@ class WireGraphicsItem(QGraphicsPathItem):
         stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
         stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         return stroker.createStroke(self.path())
+
+    # --- Waypoint handle management ---
+
+    def itemChange(self, change, value):
+        """Show / hide waypoint handles when selection state changes."""
+        if change == QGraphicsPathItem.GraphicsItemChange.ItemSelectedHasChanged:
+            if value:
+                self._show_handles()
+            else:
+                self._hide_handles()
+        return super().itemChange(change, value)
+
+    def _show_handles(self):
+        """Create draggable handles at each interior waypoint and segment midpoints."""
+        self._hide_handles()
+        scene = self.scene()
+        if scene is None:
+            return
+
+        # Snapshot waypoints before any drag starts so undo knows the "before" state
+        self._pre_drag_waypoints = self._waypoints_as_tuples()
+
+        # Interior waypoint handles
+        if len(self.waypoints) >= 3:
+            for i, wp in enumerate(self.waypoints):
+                if i == 0 or i == len(self.waypoints) - 1:
+                    continue  # Skip terminal endpoints
+                pt = wp if isinstance(wp, QPointF) else QPointF(wp[0], wp[1])
+                handle = WaypointHandle(self, i, pt)
+                scene.addItem(handle)
+                self._waypoint_handles.append(handle)
+
+        # Segment midpoint handles for inserting new waypoints
+        for i in range(len(self.waypoints) - 1):
+            a = self.waypoints[i]
+            b = self.waypoints[i + 1]
+            ax = a.x() if isinstance(a, QPointF) else a[0]
+            ay = a.y() if isinstance(a, QPointF) else a[1]
+            bx = b.x() if isinstance(b, QPointF) else b[0]
+            by = b.y() if isinstance(b, QPointF) else b[1]
+            mid = QPointF((ax + bx) / 2, (ay + by) / 2)
+            # Snap midpoint to grid
+            mid = QPointF(
+                round(mid.x() / GRID_SIZE) * GRID_SIZE,
+                round(mid.y() / GRID_SIZE) * GRID_SIZE,
+            )
+            handle = SegmentHandle(self, i, mid)
+            scene.addItem(handle)
+            self._waypoint_handles.append(handle)
+
+    def _hide_handles(self):
+        """Remove all waypoint handles from the scene."""
+        scene = self.scene()
+        for handle in self._waypoint_handles:
+            if scene:
+                scene.removeItem(handle)
+        self._waypoint_handles.clear()
+
+    def _waypoints_as_tuples(self):
+        """Return current waypoints as a list of (x, y) tuples."""
+        return [
+            (wp.x() if isinstance(wp, QPointF) else wp[0], wp.y() if isinstance(wp, QPointF) else wp[1])
+            for wp in self.waypoints
+        ]
+
+    def _move_waypoint(self, index: int, new_pos: QPointF):
+        """Called by WaypointHandle during drag to update the wire path."""
+        if 0 < index < len(self.waypoints):
+            self.waypoints[index] = new_pos
+            self._rebuild_path_from_waypoints()
+
+    def _finish_waypoint_drag(self):
+        """Called by WaypointHandle on mouse release — push undoable command."""
+        new_waypoints = self._waypoints_as_tuples()
+        if self.canvas and hasattr(self.canvas, "on_waypoint_drag_finished"):
+            self.canvas.on_waypoint_drag_finished(self, new_waypoints)
+
+    def _rebuild_path_from_waypoints(self):
+        """Rebuild the QPainterPath from the current waypoints list."""
+        old_rect = self.boundingRect()
+        self.prepareGeometryChange()
+        path = QPainterPath()
+        if self.waypoints:
+            first = self.waypoints[0]
+            path.moveTo(first if isinstance(first, QPointF) else QPointF(first[0], first[1]))
+            for wp in self.waypoints[1:]:
+                path.lineTo(wp if isinstance(wp, QPointF) else QPointF(wp[0], wp[1]))
+        self.setPath(path)
+        if self.scene():
+            self.scene().update(old_rect)
+            self.scene().update(self.boundingRect())
+        self.update()
 
     def get_terminals(self):
         """Get both terminal identifiers for this wire"""
@@ -288,6 +587,50 @@ class WireGraphicsItem(QGraphicsPathItem):
         )
 
         return wire
+
+
+# ---------------------------------------------------------------------------
+# Adapters: convert Qt objects to tuple-based interface for pathfinding
+# ---------------------------------------------------------------------------
+
+
+class _ComponentAdapter:
+    """Wraps a ComponentGraphicsItem so position methods return (x, y) tuples."""
+
+    __slots__ = ("_comp",)
+
+    def __init__(self, comp):
+        self._comp = comp
+
+    def __getattr__(self, name):
+        return getattr(self._comp, name)
+
+    def pos(self):
+        p = self._comp.pos()
+        return (p.x(), p.y())
+
+    def get_terminal_pos(self, index):
+        p = self._comp.get_terminal_pos(index)
+        return (p.x(), p.y())
+
+
+class _WireAdapter:
+    """Wraps a WireGraphicsItem so waypoints are plain (x, y) tuples."""
+
+    __slots__ = ("_wire",)
+
+    def __init__(self, wire):
+        self._wire = wire
+
+    def __getattr__(self, name):
+        return getattr(self._wire, name)
+
+    @property
+    def waypoints(self):
+        wps = self._wire.waypoints
+        if wps:
+            return [(p.x(), p.y()) if isinstance(p, QPointF) else (p[0], p[1]) for p in wps]
+        return wps
 
 
 # Backward compatibility alias

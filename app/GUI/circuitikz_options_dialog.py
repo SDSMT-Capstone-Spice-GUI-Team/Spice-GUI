@@ -1,6 +1,6 @@
 """Dialog for configuring CircuiTikZ export options."""
 
-from PyQt6.QtCore import QSettings
+from controllers.settings_service import settings
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -113,37 +113,34 @@ class CircuiTikZOptionsDialog(QDialog):
         }
 
     def _save_settings(self):
-        settings = QSettings("SDSMT", "SDM Spice")
         opts = self.get_options()
-        settings.setValue(f"{SETTINGS_PREFIX}style", opts["style"])
-        settings.setValue(f"{SETTINGS_PREFIX}scale", opts["scale"])
-        settings.setValue(f"{SETTINGS_PREFIX}include_ids", opts["include_ids"])
-        settings.setValue(f"{SETTINGS_PREFIX}include_values", opts["include_values"])
-        settings.setValue(f"{SETTINGS_PREFIX}include_net_labels", opts["include_net_labels"])
-        settings.setValue(f"{SETTINGS_PREFIX}standalone", opts["standalone"])
+        settings.set(f"{SETTINGS_PREFIX}style", opts["style"])
+        settings.set(f"{SETTINGS_PREFIX}scale", opts["scale"])
+        settings.set(f"{SETTINGS_PREFIX}include_ids", opts["include_ids"])
+        settings.set(f"{SETTINGS_PREFIX}include_values", opts["include_values"])
+        settings.set(f"{SETTINGS_PREFIX}include_net_labels", opts["include_net_labels"])
+        settings.set(f"{SETTINGS_PREFIX}standalone", opts["standalone"])
 
     def _restore_settings(self):
-        settings = QSettings("SDSMT", "SDM Spice")
-
-        style = settings.value(f"{SETTINGS_PREFIX}style", "american")
+        style = settings.get_str(f"{SETTINGS_PREFIX}style", "american")
         self.style_combo.setCurrentIndex(1 if style == "european" else 0)
 
-        scale = settings.value(f"{SETTINGS_PREFIX}scale")
+        scale = settings.get(f"{SETTINGS_PREFIX}scale")
         if scale is not None:
             self.scale_spin.setValue(float(scale))
 
-        include_ids = settings.value(f"{SETTINGS_PREFIX}include_ids")
+        include_ids = settings.get(f"{SETTINGS_PREFIX}include_ids")
         if include_ids is not None:
-            self.include_ids_cb.setChecked(include_ids == "true" or include_ids is True)
+            self.include_ids_cb.setChecked(settings.get_bool(f"{SETTINGS_PREFIX}include_ids"))
 
-        include_values = settings.value(f"{SETTINGS_PREFIX}include_values")
+        include_values = settings.get(f"{SETTINGS_PREFIX}include_values")
         if include_values is not None:
-            self.include_values_cb.setChecked(include_values == "true" or include_values is True)
+            self.include_values_cb.setChecked(settings.get_bool(f"{SETTINGS_PREFIX}include_values"))
 
-        include_net_labels = settings.value(f"{SETTINGS_PREFIX}include_net_labels")
+        include_net_labels = settings.get(f"{SETTINGS_PREFIX}include_net_labels")
         if include_net_labels is not None:
-            self.include_net_labels_cb.setChecked(include_net_labels == "true" or include_net_labels is True)
+            self.include_net_labels_cb.setChecked(settings.get_bool(f"{SETTINGS_PREFIX}include_net_labels"))
 
-        standalone = settings.value(f"{SETTINGS_PREFIX}standalone")
+        standalone = settings.get(f"{SETTINGS_PREFIX}standalone")
         if standalone is not None:
-            self.standalone_cb.setChecked(standalone == "true" or standalone is True)
+            self.standalone_cb.setChecked(settings.get_bool(f"{SETTINGS_PREFIX}standalone"))

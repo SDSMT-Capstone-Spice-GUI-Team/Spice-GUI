@@ -161,24 +161,22 @@ Example: `EXP(0 5 0 1m 5m 1m)` - Exponential rise and fall
 | Property | Value |
 |----------|-------|
 | Symbol | OA |
-| Terminals | 5 |
+| Terminals | 3 |
 | Color | Yellow |
 | Status | Fully Functional |
 
-**Description:** An ideal operational amplifier with very high gain.
+**Description:** An operational amplifier with selectable models.
 
 **Terminals:**
 1. Inverting input (-)
 2. Non-inverting input (+)
 3. Output
-4. Positive supply (V+)
-5. Negative supply (V-)
 
-**Model:** Uses an ideal op-amp subcircuit with:
+**Models available:** Ideal, LM741, TL081, LM358
+
+**Ideal model parameters:**
 - Gain: 1,000,000 (1e6)
 - Output resistance: 0.001 ohms
-
-**Note:** Currently uses an ideal model. Real op-amp models with bandwidth limitations and other non-idealities are planned for future releases.
 
 ---
 
@@ -387,11 +385,14 @@ SDM Spice supports standard engineering notation:
 
 ---
 
-## Planned Components
+## Recently Added Components
 
-The following components are planned for future releases:
+The following components have been implemented and are fully functional:
 
-- **Transformer** - Coupled inductors
+- **Transformer** — Coupled inductors with configurable turns ratio
+- **Current Probe** — Measures branch current through a wire
+- **AC Voltage Source (VAC)** — Sinusoidal voltage source for AC sweep analysis
+- **AC Current Source (IAC)** — Sinusoidal current source for AC sweep analysis
 
 See the [GitHub Issues](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/issues) for component requests and status.
 

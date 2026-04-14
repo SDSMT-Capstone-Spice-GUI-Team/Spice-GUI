@@ -7,17 +7,22 @@ MainWindow is composed from focused mixin modules:
 - AnalysisSettingsMixin: analysis type configuration dialogs
 - ViewOperationsMixin: theme, toggles, probe, zoom, image export
 - PrintExportMixin: print, print preview, PDF export
+- HelpMixin: in-app help dialog and guided tutorial
 - SettingsMixin: QSettings persistence, autosave, closeEvent
 """
 
 import logging
+from pathlib import Path
 
 from controllers.circuit_controller import CircuitController
 from controllers.file_controller import FileController
+from controllers.keybindings import KeybindingsRegistry
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
+    QApplication,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -25,7 +30,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSplitter,
     QStackedWidget,
-    QTextEdit,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -33,17 +38,24 @@ from PyQt6.QtWidgets import (
 from .circuit_canvas import CircuitCanvasView
 from .circuit_statistics_panel import CircuitStatisticsPanel
 from .component_palette import ComponentPalette
+from .dialog_provider import QtDialogProvider
 from .grading_panel import GradingPanel
-from .keybindings import KeybindingsRegistry
 from .main_window_analysis import AnalysisSettingsMixin
 from .main_window_file_ops import FileOperationsMixin
+from .main_window_help import HelpMixin
 from .main_window_menus import MenuBarMixin
 from .main_window_print import PrintExportMixin
 from .main_window_settings import SettingsMixin
 from .main_window_simulation import SimulationMixin
 from .main_window_view import ViewOperationsMixin
 from .properties_panel import PropertiesPanel
-from .styles import DEFAULT_SPLITTER_SIZES, DEFAULT_WINDOW_SIZE, theme_manager
+from .results_panel import ResultsPanel
+from .styles import (
+    DEFAULT_SPLITTER_SIZES,
+    DEFAULT_WINDOW_SIZE,
+    STATUS_DURATION_DEFAULT,
+    STATUS_DURATION_SHORT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +67,7 @@ class MainWindow(
     AnalysisSettingsMixin,
     ViewOperationsMixin,
     PrintExportMixin,
+    HelpMixin,
     SettingsMixin,
     QMainWindow,
 ):
@@ -69,6 +82,7 @@ class MainWindow(
         super().__init__()
         self.setWindowTitle("Circuit Design GUI - Student Prototype")
         self.setGeometry(100, 100, *DEFAULT_WINDOW_SIZE)
+        self.splash_screen = None
 
         # Keybindings registry (load before UI so shortcuts are applied)
         self.keybindings = KeybindingsRegistry()
@@ -76,10 +90,10 @@ class MainWindow(
         # Create model (single source of truth)
         self.model = CircuitModel()
 
-        # Create controllers (Phase 5: wire them together)
-        self.circuit_ctrl = CircuitController(self.model)
-        self.file_ctrl = FileController(self.model, self.circuit_ctrl)
-        self.simulation_ctrl = SimulationController(self.model, self.circuit_ctrl)
+        # Create controllers
+        self._circuit_ctrl = CircuitController(self.model)
+        self._file_ctrl = FileController(self.model, self._circuit_ctrl)
+        self._simulation_ctrl = SimulationController(self.model, self._circuit_ctrl)
 
         # UI state
         self._last_results = None
@@ -91,6 +105,7 @@ class MainWindow(
         # Build UI
         self.init_ui()
         self.create_menu_bar()
+        self.dialogs = QtDialogProvider(self)
 
         # Wire up connections
         self._connect_signals()
@@ -100,10 +115,42 @@ class MainWindow(
         self._check_auto_save_recovery()
         self._load_last_session()
 
+        # Enable drag-and-drop of circuit files onto the window
+        self.setAcceptDrops(True)
+
         # Auto-save timer
         self._autosave_timer = QTimer(self)
         self._autosave_timer.timeout.connect(self._auto_save)
-        self._start_autosave_timer()
+        self.start_autosave_timer()
+
+    # --- ApplicationShellProtocol properties ---
+
+    @property
+    def circuit_ctrl(self) -> CircuitController:
+        """The circuit controller (ApplicationShellProtocol)."""
+        return self._circuit_ctrl
+
+    @property
+    def file_ctrl(self) -> FileController:
+        """The file controller (ApplicationShellProtocol)."""
+        return self._file_ctrl
+
+    @property
+    def simulation_ctrl(self) -> SimulationController:
+        """The simulation controller (ApplicationShellProtocol)."""
+        return self._simulation_ctrl
+
+    # --- ApplicationShellProtocol methods ---
+
+    def show_status_message(self, message: str, timeout_ms: int = STATUS_DURATION_DEFAULT) -> None:
+        """Show a transient message in the status bar (ApplicationShellProtocol)."""
+        status = self.statusBar()
+        if status:
+            status.showMessage(message, timeout_ms)
+
+    def set_dirty(self, dirty: bool) -> None:
+        """Mark the document as having unsaved changes (ApplicationShellProtocol)."""
+        self._set_dirty(dirty)
 
     def _connect_signals(self):
         """Connect signals between UI components"""
@@ -112,9 +159,12 @@ class MainWindow(
         self.canvas.canvasClicked.connect(self.on_canvas_clicked)
         self.canvas.selectionChanged.connect(self._on_selection_changed)
         self.canvas.probeRequested.connect(self._on_probe_requested)
+        self.canvas.statusMessage.connect(self._on_canvas_status_message)
         self.palette.componentDoubleClicked.connect(self.canvas.add_component_at_center)
         self.properties_panel.property_changed.connect(self.on_property_changed)
         self.circuit_ctrl.add_observer(self._on_dirty_change)
+        # Wire results panel display delegate to SimulationMixin handler.
+        self.results_panel._display_delegate = self._display_simulation_results
 
     def init_ui(self):
         """Initialize user interface"""
@@ -127,19 +177,19 @@ class MainWindow(
         left_panel.addWidget(QLabel("Component Palette"))
         self.palette = ComponentPalette()
         left_panel.addWidget(self.palette)
-        instructions = QLabel(
+        """instructions = QLabel(
             "📦 Drag components from palette to canvas\n"
             "🔌 Left-click terminal → click another terminal to wire\n"
             "🖱️ Drag components to move (wires follow!)\n"
-            "🔄 Press R to rotate selected\n"
+            f"🔄 Press {kb.get('edit.rotate_cw')} to rotate selected\n"
             "🗑️ Right-click for context menu\n"
-            "⌫ Delete key to remove selected\n"
+            f"⌫ {kb.get('edit.delete')} key to remove selected\n"
             "\n"
             "Wires auto-route using IDA* path finding!"
         )
-        instructions.setWordWrap(True)
-        instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
-        left_panel.addWidget(instructions)
+        ##instructions.setWordWrap(True)
+        ##instructions.setStyleSheet(theme_manager.stylesheet("instructions_panel"))
+        ##left_panel.addWidget(instructions)"""
         main_layout.addLayout(left_panel, 1)
 
         # Center - Canvas and results
@@ -152,12 +202,12 @@ class MainWindow(
         canvas_toolbar.addWidget(QLabel("Circuit Canvas"))
         btn_zoom_in = QPushButton("+")
         btn_zoom_in.setFixedWidth(30)
-        btn_zoom_in.setToolTip("Zoom In (Ctrl++)")
+        btn_zoom_in.setToolTip(f"Zoom In ({self.keybindings.get('view.zoom_in')})")
         btn_zoom_out = QPushButton("-")
         btn_zoom_out.setFixedWidth(30)
-        btn_zoom_out.setToolTip("Zoom Out (Ctrl+-)")
+        btn_zoom_out.setToolTip(f"Zoom Out ({self.keybindings.get('view.zoom_out')})")
         btn_zoom_fit = QPushButton("Fit")
-        btn_zoom_fit.setToolTip("Fit to Circuit (Ctrl+0)")
+        btn_zoom_fit.setToolTip(f"Fit to Circuit ({self.keybindings.get('view.zoom_fit')})")
         self.zoom_label = QLabel("100%")
         self.zoom_label.setFixedWidth(45)
         canvas_toolbar.addStretch()
@@ -167,7 +217,6 @@ class MainWindow(
         canvas_toolbar.addWidget(btn_zoom_fit)
         canvas_layout.addLayout(canvas_toolbar)
 
-        # Phase 5: Pass controller to canvas for observer pattern
         self.canvas = CircuitCanvasView(self.circuit_ctrl)
         btn_zoom_in.clicked.connect(lambda: self.canvas.zoom_in())
         btn_zoom_out.clicked.connect(lambda: self.canvas.zoom_out())
@@ -175,21 +224,31 @@ class MainWindow(
         canvas_layout.addWidget(self.canvas)
         center_splitter.addWidget(canvas_widget)
 
-        # Results panel
-        results_widget = QWidget()
-        results_layout = QVBoxLayout(results_widget)
-        results_header = QHBoxLayout()
-        results_header.addWidget(QLabel("Simulation Results"))
-        self.btn_export_csv = QPushButton("Export CSV")
-        self.btn_export_csv.setEnabled(False)
-        self.btn_export_csv.clicked.connect(self.export_results_csv)
-        results_header.addWidget(self.btn_export_csv)
-        results_header.addStretch()
-        results_layout.addLayout(results_header)
-        self.results_text = QTextEdit()
-        self.results_text.setReadOnly(True)
-        results_layout.addWidget(self.results_text)
-        center_splitter.addWidget(results_widget)
+        # Results / Netlist tabbed panel
+        self.results_tabs = QTabWidget()
+
+        # Tab 1: Simulation Results (extracted into ResultsPanel)
+        self.results_panel = ResultsPanel(parent=self)
+        self.results_panel.btn_export_csv.clicked.connect(self.export_results_csv)
+        self.results_panel.btn_export_excel.clicked.connect(self.export_results_excel)
+        self.results_panel.btn_copy_markdown.clicked.connect(self.copy_results_markdown)
+        # Convenience aliases used by SimulationMixin.
+        self.results_text = self.results_panel.results_text
+        self.btn_export_csv = self.results_panel.btn_export_csv
+        self.btn_export_excel = self.results_panel.btn_export_excel
+        self.btn_copy_markdown = self.results_panel.btn_copy_markdown
+        self.results_tabs.addTab(self.results_panel, "Results")
+
+        # Tab 2: Netlist Preview
+        from .netlist_preview import NetlistPreviewWidget
+
+        self.netlist_preview = NetlistPreviewWidget()
+        self.netlist_preview.refresh_btn.clicked.connect(self._refresh_netlist_preview)
+        self.results_tabs.addTab(self.netlist_preview, "Netlist")
+        # Wire netlist preview into results panel for set_netlist_preview() delegation.
+        self.results_panel._netlist_preview_widget = self.netlist_preview
+
+        center_splitter.addWidget(self.results_tabs)
         center_splitter.setSizes(DEFAULT_SPLITTER_SIZES)
         self.center_splitter = center_splitter
         main_layout.addWidget(center_splitter, 3)
@@ -211,7 +270,7 @@ class MainWindow(
         right_panel_layout.addWidget(self.statistics_panel)
 
         # Instructor grading panel
-        self.grading_panel = GradingPanel(self.model, self)
+        self.grading_panel = GradingPanel(self.model, self, canvas=self.canvas)
         self.grading_panel.setVisible(False)
         right_panel_layout.addWidget(self.grading_panel)
 
@@ -219,24 +278,29 @@ class MainWindow(
         right_panel_layout.addWidget(QLabel("Actions"))
 
         self.btn_save = QPushButton("Save Circuit")
+        self.btn_save.setToolTip(f"Save Circuit ({self.keybindings.get('file.save_as')})")
         self.btn_save.clicked.connect(self._on_save_as)
         right_panel_layout.addWidget(self.btn_save)
 
         self.btn_load = QPushButton("Load Circuit")
+        self.btn_load.setToolTip(f"Load Circuit ({self.keybindings.get('file.open')})")
         self.btn_load.clicked.connect(self._on_load)
         right_panel_layout.addWidget(self.btn_load)
 
         self.btn_clear = QPushButton("Clear Canvas")
+        self.btn_clear.setToolTip("Clear Canvas")
         self.btn_clear.clicked.connect(self.clear_canvas)
         right_panel_layout.addWidget(self.btn_clear)
 
         right_panel_layout.addWidget(QLabel(""))  # Spacer
 
         self.btn_netlist = QPushButton("Generate Netlist")
+        self.btn_netlist.setToolTip(f"Generate Netlist ({self.keybindings.get('sim.netlist')})")
         self.btn_netlist.clicked.connect(self.generate_netlist)
         right_panel_layout.addWidget(self.btn_netlist)
 
         self.btn_simulate = QPushButton("Run Simulation")
+        self.btn_simulate.setToolTip(f"Run Simulation ({self.keybindings.get('sim.run')})")
         self.btn_simulate.clicked.connect(self.run_simulation)
         right_panel_layout.addWidget(self.btn_simulate)
 
@@ -274,9 +338,8 @@ class MainWindow(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
-            self.canvas.clear_circuit()
+            self.circuit_ctrl.clear_circuit()
             self.file_ctrl.new_circuit()
-            # Phase 5: No sync needed - observer pattern handles canvas update
 
     def on_component_right_clicked(self, component, event_pos):
         """Handle right-click on a component"""
@@ -303,31 +366,214 @@ class MainWindow(
         self.properties_stack.setCurrentIndex(0)
         self.properties_panel.show_no_selection()
 
-    def on_property_changed(self, component_id, property_name, new_value):
-        """Handle property changes from properties panel"""
-        component = self.canvas.components.get(component_id)
-        if not component:
-            return
+    def _on_canvas_status_message(self, message, timeout_ms):
+        """Relay status messages from canvas/scene items to the status bar."""
+        status = self.statusBar()
+        if status:
+            status.showMessage(message, timeout_ms)
 
+    def on_property_changed(self, component_id, property_name, new_value):
+        """Handle property changes from properties panel via controller."""
         if property_name == "value":
-            component.value = new_value
-            component.update()
+            from controllers.commands import ChangeValueCommand
+
+            cmd = ChangeValueCommand(self.circuit_ctrl, component_id, new_value)
+            self.circuit_ctrl.execute_command(cmd)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} value to {new_value}", 2000)
+                statusBar.showMessage(f"Updated {component_id} value to {new_value}", STATUS_DURATION_SHORT)
 
         elif property_name == "rotation":
-            component.rotation_angle = new_value
-            component.update_terminals()
-            component.update()
-            self.canvas.reroute_connected_wires(component)
+            from controllers.commands import SetRotationCommand
+
+            cmd = SetRotationCommand(self.circuit_ctrl, component_id, new_value)
+            self.circuit_ctrl.execute_command(cmd)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", 2000)
-            self.properties_panel.show_component(component)
+                statusBar.showMessage(f"Rotated {component_id} to {new_value}°", STATUS_DURATION_SHORT)
+            component = self.canvas.components.get(component_id)
+            if component:
+                self.properties_panel.show_component(component)
 
         elif property_name == "waveform":
-            component.update()
+            from controllers.commands import UpdateWaveformCommand
+
+            waveform_type, params = new_value
+            cmd = UpdateWaveformCommand(self.circuit_ctrl, component_id, waveform_type, params)
+            self.circuit_ctrl.execute_command(cmd)
+            # Refresh properties panel to show updated SPICE value
+            component = self.canvas.components.get(component_id)
+            if component:
+                self.properties_panel.show_component(component)
             statusBar = self.statusBar()
             if statusBar:
-                statusBar.showMessage(f"Updated {component_id} waveform configuration", 2000)
+                statusBar.showMessage(f"Updated {component_id} waveform configuration", STATUS_DURATION_SHORT)
+
+        elif property_name == "initial_condition":
+            from controllers.commands import UpdateInitialConditionCommand
+
+            cmd = UpdateInitialConditionCommand(self.circuit_ctrl, component_id, new_value)
+            self.circuit_ctrl.execute_command(cmd)
+            ic_display = new_value if new_value else "none"
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(
+                    f"Updated {component_id} initial condition to {ic_display}", STATUS_DURATION_SHORT
+                )
+
+    def _refresh_netlist_preview(self):
+        """Regenerate and display the netlist in the preview panel."""
+        try:
+            netlist = self.simulation_ctrl.generate_netlist()
+            self.netlist_preview.set_netlist(netlist)
+        except (ValueError, KeyError, TypeError) as e:
+            self.netlist_preview.set_error(str(e))
+
+    # Drag-and-drop file import
+
+    def dragEnterEvent(self, event):
+        """Accept file drops onto the main window."""
+        if event is None:
+            return
+        mime = event.mimeData()
+        if mime and mime.hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """Handle file drops — route by extension to the correct importer."""
+        if event is None:
+            return
+        mime = event.mimeData()
+        if not mime or not mime.hasUrls():
+            return
+
+        urls = mime.urls()
+        if not urls:
+            return
+
+        filepath = urls[0].toLocalFile()
+        if not filepath:
+            return
+
+        self._import_dropped_file(filepath)
+        event.acceptProposedAction()
+
+    def _import_dropped_file(self, filepath):
+        """Route a dropped file to the correct import handler by extension."""
+        from utils.drag_drop_router import route_dropped_file
+
+        ext = Path(filepath).suffix.lower()
+        handler_name = route_dropped_file(ext)
+
+        if handler_name is None:
+            QMessageBox.warning(
+                self,
+                "Unsupported File",
+                f"Cannot import '{Path(filepath).name}'.\n\nSupported formats: .json, .asc, .cir, .spice, .sp, .net",
+            )
+            return
+
+        # Prompt if current circuit has unsaved changes
+        if self._dirty or len(self.canvas.components) > 0:
+            reply = QMessageBox.question(
+                self,
+                "Import File",
+                f"Import '{Path(filepath).name}'?\nCurrent circuit will be replaced.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        try:
+            if handler_name == "load_circuit":
+                self.file_ctrl.load_circuit(filepath)
+                self.setWindowTitle(f"Circuit Design GUI - {filepath}")
+                self._sync_analysis_menu()
+                self._apply_default_zoom()
+            elif handler_name == "import_netlist":
+                self.file_ctrl.import_netlist(filepath)
+                self.setWindowTitle(f"Circuit Design GUI - {Path(filepath).name} (imported)")
+                self._sync_analysis_menu()
+                self._set_dirty(True)
+            elif handler_name == "import_asc":
+                warnings = self.file_ctrl.import_asc(filepath)
+                self.setWindowTitle(f"Circuit Design GUI - {Path(filepath).name} (imported)")
+                self._sync_analysis_menu()
+                self._set_dirty(True)
+                if warnings:
+                    QMessageBox.information(
+                        self,
+                        "Import Warnings",
+                        "Warnings:\n" + "\n".join(f"  - {w}" for w in warnings),
+                    )
+
+            statusBar = self.statusBar()
+            if statusBar:
+                statusBar.showMessage(f"Imported {Path(filepath).name}", STATUS_DURATION_DEFAULT)
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to import file:\n{e}")
+
+
+class SplashScreen(QWidget):
+    def __init__(self, main_window=None):
+        super().__init__()
+        self._main_window = main_window
+
+        self.setWindowTitle("Welcome to SDM-Spice!")
+
+        self.newCircuitButton = QPushButton("New Circuit")
+        self.loadCircuitButton = QPushButton("Load Circuit")
+        self.preferencesButton = QPushButton("Preferences")
+        self.aboutButton = QPushButton("About SDM-Spice")
+        self.text = QLabel("Welcome to SDM-Spice")
+        self.image = QLabel("I'm a picture, shhhhhh")
+
+        self.layout = QGridLayout(self)
+        self.layout.setVerticalSpacing(15)
+        self.layout.addWidget(self.text, 0, 1)
+        self.layout.addWidget(self.newCircuitButton, 1, 0)
+        self.layout.addWidget(self.loadCircuitButton, 2, 0)
+        self.layout.addWidget(self.preferencesButton, 3, 0)
+        self.layout.addWidget(self.aboutButton, 4, 0)
+        self.layout.addWidget(self.image, 2, 2)
+
+        # Connect button actions
+        self.newCircuitButton.clicked.connect(self.close)
+        self.loadCircuitButton.clicked.connect(self._on_load_circuit)
+        self.preferencesButton.clicked.connect(self._on_preferences)
+
+        self.resize(800, 600)
+
+        desktopScreen = self.frameGeometry()
+        centerPoint = QApplication.primaryScreen().geometry().center()
+        desktopScreen.moveCenter(centerPoint)
+        self.move(desktopScreen.topLeft())
+
+    def _on_load_circuit(self):
+        """Open the load file dialog via the main window, then close splash."""
+        if self._main_window is not None:
+            self._main_window._on_load()
+        self.close()
+
+    def _on_preferences(self):
+        """Open the preferences dialog via the main window."""
+        if self._main_window is not None:
+            self._main_window._open_preferences_dialog()
+
+
+# def main():
+#    app = QtWidgets.QApplication([])
+#
+#    window = MainWindow()
+#    window.show()
+#
+#    widget = MyWidget()
+#    widget.show()
+#
+#    with open("../darkMode.qss", "r") as file:
+#        _style = file.read()
+#        app.setStyleSheet(_style)
+#
+#    sys.exit(app.exec())
+#
+# main()

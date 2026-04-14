@@ -9,19 +9,36 @@ same voltage).
 from dataclasses import dataclass, field
 from typing import Optional
 
-# Module-level counter for generating unique node labels
-_node_counter = 0
 
+class NodeLabelGenerator:
+    """Encapsulates the counter used to generate unique node labels.
 
-def reset_node_counter():
-    """Reset the node label counter. Call when starting a new circuit."""
-    global _node_counter
-    _node_counter = 0
+    Each call to :meth:`next_label` returns labels in sequence:
+    ``nodeA``, ``nodeB``, ... ``nodeZ``, ``nodeAA``, ``nodeAB``, ...
+
+    Call :meth:`reset` when starting a new circuit.
+    """
+
+    def __init__(self) -> None:
+        self._counter: int = 0
+
+    def reset(self) -> None:
+        """Reset the counter to zero."""
+        self._counter = 0
+
+    def next_label(self) -> str:
+        """Return the next label and advance the counter."""
+        label = _generate_label(self._counter)
+        self._counter += 1
+        return label
 
 
 def _generate_label(index: int) -> str:
     """
-    Generate label like nodeA, nodeB, ..., nodeZ, nodeAA, nodeAB...
+    Generate label like nodeA, nodeB, ..., nodeZ, nodeAA, nodeAB, ..., nodeZZ, nodeAAA, ...
+
+    Uses a bijective base-26 encoding so every non-negative index maps to a
+    unique sequence of uppercase letters (A=0 .. Z=25, AA=26 .. AZ=51, ...).
 
     Args:
         index: Zero-based index for the node.
@@ -29,13 +46,32 @@ def _generate_label(index: int) -> str:
     Returns:
         A string label like "nodeA", "nodeB", etc.
     """
-    if index < 26:
-        return "node" + chr(ord("A") + index)
-    else:
-        # For more than 26 nodes, use AA, AB, AC...
-        first = (index // 26) - 1
-        second = index % 26
-        return "node" + chr(ord("A") + first) + chr(ord("A") + second)
+    chars: list[str] = []
+    n = index
+    while True:
+        chars.append(chr(ord("A") + n % 26))
+        n = n // 26 - 1
+        if n < 0:
+            break
+    return "node" + "".join(reversed(chars))
+
+
+# Default module-level generator used by NodeData.__post_init__
+# Lazily initialized on first use to avoid module-level mutable state.
+_default_generator: "NodeLabelGenerator | None" = None
+
+
+def _get_default_generator() -> NodeLabelGenerator:
+    """Return the shared NodeLabelGenerator, creating it on first call."""
+    global _default_generator
+    if _default_generator is None:
+        _default_generator = NodeLabelGenerator()
+    return _default_generator
+
+
+def reset_node_counter() -> None:
+    """Reset the node label counter. Call when starting a new circuit."""
+    _get_default_generator().reset()
 
 
 @dataclass
@@ -68,9 +104,7 @@ class NodeData:
             if self.is_ground:
                 self.auto_label = "0"
             else:
-                global _node_counter
-                self.auto_label = _generate_label(_node_counter)
-                _node_counter += 1
+                self.auto_label = _get_default_generator().next_label()
 
     def get_label(self) -> str:
         """
@@ -133,32 +167,31 @@ class NodeData:
         if not self.custom_label:
             self.auto_label = "0"
 
-    def get_position(self, components: dict) -> Optional[tuple[float, float]]:
+    def get_position(
+        self,
+        terminal_positions: dict[tuple[str, int], tuple[float, float]],
+    ) -> Optional[tuple[float, float]]:
         """
         Get a representative position for label placement (average of all terminals).
 
         Args:
-            components: Dict mapping component_id to ComponentData objects.
+            terminal_positions: Mapping of ``(component_id, terminal_index)``
+                to ``(x, y)`` world-coordinate positions.  Callers are
+                responsible for computing these from their own layer
+                (e.g. from ComponentData or from the GUI scene).
 
         Returns:
-            Average (x, y) position of all terminals, or None if no terminals.
+            Average (x, y) position of all terminals, or None if no terminals
+            have a known position.
         """
         if not self.terminals:
             return None
 
-        positions = []
-        for comp_id, term_idx in self.terminals:
-            if comp_id in components:
-                comp = components[comp_id]
-                # Get terminal positions from ComponentData
-                term_positions = comp.get_terminal_positions()
-                if term_idx < len(term_positions):
-                    positions.append(term_positions[term_idx])
+        positions = [terminal_positions[t] for t in self.terminals if t in terminal_positions]
 
         if not positions:
             return None
 
-        # Return average position
         avg_x = sum(p[0] for p in positions) / len(positions)
         avg_y = sum(p[1] for p in positions) / len(positions)
         return (avg_x, avg_y)

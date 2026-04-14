@@ -5,7 +5,7 @@ Tests for simulation/result_parser.py — ngspice output parsing.
 import os
 
 import pytest
-from simulation.result_parser import ResultParser
+from simulation.result_parser import ResultParseError, ResultParser
 
 # ── parse_op_results ─────────────────────────────────────────────────
 
@@ -47,6 +47,63 @@ class TestParseOpResults:
         result = ResultParser.parse_op_results("random garbage text\nnothing useful\n")
         assert result["node_voltages"] == {}
         assert result["branch_currents"] == {}
+
+    def test_bad_line_does_not_discard_valid_data(self):
+        """A single unparseable line must not lose previously parsed results (#529)."""
+        output = "v(nodeA) = 5.00000\nv(bad) = NOT_A_NUMBER\nv(nodeB) = 2.50000\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(5.0)
+        assert result["node_voltages"]["nodeB"] == pytest.approx(2.5)
+        assert "bad" not in result["node_voltages"]
+
+    def test_bad_current_line_preserves_other_data(self):
+        """An unparseable branch current should not discard voltages (#529)."""
+        output = "v(nodeA) = 3.30000\ni(v1) = GARBAGE\n  V(nodeB)   1.000000e+00\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(3.3)
+        assert result["node_voltages"]["nodeB"] == pytest.approx(1.0)
+
+    def test_mixed_good_and_bad_print_format(self):
+        """Pattern 3 bad lines should be skipped, not abort (#529)."""
+        output = "  V(nodeA)   5.000000e+00\n  V(nodeB)   CORRUPT_VALUE\n  V(nodeC)   2.500000e+00\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(5.0)
+        assert result["node_voltages"]["nodeC"] == pytest.approx(2.5)
+        assert "nodeB" not in result["node_voltages"]
+
+    # ── scientific notation edge cases (issue #779) ───────────────────
+
+    def test_scientific_notation_fractional_no_leading_digit(self):
+        """.5e3 (no leading digit before decimal) is valid scientific notation."""
+        output = "v(a) = .5e3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["a"] == pytest.approx(500.0)
+
+    def test_scientific_notation_positive_exponent_uppercase_e(self):
+        """+1.5E+3 (positive sign, uppercase E) must parse correctly."""
+        output = "v(b) = +1.5E+3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["b"] == pytest.approx(1500.0)
+
+    def test_scientific_notation_negative_exponent(self):
+        """1.5e-3 remains parseable after regex tightening."""
+        output = "v(c) = 1.5e-3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["c"] == pytest.approx(0.0015)
+
+    def test_scientific_notation_print_format_variants(self):
+        """Pattern 3 (print format) handles scientific notation variants."""
+        output = "  V(x)   .5e3\n  V(y)   +1.5E+3\n  V(z)   1.5e-3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["x"] == pytest.approx(500.0)
+        assert result["node_voltages"]["y"] == pytest.approx(1500.0)
+        assert result["node_voltages"]["z"] == pytest.approx(0.0015)
+
+    def test_branch_current_scientific_notation(self):
+        """Branch current regex also handles scientific notation variants."""
+        output = "i(v1) = .5e-3\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["branch_currents"]["v1"] == pytest.approx(0.0005)
 
 
 # ── parse_dc_results ─────────────────────────────────────────────────
@@ -92,6 +149,34 @@ class TestParseAcResults:
         assert "out" in result["phase"]
         assert result["phase"]["out"][1] == pytest.approx(-90.0)
 
+    def test_vm_headers(self):
+        """vm(node) headers should be parsed as magnitude (#804)."""
+        output = (
+            "Index   frequency   vm(out)   vp(out)\n"
+            "0       100.0       1.0      -45.0\n"
+            "1       1000.0      0.5      -90.0\n"
+        )
+        result = ResultParser.parse_ac_results(output)
+        assert result is not None
+        assert len(result["frequencies"]) == 2
+        assert "out" in result["magnitude"]
+        assert result["magnitude"]["out"][0] == pytest.approx(1.0)
+        assert "out" in result["phase"]
+
+    def test_vdb_headers(self):
+        """vdb(node) headers should be parsed as magnitude (#804)."""
+        output = (
+            "Index   frequency   vdb(out)   vp(out)\n"
+            "0       100.0       0.0        0.0\n"
+            "1       1000.0      -6.02      -90.0\n"
+        )
+        result = ResultParser.parse_ac_results(output)
+        assert result is not None
+        assert len(result["frequencies"]) == 2
+        assert "out" in result["magnitude"]
+        assert result["magnitude"]["out"][0] == pytest.approx(0.0)
+        assert result["magnitude"]["out"][1] == pytest.approx(-6.02)
+
     def test_no_frequency_returns_none(self):
         result = ResultParser.parse_ac_results("just some text\n")
         assert result is None
@@ -101,7 +186,85 @@ class TestParseAcResults:
         assert result is None
 
 
-# ── parse_transient_results ──────────────────────────────────────────
+# ── parse_ac_wrdata ─────────────────────────────────────────────────
+
+
+class TestParseAcWrdata:
+    def test_valid_wrdata(self, tmp_path):
+        wrdata = tmp_path / "ac.txt"
+        wrdata.write_text(
+            "frequency vm(out) vp(out)\n"
+            "1.000000e+02 1.000000e+00 -4.500000e+01\n"
+            "1.000000e+03 5.000000e-01 -9.000000e+01\n"
+        )
+        result = ResultParser.parse_ac_wrdata(str(wrdata))
+        assert result is not None
+        assert len(result["frequencies"]) == 2
+        assert result["frequencies"][0] == pytest.approx(100.0)
+        assert "out" in result["magnitude"]
+        assert result["magnitude"]["out"][0] == pytest.approx(1.0)
+        assert "out" in result["phase"]
+        assert result["phase"]["out"][1] == pytest.approx(-90.0)
+
+    def test_vdb_headers(self, tmp_path):
+        wrdata = tmp_path / "ac_db.txt"
+        wrdata.write_text(
+            "frequency vdb(out) vp(out)\n"
+            "1.000000e+02 0.000000e+00 0.000000e+00\n"
+            "1.000000e+03 -6.020000e+00 -9.000000e+01\n"
+        )
+        result = ResultParser.parse_ac_wrdata(str(wrdata))
+        assert result is not None
+        assert "out" in result["magnitude"]
+        assert result["magnitude"]["out"][1] == pytest.approx(-6.02)
+
+    def test_empty_file_returns_none(self, tmp_path):
+        wrdata = tmp_path / "empty.txt"
+        wrdata.write_text("")
+        result = ResultParser.parse_ac_wrdata(str(wrdata))
+        assert result is None
+
+    def test_header_only_returns_none(self, tmp_path):
+        wrdata = tmp_path / "header_only.txt"
+        wrdata.write_text("frequency vm(out) vp(out)\n")
+        result = ResultParser.parse_ac_wrdata(str(wrdata))
+        assert result is None
+
+    def test_missing_file_raises_parse_error(self):
+        with pytest.raises(ResultParseError, match="wrdata file not found"):
+            ResultParser.parse_ac_wrdata("/nonexistent/path.txt")
+
+
+# ── parse_noise_wrdata ──────────────────────────────────────────────
+
+
+class TestParseNoiseWrdata:
+    def test_valid_wrdata(self, tmp_path):
+        wrdata = tmp_path / "noise.txt"
+        wrdata.write_text(
+            "frequency onoise_spectrum inoise_spectrum\n"
+            "1.000000e+00 3.200000e-09 1.600000e-09\n"
+            "1.000000e+01 3.100000e-09 1.550000e-09\n"
+        )
+        result = ResultParser.parse_noise_wrdata(str(wrdata))
+        assert result is not None
+        assert len(result["frequencies"]) == 2
+        assert result["frequencies"][0] == pytest.approx(1.0)
+        assert result["onoise_spectrum"][0] == pytest.approx(3.2e-9)
+        assert result["inoise_spectrum"][1] == pytest.approx(1.55e-9)
+
+    def test_empty_file_returns_none(self, tmp_path):
+        wrdata = tmp_path / "empty.txt"
+        wrdata.write_text("")
+        result = ResultParser.parse_noise_wrdata(str(wrdata))
+        assert result is None
+
+    def test_missing_file_raises_parse_error(self):
+        with pytest.raises(ResultParseError, match="wrdata file not found"):
+            ResultParser.parse_noise_wrdata("/nonexistent/path.txt")
+
+
+# ── parse_transient_results ─────────────────────────────────────���────
 
 
 class TestParseTransientResults:
@@ -125,9 +288,20 @@ class TestParseTransientResults:
         assert "out" in headers
         assert "i_v1#branch" in headers
 
-    def test_missing_file_returns_none(self):
-        result = ResultParser.parse_transient_results("/nonexistent/path.txt")
-        assert result is None
+    def test_header_sanitization_vm_vdb_vp(self, tmp_path):
+        """vm/vdb/vp headers should be sanitized correctly (#804)."""
+        wrdata = tmp_path / "ac.txt"
+        wrdata.write_text("frequency vm(out) vp(out) vdb(in)\n100.0 1.0 -45.0 0.0\n")
+        result = ResultParser.parse_transient_results(str(wrdata))
+        assert result is not None
+        headers = list(result[0].keys())
+        assert "out" in headers, "vm(out) should sanitize to 'out'"
+        assert "vp_out" in headers, "vp(out) should sanitize to 'vp_out'"
+        assert "in" in headers, "vdb(in) should sanitize to 'in'"
+
+    def test_missing_file_raises_parse_error(self):
+        with pytest.raises(ResultParseError, match="wrdata file not found"):
+            ResultParser.parse_transient_results("/nonexistent/path.txt")
 
     def test_empty_file_returns_none(self, tmp_path):
         wrdata = tmp_path / "empty.txt"
@@ -163,3 +337,58 @@ class TestFormatResultsAsTable:
     def test_none_input(self):
         result = ResultParser.format_results_as_table(None)
         assert "No data" in result
+
+
+# ── ResultParseError propagation ────────────────────────────────────
+
+
+class TestParseErrorPropagation:
+    """Verify that parse failures raise ResultParseError instead of returning None."""
+
+    def test_dc_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="DC results"):
+            ResultParser.parse_dc_results(None)
+
+    def test_ac_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="AC results"):
+            ResultParser.parse_ac_results(None)
+
+    def test_noise_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="noise results"):
+            ResultParser.parse_noise_results(None)
+
+    def test_sensitivity_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="sensitivity results"):
+            ResultParser.parse_sensitivity_results(None)
+
+    def test_tf_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="TF results"):
+            ResultParser.parse_tf_results(None)
+
+    def test_pz_parse_error_on_non_string(self):
+        with pytest.raises(ResultParseError, match="PZ results"):
+            ResultParser.parse_pz_results(None)
+
+    def test_transient_parse_error_on_missing_file(self):
+        with pytest.raises(ResultParseError, match="wrdata file not found"):
+            ResultParser.parse_transient_results("/nonexistent/path.txt")
+
+
+# ── Operational Point alias (#540) ──────────────────────────────────
+
+
+class TestOperationalPointAlias:
+    """'Operational Point' alias must be handled the same as 'DC Operating Point' (#540)."""
+
+    def test_generate_analysis_command_accepts_alias(self):
+        from simulation.netlist_generator import generate_analysis_command
+
+        assert generate_analysis_command("Operational Point", {}) == ".op"
+        assert generate_analysis_command("DC Operating Point", {}) == ".op"
+
+    def test_parse_op_results_works_for_both_aliases(self):
+        """parse_op_results is analysis-agnostic; the dispatch in
+        SimulationController must route both aliases to it."""
+        output = "v(nodeA) = 5.00000\n"
+        result = ResultParser.parse_op_results(output)
+        assert result["node_voltages"]["nodeA"] == pytest.approx(5.0)

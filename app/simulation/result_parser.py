@@ -10,41 +10,14 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# SI prefix table for engineering notation
-_SI_PREFIXES = [
-    (1e-15, "f"),
-    (1e-12, "p"),
-    (1e-9, "n"),
-    (1e-6, "\u00b5"),
-    (1e-3, "m"),
-    (1e0, ""),
-    (1e3, "k"),
-    (1e6, "M"),
-    (1e9, "G"),
+__all__ = [
+    "ResultParser",
+    "ResultParseError",
 ]
 
 
-def format_si(value, unit=""):
-    """Format a value with SI prefix.
-
-    Examples:
-        format_si(0.0033, "V") -> "3.30 mV"
-        format_si(1500, "Hz") -> "1.50 kHz"
-        format_si(0, "V") -> "0.00 V"
-    """
-    if value == 0 or not math.isfinite(value):
-        return f"0.00 {unit}" if unit else "0.00"
-
-    abs_val = abs(value)
-    for threshold, prefix in _SI_PREFIXES:
-        if abs_val < threshold * 1000:
-            scaled = value / threshold
-            return f"{scaled:.2f} {prefix}{unit}" if unit else f"{scaled:.2f} {prefix}"
-
-    # Larger than 1G — use the largest prefix
-    threshold, prefix = _SI_PREFIXES[-1]
-    scaled = value / threshold
-    return f"{scaled:.2f} {prefix}{unit}" if unit else f"{scaled:.2f} {prefix}"
+class ResultParseError(Exception):
+    """Raised when simulation output cannot be parsed."""
 
 
 class ResultParser:
@@ -61,67 +34,80 @@ class ResultParser:
         node_voltages = {}
         branch_currents = {}
 
-        try:
-            lines = output.split("\n")
+        lines = output.split("\n")
 
-            for i, line in enumerate(lines):
-                # Pattern 1: v(nodename) = voltage
-                match = re.search(r"v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE)
-                if match:
+        for i, line in enumerate(lines):
+            # Pattern 1: v(nodename) = voltage
+            match = re.search(r"v\((\w+)\)\s*[=:]\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)", line, re.IGNORECASE)
+            if match:
+                try:
                     node_name = match.group(1)
                     voltage = float(match.group(2))
                     node_voltages[node_name] = voltage
-                    continue
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable OP voltage line: %s", line)
+                continue
 
-                # Branch current patterns: i(device) = current or @device[current]
-                i_match = re.search(
-                    r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+e?[-+]?\d*)", line, re.IGNORECASE
-                )
-                if i_match:
+            # Branch current patterns: i(device) = current or @device[current]
+            i_match = re.search(
+                r"(?:i\((\w+)\)|@(\w+)\[current\])\s*[=:]\s*([-+]?[\d.]+(?:[eE][-+]?\d+)?)",
+                line,
+                re.IGNORECASE,
+            )
+            if i_match:
+                try:
                     device = i_match.group(1) or i_match.group(2)
                     current = float(i_match.group(3))
                     branch_currents[device.lower()] = current
-                    continue
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable OP current line: %s", line)
+                continue
 
-                # Pattern 2: Node/Voltage table
-                if "node" in line.lower() and "voltage" in line.lower():
-                    for j in range(i + 1, min(i + 50, len(lines))):
-                        result_line = lines[j].strip()
-                        if not result_line or result_line.startswith("-"):
+            # Pattern 2: Node/Voltage table
+            if "node" in line.lower() and "voltage" in line.lower():
+                for j in range(i + 1, min(i + 50, len(lines))):
+                    result_line = lines[j].strip()
+                    if not result_line or result_line.startswith("-"):
+                        continue
+                    if result_line.startswith("*") or result_line.lower().startswith("source"):
+                        break
+
+                    parts = result_line.split()
+                    if len(parts) >= 2:
+                        try:
+                            node_name = parts[0].replace("v(", "").replace(")", "")
+                            voltage = float(parts[1])
+                            node_voltages[node_name] = voltage
+                        except (ValueError, IndexError):
+                            logger.debug(
+                                "Skipping unparseable voltage table line: %s",
+                                result_line,
+                            )
                             continue
-                        if result_line.startswith("*") or result_line.lower().startswith("source"):
-                            break
 
-                        parts = result_line.split()
-                        if len(parts) >= 2:
-                            try:
-                                node_name = parts[0].replace("v(", "").replace(")", "")
-                                voltage = float(parts[1])
-                                node_voltages[node_name] = voltage
-                            except (ValueError, IndexError):
-                                continue
-
-            # Pattern 3: ngspice print output format
-            for line in lines:
-                # Voltages: " V(5)   1.000000e-06 "
-                match = re.match(r"^\s*V\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
-                if match:
+        # Pattern 3: ngspice print output format
+        for line in lines:
+            # Voltages: " V(5)   1.000000e-06 "
+            match = re.match(r"^\s*V\((\w+)\)\s+([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*", line, re.IGNORECASE)
+            if match:
+                try:
                     node_name = match.group(1)
                     voltage = float(match.group(2))
                     node_voltages[node_name] = voltage
-                    continue
-                # Currents: " I(v1)   -2.100000e-03 "
-                i_match = re.match(r"^\s*I\((\w+)\)\s+([-+]?[\d.]+e?[-+]?\d*)\s*", line, re.IGNORECASE)
-                if i_match:
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable OP print line: %s", line)
+                continue
+            # Currents: " I(v1)   -2.100000e-03 "
+            i_match = re.match(r"^\s*I\((\w+)\)\s+([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*", line, re.IGNORECASE)
+            if i_match:
+                try:
                     device = i_match.group(1)
                     current = float(i_match.group(2))
                     branch_currents[device.lower()] = current
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable OP print line: %s", line)
 
-            return {"node_voltages": node_voltages, "branch_currents": branch_currents}
-
-        except (ValueError, IndexError, AttributeError) as e:
-            logger.error("Error parsing OP results: %s", e, exc_info=True)
-            return {"node_voltages": {}, "branch_currents": {}}
+        return {"node_voltages": node_voltages, "branch_currents": branch_currents}
 
     @staticmethod
     def parse_dc_results(output):
@@ -152,13 +138,109 @@ class ResultParser:
                             data_row = [float(p) for p in parts[: len(headers)]]
                             sweep_data["data"].append(data_row)
                         except ValueError:
+                            logger.debug("Skipping unparseable DC sweep row: %s", line.strip())
                             continue
 
             return sweep_data if sweep_data["data"] else None
 
-        except (ValueError, IndexError, KeyError) as e:
-            logger.error("Error parsing DC results: %s", e)
-            return None
+        except (ValueError, IndexError, KeyError, AttributeError) as e:
+            raise ResultParseError(f"Error parsing DC results: {e}") from e
+
+    @staticmethod
+    def parse_dc_sweep_wrdata(filepath):
+        """Parse DC sweep results from a wrdata file.
+
+        The wrdata file has a clean tabular format: headers on the first
+        line followed by whitespace-delimited numeric data rows.  Returns
+        a dict with ``headers`` and ``data`` keys compatible with
+        :class:`DCSweepPlotDialog`, or *None* when no data is found.
+        """
+        try:
+            with open(filepath, "r") as f:
+                lines = f.readlines()
+            if not lines:
+                return None
+
+            raw_headers = lines[0].strip().split()
+            # Build header list: prepend "Index" so columns align with
+            # DCSweepPlotDialog expectations (col 0 = index, col 1 = sweep var,
+            # col 2+ = signals).
+            headers = ["Index"] + raw_headers
+
+            data_rows = []
+            for idx, line in enumerate(lines[1:]):
+                parts = line.strip().split()
+                if len(parts) == len(raw_headers):
+                    try:
+                        row = [float(idx)] + [float(p) for p in parts]
+                        data_rows.append(row)
+                    except ValueError:
+                        logger.debug("Skipping unparseable DC sweep wrdata row: %s", line.strip())
+                        continue
+
+            if not data_rows:
+                return None
+            return {"headers": headers, "data": data_rows}
+        except FileNotFoundError as e:
+            raise ResultParseError(f"wrdata file not found at {filepath}") from e
+        except (OSError, ValueError, IndexError) as e:
+            raise ResultParseError(f"Error parsing DC sweep wrdata: {e}") from e
+
+    @staticmethod
+    def parse_ac_wrdata(filepath):
+        """Parse AC sweep results from a wrdata file.
+
+        The wrdata file produced by ngspice with ``set wr_vecnames`` and
+        ``set wr_singlescale`` has the frequency as the first column
+        followed by magnitude and phase columns.  Returns a dict compatible
+        with :class:`ACSweepPlotDialog`, or *None* when no data is found.
+        """
+        try:
+            with open(filepath, "r") as f:
+                lines = f.readlines()
+            if not lines:
+                return None
+
+            headers = lines[0].strip().split()
+            if not headers:
+                return None
+
+            ac_data = {"frequencies": [], "magnitude": {}, "phase": {}, "headers": headers}
+
+            for line in lines[1:]:
+                parts = line.strip().split()
+                if len(parts) != len(headers):
+                    continue
+                try:
+                    freq = float(parts[0])
+                    row_mag = {}
+                    row_phase = {}
+                    for j, h in enumerate(headers[1:], start=1):
+                        h_lower = h.lower()
+                        if "vp(" in h_lower:
+                            node = re.sub(r"^vp\(", "", h, flags=re.IGNORECASE).rstrip(")")
+                            row_phase[node] = float(parts[j])
+                        elif "vdb(" in h_lower or "vm(" in h_lower or "v(" in h_lower:
+                            node = re.sub(r"^(?:vdb|vm|v)\(", "", h, flags=re.IGNORECASE).rstrip(")")
+                            row_mag[node] = float(parts[j])
+                        elif "i(" in h_lower:
+                            node = re.sub(r"^i\(", "", h, flags=re.IGNORECASE).rstrip(")")
+                            row_mag[f"i({node})"] = float(parts[j])
+
+                    ac_data["frequencies"].append(freq)
+                    for node, val in row_mag.items():
+                        ac_data["magnitude"].setdefault(node, []).append(val)
+                    for node, val in row_phase.items():
+                        ac_data["phase"].setdefault(node, []).append(val)
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable AC wrdata row: %s", line.strip())
+                    continue
+
+            return ac_data if ac_data["frequencies"] else None
+        except FileNotFoundError as e:
+            raise ResultParseError(f"wrdata file not found at {filepath}") from e
+        except (OSError, ValueError, IndexError) as e:
+            raise ResultParseError(f"Error parsing AC wrdata: {e}") from e
 
     @staticmethod
     def parse_ac_results(output):
@@ -186,31 +268,87 @@ class ResultParser:
                     if len(parts) >= 2:
                         try:
                             freq = float(parts[1]) if len(parts) > 1 else float(parts[0])
-                            ac_data["frequencies"].append(freq)
 
-                            # Parse voltage magnitudes and phases
+                            # Parse all column values before committing any
+                            # to avoid length mismatches on partial failures.
+                            row_mag = {}
+                            row_phase = {}
                             for j, header in enumerate(headers[2:], start=2):
                                 if j < len(parts):
-                                    if "vp(" in header.lower():
-                                        # Phase data
-                                        node = header.replace("vp(", "").replace(")", "")
-                                        if node not in ac_data["phase"]:
-                                            ac_data["phase"][node] = []
-                                        ac_data["phase"][node].append(float(parts[j]))
-                                    elif "v(" in header.lower():
-                                        # Magnitude data
-                                        node = header.replace("v(", "").replace(")", "")
-                                        if node not in ac_data["magnitude"]:
-                                            ac_data["magnitude"][node] = []
-                                        ac_data["magnitude"][node].append(float(parts[j]))
+                                    h_lower = header.lower()
+                                    if "vp(" in h_lower:
+                                        node = re.sub(r"^vp\(", "", header, flags=re.IGNORECASE).rstrip(")")
+                                        row_phase[node] = float(parts[j])
+                                    elif "vdb(" in h_lower or "vm(" in h_lower or "v(" in h_lower:
+                                        node = re.sub(r"^(?:vdb|vm|v)\(", "", header, flags=re.IGNORECASE).rstrip(")")
+                                        row_mag[node] = float(parts[j])
+
+                            # Commit atomically: frequency + all parsed columns
+                            ac_data["frequencies"].append(freq)
+                            for node, val in row_mag.items():
+                                if node not in ac_data["magnitude"]:
+                                    ac_data["magnitude"][node] = []
+                                ac_data["magnitude"][node].append(val)
+                            for node, val in row_phase.items():
+                                if node not in ac_data["phase"]:
+                                    ac_data["phase"][node] = []
+                                ac_data["phase"][node].append(val)
                         except (ValueError, IndexError):
+                            logger.debug("Skipping unparseable AC sweep row: %s", line.strip())
                             continue
 
             return ac_data if ac_data["frequencies"] else None
 
-        except (ValueError, IndexError, KeyError) as e:
-            logger.error("Error parsing AC results: %s", e)
-            return None
+        except (ValueError, IndexError, KeyError, AttributeError) as e:
+            raise ResultParseError(f"Error parsing AC results: {e}") from e
+
+    @staticmethod
+    def parse_noise_wrdata(filepath):
+        """Parse noise analysis results from a wrdata file.
+
+        The wrdata file produced by ngspice for noise analysis has
+        frequency as the first column followed by onoise_spectrum and
+        inoise_spectrum columns.  Returns a dict compatible with
+        :class:`NoisePlotDialog`, or *None* when no data is found.
+        """
+        try:
+            with open(filepath, "r") as f:
+                lines = f.readlines()
+            if not lines:
+                return None
+
+            headers = lines[0].strip().split()
+            if not headers:
+                return None
+
+            noise_data = {
+                "frequencies": [],
+                "onoise_spectrum": [],
+                "inoise_spectrum": [],
+            }
+
+            for line in lines[1:]:
+                parts = line.strip().split()
+                if len(parts) != len(headers):
+                    continue
+                try:
+                    freq = float(parts[0])
+                    noise_data["frequencies"].append(freq)
+                    for j, h in enumerate(headers[1:], start=1):
+                        h_lower = h.lower()
+                        if "onoise" in h_lower:
+                            noise_data["onoise_spectrum"].append(float(parts[j]))
+                        elif "inoise" in h_lower:
+                            noise_data["inoise_spectrum"].append(float(parts[j]))
+                except (ValueError, IndexError):
+                    logger.debug("Skipping unparseable noise wrdata row: %s", line.strip())
+                    continue
+
+            return noise_data if noise_data["frequencies"] else None
+        except FileNotFoundError as e:
+            raise ResultParseError(f"wrdata file not found at {filepath}") from e
+        except (OSError, ValueError, IndexError) as e:
+            raise ResultParseError(f"Error parsing noise wrdata: {e}") from e
 
     @staticmethod
     def parse_noise_results(output):
@@ -222,7 +360,11 @@ class ResultParser:
         """
         try:
             lines = output.split("\n")
-            noise_data = {"frequencies": [], "onoise_spectrum": [], "inoise_spectrum": []}
+            noise_data = {
+                "frequencies": [],
+                "onoise_spectrum": [],
+                "inoise_spectrum": [],
+            }
 
             header_found = False
             headers = []
@@ -249,13 +391,191 @@ class ResultParser:
                                     elif "inoise" in h_lower:
                                         noise_data["inoise_spectrum"].append(float(parts[j]))
                         except (ValueError, IndexError):
+                            logger.debug("Skipping unparseable noise data row: %s", line.strip())
                             continue
 
             return noise_data if noise_data["frequencies"] else None
 
-        except (ValueError, IndexError, KeyError) as e:
-            logger.error("Error parsing noise results: %s", e)
-            return None
+        except (ValueError, IndexError, KeyError, AttributeError) as e:
+            raise ResultParseError(f"Error parsing noise results: {e}") from e
+
+    @staticmethod
+    def parse_sensitivity_results(output):
+        """Parse DC sensitivity analysis results.
+
+        Looks for the sensitivity table that ngspice prints for .sens.
+        The table is preceded by a line like "dc sensitivities of output v(...)".
+        Returns a list of dicts with keys: element, value, sensitivity,
+        normalized_sensitivity.  Returns None if no data found.
+        """
+        try:
+            lines = output.split("\n")
+            results = []
+            in_header_zone = False
+            in_data = False
+
+            for line in lines:
+                stripped = line.strip()
+
+                # Detect "dc sensitivities of output" marker
+                if "dc sensitivities" in stripped.lower():
+                    in_header_zone = True
+                    continue
+
+                if in_header_zone and not in_data:
+                    # Skip header lines (element/name/units) and blanks
+                    if not stripped or "element" in stripped.lower() or "name" in stripped.lower():
+                        continue
+                    if "volts/" in stripped.lower() or "amps/" in stripped.lower():
+                        continue
+                    # First non-header, non-blank line = data
+                    in_data = True
+
+                if in_data:
+                    if not stripped:
+                        # Blank line ends the data section
+                        if results:
+                            break
+                        continue
+
+                    parts = stripped.split()
+                    if len(parts) >= 4:
+                        try:
+                            element = parts[0]
+                            value = float(parts[1])
+                            sensitivity = float(parts[2])
+                            normalized = float(parts[3])
+                            results.append(
+                                {
+                                    "element": element,
+                                    "value": value,
+                                    "sensitivity": sensitivity,
+                                    "normalized_sensitivity": normalized,
+                                }
+                            )
+                        except (ValueError, IndexError):
+                            logger.debug("Skipping unparseable sensitivity row: %s", stripped)
+                            continue
+                    elif len(parts) >= 3:
+                        try:
+                            element = parts[0]
+                            sensitivity = float(parts[1])
+                            normalized = float(parts[2])
+                            results.append(
+                                {
+                                    "element": element,
+                                    "value": 0.0,
+                                    "sensitivity": sensitivity,
+                                    "normalized_sensitivity": normalized,
+                                }
+                            )
+                        except (ValueError, IndexError):
+                            logger.debug("Skipping unparseable sensitivity row: %s", stripped)
+                            continue
+
+            return results if results else None
+
+        except (ValueError, IndexError, AttributeError) as e:
+            raise ResultParseError(f"Error parsing sensitivity results: {e}") from e
+
+    @staticmethod
+    def parse_tf_results(output):
+        """Parse transfer function (.tf) results.
+
+        ngspice prints three lines like:
+            Transfer function, output/input = 5.000000e-01
+            Output impedance at v(out) = 5.000000e+02
+            v1#Input impedance = 1.000000e+03
+
+        Returns a dict with keys 'transfer_function', 'output_impedance',
+        'input_impedance', or None if nothing was found.
+        """
+        try:
+            results = {}
+            for line in output.split("\n"):
+                # Transfer function line
+                tf_match = re.search(
+                    r"[Tt]ransfer\s+function.*?=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                    line,
+                )
+                if tf_match:
+                    results["transfer_function"] = float(tf_match.group(1))
+                    continue
+
+                # Output impedance line
+                out_z_match = re.search(
+                    r"[Oo]utput\s+impedance.*?=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                    line,
+                )
+                if out_z_match:
+                    results["output_impedance"] = float(out_z_match.group(1))
+                    continue
+
+                # Input impedance line
+                in_z_match = re.search(
+                    r"[Ii]nput\s+impedance.*?=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                    line,
+                )
+                if in_z_match:
+                    results["input_impedance"] = float(in_z_match.group(1))
+                    continue
+
+            return results if results else None
+
+        except (ValueError, IndexError, AttributeError) as e:
+            raise ResultParseError(f"Error parsing TF results: {e}") from e
+
+    @staticmethod
+    def parse_pz_results(output):
+        """Parse pole-zero (.pz) analysis results.
+
+        ngspice prints lines like:
+            pole(1) = -1.00000e+03, 0.00000e+00
+            pole(2) = -5.00000e+05, 3.00000e+05
+            zero(1) = -2.00000e+04, 0.00000e+00
+
+        Returns a dict with 'poles' and 'zeros' lists, each containing
+        dicts with 'real', 'imag', 'frequency_hz', and 'is_unstable' keys.
+        Returns None if no data found.
+        """
+        try:
+            poles = []
+            zeros = []
+
+            pz_pattern = re.compile(
+                r"(pole|zero)\(\d+\)\s*=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)\s*,\s*([-+]?[\d.]+(?:e[-+]?\d+)?)",
+                re.IGNORECASE,
+            )
+
+            for line in output.split("\n"):
+                match = pz_pattern.search(line)
+                if not match:
+                    continue
+
+                kind = match.group(1).lower()
+                real = float(match.group(2))
+                imag = float(match.group(3))
+                magnitude = math.sqrt(real**2 + imag**2)
+                freq_hz = magnitude / (2 * math.pi) if magnitude > 0 else 0.0
+                entry = {
+                    "real": real,
+                    "imag": imag,
+                    "frequency_hz": freq_hz,
+                    "is_unstable": real > 0,
+                }
+
+                if kind == "pole":
+                    poles.append(entry)
+                else:
+                    zeros.append(entry)
+
+            if not poles and not zeros:
+                return None
+
+            return {"poles": poles, "zeros": zeros}
+
+        except (ValueError, IndexError, AttributeError) as e:
+            raise ResultParseError(f"Error parsing PZ results: {e}") from e
 
     @staticmethod
     def parse_transient_results(filepath):
@@ -274,8 +594,10 @@ class ResultParser:
             raw_headers = lines[0].strip().split()
             headers = []
             for h in raw_headers:
-                # Sanitize headers: v(node) -> node, i(branch) -> i_branch
-                sanitized_h = re.sub(r"^v\((.*?)\)$", r"\1", h, flags=re.IGNORECASE)
+                # Sanitize headers: v(node)/vm(node)/vdb(node) -> node,
+                # vp(node) -> vp_node, i(branch) -> i_branch
+                sanitized_h = re.sub(r"^(?:vdb|vm|v)\((.*?)\)$", r"\1", h, flags=re.IGNORECASE)
+                sanitized_h = re.sub(r"^vp\((.*?)\)$", r"vp_\1", sanitized_h, flags=re.IGNORECASE)
                 sanitized_h = re.sub(r"^i\((.*?)\)$", r"i_\1", sanitized_h, flags=re.IGNORECASE)
                 headers.append(sanitized_h)
 
@@ -288,15 +610,14 @@ class ResultParser:
                         row_data = {headers[i]: float(parts[i]) for i in range(len(parts))}
                         results.append(row_data)
                     except (ValueError, IndexError):
+                        logger.debug("Skipping unparseable transient data row: %s", line.strip())
                         continue
 
             return results if results else None
-        except FileNotFoundError:
-            logger.error("wrdata file not found at %s", filepath)
-            return None
+        except FileNotFoundError as e:
+            raise ResultParseError(f"wrdata file not found at {filepath}") from e
         except (OSError, ValueError, IndexError, KeyError) as e:
-            logger.error("Error parsing wrdata file: %s", e, exc_info=True)
-            return None
+            raise ResultParseError(f"Error parsing wrdata file: {e}") from e
 
     @staticmethod
     def format_results_as_table(results):
@@ -339,3 +660,36 @@ class ResultParser:
             data_rows.append(" | ".join(row_list))
 
         return f"{header_str}\n{separator}\n" + "\n".join(data_rows)
+
+    @staticmethod
+    def parse_measurement_results(stdout):
+        """Parse .meas measurement results from ngspice stdout.
+
+        ngspice prints measurement results in the format:
+            name  =  value
+        or:
+            name  =  failed
+
+        Returns a dict mapping measurement names to float values,
+        or None if no measurements found.  Failed measurements are
+        included with value None.
+        """
+        if not stdout:
+            return None
+
+        results = {}
+        for line in stdout.split("\n"):
+            # Match: "  rise_time  =  1.23456e-06"
+            match = re.match(r"^\s*(\w+)\s*=\s*([-+]?[\d.]+(?:e[-+]?\d+)?)\s*$", line, re.IGNORECASE)
+            if match:
+                name = match.group(1)
+                value = float(match.group(2))
+                results[name] = value
+                continue
+
+            # Match failed measurement: "  rise_time  =  failed"
+            fail_match = re.match(r"^\s*(\w+)\s*=\s*failed\s*$", line, re.IGNORECASE)
+            if fail_match:
+                results[fail_match.group(1)] = None
+
+        return results if results else None

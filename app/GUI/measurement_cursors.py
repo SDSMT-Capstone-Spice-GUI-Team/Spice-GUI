@@ -9,6 +9,8 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from .styles import theme_manager
+
 
 class MeasurementCursors:
     """Two draggable vertical cursors on a matplotlib axes.
@@ -23,8 +25,9 @@ class MeasurementCursors:
         Callback ``(cursor_a_x, cursor_b_x)`` called whenever a cursor moves.
     """
 
-    CURSOR_A_COLOR = "#e74c3c"  # red
-    CURSOR_B_COLOR = "#2980b9"  # blue
+    # Legacy fallbacks (used only if theme_manager is unavailable)
+    _FALLBACK_CURSOR_A = "#e74c3c"
+    _FALLBACK_CURSOR_B = "#2980b9"
 
     def __init__(self, ax, canvas, on_cursor_moved=None):
         self._ax = ax
@@ -122,10 +125,13 @@ class MeasurementCursors:
 
     def _draw_cursor_a(self):
         if self._line_a is not None:
-            self._line_a.remove()
+            try:
+                self._line_a.remove()
+            except (NotImplementedError, ValueError):
+                pass
         self._line_a = self._ax.axvline(
             self._a_x,
-            color=self.CURSOR_A_COLOR,
+            color=theme_manager.color_hex("cursor_a"),
             linewidth=1.5,
             linestyle="--",
             label="_cursor_a",
@@ -133,10 +139,13 @@ class MeasurementCursors:
 
     def _draw_cursor_b(self):
         if self._line_b is not None:
-            self._line_b.remove()
+            try:
+                self._line_b.remove()
+            except (NotImplementedError, ValueError):
+                pass
         self._line_b = self._ax.axvline(
             self._b_x,
-            color=self.CURSOR_B_COLOR,
+            color=theme_manager.color_hex("cursor_b"),
             linewidth=1.5,
             linestyle="--",
             label="_cursor_b",
@@ -181,10 +190,16 @@ class MeasurementCursors:
         self._canvas.mpl_disconnect(self._cid_press)
         self._canvas.mpl_disconnect(self._cid_release)
         self._canvas.mpl_disconnect(self._cid_motion)
-        if self._line_a is not None:
-            self._line_a.remove()
-        if self._line_b is not None:
-            self._line_b.remove()
+        try:
+            if self._line_a is not None:
+                self._line_a.remove()
+        except NotImplementedError:
+            pass
+        try:
+            if self._line_b is not None:
+                self._line_b.remove()
+        except NotImplementedError:
+            pass
 
 
 class CursorReadoutPanel(QWidget):
@@ -207,11 +222,11 @@ class CursorReadoutPanel(QWidget):
         # Cursor selector buttons
         btn_row = QHBoxLayout()
         self._btn_a = QPushButton("Place Cursor A")
-        self._btn_a.setStyleSheet(f"color: {MeasurementCursors.CURSOR_A_COLOR};")
+        self._btn_a.setStyleSheet(f"color: {theme_manager.color_hex('cursor_a')};")
         self._btn_a.setCheckable(True)
         self._btn_a.setChecked(True)
         self._btn_b = QPushButton("Place Cursor B")
-        self._btn_b.setStyleSheet(f"color: {MeasurementCursors.CURSOR_B_COLOR};")
+        self._btn_b.setStyleSheet(f"color: {theme_manager.color_hex('cursor_b')};")
         self._btn_b.setCheckable(True)
         self._btn_a.clicked.connect(lambda: self._select_cursor("a"))
         self._btn_b.clicked.connect(lambda: self._select_cursor("b"))
@@ -221,11 +236,11 @@ class CursorReadoutPanel(QWidget):
 
         # Readout labels
         self._label_a = QLabel("Cursor A: —")
-        self._label_a.setStyleSheet(f"color: {MeasurementCursors.CURSOR_A_COLOR};")
+        self._label_a.setStyleSheet(f"color: {theme_manager.color_hex('cursor_a')};")
         self._label_b = QLabel("Cursor B: —")
-        self._label_b.setStyleSheet(f"color: {MeasurementCursors.CURSOR_B_COLOR};")
+        self._label_b.setStyleSheet(f"color: {theme_manager.color_hex('cursor_b')};")
         self._label_delta = QLabel("Delta: —")
-        self._label_delta.setStyleSheet("font-weight: bold;")
+        self._label_delta.setStyleSheet(theme_manager.stylesheet("label_bold"))
 
         layout.addWidget(self._label_a)
         layout.addWidget(self._label_b)

@@ -96,8 +96,8 @@ class TestSelectAll:
         model_b = ComponentData("R2", "Resistor", "2k", (100, 0))
         item_a = ComponentGraphicsItem("R1", model=model_a)
         item_b = ComponentGraphicsItem("R2", model=model_b)
-        canvas.scene.addItem(item_a)
-        canvas.scene.addItem(item_b)
+        canvas._scene.addItem(item_a)
+        canvas._scene.addItem(item_b)
         canvas.components["R1"] = item_a
         canvas.components["R2"] = item_b
 
@@ -113,4 +113,4 @@ class TestSelectAll:
         qtbot.addWidget(canvas)
         # Should not raise
         canvas.select_all()
-        assert len(canvas.scene.selectedItems()) == 0
+        assert len(canvas._scene.selectedItems()) == 0

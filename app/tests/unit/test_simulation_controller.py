@@ -1,5 +1,6 @@
 """Tests for SimulationController."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -167,14 +168,257 @@ class TestRunSimulation:
         ctrl._runner = mock_runner
         result = ctrl.run_simulation()
         assert not result.success
-        assert "Simulation error" in result.error
+        # Error is now a student-friendly message (classified as UNKNOWN)
+        assert "failed" in result.error.lower()
+
+    def test_convergence_error_shows_friendly_message(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        # First call fails with convergence error, retry also fails
+        mock_runner.run_simulation.return_value = (
+            False,
+            None,
+            "",
+            "Error: no convergence in DC operating point",
+        )
+        ctrl._runner = mock_runner
+        result = ctrl.run_simulation()
+        assert not result.success
+        assert "stable DC operating point" in result.error
+
+    def test_singular_matrix_shows_friendly_message(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        mock_runner.run_simulation.return_value = (
+            False,
+            None,
+            "",
+            "Error: singular matrix",
+        )
+        ctrl._runner = mock_runner
+        result = ctrl.run_simulation()
+        assert not result.success
+        assert "singular" in result.error.lower()
+        # Singular matrix is not retriable, so only one call
+        assert mock_runner.run_simulation.call_count == 1
+
+    def test_convergence_retry_succeeds(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        # First call fails, retry succeeds
+        mock_runner.run_simulation.side_effect = [
+            (False, None, "", "Error: no convergence in DC operating point"),
+            (True, "/tmp/output.txt", "v(1) = 5.0", ""),
+        ]
+        mock_runner.read_output.return_value = "v(1) = 5.000000e+00\n"
+        ctrl._runner = mock_runner
+        result = ctrl.run_simulation()
+        assert result.success
+        assert any("relaxed tolerances" in w for w in result.warnings)
+        assert mock_runner.run_simulation.call_count == 2
+
+
+class TestExportNetlist:
+    def test_export_netlist_writes_file(self, tmp_path):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        filepath = tmp_path / "test.cir"
+        ctrl.export_netlist(str(filepath))
+        assert filepath.exists()
+        content = filepath.read_text()
+        assert ".op" in content.lower() or ".end" in content.lower()
+
+    def test_export_netlist_raises_on_bad_path(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        with pytest.raises(OSError):
+            ctrl.export_netlist("/nonexistent/dir/test.cir")
+
+
+class TestExportResultsCSV:
+    def test_generate_results_csv_returns_content_for_op(self):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0, "v(2)": 3.3}
+        content = ctrl.generate_results_csv(op_results, "DC Operating Point", "test")
+        assert content is not None
+        assert "v(1)" in content or "5.0" in content
+
+    def test_generate_results_csv_returns_none_for_unsupported(self):
+        ctrl = SimulationController()
+        content = ctrl.generate_results_csv({}, "Pole-Zero", "test")
+        assert content is None
+
+    def test_export_results_csv_writes_file(self, tmp_path):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0, "v(2)": 3.3}
+        filepath = tmp_path / "results.csv"
+        ctrl.export_results_csv(op_results, "DC Operating Point", str(filepath), "test")
+        assert filepath.exists()
+
+    def test_export_results_csv_skips_unsupported_type(self, tmp_path):
+        ctrl = SimulationController()
+        filepath = tmp_path / "results.csv"
+        ctrl.export_results_csv({}, "Pole-Zero", str(filepath), "test")
+        assert not filepath.exists()
+
+
+class TestExportResultsExcel:
+    def test_export_results_excel_writes_file(self, tmp_path):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0}
+        filepath = tmp_path / "results.xlsx"
+        ctrl.export_results_excel(op_results, "DC Operating Point", str(filepath), "test")
+        assert filepath.exists()
+
+
+class TestExportResultsMarkdown:
+    def test_generate_results_markdown_returns_content(self):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0}
+        content = ctrl.generate_results_markdown(op_results, "DC Operating Point", "test")
+        assert content is not None
+        assert "v(1)" in content or "5.0" in content
+
+    def test_generate_results_markdown_returns_none_for_unsupported(self):
+        ctrl = SimulationController()
+        content = ctrl.generate_results_markdown({}, "Sensitivity", "test")
+        assert content is None
+
+    def test_export_results_markdown_writes_file(self, tmp_path):
+        ctrl = SimulationController()
+        op_results = {"v(1)": 5.0}
+        filepath = tmp_path / "results.md"
+        ctrl.export_results_markdown(op_results, "DC Operating Point", str(filepath), "test")
+        assert filepath.exists()
+
+
+class TestOperationalPointAlias:
+    """'Operational Point' analysis type must parse results like 'DC Operating Point' (#540)."""
+
+    def test_operational_point_routes_to_op_parser(self):
+        model = _build_simple_circuit()
+        model.analysis_type = "Operational Point"
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "simulation_output"
+        mock_runner.run_simulation.return_value = (True, "/tmp/out.txt", "", "")
+        mock_runner.read_output.return_value = "v(nodeA) = 5.00000\n"
+        ctrl._runner = mock_runner
+        result = ctrl.run_simulation()
+        assert result.success
+        assert result.data["node_voltages"]["nodeA"] == pytest.approx(5.0)
+
+
+class TestWrdataCleanup:
+    """Verify wrdata files are registered for cleanup (#542)."""
+
+    def test_run_simulation_registers_wrdata(self):
+        """run_simulation registers the wrdata file for cleanup."""
+        model = _build_simple_circuit()
+        model.analysis_type = "DC Operating Point"
+        ctrl = SimulationController(model=model)
+
+        mock_runner = MagicMock()
+        mock_runner.output_dir = "/tmp/sim"
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/sim/output.txt",
+            "v(1) = 5.0",
+            "",
+        )
+        mock_runner.read_output.return_value = "v(nodeA) = 5.00000\n"
+        ctrl._runner = mock_runner
+
+        ctrl.run_simulation()
+
+        mock_runner.register_extra_files.assert_called_once()
+        registered = mock_runner.register_extra_files.call_args[0][0]
+        assert len(registered) == 1
+        assert "wrdata_" in registered[0]
+
+    def test_parameter_sweep_registers_wrdata(self):
+        """run_parameter_sweep registers all wrdata files for cleanup."""
+        model = _build_simple_circuit()
+        model.analysis_type = "DC Operating Point"
+        ctrl = SimulationController(model=model)
+
+        mock_runner = MagicMock()
+        mock_runner.output_dir = "/tmp/sim"
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/sim/output.txt",
+            "v(1) = 5.0",
+            "",
+        )
+        mock_runner.read_output.return_value = "v(nodeA) = 5.00000\n"
+        ctrl._runner = mock_runner
+
+        sweep_config = {
+            "component_id": "R1",
+            "start": 100,
+            "stop": 1000,
+            "num_steps": 3,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {},
+        }
+        ctrl.run_parameter_sweep(sweep_config)
+
+        mock_runner.register_extra_files.assert_called_once()
+        registered = mock_runner.register_extra_files.call_args[0][0]
+        assert len(registered) == 3
+        assert all("wrdata_sweep_" in f for f in registered)
+
+    def test_monte_carlo_registers_wrdata(self):
+        """run_monte_carlo registers all wrdata files for cleanup."""
+        model = _build_simple_circuit()
+        model.analysis_type = "DC Operating Point"
+        ctrl = SimulationController(model=model)
+
+        mock_runner = MagicMock()
+        mock_runner.output_dir = "/tmp/sim"
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/sim/output.txt",
+            "v(1) = 5.0",
+            "",
+        )
+        mock_runner.read_output.return_value = "v(nodeA) = 5.00000\n"
+        ctrl._runner = mock_runner
+
+        mc_config = {
+            "num_runs": 2,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {},
+            "tolerances": {
+                "R1": {"tolerance_pct": 10, "distribution": "gaussian"},
+            },
+        }
+        ctrl.run_monte_carlo(mc_config)
+
+        mock_runner.register_extra_files.assert_called_once()
+        registered = mock_runner.register_extra_files.call_args[0][0]
+        assert len(registered) == 2
+        assert all("wrdata_mc_" in f for f in registered)
 
 
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.simulation_controller as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source

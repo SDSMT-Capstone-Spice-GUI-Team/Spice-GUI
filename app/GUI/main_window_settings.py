@@ -1,51 +1,58 @@
 """Settings persistence, autosave, crash recovery, and window lifecycle for MainWindow."""
 
-from PyQt6.QtCore import QSettings
+from controllers.settings_service import settings
+from controllers.theme_controller import theme_ctrl
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMessageBox
 
-from .styles import theme_manager
+from .styles import STATUS_DURATION_LONG, theme_manager
 
 
 class SettingsMixin:
-    """Mixin providing QSettings persistence, autosave, and closeEvent."""
+    """Mixin providing settings persistence, autosave, and closeEvent."""
 
     def _save_settings(self):
-        """Save user preferences via QSettings"""
-        settings = QSettings("SDSMT", "SDM Spice")
-        settings.setValue("window/geometry", self.saveGeometry())
-        settings.setValue("window/state", self.saveState())
-        settings.setValue("splitter/sizes", self.center_splitter.sizes())
-        settings.setValue("analysis/type", self.model.analysis_type)
-        settings.setValue("view/show_labels", self.canvas.show_component_labels)
-        settings.setValue("view/show_values", self.canvas.show_component_values)
-        settings.setValue("view/show_nodes", self.canvas.show_node_labels)
+        """Save user preferences via the centralized settings service."""
+        settings.set("window/geometry", self.saveGeometry())
+        settings.set("window/state", self.saveState())
+        settings.set("splitter/sizes", self.center_splitter.sizes())
+        settings.set("analysis/type", self.model.analysis_type)
+        settings.set("view/show_labels", self.canvas.show_component_labels)
+        settings.set("view/show_values", self.canvas.show_component_values)
+        settings.set("view/show_nodes", self.canvas.show_node_labels)
         # Preserve auto-save defaults if not yet set
-        if settings.value("autosave/interval") is None:
-            settings.setValue("autosave/interval", 60)
-        if settings.value("autosave/enabled") is None:
-            settings.setValue("autosave/enabled", True)
-        settings.setValue("view/show_statistics", self.statistics_panel.isVisible())
-        settings.setValue("view/theme", theme_manager.current_theme.name)
-        settings.setValue("view/symbol_style", theme_manager.symbol_style)
-        settings.setValue("view/color_mode", theme_manager.color_mode)
+        if settings.get("autosave/interval") is None:
+            settings.set("autosave/interval", 60)
+        if settings.get("autosave/enabled") is None:
+            settings.set("autosave/enabled", True)
+        settings.set("view/show_statistics", self.statistics_panel.isVisible())
+        # Preserve default zoom if not yet set
+        if settings.get("view/default_zoom") is None:
+            settings.set("view/default_zoom", 100)
+        settings.set("view/theme_key", theme_manager.get_theme_key())
+        settings.set("view/theme", theme_manager.current_theme.name)
+        settings.set("view/symbol_style", theme_manager.symbol_style)
+        settings.set("view/color_mode", theme_manager.color_mode)
+        settings.set("view/wire_thickness", theme_manager.wire_thickness)
+        settings.set("view/show_junction_dots", theme_manager.show_junction_dots)
+        settings.set("view/routing_mode", theme_manager.routing_mode)
+        settings.set("view/font_family", theme_manager.font_family)
 
     def _restore_settings(self):
-        """Restore user preferences from QSettings"""
-        settings = QSettings("SDSMT", "SDM Spice")
-
-        geometry = settings.value("window/geometry")
+        """Restore user preferences from the centralized settings service."""
+        geometry = settings.get("window/geometry")
         if geometry:
             self.restoreGeometry(geometry)
 
-        state = settings.value("window/state")
+        state = settings.get("window/state")
         if state:
             self.restoreState(state)
 
-        splitter_sizes = settings.value("splitter/sizes")
+        splitter_sizes = settings.get("splitter/sizes")
         if splitter_sizes:
             self.center_splitter.setSizes([int(s) for s in splitter_sizes])
 
-        analysis_type = settings.value("analysis/type")
+        analysis_type = settings.get("analysis/type")
         if analysis_type:
             # Don't restore "Parameter Sweep" — it requires component selection
             if analysis_type == "Parameter Sweep":
@@ -53,54 +60,89 @@ class SettingsMixin:
             self.simulation_ctrl.set_analysis(analysis_type, self.model.analysis_params)
             self._sync_analysis_menu()
 
-        show_labels = settings.value("view/show_labels")
+        show_labels = settings.get("view/show_labels")
         if show_labels is not None:
-            checked = show_labels == "true" or show_labels is True
+            checked = settings.get_bool("view/show_labels")
             self.canvas.show_component_labels = checked
             self.show_labels_action.setChecked(checked)
 
-        show_values = settings.value("view/show_values")
+        show_values = settings.get("view/show_values")
         if show_values is not None:
-            checked = show_values == "true" or show_values is True
+            checked = settings.get_bool("view/show_values")
             self.canvas.show_component_values = checked
             self.show_values_action.setChecked(checked)
 
-        show_nodes = settings.value("view/show_nodes")
+        show_nodes = settings.get("view/show_nodes")
         if show_nodes is not None:
-            checked = show_nodes == "true" or show_nodes is True
+            checked = settings.get_bool("view/show_nodes")
             self.canvas.show_node_labels = checked
             self.show_nodes_action.setChecked(checked)
 
-        show_stats = settings.value("view/show_statistics")
+        show_stats = settings.get("view/show_statistics")
         if show_stats is not None:
-            checked = show_stats == "true" or show_stats is True
+            checked = settings.get_bool("view/show_statistics")
             self.statistics_panel.setVisible(checked)
             self.show_statistics_action.setChecked(checked)
 
-        saved_theme = settings.value("view/theme")
-        if saved_theme == "Dark Theme":
-            self._set_theme("dark")
+        default_zoom = settings.get("view/default_zoom")
+        if default_zoom is not None:
+            self.canvas.set_default_zoom(int(default_zoom))
 
-        saved_symbol_style = settings.value("view/symbol_style")
+        saved_theme_key = settings.get("view/theme_key")
+        if saved_theme_key and saved_theme_key != "light":
+            theme_ctrl.set_theme_by_key(saved_theme_key)
+            if hasattr(self, "refresh_theme_menu"):
+                self.refresh_theme_menu()
+        else:
+            # Legacy fallback: check old theme name
+            saved_theme = settings.get("view/theme")
+            if saved_theme == "Dark Theme":
+                theme_ctrl.set_theme_by_key("dark")
+        # Always apply theme on startup so the QSS stylesheet is loaded
+        self.apply_theme()
+
+        saved_symbol_style = settings.get("view/symbol_style")
         if saved_symbol_style in ("ieee", "iec"):
-            self._set_symbol_style(saved_symbol_style)
+            self.set_symbol_style(saved_symbol_style)
 
-        saved_color_mode = settings.value("view/color_mode")
+        saved_color_mode = settings.get("view/color_mode")
         if saved_color_mode in ("color", "monochrome"):
-            self._set_color_mode(saved_color_mode)
+            self.set_color_mode(saved_color_mode)
+
+        saved_wire_thickness = settings.get("view/wire_thickness")
+        if saved_wire_thickness in ("thin", "normal", "thick"):
+            self.set_wire_thickness(saved_wire_thickness)
+
+        saved_junction_dots = settings.get("view/show_junction_dots")
+        if saved_junction_dots is not None:
+            self.set_show_junction_dots(settings.get_bool("view/show_junction_dots"))
+
+        saved_routing_mode = settings.get("view/routing_mode")
+        if saved_routing_mode in ("orthogonal", "diagonal"):
+            self.set_routing_mode(saved_routing_mode)
+
+        # Auto-trigger guided tutorial on first launch
+        if not settings.get_bool("tutorial/has_shown", False):
+            settings.set("tutorial/has_shown", True)
+            QTimer.singleShot(500, self._start_tutorial)
+
+        saved_font_family = settings.get_str("view/font_family", "")
+        if saved_font_family:
+            theme_ctrl.set_font_family(saved_font_family)
 
     def closeEvent(self, event):
         """Save settings before closing"""
         self._save_settings()
         self.file_ctrl.clear_auto_save()
+        if self.splash_screen is not None:
+            self.splash_screen.close()
         super().closeEvent(event)
 
-    def _start_autosave_timer(self):
+    def start_autosave_timer(self):
         """Start or restart the auto-save timer using the configured interval."""
-        settings = QSettings("SDSMT", "SDM Spice")
-        interval = int(settings.value("autosave/interval", 60))
-        enabled = settings.value("autosave/enabled", True)
-        if enabled == "false" or enabled is False:
+        interval = settings.get_int("autosave/interval", 60)
+        enabled = settings.get_bool("autosave/enabled", True)
+        if not enabled:
             self._autosave_timer.stop()
             return
         self._autosave_timer.start(interval * 1000)
@@ -132,5 +174,5 @@ class SettingsMixin:
                 self._sync_analysis_menu()
                 statusBar = self.statusBar()
                 if statusBar:
-                    statusBar.showMessage("Auto-save recovered", 5000)
+                    statusBar.showMessage("Auto-save recovered", STATUS_DURATION_LONG)
         self.file_ctrl.clear_auto_save()

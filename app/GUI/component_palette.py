@@ -1,9 +1,17 @@
+from controllers.settings_service import settings as app_settings
+from models.builtin_subcircuits import register_builtin_subcircuits
+from models.component import COMPONENT_CATEGORIES
 from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QBrush, QDrag, QIcon, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
+from PyQt6.QtGui import QDrag, QFont, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+from services import palette_profiles
 
 from .component_item import COMPONENT_CLASSES
 from .styles import COMPONENTS, theme_manager
+
+# Register built-in subcircuit components (voltage regulators etc.) so they
+# appear in COMPONENT_CATEGORIES["Subcircuits"] before the palette is built.
+register_builtin_subcircuits()
 
 # Brief descriptions for each component type
 COMPONENT_TOOLTIPS = {
@@ -13,6 +21,8 @@ COMPONENT_TOOLTIPS = {
     "Voltage Source": "Voltage Source (V) — Provides a constant voltage",
     "Current Source": "Current Source (I) — Provides a constant current",
     "Waveform Source": "Waveform Source (VW) — Time-varying voltage source",
+    "AC Voltage Source": "AC Voltage Source (V) — AC magnitude and phase for AC sweep",
+    "AC Current Source": "AC Current Source (I) — AC magnitude and phase for AC sweep",
     "Ground": "Ground (GND) — Zero-volt reference node",
     "Op-Amp": "Op-Amp (OA) — Operational amplifier",
     "VCVS": "VCVS (E) — Voltage-controlled voltage source",
@@ -27,7 +37,15 @@ COMPONENT_TOOLTIPS = {
     "Diode": "Diode (D) — Allows current in one direction",
     "LED": "LED (D) — Light-emitting diode",
     "Zener Diode": "Zener Diode (D) — Voltage-regulating diode",
+    "Transformer": "Transformer (K) — Coupled inductors / ideal transformer",
+    "Current Probe": "Current Probe (VP) — Measures current through a branch (0V source)",
 }
+
+# Name for the recommended section in the palette
+_RECOMMENDED_CATEGORY = "Recommended"
+
+# Name for the used-in-file section in the palette
+_USED_IN_FILE_CATEGORY = "Used in File"
 
 
 def create_component_icon(component_type, size=48):
@@ -38,19 +56,26 @@ def create_component_icon(component_type, size=48):
 
     # Get component class and create temp instance
     component_class = COMPONENT_CLASSES.get(component_type)
-    if not component_class:
-        return QIcon()
 
-    temp_comp = component_class("temp")
-
-    # Paint component symbol
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    if not component_class:
+        # Fallback icon for subcircuit components without a renderer class
+        color = theme_manager.get_component_color(component_type)
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(theme_manager.brush("component_fill"))
+        margin = int(size * 0.15)
+        painter.drawRect(margin, margin, size - 2 * margin, size - 2 * margin)
+        painter.end()
+        return QIcon(pixmap)
+
+    temp_comp = component_class("temp")
 
     # Set up painter with theme color
     color = theme_manager.get_component_color(temp_comp.component_type)
     painter.setPen(QPen(color, 2))
-    painter.setBrush(QBrush(color.lighter(150)))
+    painter.setBrush(theme_manager.brush("component_fill"))
 
     # Center and scale to fit icon
     painter.translate(size / 2, size / 2)
@@ -64,7 +89,7 @@ def create_component_icon(component_type, size=48):
 
 
 class ComponentPalette(QWidget):
-    """Component palette with search filter and drag support"""
+    """Component palette with collapsible category groups, search filter, and drag support"""
 
     # Signal emitted when component is double-clicked
     componentDoubleClicked = pyqtSignal(str)  # component_type
@@ -83,46 +108,409 @@ class ComponentPalette(QWidget):
         self.search_input.textChanged.connect(self._filter_components)
         layout.addWidget(self.search_input)
 
-        # Component list
-        self.list_widget = _PaletteListWidget()
-        self.list_widget.setDragEnabled(True)
-        self.list_widget.setDefaultDropAction(Qt.DropAction.CopyAction)
-        self.list_widget.setIconSize(QSize(48, 48))
-        self.list_widget.setSpacing(4)
+        # Component tree with collapsible categories
+        self.tree_widget = _PaletteTreeWidget()
+        self.tree_widget.setHeaderHidden(True)
+        self.tree_widget.setRootIsDecorated(False)
+        self.tree_widget.setDragEnabled(True)
+        self.tree_widget.setDefaultDropAction(Qt.DropAction.CopyAction)
+        self.tree_widget.setIconSize(QSize(48, 48))
+        self.tree_widget.setIndentation(16)
+        self.tree_widget.setAnimated(True)
 
-        for component_name in COMPONENTS.keys():
-            item = QListWidgetItem(component_name)
-            item.setIcon(create_component_icon(component_name))
-            item.setToolTip(COMPONENT_TOOLTIPS.get(component_name, component_name))
-            self.list_widget.addItem(item)
+        # Track category items for persistence and search
+        self._category_items: dict[str, QTreeWidgetItem] = {}
 
-        self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        layout.addWidget(self.list_widget)
+        # Track the recommended section separately
+        self._recommended_item: QTreeWidgetItem | None = None
+        self._recommended_components: list[str] = []
 
-    def _on_item_double_clicked(self, item):
-        """Handle double-click on palette item"""
-        self.componentDoubleClicked.emit(item.text())
+        # Track the "Used in File" section
+        self._used_in_file_item: QTreeWidgetItem | None = None
+
+        # Build categories from the active palette profile.  Falls back to
+        # the full COMPONENT_CATEGORIES layout when no profile is active.
+        self._build_categories(palette_profiles.get_layout())
+
+        self.tree_widget.itemClicked.connect(self._on_item_clicked)
+        self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.tree_widget.itemExpanded.connect(self._save_expanded_state)
+        self.tree_widget.itemCollapsed.connect(self._save_expanded_state)
+        layout.addWidget(self.tree_widget)
+
+        # Refresh cached icons whenever the theme, symbol style, or color
+        # mode changes so the palette stays in sync with the canvas.
+        theme_manager.on_theme_changed(self._on_theme_changed)
+
+    def _on_theme_changed(self, _theme=None) -> None:
+        """Regenerate all cached palette icons using current theme settings."""
+
+        def walk(parent: QTreeWidgetItem) -> None:
+            for i in range(parent.childCount()):
+                child = parent.child(i)
+                if child.childCount() > 0:
+                    walk(child)
+                else:
+                    name = child.text(0)
+                    if name in COMPONENTS:
+                        try:
+                            child.setIcon(0, create_component_icon(name))
+                        except Exception:
+                            pass
+
+        walk(self.tree_widget.invisibleRootItem())
+
+    def _build_categories(self, layout: dict) -> None:
+        """Build category tree items from a {category: [component, ...]} layout.
+
+        Component names not present in the COMPONENTS registry are silently
+        skipped, mirroring the original behaviour.  Categories are appended
+        to whatever is already in the tree, so callers wanting a clean
+        rebuild should call ``reload_layout`` instead.
+        """
+        expanded_state = self._load_expanded_state(layout.keys())
+        for category_name, component_names in layout.items():
+            category_item = QTreeWidgetItem(self.tree_widget, [category_name])
+            category_item.setFlags(Qt.ItemFlag.ItemIsEnabled)  # clickable but not selectable/draggable
+            bold_font = QFont()
+            bold_font.setBold(True)
+            category_item.setFont(0, bold_font)
+            self._category_items[category_name] = category_item
+
+            for component_name in component_names:
+                if component_name not in COMPONENTS:
+                    continue
+                child = QTreeWidgetItem(category_item, [component_name])
+                child.setIcon(0, create_component_icon(component_name))
+                child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, component_name))
+                child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+
+            is_expanded = expanded_state.get(category_name, True)
+            category_item.setExpanded(is_expanded)
+
+    def reload_layout(self, layout: dict | None = None) -> None:
+        """Tear down regular category items and rebuild from the given layout.
+
+        The Recommended and "Used in File" sections are tracked separately
+        and are deliberately left in place — they are orthogonal to the
+        active profile.  When ``layout`` is None the current active profile
+        is used.
+        """
+        if layout is None:
+            layout = palette_profiles.get_layout()
+
+        # Remove existing category items from the tree.  We only touch
+        # items tracked in _category_items so the recommended/used-in-file
+        # sections survive.
+        for category_item in list(self._category_items.values()):
+            idx = self.tree_widget.indexOfTopLevelItem(category_item)
+            if idx >= 0:
+                self.tree_widget.takeTopLevelItem(idx)
+        self._category_items.clear()
+
+        self._build_categories(layout)
+
+        # When recommendations are active, keep the new categories collapsed
+        # to match the existing recommended-mode behaviour.
+        if self._recommended_item is not None:
+            for category_item in self._category_items.values():
+                category_item.setExpanded(False)
+
+        # Re-apply any active search filter so newly added items respect it.
+        current_filter = self.search_input.text()
+        if current_filter:
+            self._filter_components(current_filter)
+
+    def _on_item_clicked(self, item, column):
+        """Toggle expand/collapse when a category header is clicked."""
+        if item.parent() is None:
+            item.setExpanded(not item.isExpanded())
+
+    def _on_item_double_clicked(self, item, column):
+        """Handle double-click on palette item (ignore category headers)."""
+        if item.parent() is not None:
+            self.componentDoubleClicked.emit(item.text(0))
+
+    def set_recommended_components(self, component_names: list[str]) -> None:
+        """Set file-level recommended components.
+
+        When recommendations are active a "Recommended" section appears at the
+        top of the palette and all other categories are auto-collapsed.  When
+        the list is empty the section is removed and categories are restored.
+        """
+        # Validate names against known component types
+        valid_names = [n for n in component_names if n in COMPONENTS]
+        self._recommended_components = valid_names
+
+        # Remove previous recommended section if it exists
+        self._remove_recommended_section()
+
+        if not valid_names:
+            # Restore user-preferred expanded state
+            saved_state = self._load_expanded_state()
+            for category_name, category_item in self._category_items.items():
+                category_item.setExpanded(saved_state.get(category_name, True))
+            return
+
+        # Create the Recommended category at the top of the tree
+        rec_item = QTreeWidgetItem()
+        rec_item.setText(0, _RECOMMENDED_CATEGORY)
+        rec_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        bold_font = QFont()
+        bold_font.setBold(True)
+        bold_font.setItalic(True)
+        rec_item.setFont(0, bold_font)
+
+        for component_name in valid_names:
+            child = QTreeWidgetItem(rec_item, [component_name])
+            child.setIcon(0, create_component_icon(component_name))
+            child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, component_name))
+            child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+
+        # Insert at position 0 (top of tree)
+        self.tree_widget.insertTopLevelItem(0, rec_item)
+        rec_item.setExpanded(True)
+        self._recommended_item = rec_item
+
+        # Auto-collapse all other categories when recommendations are active
+        for category_item in self._category_items.values():
+            category_item.setExpanded(False)
+
+    def get_recommended_components(self) -> list[str]:
+        """Return the current list of recommended component names."""
+        return list(self._recommended_components)
+
+    def has_recommendations(self) -> bool:
+        """Return True when file-level recommendations are active."""
+        return self._recommended_item is not None
+
+    def _remove_recommended_section(self) -> None:
+        """Remove the Recommended top-level item if present."""
+        if self._recommended_item is not None:
+            index = self.tree_widget.indexOfTopLevelItem(self._recommended_item)
+            if index >= 0:
+                self.tree_widget.takeTopLevelItem(index)
+            self._recommended_item = None
 
     def _filter_components(self, text):
-        """Show/hide components based on search text."""
+        """Show/hide components based on search text. Auto-expand matching categories."""
         text = text.lower()
-        for i in range(self.list_widget.count()):
-            item = self.list_widget.item(i)
-            if item is not None:
-                name = item.text().lower()
-                tooltip = (item.toolTip() or "").lower()
-                item.setHidden(text not in name and text not in tooltip)
+        is_searching = bool(text)
+
+        # Filter the recommended section
+        if self._recommended_item is not None:
+            any_rec_visible = False
+            for i in range(self._recommended_item.childCount()):
+                child = self._recommended_item.child(i)
+                name = child.text(0).lower()
+                tooltip = (child.toolTip(0) or "").lower()
+                matches = text in name or text in tooltip
+                child.setHidden(not matches)
+                if matches:
+                    any_rec_visible = True
+            self._recommended_item.setHidden(not any_rec_visible)
+            if is_searching and any_rec_visible:
+                self._recommended_item.setExpanded(True)
+
+        # Filter the "Used in File" section
+        if self._used_in_file_item is not None:
+            any_uif_visible = False
+            for i in range(self._used_in_file_item.childCount()):
+                child = self._used_in_file_item.child(i)
+                name = child.text(0).lower()
+                tooltip = (child.toolTip(0) or "").lower()
+                matches = text in name or text in tooltip
+                child.setHidden(not matches)
+                if matches:
+                    any_uif_visible = True
+            self._used_in_file_item.setHidden(not any_uif_visible)
+            if is_searching and any_uif_visible:
+                self._used_in_file_item.setExpanded(True)
+
+        for category_name, category_item in self._category_items.items():
+            any_child_visible = False
+            for i in range(category_item.childCount()):
+                child = category_item.child(i)
+                name = child.text(0).lower()
+                tooltip = (child.toolTip(0) or "").lower()
+                matches = text in name or text in tooltip
+                child.setHidden(not matches)
+                if matches:
+                    any_child_visible = True
+
+            # Hide entire category if no children match
+            category_item.setHidden(not any_child_visible)
+
+            # Auto-expand categories with matches during search
+            if is_searching and any_child_visible:
+                category_item.setExpanded(True)
+
+        # Restore saved expanded state when search is cleared
+        if not is_searching:
+            if self._recommended_item is not None:
+                # Recommendations active: keep others collapsed
+                for category_item in self._category_items.values():
+                    category_item.setExpanded(False)
+                self._recommended_item.setExpanded(True)
+            else:
+                saved_state = self._load_expanded_state()
+                for category_name, category_item in self._category_items.items():
+                    category_item.setExpanded(saved_state.get(category_name, True))
+            # Keep "Used in File" expanded when not searching
+            if self._used_in_file_item is not None:
+                self._used_in_file_item.setExpanded(True)
+
+    def _load_expanded_state(self, names=None) -> dict[str, bool]:
+        """Load category expanded/collapsed state from settings.
+
+        ``names`` is an optional iterable of category names to query.  When
+        omitted, falls back to the currently built categories, then to the
+        full COMPONENT_CATEGORIES set (used during the very first build).
+        """
+        if names is None:
+            names = list(self._category_items.keys()) or list(COMPONENT_CATEGORIES.keys())
+        state = {}
+        for category_name in names:
+            val = app_settings.get(f"palette/expanded/{category_name}")
+            if val is not None:
+                state[category_name] = app_settings.get_bool(f"palette/expanded/{category_name}")
+            else:
+                state[category_name] = True  # default expanded
+        return state
+
+    def _save_expanded_state(self, _item=None):
+        """Save category expanded/collapsed state to settings."""
+        # Don't save while searching (search auto-expands categories)
+        if self.search_input.text():
+            return
+        # Don't persist the recommended section's state or override user
+        # prefs when recommendations auto-collapse categories
+        if self._recommended_item is not None:
+            return
+        for category_name, category_item in self._category_items.items():
+            app_settings.set(f"palette/expanded/{category_name}", category_item.isExpanded())
+
+    def update_used_in_file(self, component_types: list[str]) -> None:
+        """Show a 'Used in File' section at the top of the palette.
+
+        Derives a unique, sorted list of component types currently placed on
+        the canvas and displays them in a special category above all others.
+        When the list is empty the section is removed.
+        """
+        # Deduplicate and preserve only known types
+        seen: set[str] = set()
+        unique: list[str] = []
+        for ct in component_types:
+            if ct not in seen and ct in COMPONENTS:
+                seen.add(ct)
+                unique.append(ct)
+        unique.sort()
+
+        self._remove_used_in_file_section()
+
+        if not unique:
+            return
+
+        uif_item = QTreeWidgetItem()
+        uif_item.setText(0, _USED_IN_FILE_CATEGORY)
+        uif_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        bold_font = QFont()
+        bold_font.setBold(True)
+        bold_font.setItalic(True)
+        uif_item.setFont(0, bold_font)
+
+        for component_name in unique:
+            child = QTreeWidgetItem(uif_item, [component_name])
+            child.setIcon(0, create_component_icon(component_name))
+            child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, component_name))
+            child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+
+        # Insert after recommended section if present, otherwise at position 0
+        insert_pos = 0
+        if self._recommended_item is not None:
+            idx = self.tree_widget.indexOfTopLevelItem(self._recommended_item)
+            if idx >= 0:
+                insert_pos = idx + 1
+
+        self.tree_widget.insertTopLevelItem(insert_pos, uif_item)
+        uif_item.setExpanded(True)
+        self._used_in_file_item = uif_item
+
+    def _remove_used_in_file_section(self) -> None:
+        """Remove the 'Used in File' top-level item if present."""
+        if self._used_in_file_item is not None:
+            index = self.tree_widget.indexOfTopLevelItem(self._used_in_file_item)
+            if index >= 0:
+                self.tree_widget.takeTopLevelItem(index)
+            self._used_in_file_item = None
+
+    def refresh_subcircuits(self) -> None:
+        """Rebuild the 'Subcircuits' category from COMPONENT_CATEGORIES.
+
+        Call this after importing new subcircuit definitions to update the
+        palette without recreating the entire widget.
+        """
+        category_name = "Subcircuits"
+        component_names = COMPONENT_CATEGORIES.get(category_name, [])
+
+        # Remove existing Subcircuits category if present
+        if category_name in self._category_items:
+            old_item = self._category_items.pop(category_name)
+            idx = self.tree_widget.indexOfTopLevelItem(old_item)
+            if idx >= 0:
+                self.tree_widget.takeTopLevelItem(idx)
+
+        if not component_names:
+            return
+
+        # Create category item
+        category_item = QTreeWidgetItem(self.tree_widget, [category_name])
+        category_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        bold_font = QFont()
+        bold_font.setBold(True)
+        category_item.setFont(0, bold_font)
+        self._category_items[category_name] = category_item
+
+        for component_name in component_names:
+            child = QTreeWidgetItem(category_item, [component_name])
+            try:
+                child.setIcon(0, create_component_icon(component_name))
+            except (AttributeError, ValueError, TypeError):
+                pass
+            child.setToolTip(
+                0,
+                COMPONENT_TOOLTIPS.get(component_name, f"Subcircuit: {component_name}"),
+            )
+            child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
+
+        category_item.setExpanded(True)
+
+    def get_all_component_items(self) -> list[QTreeWidgetItem]:
+        """Return all component (leaf) items across all categories."""
+        items = []
+        for category_item in self._category_items.values():
+            for i in range(category_item.childCount()):
+                items.append(category_item.child(i))
+        return items
+
+    def set_component_selected_callback(self, callback) -> None:
+        """Register a callback for component double-click (ComponentPaletteProtocol)."""
+        self.componentDoubleClicked.connect(callback)
+
+    def set_filter_text(self, text: str) -> None:
+        """Set the search filter text (ComponentPaletteProtocol)."""
+        self.search_input.setText(text)
 
 
-class _PaletteListWidget(QListWidget):
-    """Internal list widget with drag support for the component palette."""
+class _PaletteTreeWidget(QTreeWidget):
+    """Internal tree widget with drag support for the component palette."""
 
     def startDrag(self, supportedActions):
-        """Start drag operation"""
+        """Start drag operation for component items only."""
         item = self.currentItem()
-        if item:
+        if item and item.parent() is not None:
             drag = QDrag(self)
             mime_data = QMimeData()
-            mime_data.setText(item.text())
+            mime_data.setText(item.text(0))
             drag.setMimeData(mime_data)
             drag.exec(Qt.DropAction.CopyAction)

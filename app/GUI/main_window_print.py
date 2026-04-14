@@ -15,7 +15,7 @@ class PrintExportMixin:
         from .component_item import ComponentGraphicsItem
         from .wire_item import WireGraphicsItem
 
-        scene = self.canvas.scene
+        scene = self.canvas.scene()
         circuit_items = [
             item
             for item in scene.items()
@@ -39,7 +39,7 @@ class PrintExportMixin:
         aspect ratio. Forces a white background regardless of theme.
         """
         from PyQt6.QtCore import QRectF, Qt
-        from PyQt6.QtGui import QPainter
+        from PyQt6.QtGui import QBrush, QPainter
 
         source_rect = self._get_circuit_source_rect()
         if source_rect is None:
@@ -63,7 +63,12 @@ class PrintExportMixin:
         target_y = (page_rect.height() - target_h) / 2
         target_rect = QRectF(target_x, target_y, target_w, target_h)
 
-        self.canvas.scene.render(painter, target=target_rect, source=source_rect)
+        # Override scene background to white so dark-mode theme doesn't leak
+        scene = self.canvas.scene()
+        original_brush = scene.backgroundBrush()
+        scene.setBackgroundBrush(QBrush(Qt.GlobalColor.white))
+        scene.render(painter, target=target_rect, source=source_rect)
+        scene.setBackgroundBrush(original_brush)
         painter.end()
 
     def _on_print(self):
@@ -75,7 +80,7 @@ class PrintExportMixin:
             QMessageBox.information(self, "Print", "Nothing to print — the canvas is empty.")
             return
 
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer = QPrinter(QPrinter.PrinterMode.ScreenResolution)
         dialog = QPrintDialog(printer, self)
         dialog.setWindowTitle("Print Circuit")
         if dialog.exec() == QPrintDialog.DialogCode.Accepted:
@@ -90,7 +95,7 @@ class PrintExportMixin:
             QMessageBox.information(self, "Print Preview", "Nothing to preview — the canvas is empty.")
             return
 
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer = QPrinter(QPrinter.PrinterMode.ScreenResolution)
         preview = QPrintPreviewDialog(printer, self)
         preview.setWindowTitle("Print Preview — Circuit Schematic")
         preview.paintRequested.connect(self._render_to_printer)
@@ -111,7 +116,7 @@ class PrintExportMixin:
         if not filename.lower().endswith(".pdf"):
             filename += ".pdf"
 
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer = QPrinter(QPrinter.PrinterMode.ScreenResolution)
         printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
         printer.setOutputFileName(filename)
 

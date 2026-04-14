@@ -5,7 +5,8 @@ stale-result clearing, and View menu toggle.
 """
 
 import pytest
-from simulation.result_parser import ResultParser, format_si
+from simulation.result_parser import ResultParser
+from utils.format_utils import format_si
 
 # ── format_si ──────────────────────────────────────────────────────────
 

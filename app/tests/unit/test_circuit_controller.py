@@ -1,5 +1,7 @@
 """Tests for CircuitController."""
 
+from pathlib import Path
+
 import pytest
 from controllers.circuit_controller import CircuitController
 from models.circuit import CircuitModel
@@ -181,6 +183,22 @@ class TestWireOperations:
         assert controller.model.wires[0].waypoints == pts
         assert recorded[-1][0] == "wire_routed"
 
+    def test_wire_routed_event_sends_tuple_format(self, controller, events):
+        """wire_routed data must be (wire_index, WireData) tuple (#482)."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_observer(callback)
+        pts = [(10.0, 0.0), (50.0, 0.0), (90.0, 0.0)]
+        controller.update_wire_waypoints(0, pts)
+        event_name, event_data = recorded[-1]
+        assert event_name == "wire_routed"
+        wire_index, wire_data = event_data  # must unpack without ValueError
+        assert wire_index == 0
+        assert hasattr(wire_data, "waypoints")
+        assert wire_data.waypoints == pts
+
 
 class TestDuplicateWirePrevention:
     """Tests for duplicate wire detection and prevention."""
@@ -262,11 +280,249 @@ class TestCircuitOperations:
         assert ("nodes_rebuilt", None) in recorded
 
 
+class TestNodeManagementThroughController:
+    """Verify that the model's node graph is updated when operations go through the controller."""
+
+    def test_add_wire_creates_node(self, controller):
+        """Adding a wire through the controller should create a node in the model."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        assert len(controller.model.nodes) == 1
+        node = controller.model.nodes[0]
+        assert ("R1", 1) in node.terminals
+        assert ("R2", 0) in node.terminals
+
+    def test_add_wire_merges_nodes(self, controller):
+        """Wires connecting existing nodes should merge them."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_component("Resistor", (200.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_wire("R2", 1, "R3", 0)
+        # R1[1]-R2[0] is one node, R2[1]-R3[0] is another
+        assert len(controller.model.nodes) == 2
+
+    def test_remove_wire_updates_nodes(self, controller):
+        """Removing a wire should update the node graph."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        assert len(controller.model.nodes) == 1
+        controller.remove_wire(0)
+        assert len(controller.model.nodes) == 0
+
+    def test_ground_component_creates_ground_node(self, controller):
+        """Adding a Ground component should create a ground node in the model."""
+        controller.add_component("Ground", (0.0, 0.0))
+        ground_nodes = [n for n in controller.model.nodes if n.is_ground]
+        assert len(ground_nodes) == 1
+        assert ground_nodes[0].auto_label == "0"
+
+    def test_clear_circuit_clears_nodes(self, controller):
+        """Clearing the circuit should clear all nodes."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.clear_circuit()
+        assert len(controller.model.nodes) == 0
+        assert len(controller.model.terminal_to_node) == 0
+
+    def test_rebuild_nodes_preserves_connectivity(self, controller):
+        """Rebuilding nodes should reproduce the same connectivity."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        original_count = len(controller.model.nodes)
+        controller.rebuild_nodes()
+        assert len(controller.model.nodes) == original_count
+
+    def test_paste_creates_nodes(self, controller):
+        """Pasting components with wires should create nodes in the model."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.copy_components(["R1", "R2"])
+        new_comps, new_wires = controller.paste_components()
+        assert len(new_comps) == 2
+        assert len(new_wires) == 1
+        # Original + pasted: 2 nodes (one for each wire)
+        assert len(controller.model.nodes) == 2
+
+
+class TestNodeAccessAPI:
+    """Verify node access methods on the controller."""
+
+    def test_get_nodes_and_terminal_map_empty(self, controller):
+        """Returns empty collections when no wires exist."""
+        nodes, term_map = controller.get_nodes_and_terminal_map()
+        assert nodes == []
+        assert term_map == {}
+
+    def test_get_nodes_and_terminal_map_with_wire(self, controller):
+        """Returns node and terminal mapping after a wire is added."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        nodes, term_map = controller.get_nodes_and_terminal_map()
+        assert len(nodes) == 1
+        assert ("R1", 1) in term_map
+        assert ("R2", 0) in term_map
+        # Returns copies, not references to internal state
+        nodes.clear()
+        assert len(controller.model.nodes) == 1
+
+    def test_find_node_for_terminal_found(self, controller):
+        """Finds the correct node for a connected terminal."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        node = controller.find_node_for_terminal("R1", 1)
+        assert node is not None
+        assert ("R1", 1) in node.terminals
+
+    def test_find_node_for_terminal_not_found(self, controller):
+        """Returns None for an unconnected terminal."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        assert controller.find_node_for_terminal("R1", 0) is None
+
+    def test_set_net_name_updates_node(self, controller, events):
+        """set_net_name updates the node label and notifies observers."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_observer(callback)
+        node = controller.model.nodes[0]
+        controller.set_net_name(node, "Vout")
+        assert node.custom_label == "Vout"
+        assert recorded[-1][0] == "net_name_changed"
+
+
+class TestClipboardPublicAPI:
+    """Verify clipboard operations use public controller API."""
+
+    def test_set_clipboard(self, controller):
+        """set_clipboard replaces internal clipboard."""
+        from models.clipboard import ClipboardData
+
+        controller.add_component("Resistor", (0.0, 0.0))
+        comp_dict = controller.model.components["R1"].to_dict()
+        cb = ClipboardData(components=[comp_dict], wires=[], paste_count=0)
+        controller.set_clipboard(cb)
+        assert controller.has_clipboard_content()
+
+    def test_get_clipboard_paste_count(self, controller):
+        """get_clipboard_paste_count reflects paste operations."""
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.copy_components(["R1"])
+        assert controller.get_clipboard_paste_count() == 0
+        controller.paste_components()
+        assert controller.get_clipboard_paste_count() == 1
+        controller.paste_components()
+        assert controller.get_clipboard_paste_count() == 2
+
+
+class TestWireRoutingAPI:
+    """Verify wire routing result and lock state are persisted through the controller."""
+
+    def test_update_wire_routing_result(self, controller, events):
+        """update_wire_routing_result stores pathfinding metadata."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_observer(callback)
+        wps = [(0.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+        controller.update_wire_routing_result(0, wps, runtime=0.05, iterations=42, routing_failed=False)
+        wire = controller.model.wires[0]
+        assert wire.waypoints == wps
+        assert wire.runtime == 0.05
+        assert wire.iterations == 42
+        assert wire.routing_failed is False
+        assert recorded[-1][0] == "wire_routed"
+
+    def test_set_wire_locked(self, controller, events):
+        """set_wire_locked updates the lock flag and notifies."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_component("Resistor", (100.0, 0.0))
+        controller.add_wire("R1", 1, "R2", 0)
+        controller.add_observer(callback)
+        controller.set_wire_locked(0, True)
+        assert controller.model.wires[0].locked is True
+        assert recorded[-1][0] == "wire_lock_changed"
+
+    def test_set_wire_locked_invalid_index(self, controller):
+        """set_wire_locked with invalid index does nothing."""
+        controller.set_wire_locked(99, True)  # Should not raise
+
+    def test_set_component_rotation(self, controller, events):
+        """set_component_rotation sets exact rotation value."""
+        recorded, callback = events
+        controller.add_component("Resistor", (0.0, 0.0))
+        controller.add_observer(callback)
+        controller.set_component_rotation("R1", 180)
+        assert controller.model.components["R1"].rotation == 180
+        assert recorded[-1][0] == "component_rotated"
+
+
+class TestControllerAccessors:
+    """Test public accessor methods that encapsulate model access."""
+
+    def test_get_component(self, controller):
+        comp = controller.add_component("Resistor", (0.0, 0.0))
+        assert controller.get_component(comp.component_id) is comp
+        assert controller.get_component("nonexistent") is None
+
+    def test_get_components_returns_copy(self, controller):
+        controller.add_component("Resistor", (0.0, 0.0))
+        result = controller.get_components()
+        assert isinstance(result, dict)
+        assert len(result) == 1
+        # Modifying the returned dict shouldn't affect the model
+        result.clear()
+        assert len(controller.model.components) == 1
+
+    def test_get_wires_returns_copy(self, controller):
+        result = controller.get_wires()
+        assert isinstance(result, list)
+        assert len(result) == 0
+
+    def test_get_annotations_returns_copy(self, controller):
+        result = controller.get_annotations()
+        assert isinstance(result, list)
+        assert len(result) == 0
+
+    def test_get_component_counter(self, controller):
+        controller.add_component("Resistor", (0.0, 0.0))
+        counter = controller.get_component_counter()
+        assert len(counter) >= 1
+        # Modifying returned dict shouldn't affect model
+        counter["__test__"] = 999
+        assert "__test__" not in controller.model.component_counter
+
+    def test_to_dict(self, controller):
+        controller.add_component("Resistor", (0.0, 0.0))
+        result = controller.to_dict()
+        assert "components" in result
+        assert "wires" in result
+
+    def test_push_already_executed(self, controller):
+        """push_already_executed adds command to undo stack and clears redo."""
+        from unittest.mock import MagicMock
+
+        cmd = MagicMock()
+        controller.push_already_executed(cmd)
+        assert controller.undo_manager._undo_stack[-1] is cmd
+        assert len(controller.undo_manager._redo_stack) == 0
+
+
 class TestNoQtDependencies:
     def test_no_pyqt_imports(self):
         import controllers.circuit_controller as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source

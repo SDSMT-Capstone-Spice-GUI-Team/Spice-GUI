@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QDialog, QMessageBox
 from .analysis_dialog import AnalysisDialog
 from .monte_carlo_dialog import MonteCarloDialog
 from .parameter_sweep_dialog import ParameterSweepDialog
+from .styles import STATUS_DURATION_DEFAULT
 
 
 class AnalysisSettingsMixin:
@@ -15,11 +16,11 @@ class AnalysisSettingsMixin:
         self.simulation_ctrl.set_analysis("DC Operating Point", {})
         statusbar = self.statusBar()
         if statusbar:
-            statusbar.showMessage("Analysis: DC Operating Point (.op)", 3000)
+            statusbar.showMessage("Analysis: DC Operating Point (.op)", STATUS_DURATION_DEFAULT)
 
     def set_analysis_dc(self):
         """Set analysis type to DC Sweep with parameters"""
-        dialog = AnalysisDialog("DC Sweep", self)
+        dialog = AnalysisDialog("DC Sweep", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
@@ -38,7 +39,7 @@ class AnalysisSettingsMixin:
 
     def set_analysis_ac(self):
         """Set analysis type to AC Sweep with parameters"""
-        dialog = AnalysisDialog("AC Sweep", self)
+        dialog = AnalysisDialog("AC Sweep", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
@@ -57,7 +58,7 @@ class AnalysisSettingsMixin:
 
     def set_analysis_transient(self):
         """Set analysis type to Transient with parameters"""
-        dialog = AnalysisDialog("Transient", self)
+        dialog = AnalysisDialog("Transient", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
@@ -76,7 +77,7 @@ class AnalysisSettingsMixin:
 
     def set_analysis_temp_sweep(self):
         """Set analysis type to Temperature Sweep with parameters"""
-        dialog = AnalysisDialog("Temperature Sweep", self)
+        dialog = AnalysisDialog("Temperature Sweep", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
@@ -98,7 +99,7 @@ class AnalysisSettingsMixin:
 
     def set_analysis_noise(self):
         """Set analysis type to Noise with parameters"""
-        dialog = AnalysisDialog("Noise", self)
+        dialog = AnalysisDialog("Noise", self, simulation_ctrl=self.simulation_ctrl)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             params = dialog.get_parameters()
             if params:
@@ -182,6 +183,60 @@ class AnalysisSettingsMixin:
         else:
             self.op_action.setChecked(True)
 
+    def set_analysis_sensitivity(self):
+        """Set analysis type to Sensitivity with parameters"""
+        dialog = AnalysisDialog("Sensitivity", self, simulation_ctrl=self.simulation_ctrl)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.simulation_ctrl.set_analysis("Sensitivity", params)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(
+                        f"Analysis: Sensitivity (output node: {params.get('output_node', '?')})",
+                        3000,
+                    )
+            else:
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid parameters.")
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
+
+    def set_analysis_tf(self):
+        """Set analysis type to Transfer Function with parameters"""
+        dialog = AnalysisDialog("Transfer Function", self, simulation_ctrl=self.simulation_ctrl)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.simulation_ctrl.set_analysis("Transfer Function", params)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage(
+                        f"Analysis: Transfer Function ({params.get('output_var', '?')} / {params.get('input_source', '?')})",
+                        3000,
+                    )
+            else:
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid parameters.")
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
+
+    def set_analysis_pz(self):
+        """Set analysis type to Pole-Zero with parameters"""
+        dialog = AnalysisDialog("Pole-Zero", self, simulation_ctrl=self.simulation_ctrl)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            params = dialog.get_parameters()
+            if params:
+                self.simulation_ctrl.set_analysis("Pole-Zero", params)
+                statusBar = self.statusBar()
+                if statusBar:
+                    statusBar.showMessage("Analysis: Pole-Zero", STATUS_DURATION_DEFAULT)
+            else:
+                QMessageBox.warning(self, "Invalid Parameters", "Please enter valid parameters.")
+                self.op_action.setChecked(True)
+        else:
+            self.op_action.setChecked(True)
+
     def _sync_analysis_menu(self):
         """Update Analysis menu checkboxes to match model state."""
         analysis_type = self.model.analysis_type
@@ -197,5 +252,11 @@ class AnalysisSettingsMixin:
             self.temp_action.setChecked(True)
         elif analysis_type == "Noise":
             self.noise_action.setChecked(True)
+        elif analysis_type == "Sensitivity":
+            self.sens_action.setChecked(True)
+        elif analysis_type == "Transfer Function":
+            self.tf_action.setChecked(True)
+        elif analysis_type == "Pole-Zero":
+            self.pz_action.setChecked(True)
         elif analysis_type == "Parameter Sweep":
             self.sweep_action.setChecked(True)

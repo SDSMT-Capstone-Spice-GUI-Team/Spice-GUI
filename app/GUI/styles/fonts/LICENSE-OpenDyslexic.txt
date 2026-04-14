@@ -1,0 +1,7 @@
+OpenDyslexic font
+Copyright (c) 2012-2019 Abbie Gonzalez (https://abbiecod.es)
+
+Licensed under the SIL Open Font License, Version 1.1.
+This license is available with a FAQ at: https://scripts.sil.org/OFL
+
+The font is free to use, redistribute, and modify.

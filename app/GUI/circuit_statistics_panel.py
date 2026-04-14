@@ -5,6 +5,7 @@ from collections import Counter
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFormLayout, QGroupBox, QLabel, QScrollArea, QTextEdit, QVBoxLayout, QWidget
+from utils.connectivity import find_floating_terminals
 
 from .styles import theme_manager
 
@@ -137,10 +138,10 @@ class CircuitStatisticsPanel(QWidget):
             self._ground_label.setStyleSheet("")
         elif has_ground:
             self._ground_label.setText("Yes")
-            self._ground_label.setStyleSheet("QLabel { color: green; }")
+            self._ground_label.setStyleSheet(theme_manager.stylesheet("status_success"))
         else:
             self._ground_label.setText("No (required for simulation)")
-            self._ground_label.setStyleSheet("QLabel { color: red; }")
+            self._ground_label.setStyleSheet(theme_manager.stylesheet("status_error"))
 
     def _update_component_breakdown(self):
         # Clear old rows
@@ -157,7 +158,7 @@ class CircuitStatisticsPanel(QWidget):
             self._components_form.addRow(f"{comp_type}:", label)
 
     def _update_connectivity(self):
-        floating = self._find_floating_terminals()
+        floating = find_floating_terminals(self.model.components, self.model.terminal_to_node)
         if not self.model.components:
             self._floating_label.setText("-")
             self._floating_label.setStyleSheet("")
@@ -165,24 +166,12 @@ class CircuitStatisticsPanel(QWidget):
         elif floating:
             names = ", ".join(f"{cid}[{tidx}]" for cid, tidx in sorted(floating))
             self._floating_label.setText(f"{len(floating)} terminal(s)")
-            self._floating_label.setStyleSheet("QLabel { color: orange; }")
+            self._floating_label.setStyleSheet(theme_manager.stylesheet("status_warning"))
             self._floating_label.setToolTip(names)
         else:
             self._floating_label.setText("All connected")
-            self._floating_label.setStyleSheet("QLabel { color: green; }")
+            self._floating_label.setStyleSheet(theme_manager.stylesheet("status_success"))
             self._floating_label.setToolTip("")
-
-    def _find_floating_terminals(self):
-        """Return set of (component_id, terminal_index) that are not in any node."""
-        floating = set()
-        for comp in self.model.components.values():
-            if comp.component_type == "Ground":
-                continue
-            for tidx in range(comp.get_terminal_count()):
-                key = (comp.component_id, tidx)
-                if key not in self.model.terminal_to_node:
-                    floating.add(key)
-        return floating
 
     def _update_netlist_preview(self):
         if not self.model.components:
@@ -191,5 +180,5 @@ class CircuitStatisticsPanel(QWidget):
         try:
             netlist = self.simulation_ctrl.generate_netlist()
             self._netlist_text.setPlainText(netlist)
-        except Exception:
+        except (ValueError, KeyError, TypeError):
             self._netlist_text.setPlainText("(netlist generation requires valid circuit)")

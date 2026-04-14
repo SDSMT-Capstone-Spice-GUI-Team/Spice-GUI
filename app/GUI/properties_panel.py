@@ -2,8 +2,8 @@
 from models.component import DEFAULT_VALUES, OPAMP_MODELS
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QComboBox, QFormLayout, QGroupBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from utils.format_utils import format_value, validate_component_value
 
-from .format_utils import format_value, validate_component_value
 from .styles import theme_manager
 
 
@@ -35,13 +35,13 @@ class PropertiesPanel(QWidget):
 
         # Component ID field (read-only)
         self.id_label = QLabel("-")
-        self.id_label.setStyleSheet(theme_manager.stylesheet("muted_label"))
+        self.id_label.setObjectName("muted_label")
         self.id_label.setToolTip("Unique identifier for this component (auto-generated)")
         self.form_layout.addRow("ID:", self.id_label)
 
         # Component Type field (read-only)
         self.type_label = QLabel("-")
-        self.type_label.setStyleSheet(theme_manager.stylesheet("muted_label"))
+        self.type_label.setObjectName("muted_label")
         self.type_label.setToolTip("The type of circuit component")
         self.form_layout.addRow("Type:", self.type_label)
 
@@ -63,9 +63,23 @@ class PropertiesPanel(QWidget):
         # Validation error label
         self.error_label = QLabel("")
         self.error_label.setWordWrap(True)
-        self.error_label.setStyleSheet("QLabel { color: red; font-size: 9pt; }")
+        self.error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
         self.error_label.setVisible(False)
         self.form_layout.addRow("", self.error_label)
+
+        # Initial condition field (shown only for Capacitor and Inductor)
+        self.ic_input = QLineEdit()
+        self.ic_input.setPlaceholderText("e.g., 5V or 100mA (optional)")
+        self.ic_input.setToolTip(
+            "Initial condition for transient analysis.\n"
+            "Capacitor: initial voltage (e.g., 5 or 5V)\n"
+            "Inductor: initial current (e.g., 0.1 or 100m)"
+        )
+        self.ic_input.textChanged.connect(self.on_value_changed)
+        self.ic_label = QLabel("Initial Cond.:")
+        self.ic_label.setVisible(False)
+        self.ic_input.setVisible(False)
+        self.form_layout.addRow(self.ic_label, self.ic_input)
 
         layout.addWidget(self.properties_group)
 
@@ -126,6 +140,8 @@ class PropertiesPanel(QWidget):
         self.error_label.setVisible(False)
         self.waveform_button.setVisible(False)
         self.opamp_model_combo.setVisible(False)
+        self.ic_label.setVisible(False)
+        self.ic_input.setVisible(False)
         self.results_group.setVisible(False)
         self.current_component = None
 
@@ -141,6 +157,8 @@ class PropertiesPanel(QWidget):
         self.error_label.setVisible(False)
         self.waveform_button.setVisible(False)
         self.opamp_model_combo.setVisible(False)
+        self.ic_label.setVisible(False)
+        self.ic_input.setVisible(False)
 
     def show_component(self, component):
         """Display properties for the given component"""
@@ -186,6 +204,23 @@ class PropertiesPanel(QWidget):
 
         self.value_input.blockSignals(False)
 
+        # Show initial condition field for capacitors and inductors
+        if component.component_type in ("Capacitor", "Inductor"):
+            self.ic_input.blockSignals(True)
+            self.ic_input.setText(getattr(component, "initial_condition", None) or "")
+            self.ic_input.blockSignals(False)
+            if component.component_type == "Capacitor":
+                self.ic_label.setText("Initial V:")
+                self.ic_input.setPlaceholderText("e.g., 5 (volts, optional)")
+            else:
+                self.ic_label.setText("Initial I:")
+                self.ic_input.setPlaceholderText("e.g., 100m (amps, optional)")
+            self.ic_label.setVisible(True)
+            self.ic_input.setVisible(True)
+        else:
+            self.ic_label.setVisible(False)
+            self.ic_input.setVisible(False)
+
         # Show simulation results if available
         self._update_results_display()
 
@@ -224,6 +259,13 @@ class PropertiesPanel(QWidget):
         if new_value != self.current_component.value:
             self.property_changed.emit(self.current_component.component_id, "value", new_value)
 
+        # Apply initial condition if applicable
+        if self.current_component.component_type in ("Capacitor", "Inductor"):
+            ic_value = self.ic_input.text().strip() or None
+            old_ic = getattr(self.current_component, "initial_condition", None)
+            if ic_value != old_ic:
+                self.property_changed.emit(self.current_component.component_id, "initial_condition", ic_value)
+
         self.apply_button.setEnabled(False)
 
     def configure_waveform(self):
@@ -238,20 +280,8 @@ class PropertiesPanel(QWidget):
 
         dialog = WaveformConfigDialog(self.current_component, self)
         if dialog.exec():
-            # Get configured parameters
+            # Get configured parameters and emit signal — controller handles model mutation
             waveform_type, params = dialog.get_parameters()
-
-            # Update component
-            self.current_component.waveform_type = waveform_type
-            self.current_component.waveform_params[waveform_type] = params
-
-            # Update the value display to show the SPICE representation
-            if hasattr(self.current_component, "get_spice_value"):
-                spice_value = self.current_component.get_spice_value()
-                self.value_input.setText(spice_value)
-                self.current_component.value = spice_value
-
-            # Emit property changed signal
             self.property_changed.emit(self.current_component.component_id, "waveform", (waveform_type, params))
 
     def set_simulation_results(self, power_data, voltage_data=None, total_power=0.0):
@@ -273,6 +303,10 @@ class PropertiesPanel(QWidget):
         self._voltage_data = {}
         self._total_power = 0.0
         self.results_group.setVisible(False)
+
+    def set_property_change_callback(self, callback) -> None:
+        """Register a callback for property changes (PropertiesPanelProtocol)."""
+        self.property_changed.connect(callback)
 
     def _update_results_display(self):
         """Update the results section for the current component."""

@@ -66,6 +66,17 @@ class TestFormatHelpers:
         assert _escape_latex("100%") == "100\\%"
         assert _escape_latex("a&b") == "a\\&b"
 
+    def test_escape_latex_tilde(self):
+        """Issue #525: tilde must not produce a non-breaking space."""
+        assert _escape_latex("V~out") == r"V\textasciitilde{}out"
+
+    def test_escape_latex_caret(self):
+        """Issue #525: caret must not produce a superscript."""
+        assert _escape_latex("x^2") == r"x\textasciicircum{}2"
+
+    def test_escape_latex_tilde_and_caret_together(self):
+        assert _escape_latex("a~b^c") == r"a\textasciitilde{}b\textasciicircum{}c"
+
 
 class TestCoordinateTransform:
     def test_transform_normalizes_origin(self):
@@ -235,6 +246,43 @@ class TestTripoleExport:
         )
         assert r"\node[op amp" in output
         assert "OA1.-" in output or "OA1.+" in output
+
+    def test_flip_v_on_tripole(self):
+        """Regression: flip_v was ignored on tripoles before #522."""
+        model = CircuitModel()
+        model.add_component(ComponentData("Q1", "BJT NPN", "2N3904", position=(100, 100), flip_v=True))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert "yscale=-1" in output
+
+    def test_flip_h_on_tripole(self):
+        model = CircuitModel()
+        model.add_component(ComponentData("Q1", "BJT NPN", "2N3904", position=(100, 100), flip_h=True))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert "xscale=-1" in output
+
+    def test_flip_v_absent_when_not_flipped(self):
+        model = CircuitModel()
+        model.add_component(ComponentData("Q1", "BJT NPN", "2N3904", position=(100, 100)))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert "yscale" not in output
 
     def test_all_tripole_types_mapped(self):
         """Ensure every tripole type has a CircuiTikZ mapping."""
@@ -409,6 +457,51 @@ class TestFourTerminalExport:
             model.terminal_to_node,
         )
         assert "closing switch" in output
+
+
+class TestTransformerExport:
+    def test_transformer_node(self):
+        model = CircuitModel()
+        model.add_component(ComponentData("K1", "Transformer", "10mH 10mH 0.99", position=(100, 100)))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert r"\node[transformer core" in output
+        assert "(K1)" in output
+        assert "K1.A1" in output
+        assert "K1.A2" in output
+        assert "K1.B1" in output
+        assert "K1.B2" in output
+
+    def test_transformer_includes_value_comment(self):
+        model = CircuitModel()
+        model.add_component(ComponentData("K1", "Transformer", "10mH 10mH 0.99", position=(100, 100)))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+            include_values=True,
+        )
+        assert "10mH 10mH 0.99" in output
+
+    def test_transformer_not_silently_omitted(self):
+        """Regression: Transformer was silently skipped before #500."""
+        model = CircuitModel()
+        model.add_component(ComponentData("K1", "Transformer", "10mH 10mH 0.99", position=(100, 100)))
+        model.rebuild_nodes()
+        output = generate(
+            model.components,
+            model.wires,
+            model.nodes,
+            model.terminal_to_node,
+        )
+        assert "K1" in output
 
 
 class TestCompleteCircuit:

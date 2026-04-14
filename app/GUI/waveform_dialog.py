@@ -1,6 +1,6 @@
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from controllers.simulation_controller import SimulationController
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtGui import QColor
@@ -23,34 +23,16 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from simulation.fft_analysis import analyze_signal_spectrum
+from utils.format_utils import format_value, parse_value
 
-from .format_utils import format_value, parse_value
 from .measurement_cursors import CursorReadoutPanel, MeasurementCursors
+from .plot_utils import apply_mpl_theme as _apply_mpl_theme
+from .plot_utils import safe_legend
 from .styles import SCROLL_LOAD_COUNT, theme_manager
-
-matplotlib.use("QtAgg")
 
 # Get colors from the 'Paired' colormap for color-blind friendliness
 cmap = plt.get_cmap("Paired")
 HIGHLIGHT_COLORS = [QColor.fromRgbF(*cmap(i)) for i in range(12)]
-
-
-def _apply_mpl_theme(fig):
-    """Apply the current application theme colors to a matplotlib figure."""
-    is_dark = theme_manager.current_theme.name == "Dark Theme"
-    if is_dark:
-        bg = "#1E1E1E"
-        fg = "#D4D4D4"
-        fig.patch.set_facecolor(bg)
-        for ax in fig.axes:
-            ax.set_facecolor("#2D2D2D")
-            ax.tick_params(colors=fg)
-            ax.xaxis.label.set_color(fg)
-            ax.yaxis.label.set_color(fg)
-            ax.title.set_color(fg)
-            for spine in ax.spines.values():
-                spine.set_edgecolor("#555555")
 
 
 class MplCanvas(FigureCanvas):
@@ -64,9 +46,10 @@ class MplCanvas(FigureCanvas):
 class WaveformDialog(QDialog):
     analysis_type = "Transient"
 
-    def __init__(self, data, parent=None):
+    def __init__(self, data, parent=None, sim_ctrl=None):
         super().__init__(parent)
 
+        self._sim_ctrl = sim_ctrl
         self.setWindowTitle("Transient Analysis Waveforms")
         self.setMinimumSize(1200, 700)
 
@@ -214,7 +197,7 @@ class WaveformDialog(QDialog):
         scroll_layout = self._toggle_scroll_content.layout()
 
         separator = QLabel(f"── {label} ──")
-        separator.setStyleSheet("color: gray; font-style: italic;")
+        separator.setStyleSheet(theme_manager.stylesheet("muted_italic"))
         scroll_layout.addWidget(separator)
 
         for key in overlay_keys:
@@ -550,7 +533,7 @@ class WaveformDialog(QDialog):
         self.canvas.axes.set_title("Transient Analysis")
         self.canvas.axes.set_xlabel("Time (s)")
         self.canvas.axes.set_ylabel("Voltage (V)")
-        self.canvas.axes.legend(fontsize="small")
+        safe_legend(self.canvas.axes, fontsize="small")
         self.canvas.axes.grid(True)
         _apply_mpl_theme(self.canvas.figure)
         self.canvas.figure.tight_layout()
@@ -567,13 +550,13 @@ class WaveformDialog(QDialog):
 
     def _export_csv(self):
         """Export current view data to CSV."""
-        from simulation.csv_exporter import export_transient_results, write_csv
+        from controllers.simulation_controller import SimulationController
 
-        csv_content = export_transient_results(self.view_data)
         filename, _ = QFileDialog.getSaveFileName(self, "Export Results to CSV", "", "CSV Files (*.csv);;All Files (*)")
         if filename:
             try:
-                write_csv(csv_content, filename)
+                ctrl = self._sim_ctrl or SimulationController()
+                ctrl.export_results_csv(self.view_data, "Transient", filename)
                 QMessageBox.information(self, "Success", f"Exported to {filename}")
             except OSError as e:
                 QMessageBox.critical(self, "Error", f"Failed to export: {e}")
@@ -603,7 +586,7 @@ class WaveformDialog(QDialog):
             return
 
         # Show FFT dialog with signal selection
-        dialog = FFTAnalysisDialog(time, self.full_data, signal_names, self)
+        dialog = FFTAnalysisDialog(time, self.full_data, signal_names, self, sim_ctrl=self._sim_ctrl)
         dialog.exec()
 
     def closeEvent(self, event):
@@ -623,11 +606,19 @@ class FFTAnalysisDialog(QDialog):
     - Fundamental frequency and THD display
     """
 
-    def __init__(self, time: np.ndarray, data: list, signal_names: list, parent=None):
+    def __init__(
+        self,
+        time: np.ndarray,
+        data: list,
+        signal_names: list,
+        parent=None,
+        sim_ctrl=None,
+    ):
         super().__init__(parent)
         self.setWindowTitle("Spectrum Analysis")
         self.setMinimumSize(1000, 700)
 
+        self._sim_ctrl = sim_ctrl
         self.time = time
         self.data = data
         self.signal_names = signal_names
@@ -713,9 +704,12 @@ class FFTAnalysisDialog(QDialog):
         signal = np.array([row.get(signal_name, 0) for row in self.data])
 
         try:
-            self._fft_result = analyze_signal_spectrum(self.time, signal, signal_name, window_type)
+            if self._sim_ctrl is not None:
+                self._fft_result = self._sim_ctrl.compute_signal_fft(self.time, signal, signal_name, window_type)
+            else:
+                self._fft_result = SimulationController.compute_signal_fft(self.time, signal, signal_name, window_type)
             self._replot()
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             QMessageBox.critical(self, "FFT Error", f"Failed to compute FFT: {e}")
 
     def _replot(self):

@@ -2,57 +2,37 @@
 FileController - Handles circuit file I/O and session persistence.
 
 File dialog interaction is the responsibility of the view layer.
-Recent files tracking uses QSettings for cross-session persistence.
+Recent files tracking uses the centralized settings service for cross-session persistence.
 """
 
 import json
+import logging
 import os
+from dataclasses import fields
 from pathlib import Path
 from typing import List, Optional
 
+logger = logging.getLogger(__name__)
+
+from controllers.settings_service import settings
 from models.circuit import CircuitModel
-from PyQt6.QtCore import QSettings
 
 SESSION_FILE = "last_session.txt"
 AUTOSAVE_FILE = ".autosave_recovery.json"
 MAX_RECENT_FILES = 10
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 
-def validate_circuit_data(data) -> None:
-    """
-    Validate JSON structure before loading.
+def check_file_size(filepath: Path, max_size: int = MAX_FILE_SIZE) -> None:
+    """Raise ValueError if *filepath* exceeds *max_size* bytes."""
+    size = os.path.getsize(filepath)
+    if size > max_size:
+        mb = size / (1024 * 1024)
+        limit_mb = max_size / (1024 * 1024)
+        raise ValueError(f"File is too large ({mb:.1f} MB). Maximum allowed size is {limit_mb:.0f} MB.")
 
-    Raises ValueError with a descriptive message if anything is wrong.
-    This is the same validation that was previously in CircuitCanvas._validate_circuit_data.
-    """
-    if not isinstance(data, dict):
-        raise ValueError("File does not contain a valid circuit object.")
 
-    if "components" not in data or not isinstance(data["components"], list):
-        raise ValueError("Missing or invalid 'components' list.")
-    if "wires" not in data or not isinstance(data["wires"], list):
-        raise ValueError("Missing or invalid 'wires' list.")
-
-    comp_ids = set()
-    for i, comp in enumerate(data["components"]):
-        for key in ("id", "type", "value", "pos"):
-            if key not in comp:
-                raise ValueError(f"Component #{i + 1} is missing required field '{key}'.")
-        pos = comp["pos"]
-        if not isinstance(pos, dict) or "x" not in pos or "y" not in pos:
-            raise ValueError(f"Component '{comp.get('id', i)}' has invalid position data.")
-        if not isinstance(pos["x"], (int, float)) or not isinstance(pos["y"], (int, float)):
-            raise ValueError(f"Component '{comp['id']}' position values must be numeric.")
-        comp_ids.add(comp["id"])
-
-    for i, wire in enumerate(data["wires"]):
-        for key in ("start_comp", "end_comp", "start_term", "end_term"):
-            if key not in wire:
-                raise ValueError(f"Wire #{i + 1} is missing required field '{key}'.")
-        if wire["start_comp"] not in comp_ids:
-            raise ValueError(f"Wire #{i + 1} references unknown component '{wire['start_comp']}'.")
-        if wire["end_comp"] not in comp_ids:
-            raise ValueError(f"Wire #{i + 1} references unknown component '{wire['end_comp']}'.")
+from models.circuit_schema_validator import validate_circuit_data  # noqa: F401 — re-exported
 
 
 class FileController:
@@ -71,15 +51,47 @@ class FileController:
         autosave_file: str = AUTOSAVE_FILE,
     ):
         self.model = model or CircuitModel()
-        self.circuit_ctrl = circuit_ctrl  # Phase 5: For observer notifications
+        self.circuit_ctrl = circuit_ctrl
         self.current_file: Optional[Path] = None
         self._session_file = session_file
         self._autosave_file = Path(__file__).resolve().parent.parent / autosave_file
+
+    def _replace_model(self, new_model: CircuitModel) -> None:
+        """Replace the current model's data with *new_model* in place.
+
+        Validates the parsed data **before** clearing the existing circuit
+        so that a corrupt import can never cause data loss.  Round-trips
+        through ``to_dict`` / ``from_dict`` to produce a fully independent
+        copy, then transfers every dataclass field so that existing
+        references to ``self.model`` remain valid.
+        """
+        parsed_data = new_model.to_dict()
+        validate_circuit_data(parsed_data)
+
+        fresh = CircuitModel.from_dict(parsed_data)
+        self.model.clear()
+        for f in fields(fresh):
+            setattr(self.model, f.name, getattr(fresh, f.name))
+
+    def load_from_model(self, new_model: CircuitModel) -> None:
+        """Replace the current circuit with *new_model* and notify observers.
+
+        This is the public entry-point that GUI code should call when it
+        already has a ``CircuitModel`` instance (e.g. from template or
+        assignment loading).  It preserves the existing model reference,
+        copies data across, and fires a ``model_loaded`` notification.
+        """
+        self._replace_model(new_model)
+        if self.circuit_ctrl:
+            self.circuit_ctrl.clear_undo_history()
+            self.circuit_ctrl.notify("model_loaded", None)
 
     def new_circuit(self) -> None:
         """Clear the circuit and reset file state."""
         self.model.clear()
         self.current_file = None
+        if self.circuit_ctrl:
+            self.circuit_ctrl.clear_undo_history()
 
     def save_circuit(self, filepath) -> None:
         """
@@ -94,15 +106,15 @@ class FileController:
         """
         filepath = Path(filepath)
         data = self.model.to_dict()
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=2)
+        from utils.atomic_write import atomic_write_text
+
+        atomic_write_text(filepath, json.dumps(data, indent=2))
         self.current_file = filepath
         self._save_session()
         self.add_recent_file(filepath)  # Track in recent files
 
-        # Phase 5: Notify observers of save
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify("model_saved", None)
+            self.circuit_ctrl.notify("model_saved", None)
 
     def load_circuit(self, filepath) -> None:
         """
@@ -120,31 +132,35 @@ class FileController:
             OSError: If the file cannot be read.
         """
         filepath = Path(filepath)
-        with open(filepath, "r") as f:
+        check_file_size(filepath)
+        with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         validate_circuit_data(data)
 
         new_model = CircuitModel.from_dict(data)
-
-        # Update current model in place (preserving reference)
-        self.model.clear()
-        self.model.components = new_model.components
-        self.model.wires = new_model.wires
-        self.model.nodes = new_model.nodes
-        self.model.terminal_to_node = new_model.terminal_to_node
-        self.model.component_counter = new_model.component_counter
-        self.model.analysis_type = new_model.analysis_type
-        self.model.analysis_params = new_model.analysis_params
-        self.model.annotations = new_model.annotations
+        self._replace_model(new_model)
 
         self.current_file = filepath
         self._save_session()
-        self.add_recent_file(filepath)  # Track in recent files
+        self.add_recent_file(filepath)
 
-        # Phase 5: Notify observers of load
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify("model_loaded", None)
+            self.circuit_ctrl.clear_undo_history()
+            self.circuit_ctrl.notify("model_loaded", None)
+
+    def load_from_dict(self, data: dict) -> None:
+        """Load circuit from a pre-validated dict (e.g. from clipboard).
+
+        Updates the model in place (preserving the reference so views stay connected).
+        Does not update current_file or session tracking.
+        """
+        new_model = CircuitModel.from_dict(data)
+        self._replace_model(new_model)
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl.clear_undo_history()
+            self.circuit_ctrl.notify("model_loaded", None)
 
     def has_file(self) -> bool:
         """Return whether a current file path is set (for quick-save)."""
@@ -159,10 +175,13 @@ class FileController:
     def _save_session(self) -> None:
         """Save current file path for session restore."""
         try:
-            with open(self._session_file, "w") as f:
-                f.write(os.path.abspath(str(self.current_file)) if self.current_file else "")
+            session_path = Path(self._session_file)
+            content = os.path.abspath(str(self.current_file)) if self.current_file else ""
+            from utils.atomic_write import atomic_write_text
+
+            atomic_write_text(session_path, content)
         except OSError:
-            pass  # Session save is best-effort
+            logger.warning("Failed to save session file %s", self._session_file, exc_info=True)
 
     def load_last_session(self) -> Optional[Path]:
         """
@@ -171,37 +190,34 @@ class FileController:
         Returns:
             Path to the last opened file, or None.
         """
+        if not os.path.exists(self._session_file):
+            return None
         try:
-            with open(self._session_file, "r") as f:
+            with open(self._session_file, "r", encoding="utf-8") as f:
                 path_str = f.read().strip()
                 if path_str:
                     path = Path(path_str)
                     if path.exists():
                         return path
         except OSError:
-            pass
+            logger.warning("Failed to read session file %s", self._session_file, exc_info=True)
         return None
 
     def get_recent_files(self) -> List[str]:
         """
-        Get list of recently opened files from QSettings.
+        Get list of recently opened files.
 
         Returns:
             List of file paths (most recent first), with non-existent files removed.
         """
-        settings = QSettings("SDSMT", "SDM Spice")
-        recent = settings.value("file/recent_files", [])
-
-        # Ensure it's a list
-        if not isinstance(recent, list):
-            recent = []
+        recent = settings.get_list("file/recent_files")
 
         # Filter out files that no longer exist
         existing = [f for f in recent if os.path.exists(f)]
 
         # Update settings if we removed any
         if len(existing) != len(recent):
-            settings.setValue("file/recent_files", existing)
+            settings.set("file/recent_files", existing)
 
         return existing
 
@@ -226,13 +242,11 @@ class FileController:
         recent = recent[:MAX_RECENT_FILES]
 
         # Save to settings
-        settings = QSettings("SDSMT", "SDM Spice")
-        settings.setValue("file/recent_files", recent)
+        settings.set("file/recent_files", recent)
 
     def clear_recent_files(self) -> None:
         """Clear the recent files list."""
-        settings = QSettings("SDSMT", "SDM Spice")
-        settings.setValue("file/recent_files", [])
+        settings.set("file/recent_files", [])
 
     # ------------------------------------------------------------------
     # Auto-save and crash recovery
@@ -247,10 +261,11 @@ class FileController:
         try:
             data = self.model.to_dict()
             data["_autosave_source"] = str(self.current_file) if self.current_file else ""
-            with open(self._autosave_file, "w") as f:
-                json.dump(data, f, indent=2)
+            from utils.atomic_write import atomic_write_text
+
+            atomic_write_text(self._autosave_file, json.dumps(data, indent=2))
         except (OSError, TypeError):
-            pass  # Auto-save is best-effort
+            logger.warning("Auto-save failed for %s", self._autosave_file, exc_info=True)
 
     def has_auto_save(self) -> bool:
         """Return True if an auto-save recovery file exists."""
@@ -265,30 +280,24 @@ class FileController:
             on failure.
         """
         try:
-            with open(self._autosave_file, "r") as f:
+            with open(self._autosave_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             source_path = data.pop("_autosave_source", "")
             validate_circuit_data(data)
 
             new_model = CircuitModel.from_dict(data)
-            self.model.clear()
-            self.model.components = new_model.components
-            self.model.wires = new_model.wires
-            self.model.nodes = new_model.nodes
-            self.model.terminal_to_node = new_model.terminal_to_node
-            self.model.component_counter = new_model.component_counter
-            self.model.analysis_type = new_model.analysis_type
-            self.model.analysis_params = new_model.analysis_params
+            self._replace_model(new_model)
 
             if source_path:
                 self.current_file = Path(source_path)
 
             if self.circuit_ctrl:
-                self.circuit_ctrl._notify("model_loaded", None)
+                self.circuit_ctrl.notify("model_loaded", None)
 
             return source_path
         except (OSError, json.JSONDecodeError, ValueError):
+            logger.warning("Failed to load auto-save from %s", self._autosave_file, exc_info=True)
             return None
 
     def import_netlist(self, filepath) -> None:
@@ -308,31 +317,165 @@ class FileController:
         from simulation.netlist_parser import import_netlist
 
         filepath = Path(filepath)
-        with open(filepath, "r") as f:
+        check_file_size(filepath)
+        with open(filepath, "r", encoding="utf-8") as f:
             text = f.read()
 
         new_model, analysis = import_netlist(text)
 
-        self.model.clear()
-        self.model.components = new_model.components
-        self.model.wires = new_model.wires
-        self.model.nodes = new_model.nodes
-        self.model.terminal_to_node = new_model.terminal_to_node
-        self.model.component_counter = new_model.component_counter
-
         if analysis:
-            self.model.analysis_type = analysis["type"]
-            self.model.analysis_params = analysis["params"]
+            new_model.analysis_type = analysis["type"]
+            new_model.analysis_params = analysis["params"]
+
+        self._replace_model(new_model)
 
         self.current_file = None
         self.add_recent_file(filepath)
 
         if self.circuit_ctrl:
-            self.circuit_ctrl._notify("model_loaded", None)
+            self.circuit_ctrl.notify("model_loaded", None)
+
+    def import_asc(self, filepath) -> list[str]:
+        """Import an LTspice .asc schematic file into the current model.
+
+        Parses the .asc schematic, maps LTspice components to Spice-GUI
+        types, creates wires based on coordinate matching, and optionally
+        sets the analysis type.
+
+        Args:
+            filepath: Path or string to the .asc file.
+
+        Returns:
+            List of warning messages (unsupported components, etc.)
+
+        Raises:
+            OSError: If the file cannot be read.
+            simulation.asc_parser.AscParseError: If parsing fails.
+        """
+        from simulation.asc_parser import import_asc
+
+        filepath = Path(filepath)
+        check_file_size(filepath)
+        with open(filepath, "r", encoding="utf-8") as f:
+            text = f.read()
+
+        new_model, analysis, warnings = import_asc(text)
+
+        if analysis:
+            new_model.analysis_type = analysis["type"]
+            new_model.analysis_params = analysis["params"]
+
+        self._replace_model(new_model)
+
+        self.current_file = None
+        self.add_recent_file(filepath)
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl.notify("model_loaded", None)
+
+        return warnings
+
+    def import_circuitikz(self, filepath) -> list[str]:
+        """Import a CircuiTikZ LaTeX file into the current model.
+
+        Parses the LaTeX code, maps CircuiTikZ components to Spice-GUI
+        types, reconstructs wire connections, and reverses the coordinate
+        transform.
+
+        Args:
+            filepath: Path or string to the .tex file.
+
+        Returns:
+            List of warning messages (unsupported components, etc.)
+
+        Raises:
+            OSError: If the file cannot be read.
+            simulation.circuitikz_parser.CircuitikzParseError: If parsing fails.
+        """
+        from simulation.circuitikz_parser import import_circuitikz
+
+        filepath = Path(filepath)
+        check_file_size(filepath)
+        with open(filepath, "r", encoding="utf-8") as f:
+            text = f.read()
+
+        new_model, warnings = import_circuitikz(text)
+        self._replace_model(new_model)
+
+        self.current_file = None
+        self.add_recent_file(filepath)
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl.notify("model_loaded", None)
+
+        return warnings
+
+    # --- Export helpers ---
+
+    def export_bom(self, filepath: str, circuit_name: str = "") -> None:
+        """Export a Bill of Materials. Format is determined by file extension.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.bom_exporter import export_bom_csv, export_bom_excel, write_bom_csv
+
+        if filepath.lower().endswith(".xlsx"):
+            export_bom_excel(self.model.components, filepath, circuit_name=circuit_name)
+        else:
+            content = export_bom_csv(self.model.components, circuit_name=circuit_name)
+            write_bom_csv(content, filepath)
+
+    def import_svg(self, filepath) -> None:
+        """Import a shareable SVG file that contains embedded circuit data.
+
+        Extracts the circuit JSON from the SVG metadata and replaces
+        the current model.
+
+        Args:
+            filepath: Path or string to the .svg file.
+
+        Raises:
+            OSError: If the file cannot be read.
+            ValueError: If the SVG contains no embedded circuit data
+                or the data is corrupt.
+        """
+        from simulation.svg_shareable import extract_circuit_data
+
+        filepath = Path(filepath)
+        check_file_size(filepath)
+
+        data = extract_circuit_data(filepath)
+        if data is None:
+            raise ValueError(
+                "This SVG file does not contain embedded circuit data.\n"
+                "Only SVGs exported with 'Export Image' (SVG format) from Spice-GUI can be imported."
+            )
+
+        validate_circuit_data(data)
+        new_model = CircuitModel.from_dict(data)
+        self._replace_model(new_model)
+
+        self.current_file = None
+        self.add_recent_file(filepath)
+
+        if self.circuit_ctrl:
+            self.circuit_ctrl.notify("model_loaded", None)
+
+    def export_asc(self, filepath: str) -> None:
+        """Export the circuit as an LTspice .asc schematic.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
+        from simulation.asc_exporter import export_asc, write_asc
+
+        content = export_asc(self.model)
+        write_asc(content, filepath)
 
     def clear_auto_save(self) -> None:
         """Delete the auto-save recovery file if it exists."""
         try:
             self._autosave_file.unlink(missing_ok=True)
         except OSError:
-            pass
+            logger.warning("Failed to delete auto-save file %s", self._autosave_file, exc_info=True)

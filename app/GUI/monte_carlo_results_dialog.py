@@ -3,33 +3,12 @@ Monte Carlo Results Dialog — Display overlaid simulation runs with
 statistical summary and histogram view.
 """
 
-import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QTextEdit, QVBoxLayout
-from simulation.monte_carlo import compute_mc_statistics
 
-from .styles import theme_manager
-
-matplotlib.use("QtAgg")
-
-
-def _apply_mpl_theme(fig):
-    """Apply the current application theme colors to a matplotlib figure."""
-    is_dark = theme_manager.current_theme.name == "Dark Theme"
-    if is_dark:
-        bg = "#1E1E1E"
-        fg = "#D4D4D4"
-        fig.patch.set_facecolor(bg)
-        for ax in fig.axes:
-            ax.set_facecolor("#2D2D2D")
-            ax.tick_params(colors=fg)
-            ax.xaxis.label.set_color(fg)
-            ax.yaxis.label.set_color(fg)
-            ax.title.set_color(fg)
-            for spine in ax.spines.values():
-                spine.set_edgecolor("#555555")
+from .plot_utils import apply_mpl_theme as _apply_mpl_theme
 
 
 class MonteCarloResultsDialog(QDialog):
@@ -41,11 +20,12 @@ class MonteCarloResultsDialog(QDialog):
 
     analysis_type = "Monte Carlo"
 
-    def __init__(self, mc_data, parent=None):
+    def __init__(self, mc_data, parent=None, sim_ctrl=None):
         super().__init__(parent)
         self.setWindowTitle("Monte Carlo Results")
         self.setMinimumSize(1000, 700)
 
+        self._sim_ctrl = sim_ctrl
         self._mc_data = mc_data
         self._base_type = mc_data.get("base_analysis_type", "")
 
@@ -252,13 +232,23 @@ class MonteCarloResultsDialog(QDialog):
             ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
             self._summary.setPlainText("No metric data available.")
         else:
-            ax.hist(values, bins=min(30, max(5, len(values) // 3)), edgecolor="black", alpha=0.7)
+            ax.hist(
+                values,
+                bins=min(30, max(5, len(values) // 3)),
+                edgecolor="black",
+                alpha=0.7,
+            )
             ax.set_xlabel(metric)
             ax.set_ylabel("Count")
             ax.set_title(f"Distribution — {metric}")
             ax.grid(True, alpha=0.3)
 
-            stats = compute_mc_statistics(values)
+            if self._sim_ctrl is not None:
+                stats = self._sim_ctrl.compute_mc_statistics(values)
+            else:
+                from controllers.simulation_controller import SimulationController
+
+                stats = SimulationController.compute_mc_statistics(values)
             lines = [
                 f"Metric: {metric}",
                 f"Runs:   {stats['count']}",

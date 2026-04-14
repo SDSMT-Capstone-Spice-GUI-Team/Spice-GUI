@@ -9,6 +9,10 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QVBoxLayout,
 )
+from utils.format_utils import parse_value
+
+from .styles import theme_manager
+from .validation_helpers import clear_field_error, set_field_error
 
 
 class WaveformConfigDialog(QDialog):
@@ -53,18 +57,22 @@ class WaveformConfigDialog(QDialog):
         # Help text (must be created before on_type_changed which calls update_help_text)
         self.help_label = QLabel()
         self.help_label.setWordWrap(True)
-        self.help_label.setStyleSheet(
-            "QLabel { background-color: #f9f9f9; padding: 8px; "
-            "border: 1px solid #ddd; border-radius: 3px; font-size: 9pt; }"
-        )
+        self.help_label.setStyleSheet(theme_manager.stylesheet("help_panel"))
         layout.addWidget(self.help_label)
 
         # Update display for current waveform type
         self.on_type_changed(self.component.waveform_type)
 
+        # Error label for validation feedback
+        self._error_label = QLabel("")
+        self._error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
+        self._error_label.setWordWrap(True)
+        self._error_label.hide()
+        layout.addWidget(self._error_label)
+
         # Dialog buttons
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        button_box.accepted.connect(self.accept)
+        button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
 
@@ -171,6 +179,37 @@ class WaveformConfigDialog(QDialog):
             help_text = "Select a waveform type to see help"
 
         self.help_label.setText(help_text)
+
+    def _on_accept(self):
+        """Validate all numeric fields before accepting."""
+        errors = self._validate()
+        if errors:
+            self._error_label.setText("\n".join(errors))
+            self._error_label.show()
+            return
+        self._error_label.hide()
+        self.accept()
+
+    def _validate(self):
+        """Validate all visible parameter fields are valid numbers.
+
+        Returns a list of error messages (empty if valid).
+        """
+        errors = []
+        waveform_type = self.type_combo.currentText()
+        for key, widget in self.param_inputs[waveform_type].items():
+            text = widget.text().strip()
+            if not text:
+                errors.append(f"{key}: value is required.")
+                set_field_error(widget, "Required")
+                continue
+            try:
+                parse_value(text)
+                clear_field_error(widget)
+            except (ValueError, TypeError):
+                errors.append(f"{key}: '{text}' is not a valid number.")
+                set_field_error(widget, "Invalid number")
+        return errors
 
     def get_parameters(self):
         """Get the configured parameters"""

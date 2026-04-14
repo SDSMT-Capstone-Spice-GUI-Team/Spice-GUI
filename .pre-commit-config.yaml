@@ -6,8 +6,11 @@
 # Hook order matters — formatters run in this sequence:
 #   1. ruff --fix        (lint auto-fixes: unused imports, etc.)
 #   2. isort             (import sorting)
-#   3. ruff-format       (stricter formatter: implicit string concat, etc.)
-#   4. black             (final authority — should be a no-op after ruff-format)
+#   3. black             (final authority on formatting)
+#
+# Note: ruff-format was removed — it and black disagree on some formatting
+# decisions (e.g. parenthesized assert expressions), causing an infinite
+# reformat loop. Black alone is sufficient as the final formatter.
 
 repos:
   # General file hygiene
@@ -39,13 +42,7 @@ repos:
       - id: isort
         args: [--profile=black, --line-length=120]
 
-  # Step 3: ruff-format (stricter — handles implicit string concat, etc.)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.0
-    hooks:
-      - id: ruff-format
-
-  # Step 4: black (final authority — output satisfies both formatters)
+  # Step 3: black (final authority on formatting)
   - repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:

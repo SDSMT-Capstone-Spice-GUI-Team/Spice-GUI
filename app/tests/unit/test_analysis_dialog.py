@@ -51,7 +51,7 @@ class TestAnalysisDialogFieldBuilding:
         qtbot.addWidget(dialog)
         assert set(dialog.field_widgets.keys()) == {"source", "min", "max", "step"}
 
-    def test_ac_sweep_has_four_fields(self, qtbot):
+    def test_ac_sweep_has_five_fields(self, qtbot):
         dialog = AnalysisDialog(analysis_type="AC Sweep")
         qtbot.addWidget(dialog)
         assert set(dialog.field_widgets.keys()) == {
@@ -59,6 +59,7 @@ class TestAnalysisDialogFieldBuilding:
             "fStop",
             "points",
             "sweepType",
+            "use_db",
         }
 
     def test_transient_has_three_fields(self, qtbot):

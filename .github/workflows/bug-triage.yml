@@ -1,0 +1,81 @@
+name: Bug Triage
+
+# When a tester files a bug from a testing checklist, this workflow:
+# 1. Reads the "Testing issue: #NNN" line from the body
+# 2. Attaches the new issue as a sub-issue of that testing issue
+# 3. The built-in "Auto-add sub-issues to project" workflow adds it to Project #2
+# 4. This workflow then sets the board status to Backlog
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  attach-to-testing-issue:
+    if: contains(github.event.issue.labels.*.name, 'bug')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Attach as sub-issue and add to board
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Parse "**Testing issue**: #NNN" from the bug report body
+          PARENT=$(echo "$ISSUE_BODY" | grep -oP '\*\*Testing issue\*\*:\s*#\K[0-9]+' | head -1)
+
+          if [ -z "$PARENT" ]; then
+            echo "No testing issue reference found in body — skipping sub-issue attachment"
+          else
+            echo "Found parent testing issue: #$PARENT"
+
+            # Get the REST API ID of the new bug issue
+            ISSUE_ID=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER" --jq '.id')
+            echo "Bug issue #$ISSUE_NUMBER has ID: $ISSUE_ID"
+
+            # Attach as sub-issue of the testing issue
+            gh api "repos/$REPO/issues/$PARENT/sub_issues" \
+              -X POST \
+              -F sub_issue_id="$ISSUE_ID" \
+              --jq '.id' \
+              && echo "Attached #$ISSUE_NUMBER as sub-issue of #$PARENT" \
+              || echo "Failed to attach sub-issue (may already be attached)"
+
+            # Wait for the built-in "Auto-add sub-issues" workflow to fire
+            echo "Waiting for auto-add workflow..."
+            sleep 15
+          fi
+
+          # Discover project and field IDs dynamically
+          echo "Discovering project IDs..."
+          PROJECT_ID=$(gh project view 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json --jq '.id')
+          echo "Project ID: $PROJECT_ID"
+
+          STATUS_FIELD=$(gh project field-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json \
+            --jq '.fields[] | select(.name == "Status") | .id')
+          echo "Status field: $STATUS_FIELD"
+
+          BACKLOG_ID=$(gh project field-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json \
+            --jq '.fields[] | select(.name == "Status") | .options[] | select(.name == "Backlog") | .id')
+          echo "Backlog option: $BACKLOG_ID"
+
+          # Find the item on the board (may have been auto-added, or we add it now)
+          ISSUE_URL="https://github.com/$REPO/issues/$ISSUE_NUMBER"
+          ITEM_ID=$(gh project item-list 2 --owner SDSMT-Capstone-Spice-GUI-Team --format json --limit 200 \
+            --jq ".items[] | select(.content.number == $ISSUE_NUMBER) | .id")
+
+          if [ -z "$ITEM_ID" ]; then
+            echo "Issue not on board yet — adding manually"
+            ITEM_ID=$(gh project item-add 2 --owner SDSMT-Capstone-Spice-GUI-Team --url "$ISSUE_URL" --format json --jq '.id')
+          fi
+
+          echo "Board item ID: $ITEM_ID"
+
+          # Set status to Backlog
+          gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" \
+            --field-id "$STATUS_FIELD" --single-select-option-id "$BACKLOG_ID" \
+            && echo "Set #$ISSUE_NUMBER to Backlog on dev board" \
+            || echo "Failed to set board status"

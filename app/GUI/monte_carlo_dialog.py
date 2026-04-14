@@ -5,6 +5,7 @@ Allows users to set number of runs, per-component tolerances and
 distribution, and select the base analysis type.
 """
 
+from controllers.simulation_controller import SimulationController
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QComboBox,
@@ -21,6 +22,9 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
+
+from .styles import theme_manager
+from .validation_helpers import clear_field_error, set_field_error
 
 # Base analysis types available for Monte Carlo
 MC_BASE_ANALYSIS_TYPES = [
@@ -40,10 +44,9 @@ class MonteCarloDialog(QDialog):
         self.setMinimumWidth(550)
         self.setMinimumHeight(400)
 
-        from simulation.monte_carlo import MC_ELIGIBLE_TYPES
-
         self._components = components
-        self._eligible = {cid: comp for cid, comp in components.items() if comp.component_type in MC_ELIGIBLE_TYPES}
+        mc_eligible = SimulationController.get_mc_eligible_types()
+        self._eligible = {cid: comp for cid, comp in components.items() if comp.component_type in mc_eligible}
         self._base_field_widgets = {}
         self._init_ui()
 
@@ -108,13 +111,11 @@ class MonteCarloDialog(QDialog):
 
                 # Tolerance spin
                 tol_spin = QDoubleSpinBox()
-                from simulation.monte_carlo import DEFAULT_TOLERANCES
-
                 tol_spin.setRange(0.0, 50.0)
                 tol_spin.setSuffix("%")
                 tol_spin.setDecimals(1)
                 tol_spin.setToolTip("Component value tolerance as a percentage (0-50%)")
-                default_tol = DEFAULT_TOLERANCES.get(comp.component_type, 5.0)
+                default_tol = SimulationController.get_mc_default_tolerance(comp.component_type)
                 tol_spin.setValue(default_tol)
                 self.tol_table.setCellWidget(row, 2, tol_spin)
 
@@ -128,9 +129,16 @@ class MonteCarloDialog(QDialog):
 
         layout.addWidget(tol_group)
 
+        # Error label for validation feedback
+        self._error_label = QLabel("")
+        self._error_label.setStyleSheet(theme_manager.stylesheet("error_label"))
+        self._error_label.setWordWrap(True)
+        self._error_label.hide()
+        layout.addWidget(self._error_label)
+
         # --- Buttons ---
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(self.accept)
+        buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
@@ -139,34 +147,57 @@ class MonteCarloDialog(QDialog):
 
     def _build_base_form(self):
         """Build form fields for the selected base analysis type."""
-        while self._base_form.count():
-            item = self._base_form.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self._base_field_widgets.clear()
+        from .plot_utils import build_analysis_base_form
 
-        from .analysis_dialog import AnalysisDialog
+        build_analysis_base_form(self._base_form, self._base_field_widgets, self.analysis_combo)
 
-        analysis_type = self.analysis_combo.currentText()
-        config = AnalysisDialog.ANALYSIS_CONFIGS.get(analysis_type, {})
+    def _on_accept(self):
+        """Validate fields before accepting the dialog."""
+        errors = self._validate()
+        if errors:
+            self._error_label.setText("\n".join(errors))
+            self._error_label.show()
+            return
+        self._error_label.hide()
+        self.accept()
 
-        tooltips = config.get("tooltips", {})
-        for field_config in config.get("fields", []):
-            if field_config[2] == "combo":
-                label, key, _, options, default = field_config
-                widget = QComboBox()
-                widget.addItems(options)
-                widget.setCurrentText(default)
-            else:
-                label, key, field_type, default = field_config
-                widget = QLineEdit(str(default))
+    def _validate(self):
+        """Validate all fields and return a list of error messages (empty if valid)."""
+        from utils.format_utils import parse_value
 
-            tooltip = tooltips.get(key)
-            if tooltip:
-                widget.setToolTip(tooltip)
+        errors = []
+        # Validate base analysis params
+        for key, (widget, field_type) in self._base_field_widgets.items():
+            if field_type == "combo":
+                continue
+            if isinstance(widget, QLineEdit):
+                if field_type in ("float", "int"):
+                    try:
+                        val = parse_value(widget.text())
+                        if field_type == "int":
+                            int(val)
+                        clear_field_error(widget)
+                    except (ValueError, TypeError):
+                        errors.append(f"Base analysis parameter '{key}' must be a valid number.")
+                        set_field_error(widget, "Invalid number")
+                elif not widget.text().strip():
+                    errors.append(f"Base analysis parameter '{key}' cannot be empty.")
+                    set_field_error(widget, "Required")
+                else:
+                    clear_field_error(widget)
 
-            self._base_field_widgets[key] = (widget, field_config[2])
-            self._base_form.addRow(f"{label}:", widget)
+        # Validate tolerances
+        has_tolerance = False
+        if self.tol_table is not None:
+            for row in range(self.tol_table.rowCount()):
+                tol_spin = self.tol_table.cellWidget(row, 2)
+                if tol_spin and tol_spin.value() > 0:
+                    has_tolerance = True
+                    break
+        if not has_tolerance:
+            errors.append("At least one component must have a tolerance greater than 0%.")
+
+        return errors
 
     def get_parameters(self):
         """Get all Monte Carlo parameters.
@@ -176,7 +207,7 @@ class MonteCarloDialog(QDialog):
                             tolerances
             or None if validation fails.
         """
-        from .format_utils import parse_value
+        from utils.format_utils import parse_value
 
         try:
             num_runs = self.num_runs_spin.value()

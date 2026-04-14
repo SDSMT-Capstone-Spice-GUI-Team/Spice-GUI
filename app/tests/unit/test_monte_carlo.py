@@ -1,5 +1,6 @@
 """Tests for Monte Carlo simulation module and controller integration."""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -14,8 +15,8 @@ from simulation.monte_carlo import (
     apply_tolerance,
     compute_mc_statistics,
     format_spice_value,
-    parse_spice_value,
 )
+from utils.format_utils import parse_spice_value
 
 
 class TestParseSpiceValue:
@@ -160,9 +161,24 @@ def _build_simple_circuit():
         position=(0.0, 100.0),
     )
     model.wires = [
-        WireData(start_component_id="V1", start_terminal=1, end_component_id="R1", end_terminal=0),
-        WireData(start_component_id="R1", start_terminal=1, end_component_id="GND1", end_terminal=0),
-        WireData(start_component_id="V1", start_terminal=0, end_component_id="GND1", end_terminal=0),
+        WireData(
+            start_component_id="V1",
+            start_terminal=1,
+            end_component_id="R1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="R1",
+            start_terminal=1,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
+        WireData(
+            start_component_id="V1",
+            start_terminal=0,
+            end_component_id="GND1",
+            end_terminal=0,
+        ),
     ]
     model.analysis_type = "DC Operating Point"
     model.rebuild_nodes()
@@ -176,7 +192,12 @@ class TestMonteCarloController:
         mock_runner = MagicMock()
         mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
         mock_runner.output_dir = "/tmp/sim_output"
-        mock_runner.run_simulation.return_value = (True, "/tmp/output.txt", "stdout", "")
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/output.txt",
+            "stdout",
+            "",
+        )
         mock_runner.read_output.return_value = (
             "Node                      Voltage\n"
             "----                      -------\n"
@@ -295,7 +316,7 @@ class TestNoQtInMonteCarloModule:
     def test_no_pyqt_imports(self):
         import simulation.monte_carlo as mod
 
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text(encoding="utf-8")
         assert "PyQt" not in source
         assert "QtCore" not in source
         assert "QtWidgets" not in source
@@ -344,3 +365,85 @@ class TestSpiceValueConsolidation:
         """Both MEG and meg should be recognized."""
         assert parse_spice_value("4.7MEG") == pytest.approx(4.7e6)
         assert parse_spice_value("4.7meg") == pytest.approx(4.7e6)
+
+
+class TestApplyToleranceValidation:
+    """Issue #519: apply_tolerance must validate tolerances and distribution."""
+
+    def test_negative_tolerance_raises(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            apply_tolerance("1k", -5.0)
+
+    def test_non_numeric_tolerance_raises(self):
+        with pytest.raises(ValueError, match="number"):
+            apply_tolerance("1k", "five")
+
+    def test_none_tolerance_raises(self):
+        with pytest.raises(ValueError, match="number"):
+            apply_tolerance("1k", None)
+
+    def test_invalid_distribution_raises(self):
+        with pytest.raises(ValueError, match="Unknown distribution"):
+            apply_tolerance("1k", 5.0, distribution="invalid")
+
+    def test_valid_gaussian_succeeds(self):
+        rng = np.random.default_rng(42)
+        result = apply_tolerance("1k", 5.0, "gaussian", rng)
+        assert parse_spice_value(result) is not None
+
+    def test_valid_uniform_succeeds(self):
+        rng = np.random.default_rng(42)
+        result = apply_tolerance("1k", 5.0, "uniform", rng)
+        assert parse_spice_value(result) is not None
+
+
+class TestMonteCarloInvalidComponentIDs:
+    """Issue #519: run_monte_carlo must handle invalid component IDs."""
+
+    def _make_ctrl_with_mock_runner(self):
+        model = _build_simple_circuit()
+        ctrl = SimulationController(model)
+        mock_runner = MagicMock()
+        mock_runner.find_ngspice.return_value = "/usr/bin/ngspice"
+        mock_runner.output_dir = "/tmp/sim_output"
+        mock_runner.run_simulation.return_value = (
+            True,
+            "/tmp/output.txt",
+            "stdout",
+            "",
+        )
+        mock_runner.read_output.return_value = (
+            "Node                      Voltage\n"
+            "----                      -------\n"
+            "nodea                     5.000000e+00\n"
+        )
+        ctrl._runner = mock_runner
+        return ctrl, mock_runner
+
+    def test_invalid_component_id_does_not_crash(self):
+        """Tolerance for non-existent component should not crash."""
+        ctrl, _ = self._make_ctrl_with_mock_runner()
+        config = {
+            "num_runs": 2,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {"analysis_type": "DC Operating Point"},
+            "tolerances": {"BOGUS": {"tolerance_pct": 5.0, "distribution": "gaussian"}},
+        }
+        result = ctrl.run_monte_carlo(config)
+        assert result.success
+
+    def test_mix_valid_and_invalid_ids(self):
+        """Valid IDs should still be processed even with invalid ones."""
+        ctrl, mock_runner = self._make_ctrl_with_mock_runner()
+        config = {
+            "num_runs": 3,
+            "base_analysis_type": "DC Operating Point",
+            "base_params": {"analysis_type": "DC Operating Point"},
+            "tolerances": {
+                "R1": {"tolerance_pct": 10.0, "distribution": "uniform"},
+                "BOGUS": {"tolerance_pct": 5.0, "distribution": "gaussian"},
+            },
+        }
+        result = ctrl.run_monte_carlo(config)
+        assert result.success
+        assert mock_runner.run_simulation.call_count == 3

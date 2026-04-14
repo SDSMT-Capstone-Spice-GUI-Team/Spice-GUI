@@ -5,14 +5,13 @@ All color values from the original codebase are centralized here.
 Teammates can update these values from design documents.
 """
 
-from PyQt6.QtGui import QBrush, QColor, QPen
-
-from .constants import COMPONENTS
 from .theme import BaseTheme
 
 
 class LightTheme(BaseTheme):
     """Light theme - the default application theme."""
+
+    _qss_filename = "light_theme.qss"
 
     def __init__(self):
         super().__init__()
@@ -20,7 +19,6 @@ class LightTheme(BaseTheme):
         self._define_pens()
         self._define_brushes()
         self._define_fonts()
-        self._define_stylesheets()
 
     @property
     def name(self) -> str:
@@ -50,6 +48,10 @@ class LightTheme(BaseTheme):
             "component_diode": "#607D8B",  # Blue-gray
             "component_led": "#FFEB3B",  # Yellow
             "component_zener": "#8D6E63",  # Brown
+            "component_transformer": "#6F42C1",  # Purple
+            "component_current_probe": "#00BFA5",  # Teal
+            "component_ac_voltage_source": "#FF5722",  # Deep orange
+            "component_ac_current_source": "#AB47BC",  # Light purple
             # ===== Algorithm Layer Colors =====
             "algorithm_astar": "#2196F3",  # Blue (33, 150, 243)
             "algorithm_idastar": "#4CAF50",  # Green (76, 175, 80)
@@ -59,11 +61,14 @@ class LightTheme(BaseTheme):
             "grid_major": "#969696",  # Medium gray (150, 150, 150)
             "grid_label": "#646464",  # Dark gray (100, 100, 100)
             # ===== Canvas/UI Colors =====
-            "background_primary": "#FFFFFF",  # White
-            "background_secondary": "#F0F0F0",  # Light gray
-            "text_primary": "#000000",  # Black
+            "background_primary": "#CFD1D2",  # Light background
+            "background_secondary": "#EDEDED",  # Sections
+            "text_primary": "#2F2F2F",  # Dark gray text
             "text_secondary": "#666666",  # Medium gray
             "text_muted": "#999999",  # Light gray text
+            # ===== Accent Colors (Mines brand) =====
+            "accent_primary": "#002554",  # Mines Navy Blue (default/intended)
+            "accent_hover": "#C5A55A",  # Mines Old Gold (hover/selected)
             # ===== Selection & Highlight =====
             "selection_highlight": "#FFFF00",  # Yellow
             "node_label": "#FF00FF",  # Magenta (255, 0, 255)
@@ -88,6 +93,24 @@ class LightTheme(BaseTheme):
             "probe_current": "#006633",  # Dark green for probed currents
             "probe_bg": "#FFE0F0",  # Light pink background
             "probe_highlight": "#FF3399",  # Bright pink for probe crosshair
+            # ===== Semantic UI Colors =====
+            "error": "#DC3545",  # Red for errors/failures
+            "success": "#28A745",  # Green for success/valid
+            "warning": "#CC8800",  # Orange for warnings
+            "info": "#17A2B8",  # Teal for informational
+            "border_error": "#DC3545",  # Red border for invalid inputs
+            "border_light": "#DDDDDD",  # Light border for panels
+            "panel_bg": "#F9F9F9",  # Light panel background
+            # ===== Syntax Highlighting Colors =====
+            "syntax_comment": "#4CAF50",  # Green for SPICE comments
+            "syntax_directive": "#2196F3",  # Blue for SPICE directives
+            "syntax_keyword": "#9C27B0",  # Purple for control keywords
+            # ===== Grading Overlay Colors (colorblind-friendly) =====
+            "grading_passed": "#0077BB",  # Blue (distinguishable by most color vision)
+            "grading_failed": "#EE7733",  # Orange (distinguishable by most color vision)
+            # ===== Measurement Cursor Colors =====
+            "cursor_a": "#E74C3C",  # Red cursor
+            "cursor_b": "#2980B9",  # Blue cursor
         }
 
     def _define_pens(self):
@@ -117,7 +140,11 @@ class LightTheme(BaseTheme):
             # Probe pens
             "probe_voltage": {"color": "probe_voltage", "width": 1.5},
             "probe_current": {"color": "probe_current", "width": 1.5},
-            "probe_highlight": {"color": "probe_highlight", "width": 2.0, "style": "dash"},
+            "probe_highlight": {
+                "color": "probe_highlight",
+                "width": 2.0,
+                "style": "dash",
+            },
         }
 
     def _define_brushes(self):
@@ -138,50 +165,6 @@ class LightTheme(BaseTheme):
             "op_annotation": {"size": 9, "bold": True},
             "panel_title": {"size": 10, "bold": True},
             "panel_subtitle": {"size": 12, "bold": True},
-            "monospace": {"family": "monospace", "size": 9, "bold": False},
+            "monospace": {"family": "JetBrains Mono", "size": 9, "bold": False},
             "probe_label": {"size": 10, "bold": True},
         }
-
-    def _define_stylesheets(self):
-        """Define all stylesheet strings."""
-        self._stylesheets = {
-            "instructions_panel": """
-                QLabel {
-                    background-color: #f0f0f0;
-                    padding: 10px;
-                    border-radius: 5px;
-                }
-            """,
-            "muted_label": "QLabel { color: #666; }",
-            "title_bold": "font-weight: bold; font-size: 12pt;",
-            "metrics_text": "font-family: monospace; font-size: 9pt;",
-        }
-
-    # ===== Helper methods for common patterns =====
-
-    def get_component_color(self, component_type: str) -> QColor:
-        """Get the themed color for a component type."""
-        comp_info = COMPONENTS.get(component_type, {})
-        color_key = comp_info.get("color_key", "text_primary")
-        return self.color(color_key)
-
-    def get_component_color_hex(self, component_type: str) -> str:
-        """Get the hex color string for a component type."""
-        comp_info = COMPONENTS.get(component_type, {})
-        color_key = comp_info.get("color_key", "text_primary")
-        return self.color_hex(color_key)
-
-    def get_algorithm_color(self, algorithm: str) -> QColor:
-        """Get the themed color for an algorithm layer."""
-        key = f"algorithm_{algorithm}"
-        return self.color(key)
-
-    def create_component_pen(self, component_type: str, width: float = 2.0) -> QPen:
-        """Create a pen for drawing a specific component type."""
-        color = self.get_component_color(component_type)
-        return QPen(color, width)
-
-    def create_component_brush(self, component_type: str) -> QBrush:
-        """Create a brush for filling a specific component type."""
-        color = self.get_component_color(component_type)
-        return QBrush(color.lighter(150))

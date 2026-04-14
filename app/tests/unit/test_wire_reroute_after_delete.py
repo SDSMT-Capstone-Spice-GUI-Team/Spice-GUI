@@ -21,13 +21,14 @@ class TestRerouteWiresNearComponents:
 
         canvas = MagicMock()
         canvas._reroute_wires_near_components = lambda comps: reroute(canvas, comps)
-        canvas.scene = MagicMock()
+        canvas._scene = MagicMock()
         return canvas
 
     def _make_wire(self, start_comp, end_comp):
         wire = MagicMock()
         wire.start_comp = start_comp
         wire.end_comp = end_comp
+        wire.model.locked = False
         return wire
 
     def test_reroutes_wire_sharing_start_component(self):
@@ -101,7 +102,7 @@ class TestRerouteWiresNearComponents:
 
         canvas._reroute_wires_near_components({comp_a})
 
-        canvas.scene.update.assert_called_once()
+        canvas._scene.update.assert_called_once()
 
     def test_scene_not_updated_when_no_wires_rerouted(self):
         """Scene should NOT be updated if no wires were affected."""
@@ -114,7 +115,7 @@ class TestRerouteWiresNearComponents:
 
         canvas._reroute_wires_near_components({comp_a})
 
-        canvas.scene.update.assert_not_called()
+        canvas._scene.update.assert_not_called()
 
     def test_empty_wire_list(self):
         """No error when there are no remaining wires."""
@@ -124,7 +125,7 @@ class TestRerouteWiresNearComponents:
         # Should not raise
         canvas._reroute_wires_near_components({MagicMock()})
 
-        canvas.scene.update.assert_not_called()
+        canvas._scene.update.assert_not_called()
 
 
 class TestHandleWireRemovedReroutes:
@@ -164,4 +165,4 @@ class TestHandleWireRemovedReroutes:
 
         canvas._handle_wire_removed(0)
 
-        canvas.scene.removeItem.assert_called_once_with(wire)
+        canvas._scene.removeItem.assert_called_once_with(wire)
