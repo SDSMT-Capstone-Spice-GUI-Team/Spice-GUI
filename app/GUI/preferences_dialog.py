@@ -1,5 +1,7 @@
 """Unified Preferences dialog for application settings."""
 
+from controllers.settings_service import settings
+from controllers.theme_controller import theme_ctrl
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -15,9 +17,6 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-from controllers.settings_service import settings
-from controllers.theme_controller import theme_ctrl
 from services import palette_profiles
 
 from .styles import CustomTheme, theme_manager, theme_store
