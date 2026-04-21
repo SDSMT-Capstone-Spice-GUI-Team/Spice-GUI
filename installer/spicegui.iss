@@ -264,8 +264,8 @@ begin
       '   The application may not work correctly.';
   end;
 
-  // 2. Disk space
-  FreeMB := GetFreeDiskSpaceMB(WizardDirValue);
+  // 2. Disk space (use default path — WizardForm does not exist yet)
+  FreeMB := GetFreeDiskSpaceMB(ExpandConstant('{autopf}\{#MyAppName}'));
   if (FreeMB >= 0) and (FreeMB < MIN_DISK_MB) then
   begin
     WarningCount := WarningCount + 1;
@@ -303,7 +303,7 @@ begin
   if not IsVCRedistInstalled then
   begin
     if FileExists(ExpandConstant('{src}\redist\vc_redist.x64.exe')) or
-       FileExists(ExpandConstant('{app}\redist\vc_redist.x64.exe')) then
+       FileExists(ExpandConstant('{autopf}\{#MyAppName}\redist\vc_redist.x64.exe')) then
     begin
       // VC++ redist is bundled — will be installed automatically
       // No warning needed

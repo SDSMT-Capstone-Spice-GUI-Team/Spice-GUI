@@ -41,11 +41,30 @@ class ViewOperationsMixin:
         # 1. Park an empty scene on the view so the QSS repaint is harmless.
         self.canvas.detach_scene()
 
+        """# 1. Clear the scene so the upcoming repaint finds nothing to destroy.
+        self.canvas.scene.clear()
+        self.canvas._grid_items.clear()
+        self.canvas.components.clear()
+        self.canvas.wires.clear()
+        self.canvas.annotations.clear()
+        THIS IS FROM A MERGE CONFLICT"""
+
         # 2. Apply the new stylesheet — repaint hits only the empty scene.
-        self.setStyleSheet(theme.generate_stylesheet())
+        self.setStyleSheet(theme.load_qss())
 
         # 3. Rebuild the real scene with correct theme colors and reattach.
         self.canvas.rebuild_scene()
+
+        """# 2. Apply the stylesheet (safe — the scene is empty).
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(theme.load_qss())
+        else:
+            self.setStyleSheet(theme.load_qss())
+
+        # 3. Rebuild the canvas from the controller's model data.
+        self.canvas._handle_model_loaded(None)
+        THIS IS FROM A MERGE CONFLICT"""
 
     def set_symbol_style(self, style: str):
         """Switch the component symbol drawing style."""

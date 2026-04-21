@@ -17,8 +17,10 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from services import palette_profiles
 
 from .styles import CustomTheme, theme_manager, theme_store
+from .styles.font_loader import DYSLEXIA_FONT_FAMILY, available_font_families
 
 _STYLE_ITEMS = [("IEEE / ANSI", "ieee"), ("IEC (European)", "iec")]
 _STYLE_VALUES = {"ieee": 0, "iec": 1}
@@ -67,6 +69,8 @@ class PreferencesDialog(QDialog):
         self._snap_autosave_enabled = settings.get("autosave/enabled", True)
         self._snap_autosave_interval = settings.get_int("autosave/interval", 60)
         self._snap_default_zoom = settings.get_int("view/default_zoom", 100)
+        self._snap_font_family = theme_manager.font_family
+        self._snap_palette_profile = palette_profiles.get_active_profile_key()
 
     def _revert_settings(self):
         """Restore appearance and autosave to snapshot values."""
@@ -79,6 +83,13 @@ class PreferencesDialog(QDialog):
         settings.set("autosave/enabled", self._snap_autosave_enabled)
         settings.set("autosave/interval", self._snap_autosave_interval)
         settings.set("view/default_zoom", self._snap_default_zoom)
+        theme_ctrl.set_font_family(self._snap_font_family)
+        self.main_window.apply_theme()
+        # Restore palette profile
+        if palette_profiles.get_active_profile_key() != self._snap_palette_profile:
+            palette_profiles.set_active_profile_key(self._snap_palette_profile)
+            if hasattr(self.main_window, "palette") and hasattr(self.main_window.palette, "reload_layout"):
+                self.main_window.palette.reload_layout()
         self.main_window.start_autosave_timer()
 
     # ---- UI construction --------------------------------------------------
@@ -155,6 +166,25 @@ class PreferencesDialog(QDialog):
 
         self.junction_dots_checkbox = QCheckBox("Show junction dots at wire intersections")
         form.addRow(self.junction_dots_checkbox)
+
+        # Font family
+        self.font_combo = QComboBox()
+        self.font_combo.addItem("System Default", "")
+        for family in available_font_families():
+            self.font_combo.addItem(family, family)
+        form.addRow("Font:", self.font_combo)
+
+        # Dyslexia-friendly shortcut
+        self.dyslexia_checkbox = QCheckBox("Use dyslexia-friendly font (OpenDyslexic)")
+        form.addRow(self.dyslexia_checkbox)
+
+        # Palette profile (component palette layout)
+        self.palette_profile_combo = QComboBox()
+        self._palette_profile_keys: list[str] = []
+        for display_name, key in palette_profiles.list_profiles():
+            self.palette_profile_combo.addItem(display_name)
+            self._palette_profile_keys.append(key)
+        form.addRow("Palette Profile:", self.palette_profile_combo)
 
         self._update_theme_buttons()
         return widget
@@ -235,6 +265,20 @@ class PreferencesDialog(QDialog):
 
         self.default_zoom_combo.setCurrentIndex(_ZOOM_VALUES.get(self._snap_default_zoom, 2))
 
+        # Font family
+        current_family = self._snap_font_family
+        self.dyslexia_checkbox.setChecked(current_family == DYSLEXIA_FONT_FAMILY)
+        idx = self.font_combo.findData(current_family)
+        if idx >= 0:
+            self.font_combo.setCurrentIndex(idx)
+        self.font_combo.setEnabled(current_family != DYSLEXIA_FONT_FAMILY)
+
+        # Palette profile
+        if self._snap_palette_profile in self._palette_profile_keys:
+            self.palette_profile_combo.setCurrentIndex(self._palette_profile_keys.index(self._snap_palette_profile))
+        else:
+            self.palette_profile_combo.setCurrentIndex(0)
+
     # ---- Signal wiring (live preview) -------------------------------------
 
     def _connect_signals(self):
@@ -243,7 +287,17 @@ class PreferencesDialog(QDialog):
         self.color_combo.currentIndexChanged.connect(self._on_color_changed)
         self.wire_thickness_combo.currentIndexChanged.connect(self._on_wire_thickness_changed)
         self.junction_dots_checkbox.toggled.connect(self._on_junction_dots_changed)
+        self.font_combo.currentIndexChanged.connect(self._on_font_changed)
+        self.dyslexia_checkbox.toggled.connect(self._on_dyslexia_toggled)
         self.autosave_checkbox.toggled.connect(self.autosave_spin.setEnabled)
+        self.palette_profile_combo.currentIndexChanged.connect(self._on_palette_profile_changed)
+
+    def _on_palette_profile_changed(self, index):
+        if 0 <= index < len(self._palette_profile_keys):
+            key = self._palette_profile_keys[index]
+            palette_profiles.set_active_profile_key(key)
+            if hasattr(self.main_window, "palette") and hasattr(self.main_window.palette, "reload_layout"):
+                self.main_window.palette.reload_layout()
 
     def _on_theme_changed(self, index):
         if 0 <= index < len(self._theme_keys):
@@ -266,6 +320,36 @@ class PreferencesDialog(QDialog):
 
     def _on_junction_dots_changed(self, checked):
         self.main_window.set_show_junction_dots(checked)
+
+    def _on_font_changed(self, index):
+        family = self.font_combo.itemData(index) or ""
+        theme_ctrl.set_font_family(family)
+        self.main_window.apply_theme()
+        # Uncheck dyslexia box if user picks a different font
+        if family != DYSLEXIA_FONT_FAMILY:
+            self.dyslexia_checkbox.blockSignals(True)
+            self.dyslexia_checkbox.setChecked(False)
+            self.dyslexia_checkbox.blockSignals(False)
+
+    def _on_dyslexia_toggled(self, checked):
+        if checked:
+            self._font_index_before_dyslexia = self.font_combo.currentIndex()
+            theme_ctrl.set_font_family(DYSLEXIA_FONT_FAMILY)
+            idx = self.font_combo.findData(DYSLEXIA_FONT_FAMILY)
+            if idx >= 0:
+                self.font_combo.blockSignals(True)
+                self.font_combo.setCurrentIndex(idx)
+                self.font_combo.blockSignals(False)
+            self.font_combo.setEnabled(False)
+        else:
+            self.font_combo.setEnabled(True)
+            restore_idx = getattr(self, "_font_index_before_dyslexia", 0)
+            self.font_combo.blockSignals(True)
+            self.font_combo.setCurrentIndex(restore_idx)
+            self.font_combo.blockSignals(False)
+            family = self.font_combo.itemData(restore_idx) or ""
+            theme_ctrl.set_font_family(family)
+        self.main_window.apply_theme()
 
     # ---- Theme management -------------------------------------------------
 
@@ -394,6 +478,7 @@ class PreferencesDialog(QDialog):
         settings.set("view/color_mode", theme_manager.color_mode)
         settings.set("view/wire_thickness", theme_manager.wire_thickness)
         settings.set("view/show_junction_dots", theme_manager.show_junction_dots)
+        settings.set("view/font_family", theme_manager.font_family)
         self._accepted = True
         self.close()
 

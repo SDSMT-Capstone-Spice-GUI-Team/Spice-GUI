@@ -90,6 +90,7 @@ class ThemeManager:
             cls._instance._wire_thickness = "normal"
             cls._instance._show_junction_dots = True
             cls._instance._routing_mode = "orthogonal"
+            cls._instance._font_family = ""
         return cls._instance
 
     @property
@@ -115,6 +116,8 @@ class ThemeManager:
             theme: The new theme to use
         """
         self._theme = theme
+        if self._font_family:
+            self._theme.set_global_font_family(self._font_family)
         self._notify_listeners()
 
     def set_symbol_style(self, style: str) -> None:
@@ -201,6 +204,25 @@ class ThemeManager:
             return
         if mode != self._routing_mode:
             self._routing_mode = mode
+            self._notify_listeners()
+
+    # ===== Font preferences =====
+
+    @property
+    def font_family(self) -> str:
+        """Get the current global font family override."""
+        return self._font_family
+
+    def set_font_family(self, family: str) -> None:
+        """Set the global font family and notify listeners.
+
+        Args:
+            family: Font family name (e.g. 'Arial', 'OpenDyslexic'), or
+                    empty string to reset to system default.
+        """
+        if family != self._font_family:
+            self._font_family = family
+            self._theme.set_global_font_family(family)
             self._notify_listeners()
 
     def on_theme_changed(self, callback: Callable[[ThemeProtocol], None]) -> None:
@@ -294,9 +316,48 @@ class ThemeManager:
         """Shortcut to get a font from current theme."""
         return self._theme.font(key)
 
-    def stylesheet(self, key: str) -> str:
-        """Shortcut to get a stylesheet from current theme."""
-        return self._theme.stylesheet(key)
+    def load_qss(self) -> str:
+        """Load the QSS stylesheet from the current theme."""
+        return self._theme.load_qss()
+
+    def stylesheet(self, style_name: str) -> str:
+        """Return a QSS stylesheet snippet for the given named style.
+
+        These are small inline stylesheets used by widgets via setStyleSheet().
+        """
+        c = self._theme.color_hex
+        styles = {
+            # Text styles
+            "muted_small": f"color: {c('text_muted')}; font-size: 11px;",
+            "muted_italic": f"color: {c('text_muted')}; font-style: italic;",
+            "status_muted": f"color: {c('text_secondary')};",
+            "label_bold": "font-weight: bold;",
+            "label_padded": "padding: 4px;",
+            # Headings
+            "heading_large": "font-size: 16px; font-weight: bold;",
+            "heading_medium": "font-size: 14px; font-weight: bold;",
+            # Error / validation
+            "error_label": f"color: {c('error')};",
+            "error_label_compact": f"color: {c('error')}; font-size: 11px;",
+            "error_border": f"border: 2px solid {c('border_error')};",
+            "error_border_thin": f"border: 1px solid {c('border_error')};",
+            # Status indicators
+            "status_success": f"color: {c('success')};",
+            "status_error": f"color: {c('error')};",
+            "status_warning": f"color: {c('warning')};",
+            # Score styles (grading)
+            "score_bold": "font-size: 14px; font-weight: bold;",
+            "score_success": f"font-size: 14px; font-weight: bold; color: {c('success')};",
+            "score_warning": f"font-size: 14px; font-weight: bold; color: {c('warning')};",
+            "score_error": f"font-size: 14px; font-weight: bold; color: {c('error')};",
+            # Special
+            "preview_monospace": f"font-family: monospace; color: {c('text_primary')};",
+            "help_panel": f"color: {c('text_secondary')}; font-size: 11px;",
+            "color_swatch": "border: 1px solid gray; border-radius: 3px;",
+            "instructions_panel": f"color: {c('text_secondary')}; padding: 8px;",
+            "ref_info": f"color: {c('text_secondary')}; font-style: italic;",
+        }
+        return styles.get(style_name, "")
 
     # ===== Helper methods delegated to current theme =====
 

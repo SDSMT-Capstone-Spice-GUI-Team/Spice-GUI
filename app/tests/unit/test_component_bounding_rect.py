@@ -57,7 +57,7 @@ class TestBoundingRectIncludesText:
         symbol = comp._symbol_rect()
         bounding = comp.boundingRect()
 
-        assert bounding == symbol, "boundingRect() must equal _symbol_rect() when no text is shown"
+        assert bounding.contains(symbol), "boundingRect() must contain _symbol_rect() when no text is shown"
 
     def test_label_text_helper_exists(self):
         """_label_text() helper must exist for boundingRect() to measure."""

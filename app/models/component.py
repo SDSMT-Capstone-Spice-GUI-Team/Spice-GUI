@@ -43,6 +43,7 @@ COMPONENT_TYPES = [
 
 # Category groupings for the component palette
 COMPONENT_CATEGORIES = {
+    "Ground": ["Ground"],
     "Passive": ["Resistor", "Capacitor", "Inductor"],
     "Sources": ["Voltage Source", "Current Source", "Waveform Source", "AC Voltage Source", "AC Current Source"],
     "Semiconductors": [
@@ -55,7 +56,7 @@ COMPONENT_CATEGORIES = {
         "MOSFET PMOS",
     ],
     "Controlled Sources": ["VCVS", "CCVS", "VCCS", "CCCS"],
-    "Other": ["Op-Amp", "VC Switch", "Ground", "Transformer", "Current Probe"],
+    "Other": ["Op-Amp", "VC Switch", "Transformer", "Current Probe"],
 }
 
 # Mapping of component types to SPICE symbols

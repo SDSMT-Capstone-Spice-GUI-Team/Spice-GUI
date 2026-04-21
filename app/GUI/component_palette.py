@@ -4,6 +4,7 @@ from models.component import COMPONENT_CATEGORIES
 from PyQt6.QtCore import QMimeData, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QDrag, QFont, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+from services import palette_profiles
 
 from .component_item import COMPONENT_CLASSES
 from .styles import COMPONENTS, theme_manager
@@ -110,6 +111,7 @@ class ComponentPalette(QWidget):
         # Component tree with collapsible categories
         self.tree_widget = _PaletteTreeWidget()
         self.tree_widget.setHeaderHidden(True)
+        self.tree_widget.setRootIsDecorated(False)
         self.tree_widget.setDragEnabled(True)
         self.tree_widget.setDefaultDropAction(Qt.DropAction.CopyAction)
         self.tree_widget.setIconSize(QSize(48, 48))
@@ -126,10 +128,48 @@ class ComponentPalette(QWidget):
         # Track the "Used in File" section
         self._used_in_file_item: QTreeWidgetItem | None = None
 
-        # Load saved expanded state
-        expanded_state = self._load_expanded_state()
+        # Build categories from the active palette profile.  Falls back to
+        # the full COMPONENT_CATEGORIES layout when no profile is active.
+        self._build_categories(palette_profiles.get_layout())
 
-        for category_name, component_names in COMPONENT_CATEGORIES.items():
+        self.tree_widget.itemClicked.connect(self._on_item_clicked)
+        self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.tree_widget.itemExpanded.connect(self._save_expanded_state)
+        self.tree_widget.itemCollapsed.connect(self._save_expanded_state)
+        layout.addWidget(self.tree_widget)
+
+        # Refresh cached icons whenever the theme, symbol style, or color
+        # mode changes so the palette stays in sync with the canvas.
+        theme_manager.on_theme_changed(self._on_theme_changed)
+
+    def _on_theme_changed(self, _theme=None) -> None:
+        """Regenerate all cached palette icons using current theme settings."""
+
+        def walk(parent: QTreeWidgetItem) -> None:
+            for i in range(parent.childCount()):
+                child = parent.child(i)
+                if child.childCount() > 0:
+                    walk(child)
+                else:
+                    name = child.text(0)
+                    if name in COMPONENTS:
+                        try:
+                            child.setIcon(0, create_component_icon(name))
+                        except Exception:
+                            pass
+
+        walk(self.tree_widget.invisibleRootItem())
+
+    def _build_categories(self, layout: dict) -> None:
+        """Build category tree items from a {category: [component, ...]} layout.
+
+        Component names not present in the COMPONENTS registry are silently
+        skipped, mirroring the original behaviour.  Categories are appended
+        to whatever is already in the tree, so callers wanting a clean
+        rebuild should call ``reload_layout`` instead.
+        """
+        expanded_state = self._load_expanded_state(layout.keys())
+        for category_name, component_names in layout.items():
             category_item = QTreeWidgetItem(self.tree_widget, [category_name])
             category_item.setFlags(Qt.ItemFlag.ItemIsEnabled)  # clickable but not selectable/draggable
             bold_font = QFont()
@@ -145,14 +185,46 @@ class ComponentPalette(QWidget):
                 child.setToolTip(0, COMPONENT_TOOLTIPS.get(component_name, component_name))
                 child.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
 
-            # Restore expanded state (default: expanded)
             is_expanded = expanded_state.get(category_name, True)
             category_item.setExpanded(is_expanded)
 
-        self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        self.tree_widget.itemExpanded.connect(self._save_expanded_state)
-        self.tree_widget.itemCollapsed.connect(self._save_expanded_state)
-        layout.addWidget(self.tree_widget)
+    def reload_layout(self, layout: dict | None = None) -> None:
+        """Tear down regular category items and rebuild from the given layout.
+
+        The Recommended and "Used in File" sections are tracked separately
+        and are deliberately left in place — they are orthogonal to the
+        active profile.  When ``layout`` is None the current active profile
+        is used.
+        """
+        if layout is None:
+            layout = palette_profiles.get_layout()
+
+        # Remove existing category items from the tree.  We only touch
+        # items tracked in _category_items so the recommended/used-in-file
+        # sections survive.
+        for category_item in list(self._category_items.values()):
+            idx = self.tree_widget.indexOfTopLevelItem(category_item)
+            if idx >= 0:
+                self.tree_widget.takeTopLevelItem(idx)
+        self._category_items.clear()
+
+        self._build_categories(layout)
+
+        # When recommendations are active, keep the new categories collapsed
+        # to match the existing recommended-mode behaviour.
+        if self._recommended_item is not None:
+            for category_item in self._category_items.values():
+                category_item.setExpanded(False)
+
+        # Re-apply any active search filter so newly added items respect it.
+        current_filter = self.search_input.text()
+        if current_filter:
+            self._filter_components(current_filter)
+
+    def _on_item_clicked(self, item, column):
+        """Toggle expand/collapse when a category header is clicked."""
+        if item.parent() is None:
+            item.setExpanded(not item.isExpanded())
 
     def _on_item_double_clicked(self, item, column):
         """Handle double-click on palette item (ignore category headers)."""
@@ -288,10 +360,17 @@ class ComponentPalette(QWidget):
             if self._used_in_file_item is not None:
                 self._used_in_file_item.setExpanded(True)
 
-    def _load_expanded_state(self) -> dict[str, bool]:
-        """Load category expanded/collapsed state from settings."""
+    def _load_expanded_state(self, names=None) -> dict[str, bool]:
+        """Load category expanded/collapsed state from settings.
+
+        ``names`` is an optional iterable of category names to query.  When
+        omitted, falls back to the currently built categories, then to the
+        full COMPONENT_CATEGORIES set (used during the very first build).
+        """
+        if names is None:
+            names = list(self._category_items.keys()) or list(COMPONENT_CATEGORIES.keys())
         state = {}
-        for category_name in COMPONENT_CATEGORIES:
+        for category_name in names:
             val = app_settings.get(f"palette/expanded/{category_name}")
             if val is not None:
                 state[category_name] = app_settings.get_bool(f"palette/expanded/{category_name}")
