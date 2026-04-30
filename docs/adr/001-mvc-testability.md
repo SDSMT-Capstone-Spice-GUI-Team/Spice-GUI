@@ -3,6 +3,9 @@
 **Date**: 2026-02-11
 **Status**: Accepted
 **Participants**: Jeremy (Software Architect), Claude Agent (Opus 4.6)
+**Last reviewed:** 2026-04-29 — still in effect.
+
+> **Related:** This ADR documents the testing rationale for the MVC structure. The original architectural decision is in [ADR 005](005-mvc-architecture-zero-qt-dependencies.md).
 
 ## Decision
 
@@ -53,5 +56,11 @@ When deciding how to test a behavior, prefer the highest layer that can cover it
 
 - Most new feature tests should target the model or controller layer
 - GUI tests use `qtbot` on individual widgets, dialogs, or `QGraphicsScene` — never `MainWindow`
-- Features that can only be verified visually get filed as human testing items on [Project #3](https://github.com/orgs/SDSMT-Capstone-Spice-GUI-Team/projects/3)
+- Features that can only be verified visually get filed as human testing items on [Project #3](https://github.com/orgs/SDSMT-Capstone-Spice-GUI-Team/projects/3) (see [ADR 002](002-tiered-testing.md))
 - Test count grows primarily in `app/tests/unit/`, not GUI-dependent tests
+
+---
+
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** The five-tier test priority list above continues to govern where new tests go. Behavioral tests replaced fragile `inspect.getsource()` structural tests in #773 — the layered hierarchy is now backed by behavior assertions, not source-text patterns. As of 2026-04-29 the suite has grown to thousands of test functions, dominated by model and controller tests; the trend predicted by this ADR held.

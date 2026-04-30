@@ -1,9 +1,10 @@
-# ADR 007: Ruff for Linting and Code Quality
+# ADR 010: Ruff for Linting and Code Quality
 
 **Date:** 2024-10-15 (Implemented)
-**Status:** Accepted
+**Status:** Accepted, **partially superseded** (renumbered 2026-04-29 during ADR consolidation; previously ADR 007 in `Doc/decisions/`). The "Ruff only, no auto-formatter" stance was reversed in 2026: black + isort were added alongside Ruff. See Reality Check.
 **Deciders:** Development Team
 **Related Commits:** Early codebase standardization
+**Last reviewed:** 2026-04-29 — Ruff still in use, but it is no longer the only code-quality tool.
 
 ---
 
@@ -486,8 +487,8 @@ from GUI.main_window import MainWindow  # Would trigger E402
 
 ## Related Decisions
 
-- [ADR 006: pytest Testing](006-pytest-github-actions-testing.md) - Complementary quality tool
-- [ADR 002: MVC Architecture](002-mvc-architecture-zero-qt-dependencies.md) - Clean code architecture
+- [ADR 009: pytest Testing](009-pytest-github-actions-testing.md) - Complementary quality tool
+- [ADR 005: MVC Architecture](005-mvc-architecture-zero-qt-dependencies.md) - Clean code architecture
 - AI-Assisted Development (Doc/autonomous-workflow.md) - Automated checks essential for AI-generated code
 
 ---
@@ -501,12 +502,28 @@ from GUI.main_window import MainWindow  # Would trigger E402
 
 ---
 
+## Reality Check (2026-04-29)
+
+**Partially superseded.** Ruff remains the primary linter, but the "no auto-formatter" stance has been reversed:
+
+- **Black is in CI** (`black --check --line-length=120 app/`) — with version pinned in `app/requirements-dev.txt` (currently `black==26.1.0`).
+- **isort is in CI** (`isort --check-only --profile=black --line-length=120 app/`).
+- **Bandit security linting** is also on CI (`bandit -r app/ -x app/tests --severity-level medium`) — not mentioned in this ADR but adopted alongside it.
+- **`ruff format` was tried and removed** — per a comment in `.github/workflows/ci.yml`, ruff-format and black disagreed on some formatting and caused infinite reformat loops. Black is the formatter; Ruff is for lint only.
+- **Pre-commit hooks** were added to enforce all three locally (the same `make lint` target plus pre-commit config), addressing the "version-mismatch on pre-commit" friction noted in `Doc/Handoff/design-discussions/2026-02-10-epic-workflow-and-branch-strategy.md`.
+
+The "Alternatives Considered" section's rejection of "Black + Flake8" specifically called out "configuration spread across multiple tools" — that rejection has effectively been walked back. The current configuration is split across `ruff.toml`, the black/isort flags in CI, and pre-commit config. A successor team could reasonably revisit this and either (a) accept the split as the cost of Black's formatting consistency, or (b) consolidate on `ruff format` once Ruff and Black no longer disagree.
+
+The "10-100x faster than Pylint/Flake8" performance claim still holds for the lint pass; black + isort add a few seconds but stay well under the 5-minute CI budget.
+
+---
+
 ## Review and Revision
 
 This decision should be reviewed if:
 - Ruff development stalls or project abandoned
 - Team needs more sophisticated analysis (consider Pylint)
-- Auto-formatting becomes desired (add `ruff format`)
+- Ruff format and Black converge on formatting (revisit the split toolchain)
 - Rule set becomes too restrictive (adjust config)
 
-**Status:** Working excellently, fast and effective
+**Status:** Ruff still effective for lint; formatting now handled by black + isort; security covered by bandit.

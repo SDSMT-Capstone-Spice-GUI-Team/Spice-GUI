@@ -1,8 +1,8 @@
 # Proposed CLAUDE.md Changes for Epic Workflow
 
-**Status**: Draft — requires team review before applying.
+**Status**: **Archived.** The proposed workflow rules were absorbed into the Spice-GUI `CLAUDE.md`, which was then extracted to a separate workflow repository in commit `c251561` ("separated Claude needed files from the coding repo"). No `CLAUDE.md` exists in this repository as of 2026-04-29. The active orchestrator/worker workflow is documented in the [`claude-workflow`](https://github.com/jefriedrichsen/claude-workflow) repo. This document is preserved as historical context for the proposal that informed both ADR-003 (branching) and the eventual extraction.
 
-These are the specific sections of CLAUDE.md that would change. Unchanged sections are omitted.
+These are the specific sections of CLAUDE.md that would have changed. Unchanged sections are omitted.
 
 ---
 

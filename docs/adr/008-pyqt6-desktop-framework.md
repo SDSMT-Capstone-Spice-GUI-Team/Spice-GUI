@@ -1,9 +1,10 @@
-# ADR 005: PyQt6 Desktop Application Framework
+# ADR 008: PyQt6 Desktop Application Framework
 
 **Date:** 2024-09-10 (Initial prototype)
-**Status:** Accepted
+**Status:** Accepted (renumbered 2026-04-29 during ADR consolidation; previously ADR 005 in `Doc/decisions/`)
 **Deciders:** Development Team
 **Related Commits:** fd70174 (PyQt5 → PyQt6 migration)
+**Last reviewed:** 2026-04-29 — still in effect; theme system unification landed Apr 2026.
 
 ---
 
@@ -133,7 +134,7 @@ The application is an educational desktop tool for circuit design and simulation
 - Worse performance for canvas rendering
 - Must bridge Python simulation to JavaScript UI
 - Offline experience more complex
-- Against local-first architecture (ADR 001)
+- Against local-first architecture (ADR 004)
 - Team expertise in Python, not JavaScript
 - Canvas performance critical for smooth interaction
 
@@ -329,8 +330,10 @@ If web interface needed:
 
 ## Related Decisions
 
-- [ADR 001](001-local-first-no-user-accounts.md) - Desktop-first aligns with local architecture
-- [ADR 002](002-mvc-architecture-zero-qt-dependencies.md) - Qt only in view layer
+- [ADR 004](004-local-first-no-user-accounts.md) - Desktop-first aligns with local architecture
+- [ADR 005](005-mvc-architecture-zero-qt-dependencies.md) - Qt only in view layer
+- [docs/architecture/canvas-architecture.md](../architecture/canvas-architecture.md) - Canvas layering on top of QGraphicsView
+- [docs/architecture/gui-protocol-guide.md](../architecture/gui-protocol-guide.md) - Protocol-based view contracts
 
 ---
 
@@ -341,6 +344,21 @@ If web interface needed:
 - Migration commit: [fd70174](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/commit/fd70174)
 - Circuit canvas: [circuit_canvas.py](../../app/GUI/circuit_canvas.py)
 - Main window: [main_window.py](../../app/GUI/main_window.py)
+
+---
+
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** PyQt6 6.9 remains the GUI framework. Major refinements that shipped on top of this base since the original ADR:
+
+- **Theme system unified.** Hardcoded colors, Z-values, durations, and shortcut strings have been replaced with theme- and registry-driven constants across the codebase (#491–493, #507, #510, #513, #516, #517, #911). The "QSS styling" path is now the single source of truth.
+- **Theme-switch segfault fixed (#860).** Scene is detached before QSS reapply.
+- **Custom font rendering** integrated via `dev-main-epic-front` merge.
+- **Component-palette overhaul:** European/American icon swap, palette filter by class.
+- **Wire-editing UX:** waypoint manipulation with undo/redo, blocked-path feedback (#483–484, #913).
+- **Canvas now formalised** in [docs/architecture/canvas-architecture.md](../architecture/canvas-architecture.md); a protocol layer for views ([gui-protocol-guide.md](../architecture/gui-protocol-guide.md)) was added on top of MVC.
+
+CI matrix narrowed to Python 3.12 only (was Python 3.11/3.12/3.13 in this ADR's wishlist) — pragmatic narrowing once 3.12 was confirmed stable across platforms.
 
 ---
 

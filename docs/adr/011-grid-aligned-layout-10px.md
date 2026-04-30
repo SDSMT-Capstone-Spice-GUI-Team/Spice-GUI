@@ -1,9 +1,10 @@
-# ADR 008: Grid-Aligned Layout with 10px Snap
+# ADR 011: Grid-Aligned Layout with 10px Snap
 
 **Date:** 2024-09-15 (Initial prototype)
-**Status:** Accepted
+**Status:** Accepted (renumbered 2026-04-29 during ADR consolidation; previously ADR 008 in `Doc/decisions/`)
 **Deciders:** Development Team
 **Related Commits:** Early prototype development
+**Last reviewed:** 2026-04-29 — `GRID_SIZE = 10` is centralised in `app/GUI/styles/constants.py`.
 
 ---
 
@@ -410,9 +411,9 @@ def drawBackground(self, painter, rect):
 
 ## Related Decisions
 
-- **Wire Pathfinding** (Future ADR) - Grid enables efficient A* search
-- [ADR 003: JSON File Format](003-json-circuit-file-format.md) - Grid coordinates in file
-- [ADR 005: PyQt6 Framework](005-pyqt6-desktop-framework.md) - QGraphicsScene grid rendering
+- **Wire Pathfinding** (Future ADR) - Grid enables efficient A* / IDA* search
+- [ADR 006: JSON File Format](006-json-circuit-file-format.md) - Grid coordinates in file
+- [ADR 008: PyQt6 Framework](008-pyqt6-desktop-framework.md) - QGraphicsScene grid rendering
 
 ---
 
@@ -421,6 +422,21 @@ def drawBackground(self, painter, rect):
 - Grid snapping: [circuit_canvas.py](../../app/GUI/circuit_canvas.py)
 - Component positioning: [component_item.py](../../app/GUI/component_item.py)
 - Pathfinding grid: [path_finding.py](../../app/GUI/path_finding.py)
+
+---
+
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** `GRID_SIZE = 10` lives in `app/GUI/styles/constants.py` and is the single source of truth for grid spacing across canvas rendering, wire pathfinding, and component placement. Pathfinding has expanded from A* to IDA* / Dijkstra implementations as listed in `wiki/Roadmap.md`, but all of them operate on the same 10px grid.
+
+Wire-editing UX got significant work in Apr 2026:
+- Waypoint drag with undo/redo, orthogonal-segment constraint, and segment insertion (#483).
+- Backspace-to-remove-last-waypoint while drawing (#484).
+- Dashed-red feedback when a wire path is blocked (#913).
+
+All of these continue to operate on grid-aligned coordinates — the constraint never had to be relaxed.
+
+The "Future Considerations" sub-grid feature (Shift = 5px snap) remains unimplemented and is not currently on the roadmap.
 
 ---
 

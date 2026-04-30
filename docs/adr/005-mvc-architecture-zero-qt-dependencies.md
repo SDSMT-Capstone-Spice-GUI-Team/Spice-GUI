@@ -1,9 +1,10 @@
-# ADR 002: MVC Architecture with Zero PyQt6 Dependencies in Core Logic
+# ADR 005: MVC Architecture with Zero PyQt6 Dependencies in Core Logic
 
 **Date:** 2024-11-11 (Implemented)
-**Status:** Accepted
+**Status:** Accepted (renumbered 2026-04-29 during ADR consolidation; previously ADR 002 in `Doc/decisions/`)
 **Deciders:** Development Team
 **Related Commits:** 00670ea, 4d03f20, ef2d7b5, fe7273d
+**Last reviewed:** 2026-04-29 — still in effect; complemented by [ADR 001](001-mvc-testability.md) which adds the testability rationale.
 
 ---
 
@@ -214,8 +215,9 @@ For existing code:
 
 ## Related Decisions
 
-- [ADR 001](001-local-first-no-user-accounts.md) - Local-first architecture (no backend controllers needed)
-- [ADR 005](005-pyqt6-desktop-framework.md) - PyQt6 as view layer technology
+- [ADR 001](001-mvc-testability.md) - The testability rationale for this MVC structure (refines this ADR)
+- [ADR 004](004-local-first-no-user-accounts.md) - Local-first architecture (no backend controllers needed)
+- [ADR 008](008-pyqt6-desktop-framework.md) - PyQt6 as view layer technology
 
 ---
 
@@ -225,6 +227,17 @@ For existing code:
 - MVC refactor PR: Issues #60, #61, #62, #63
 - Observer pattern: [CircuitController](../../app/controllers/circuit_controller.py)
 - Zero-Qt tests: [test_circuit_model.py](../../app/tests/unit/test_circuit_model.py)
+
+---
+
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** The MVC + zero-Qt-in-core split has held up across ~14 months and through the Apr 2026 audit-driven hardening wave (#765, #766, #770, #773).
+
+- The "108 unit tests" figure in the original document is point-in-time. As of 2026-04-29 the suite is in the thousands of tests; the structure that enables them is exactly the layering described here.
+- The zero-Qt-in-core invariant continues to hold for `app/models/` and `app/controllers/`; it is enforced by import-time tests.
+- A protocols layer (`app/protocols/`) was added on top of this MVC structure to formalise the controller-to-view contracts — see [docs/architecture/gui-protocol-guide.md](../architecture/gui-protocol-guide.md). It refines but does not supersede this decision.
+- Behavioral tests replaced fragile `inspect.getsource()` structural tests in #773 — the MVC boundary is now verified by behavior, not by source-text patterns.
 
 ---
 

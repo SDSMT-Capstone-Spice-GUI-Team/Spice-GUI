@@ -1,9 +1,10 @@
-# ADR 003: JSON Circuit File Format
+# ADR 006: JSON Circuit File Format
 
 **Date:** 2024-10-28 (Implemented)
-**Status:** Accepted
+**Status:** Accepted (renumbered 2026-04-29 during ADR consolidation; previously ADR 003 in `Doc/decisions/`). Schema-version field added 2026-04-02 (#521).
 **Deciders:** Development Team
-**Related Commits:** 60a0c52, 00670ea
+**Related Commits:** 60a0c52, 00670ea, #521 (schema_version)
+**Last reviewed:** 2026-04-29 — still in effect; v1.0 schema now explicit.
 
 ---
 
@@ -286,8 +287,8 @@ with open(filepath, 'r') as f:
 
 ## Related Decisions
 
-- [ADR 001](001-local-first-no-user-accounts.md) - Local files, no database backend
-- [ADR 002](002-mvc-architecture-zero-qt-dependencies.md) - Model serialization design
+- [ADR 004](004-local-first-no-user-accounts.md) - Local files, no database backend
+- [ADR 005](005-mvc-architecture-zero-qt-dependencies.md) - Model serialization design
 
 ---
 
@@ -296,7 +297,21 @@ with open(filepath, 'r') as f:
 - Validation implementation: [file_controller.py](../../app/controllers/file_controller.py)
 - Model serialization: [circuit.py](../../app/models/circuit.py)
 - Tests: [test_file_controller.py](../../app/tests/unit/test_file_controller.py)
-- Example circuits: [0-CDR-Demo/](../../0-CDR-Demo/)
+- Example circuits: [Doc/0-CDR-Demo/](../../Doc/0-CDR-Demo/) and [Doc/examples/](../../Doc/examples/)
+
+---
+
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** JSON remains the circuit file format. Several refinements have shipped since the original ADR:
+
+- **Schema versioning is now explicit.** The `"version": "1.0"` field discussed under "Backward Compatibility Strategy" was made required and renamed `schema_version` in #521 (Apr 2). Loaders reject incompatible versions; this unblocks future migrations.
+- **Atomic writes (#765)** were added at every persistence point. Truncated saves on power loss are no longer possible.
+- **File-size validation (#766)** rejects oversized inputs at the user-facing load boundary.
+- **Component value validation (#541)** runs before netlist generation, catching format errors before they reach ngspice.
+- **Schema is now Pydantic-validated**, not just shape-checked. The validation rules listed in the original "Validation Rules" section are still accurate but are now backed by a formal validator.
+
+The "Format Evolution" section's predicted v1.1 (annotations, net labels) is in production. v2.0+ (subcircuits, embedded results, multi-page) remain unimplemented.
 
 ---
 
@@ -308,4 +323,4 @@ This decision should be reviewed if:
 - Need binary embedding (images, compiled models)
 - Moving to database-backed storage
 
-**Status:** Working well, widely adopted for circuit sharing
+**Status:** Working well, widely adopted for circuit sharing; schema_version landed Apr 2026.

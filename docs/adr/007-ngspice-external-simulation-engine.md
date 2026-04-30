@@ -1,9 +1,10 @@
-# ADR 004: ngspice as External Simulation Engine
+# ADR 007: ngspice as External Simulation Engine
 
 **Date:** 2024-09-15 (Initial implementation)
-**Status:** Accepted
+**Status:** Accepted (renumbered 2026-04-29 during ADR consolidation; previously ADR 004 in `Doc/decisions/`)
 **Deciders:** Development Team
 **Related Commits:** Early prototype commits, ef2d7b5
+**Last reviewed:** 2026-04-29 — still in effect; result-parser hardening landed Apr 2026.
 
 ---
 
@@ -308,8 +309,8 @@ def parse_transient_output(output: str) -> Dict[str, np.ndarray]:
 
 ## Related Decisions
 
-- [ADR 003](003-json-circuit-file-format.md) - Circuit file format (netlist is separate)
-- [ADR 002](002-mvc-architecture-zero-qt-dependencies.md) - SimulationController design
+- [ADR 006](006-json-circuit-file-format.md) - Circuit file format (netlist is separate)
+- [ADR 005](005-mvc-architecture-zero-qt-dependencies.md) - SimulationController design
 
 ---
 
@@ -323,6 +324,20 @@ def parse_transient_output(output: str) -> Dict[str, np.ndarray]:
 
 ---
 
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** ngspice remains the external simulation engine, invoked via subprocess. Significant hardening of the I/O boundary has shipped since the original ADR:
+
+- **Exit-code checking (#508)** is now mandatory before treating output as success. The original implementation parsed output unconditionally.
+- **`wrdata` fallback parsing (#805, #852–857)** added: when stdout parsing is incomplete, results are recovered from ngspice's `wrdata` files. Cleaned up automatically between runs (#542).
+- **'Operational Point' alias (#540)** and **case-insensitive SPICE-suffix parsing (#543)** widened the parser's tolerance for ngspice output variation.
+- **Convergence-failure detection (#858)** translates raw ngspice errors into student-friendly messages.
+- **Component-value validation (#541)** runs before netlist generation, surfacing format errors before they hit ngspice.
+
+The "Future Considerations" section's "Bundle ngspice" item shipped — the Inno Setup Windows installer now bundles ngspice. PySpice / shared-library and Xyce options remain dismissed for the same reasons given in this ADR.
+
+---
+
 ## Review and Revision
 
 This decision should be reviewed if:
@@ -331,4 +346,4 @@ This decision should be reviewed if:
 - Platform compatibility issues arise
 - Better open-source alternative emerges
 
-**Status:** Working well across all platforms, no plans to change
+**Status:** Working well across all platforms; bundled with the Windows installer; no plans to change

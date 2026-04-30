@@ -161,14 +161,15 @@ SDM Spice is currently in **Phase 1 (Student MVP)** development as part of an SD
 - **Phase 6:** Researcher features (scripting API)
 - **Phase 7:** Advanced features and polish
 
-> **Note:** This project follows a **local-first architecture** without user accounts. See [ADR 001](Doc/decisions/001-local-first-no-user-accounts.md) for rationale.
+> **Note:** This project follows a **local-first architecture** without user accounts. See [ADR 004](docs/adr/004-local-first-no-user-accounts.md) for rationale.
 
 ## Documentation
 
 - **[Installation Guide](docs/installation-guide.md)** - Windows installer setup, troubleshooting, and uninstall instructions
-- **[Architecture Decision Records](Doc/decisions/)** - Important architectural decisions and their rationale
+- **[Architecture Decision Records](docs/adr/)** - Important architectural decisions and their rationale
+- **[Architecture Guides](docs/architecture/)** - Canvas internals, GUI protocols, and other implementation guides
 - **[Project Evolution](Doc/project-evolution.md)** - AI-assisted development approach and how the project evolved
-- **[Discovery Documentation](DiscoveryDocs/)** - Initial exploration and requirements gathering (academic assignment)
+- **[Discovery Documentation](Doc/DiscoveryDocs/)** - Initial exploration and requirements gathering (academic assignment)
 
 ## Development Setup
 

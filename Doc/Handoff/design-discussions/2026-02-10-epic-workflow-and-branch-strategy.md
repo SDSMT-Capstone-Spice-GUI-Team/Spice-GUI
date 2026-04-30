@@ -1,9 +1,11 @@
-# ADR: Epic Workflow and Branch Strategy
+# Design Discussion: Epic Workflow and Branch Strategy
 
 **Date**: 2026-02-10
-**Status**: Proposed
+**Status**: **Accepted and adopted.** Formalised as [ADR-003](../../../docs/adr/003-branching-strategy.md) on 2026-02-11. Moved into `Doc/Handoff/design-discussions/` on 2026-04-29 — this document is the long-form rationale, not an active ADR. **For the active decision, read ADR-003.**
 **Participants**: Jeremy (Software Architect), Claude Agent (Opus 4.6)
 **Context**: Discussion continued from Session 3 feedback review
+
+> **Note for the successor team:** the four-phase Implementation Plan checkboxes below are unchecked because they pre-date implementation. All foundational items shipped: `develop` branch exists, branch protection rules are in place, `epic:*` labels are in use, and the `scripts/test-epic.sh` helper was superseded by the broader `claude-workflow` Docker dispatch tooling.
 
 ---
 

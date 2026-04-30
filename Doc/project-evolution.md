@@ -67,7 +67,7 @@ SDM Spice began with an ambitious vision for a multi-user, cloud-based circuit s
 4. **Risk:** What can we maintain post-graduation?
 5. **Constraints:** Budget, infrastructure, team skills
 
-**Outcome:** [ADR 001 - Local-First Architecture Without User Accounts](decisions/001-local-first-no-user-accounts.md)
+**Outcome:** [ADR 004 - Local-First Architecture Without User Accounts](../docs/adr/004-local-first-no-user-accounts.md)
 
 ---
 
@@ -196,7 +196,7 @@ The local-first architecture doesn't preclude future enhancements:
 - Could add lightweight sharing (no full account system)
 - Local-first + optional cloud hybrid
 
-**Key:** MVC architecture ([ADR 002](decisions/002-mvc-architecture-zero-qt-dependencies.md)) makes this evolution possible. Core logic has zero GUI dependencies, enabling future web interface if needed.
+**Key:** MVC architecture ([ADR 005](../docs/adr/005-mvc-architecture-zero-qt-dependencies.md)) makes this evolution possible. Core logic has zero GUI dependencies, enabling future web interface if needed.
 
 ---
 
@@ -232,9 +232,9 @@ This demonstrates:
 - [Proposed Timeline](../DiscoveryDocs/Proposed%20Timeline%20User%20Roles%20Implementation.md) - 20-month plan
 
 ### Decision Phase
-- [ADR 001: Local-First Architecture](decisions/001-local-first-no-user-accounts.md) - The pivot decision
-- [ADR 002: MVC Architecture](decisions/002-mvc-architecture-zero-qt-dependencies.md) - Enables future flexibility
-- [All ADRs](decisions/) - Full architectural decision history
+- [ADR 004: Local-First Architecture](../docs/adr/004-local-first-no-user-accounts.md) - The pivot decision
+- [ADR 005: MVC Architecture](../docs/adr/005-mvc-architecture-zero-qt-dependencies.md) - Enables future flexibility
+- [All ADRs](../docs/adr/) - Full architectural decision history
 
 ### Implementation
 - [README](../README.md) - Current project status and roadmap

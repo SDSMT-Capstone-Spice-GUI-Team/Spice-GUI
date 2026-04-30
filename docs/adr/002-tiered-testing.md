@@ -3,6 +3,7 @@
 **Date**: 2026-02-11
 **Status**: Accepted
 **Participants**: Jeremy (Software Architect), Claude Agent (Opus 4.6)
+**Last reviewed:** 2026-04-29 — still in effect; both gates were exercised through the Apr 2026 design-fair release.
 
 ## Decision
 
@@ -72,3 +73,15 @@ Tests should cover the *behavior*, not just the *count*. A single test that exer
 - Release/promotion to `main` requires verified code — students always get tested builds
 - The human testing board is a living document — agents add items as they ship features
 - Bugs from human testing enter the dev board at Backlog for triage
+
+---
+
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** The two-gate model held through the Apr 2026 audit-driven hardening wave and the Design-Fair release push.
+
+- **Gate 1 (CI)** broadened beyond pytest + ruff: black, isort, and bandit are now part of the merge gate (see [ADR 010](010-ruff-linting-code-quality.md) Reality Check).
+- **Gate 2 (human testing)** drove the Apr 13 Design-Fair build. Issues filed during the demo were triaged onto the dev board; this is the loop the ADR predicted.
+- Specific testing-issue references (`#269–#279`) in this ADR are point-in-time and may have been re-triaged or closed since.
+
+For the successor team: Gate 2 is the slow gate. Resist the temptation to dissolve it under release pressure — it is what keeps `main` student-safe.

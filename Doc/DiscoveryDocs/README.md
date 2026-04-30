@@ -15,7 +15,7 @@ This directory contains discovery documentation created during the initial explo
 | Document | Purpose | Status |
 |----------|---------|--------|
 | [User Personas](User%20Personas.md) | Guide for creating user personas | ✅ Still relevant methodology |
-| [User Roles and Permissions](User%20Roles%20and%20Permissions.md) | Initial multi-user role system design | 📋 Exploratory - See ADR 001 |
+| [User Roles and Permissions](User%20Roles%20and%20Permissions.md) | Initial multi-user role system design | 📋 Exploratory - See ADR 004 |
 | [Proposed Timeline User Roles Implementation](Proposed%20Timeline%20User%20Roles%20Implementation.md) | 20-month roadmap for multi-user system | 📋 Exploratory - See updated roadmap |
 | [Backlog Item Template](Backlog%20Item%20Template.md) | Template for feature requests | ✅ Still in use |
 | [Feature Request Template](Feature%20Request%20Template.md) | Template for feature documentation | ✅ Still in use |
@@ -60,8 +60,8 @@ After discussions with:
 - Existing solutions for assignment submission (LMS integration simpler than custom)
 
 **This led to a pivot documented in:**
-- **[ADR 001: Local-First Architecture Without User Accounts](../Doc/decisions/001-local-first-no-user-accounts.md)**
-- **[Updated Roadmap in README](../README.md#roadmap)**
+- **[ADR 004: Local-First Architecture Without User Accounts](../../docs/adr/004-local-first-no-user-accounts.md)**
+- **[Updated Roadmap in README](../../README.md#roadmap)**
 
 ---
 
@@ -70,7 +70,7 @@ After discussions with:
 ### User Accounts & Roles
 **Discovery Phase:** Designed 5-role system with SSO, permissions, cloud storage
 **Stakeholder Feedback:** Too complex for Phase 1, infrastructure burden too high
-**Final Decision:** Local-first desktop app, no accounts (ADR 001)
+**Final Decision:** Local-first desktop app, no accounts (ADR 004)
 **Rationale:** Focus on core circuit design, leverage existing tools (LMS) for distribution
 
 ### Assignment Workflow
@@ -148,10 +148,10 @@ If the project grows beyond Phase 1:
 
 ## Related Documentation
 
-- **[Architecture Decision Records](../Doc/decisions/)** - Why we made specific technical choices
-- **[README Roadmap](../README.md#roadmap)** - Current project phases and priorities
-- **[Development Methodology](../Doc/autonomous-workflow.md)** - How we build the software
-- **[ADR 001](../Doc/decisions/001-local-first-no-user-accounts.md)** - Key decision to go local-first
+- **[Architecture Decision Records](../../docs/adr/)** - Why we made specific technical choices
+- **[README Roadmap](../../README.md#roadmap)** - Current project phases and priorities
+- **[Development Methodology](../autonomous-workflow.md)** - How we build the software
+- **[ADR 004](../../docs/adr/004-local-first-no-user-accounts.md)** - Key decision to go local-first
 
 ---
 
@@ -181,6 +181,6 @@ If the project grows beyond Phase 1:
 ## Contact & Questions
 
 For questions about the evolution from discovery to implementation, see:
-- Architecture Decision Records in `Doc/decisions/`
+- Architecture Decision Records in `docs/adr/`
 - Git commit history showing implementation choices
 - Capstone project documentation

@@ -1,9 +1,10 @@
-# ADR 006: pytest and GitHub Actions for Testing Strategy
+# ADR 009: pytest and GitHub Actions for Testing Strategy
 
 **Date:** 2024-10-28 (Implemented)
-**Status:** Accepted
+**Status:** Accepted (renumbered 2026-04-29 during ADR consolidation; previously ADR 006 in `Doc/decisions/`). Originally proposed a Python 3.11/3.12/3.13 matrix; current CI runs Python 3.12 only.
 **Deciders:** Development Team
 **Related Commits:** 2f26688 (CI/CD pipeline), 428dcbe (test suite)
+**Last reviewed:** 2026-04-29 — pytest + GitHub Actions still core; CI scope expanded with isort, black, and bandit.
 
 ---
 
@@ -432,9 +433,11 @@ def test_<what_is_being_tested>_<scenario>_<expected_result>():
 
 ## Related Decisions
 
-- [ADR 002: MVC Architecture](002-mvc-architecture-zero-qt-dependencies.md) - Enables testability by isolating core logic
-- [ADR 007: Ruff for Linting](007-ruff-linting-code-quality.md) - Complementary code quality tool
-- [ADR 005: PyQt6 Framework](005-pyqt6-desktop-framework.md) - GUI testing challenges with PyQt6
+- [ADR 005: MVC Architecture](005-mvc-architecture-zero-qt-dependencies.md) - Enables testability by isolating core logic
+- [ADR 001: MVC for Testability](001-mvc-testability.md) - The testing-layer hierarchy this strategy follows
+- [ADR 002: Tiered Testing Model](002-tiered-testing.md) - Two-gate model (auto + human) on top of pytest
+- [ADR 010: Ruff for Linting](010-ruff-linting-code-quality.md) - Complementary code quality tool
+- [ADR 008: PyQt6 Framework](008-pyqt6-desktop-framework.md) - GUI testing challenges with PyQt6
 
 ---
 
@@ -448,6 +451,19 @@ def test_<what_is_being_tested>_<scenario>_<expected_result>():
 
 ---
 
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** pytest and GitHub Actions remain the testing pillar. Several elements of this ADR have drifted from current practice — the next team should treat the ADR's specific numbers as historical:
+
+- **Test count:** "108+" reflects the count at original drafting. As of 2026-04-29 the suite is in the thousands of test functions. The trend that mattered (tests grow with features at the model/controller layer) held.
+- **Python version matrix:** ADR proposed 3.11 / 3.12 / 3.13 across Ubuntu + Windows. Current CI runs Python 3.12 only (single version, both lint and test jobs). Matrix narrowing was a pragmatic choice once 3.12 proved stable; widen if the next team needs broader compatibility.
+- **CI now runs more than pytest + ruff:** isort and black formatters, plus bandit security linting, are part of the lint pipeline. ADR-010 (Ruff) originally rejected Black; that decision was reversed — see ADR-010's own Reality Check.
+- **CI runs on `main`, `develop`, and `epic/**` branches** (per ADR-003 branching strategy), not just `main` and PRs as this ADR documents.
+- **Node.js 24 runtime** opted-in on CI runners (Apr 21) to silence Node 16 deprecation warnings.
+- **GUI testing:** behavioral tests replaced fragile `inspect.getsource()` structural tests in #773.
+
+---
+
 ## Review and Revision
 
 This decision should be reviewed if:
@@ -456,4 +472,4 @@ This decision should be reviewed if:
 - Team needs more sophisticated test reporting
 - Coverage requirements become mandatory
 
-**Status:** Working well, 108+ tests passing on all platforms
+**Status:** Working well; CI pipeline now broader than originally proposed (lint + format + security in addition to tests)

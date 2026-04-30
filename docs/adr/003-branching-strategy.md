@@ -3,6 +3,7 @@
 **Date**: 2026-02-10 (formalized 2026-02-11)
 **Status**: Accepted
 **Participants**: Jeremy (Software Architect), Claude Agent (Opus 4.6)
+**Last reviewed:** 2026-04-29 — still in effect.
 
 ## Decision
 
@@ -57,4 +58,20 @@ Agents determine their base branch deterministically:
 
 ## Full Design Document
 
-For the complete analysis including options considered, team composition, role interactions, and implementation phases, see `docs/decisions/2026-02-10-epic-workflow-and-branch-strategy.md`.
+For the complete analysis including options considered, team composition, role interactions, and implementation phases, see [Doc/Handoff/design-discussions/2026-02-10-epic-workflow-and-branch-strategy.md](../../Doc/Handoff/design-discussions/2026-02-10-epic-workflow-and-branch-strategy.md). (The associated CLAUDE-md proposal draft has been archived alongside it; CLAUDE.md itself was extracted from this repo to a separate workflow repo — commit `c251561`.)
+
+---
+
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** The full branch topology has been used in production through 2.5 months of multi-agent development:
+
+- `main` remained human-verified throughout the period.
+- `develop` was the integration branch; `design-fair` was an epic-style branch that merged into develop on 2026-04-21 (#937).
+- Roughly 70 issues across two large merge waves (Apr 1 audit-remediation, Apr 13 Design-Fair polish) shipped through the algorithm in this ADR without merge-conflict crises on `main_window.py` (the original motivating hotspot).
+- Branch protection on `main` and `develop` is in place.
+- CI runs on `main`, `develop`, and `epic/**` per the algorithm.
+
+The "Pre-production" rolling-promotion model is still in use — the next team will need to perform the first `develop` → `main` promotion since the Design-Fair work landed (see Final Progress Report §6 Future Work, item F1).
+
+The "release/vX.Y" beta-release branch convention has not yet been exercised; cutting `release/v1.0` from the current `develop` is the recommended first action for the successor team.

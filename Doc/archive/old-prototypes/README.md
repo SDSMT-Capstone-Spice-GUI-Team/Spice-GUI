@@ -7,7 +7,7 @@ This directory contains code from early project exploration that is no longer us
 **What it was:** Early main window prototype using PySide6
 **Status:** Obsolete - Current implementation uses PyQt6
 **Why archived:**
-- Uses PySide6, current app uses PyQt6 (ADR 005)
+- Uses PySide6, current app uses PyQt6 (ADR 008)
 - Replaced by main_window.py
 - Not referenced anywhere in current codebase
 

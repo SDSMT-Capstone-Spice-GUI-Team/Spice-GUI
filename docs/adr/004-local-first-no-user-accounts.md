@@ -1,8 +1,9 @@
-# ADR 001: Local-First Architecture Without User Accounts
+# ADR 004: Local-First Architecture Without User Accounts
 
 **Date:** 2026-02-08
-**Status:** Accepted
+**Status:** Accepted (renumbered 2026-04-29 during ADR consolidation; previously ADR 001 in `Doc/decisions/`)
 **Deciders:** Development Team
+**Last reviewed:** 2026-04-29 — still in effect through Phase 1 (Student MVP).
 
 ---
 
@@ -20,7 +21,7 @@ During our discovery phase, we explored a comprehensive multi-user system with:
 - Role-based permissions and SSO integration
 - 20-month phased implementation timeline
 
-*See [DiscoveryDocs/](../../DiscoveryDocs/) for full initial exploration.*
+*See [DiscoveryDocs/](../../Doc/DiscoveryDocs/) for full initial exploration.*
 
 **Stakeholder Discussions Revealed:**
 After presenting discovery findings to faculty advisors, student users, IT stakeholders, and project sponsors, we identified critical constraints:
@@ -180,16 +181,28 @@ If user accounts become truly necessary:
 ## References
 
 ### Discovery to Decision Evolution
-- **Initial exploration:** [DiscoveryDocs/](../../DiscoveryDocs/) - Academic assignment discovery phase
-- **Multi-user vision:** [User Roles and Permissions](../../DiscoveryDocs/User%20Roles%20and%20Permissions.md) - Original 5-role system design
-- **Original timeline:** [Proposed Timeline](../../DiscoveryDocs/Proposed%20Timeline%20User%20Roles%20Implementation.md) - 20-month rollout plan
-- **Evolution explained:** [DiscoveryDocs/README](../../DiscoveryDocs/README.md) - How stakeholder feedback shaped final decision
+- **Initial exploration:** [DiscoveryDocs/](../../Doc/DiscoveryDocs/) - Academic assignment discovery phase
+- **Multi-user vision:** [User Roles and Permissions](../../Doc/DiscoveryDocs/User%20Roles%20and%20Permissions.md) - Original 5-role system design
+- **Original timeline:** [Proposed Timeline](../../Doc/DiscoveryDocs/Proposed%20Timeline%20User%20Roles%20Implementation.md) - 20-month rollout plan
+- **Evolution explained:** [DiscoveryDocs/README](../../Doc/DiscoveryDocs/README.md) - How stakeholder feedback shaped final decision
 
 ### Current Implementation
 - Phase 1 focuses on student-facing circuit design (current)
 - Current architecture: [file_controller.py](../../app/controllers/file_controller.py)
 - Session persistence already implemented for last-opened file
 - README roadmap: [README.md](../../README.md#roadmap)
+
+---
+
+## Reality Check (2026-04-29)
+
+**Decision still in effect.** No user-account or backend infrastructure was built during the Capstone period. All work shipped on the Phase 1 (Student MVP) local-first track.
+
+- File I/O remains JSON on disk; atomic-write hardening landed Apr 2026 (#765) without changing the architecture.
+- Grading subsystem was built on top of the local-first model: relative paths (#535) and a local rubric content hash (#537) replaced what would otherwise have needed a server.
+- Distribution moved to a Windows installer (Inno Setup) — still local-first, just easier to bootstrap for non-technical users.
+
+**For the successor team:** if Phase 2 (LMS integration / shared circuit library) starts, this is the first ADR to revisit. A lightweight LTI integration is consistent with this ADR; a full account system would supersede it.
 
 ---
 
@@ -201,4 +214,4 @@ This decision should be reviewed if:
 - LMS integration proves insufficient for instructor workflows
 - Team capacity increases significantly and can support backend infrastructure
 
-**Next review:** End of Phase 1 (before planning Phase 2 features)
+**Next review:** Start of Phase 2 planning by the successor team
