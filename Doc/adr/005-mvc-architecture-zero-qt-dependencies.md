@@ -236,7 +236,7 @@ For existing code:
 
 - The "108 unit tests" figure in the original document is point-in-time. As of 2026-04-29 the suite is in the thousands of tests; the structure that enables them is exactly the layering described here.
 - The zero-Qt-in-core invariant continues to hold for `app/models/` and `app/controllers/`; it is enforced by import-time tests.
-- A protocols layer (`app/protocols/`) was added on top of this MVC structure to formalise the controller-to-view contracts — see [docs/architecture/gui-protocol-guide.md](../architecture/gui-protocol-guide.md). It refines but does not supersede this decision.
+- A protocols layer (`app/protocols/`) was added on top of this MVC structure to formalise the controller-to-view contracts — see [Doc/architecture/gui-protocol-guide.md](../architecture/gui-protocol-guide.md). It refines but does not supersede this decision.
 - Behavioral tests replaced fragile `inspect.getsource()` structural tests in #773 — the MVC boundary is now verified by behavior, not by source-text patterns.
 
 ---

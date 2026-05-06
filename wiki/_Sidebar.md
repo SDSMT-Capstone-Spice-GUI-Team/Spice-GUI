@@ -4,7 +4,7 @@
 
 ### Getting Started
 * [[Installation Guide|Installation-Guide]] (Developer / From Source)
-* [Windows Installer Guide](../docs/installation-guide.md)
+* [Windows Installer Guide](../Doc/installation-guide.md)
 * [[Quick Start Tutorial]]
 * [[User Interface Overview]]
 

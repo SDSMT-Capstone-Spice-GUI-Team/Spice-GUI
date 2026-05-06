@@ -58,7 +58,7 @@ Tests should cover the *behavior*, not just the *count*. A single test that exer
 
 - **Testing board**: [Project #3](https://github.com/orgs/SDSMT-Capstone-Spice-GUI-Team/projects/3) with columns: Ready to Test → Testing → Passed / Bugs Found
 - **Testing issues**: #269-#279 organized by feature area (Smoke Test, Components, Wires, etc.)
-- **Testing guide**: `docs/human-testing-guide.md` for non-engineer testers
+- **Testing guide**: `Doc/human-testing-guide.md` for non-engineer testers
 - **Bug flow**: failure → comment on testing issue → file separate `bug` issue → Backlog on dev board
 
 ## Visual Testing Strategy

@@ -56,7 +56,7 @@ SDM Spice is a desktop application developed at South Dakota School of Mines and
 
 Download the latest **`SpiceGUI-vX.Y.Z-win64-setup.exe`** from the [Releases page](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/releases). The installer bundles Python, all dependencies, and ngspice — no prerequisites needed.
 
-For step-by-step instructions and troubleshooting, see the **[Installation Guide](docs/installation-guide.md)**.
+For step-by-step instructions and troubleshooting, see the **[Installation Guide](Doc/installation-guide.md)**.
 
 ### From Source
 
@@ -161,13 +161,13 @@ SDM Spice is currently in **Phase 1 (Student MVP)** development as part of an SD
 - **Phase 6:** Researcher features (scripting API)
 - **Phase 7:** Advanced features and polish
 
-> **Note:** This project follows a **local-first architecture** without user accounts. See [ADR 004](docs/adr/004-local-first-no-user-accounts.md) for rationale.
+> **Note:** This project follows a **local-first architecture** without user accounts. See [ADR 004](Doc/adr/004-local-first-no-user-accounts.md) for rationale.
 
 ## Documentation
 
-- **[Installation Guide](docs/installation-guide.md)** - Windows installer setup, troubleshooting, and uninstall instructions
-- **[Architecture Decision Records](docs/adr/)** - Important architectural decisions and their rationale
-- **[Architecture Guides](docs/architecture/)** - Canvas internals, GUI protocols, and other implementation guides
+- **[Installation Guide](Doc/installation-guide.md)** - Windows installer setup, troubleshooting, and uninstall instructions
+- **[Architecture Decision Records](Doc/adr/)** - Important architectural decisions and their rationale
+- **[Architecture Guides](Doc/architecture/)** - Canvas internals, GUI protocols, and other implementation guides
 - **[Project Evolution](Doc/project-evolution.md)** - AI-assisted development approach and how the project evolved
 - **[Discovery Documentation](Doc/DiscoveryDocs/)** - Initial exploration and requirements gathering (academic assignment)
 

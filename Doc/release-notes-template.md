@@ -36,7 +36,7 @@ Use this template when creating a new GitHub Release.
 
 ### Installation
 
-Download **`SpiceGUI-vX.Y.Z-win64-setup.exe`** below and run it. See the [Installation Guide](docs/installation-guide.md) for detailed instructions.
+Download **`SpiceGUI-vX.Y.Z-win64-setup.exe`** below and run it. See the [Installation Guide](Doc/installation-guide.md) for detailed instructions.
 
 ### Upgrading
 

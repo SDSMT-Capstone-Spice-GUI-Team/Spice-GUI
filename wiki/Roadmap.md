@@ -16,10 +16,10 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 
 **Features Implemented:**
 - [x] Circuit schematic editor with drag-and-drop
-- [x] Grid-aligned layout (10px snap) - [ADR 011](../docs/adr/011-grid-aligned-layout-10px.md)
+- [x] Grid-aligned layout (10px snap) - [ADR 011](../Doc/adr/011-grid-aligned-layout-10px.md)
 - [x] 20+ component library (R, L, C, V, I, Diode, LED, Zener, BJT NPN/PNP, MOSFET NMOS/PMOS, dependent sources, VC switch, Ground, Op-Amp)
 - [x] Intelligent wire routing with A*/IDA*/Dijkstra pathfinding
-- [x] Simulation engine integration (ngspice) - [ADR 007](../docs/adr/007-ngspice-external-simulation-engine.md)
+- [x] Simulation engine integration (ngspice) - [ADR 007](../Doc/adr/007-ngspice-external-simulation-engine.md)
 - [x] All analysis types (DC OP, DC Sweep, AC, Transient, Temperature Sweep)
 - [x] Parameter sweep across component values
 - [x] FFT/harmonic analysis with THD calculation
@@ -28,7 +28,7 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 - [x] DC operating point annotations on schematic
 - [x] Interactive voltage/current probes
 - [x] Power dissipation per component
-- [x] File save/load (JSON format) - [ADR 006](../docs/adr/006-json-circuit-file-format.md)
+- [x] File save/load (JSON format) - [ADR 006](../Doc/adr/006-json-circuit-file-format.md)
 - [x] SPICE netlist import (.cir/.spice)
 - [x] Session persistence (auto-restore last circuit)
 - [x] Auto-save with crash recovery
@@ -43,16 +43,16 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 - [x] Dark mode and theme switching
 - [x] Configurable keyboard shortcuts
 - [x] Recent files menu
-- [x] Comprehensive test suite - [ADR 009](../docs/adr/009-pytest-github-actions-testing.md)
+- [x] Comprehensive test suite - [ADR 009](../Doc/adr/009-pytest-github-actions-testing.md)
 
 **Architecture:**
-- Desktop application (PyQt6) - [ADR 008](../docs/adr/008-pyqt6-desktop-framework.md)
-- Local file storage only (no accounts) - [ADR 004](../docs/adr/004-local-first-no-user-accounts.md)
-- MVC architecture with zero-Qt dependencies in core logic - [ADR 005](../docs/adr/005-mvc-architecture-zero-qt-dependencies.md) (testing rationale: [ADR 001](../docs/adr/001-mvc-testability.md))
-- Ruff + black + isort + bandit for code quality - [ADR 010](../docs/adr/010-ruff-linting-code-quality.md)
-- GitHub Actions CI/CD - [ADR 009](../docs/adr/009-pytest-github-actions-testing.md)
-- develop + main branching with epic branches - [ADR 003](../docs/adr/003-branching-strategy.md)
-- Tiered testing (CI gate + human-testing gate) - [ADR 002](../docs/adr/002-tiered-testing.md)
+- Desktop application (PyQt6) - [ADR 008](../Doc/adr/008-pyqt6-desktop-framework.md)
+- Local file storage only (no accounts) - [ADR 004](../Doc/adr/004-local-first-no-user-accounts.md)
+- MVC architecture with zero-Qt dependencies in core logic - [ADR 005](../Doc/adr/005-mvc-architecture-zero-qt-dependencies.md) (testing rationale: [ADR 001](../Doc/adr/001-mvc-testability.md))
+- Ruff + black + isort + bandit for code quality - [ADR 010](../Doc/adr/010-ruff-linting-code-quality.md)
+- GitHub Actions CI/CD - [ADR 009](../Doc/adr/009-pytest-github-actions-testing.md)
+- develop + main branching with epic branches - [ADR 003](../Doc/adr/003-branching-strategy.md)
+- Tiered testing (CI gate + human-testing gate) - [ADR 002](../Doc/adr/002-tiered-testing.md)
 
 **Success Criteria:** ✅ Met
 - Students can complete basic lab assignments
@@ -82,7 +82,7 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 - **File-based distribution** - Templates shared as JSON files
 - **Integration not duplication** - Use existing tools for what they do well
 
-**Rationale:** See [ADR 004](../docs/adr/004-local-first-no-user-accounts.md)
+**Rationale:** See [ADR 004](../Doc/adr/004-local-first-no-user-accounts.md)
 
 ---
 
@@ -212,7 +212,7 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 - FERPA compliance simpler with local files
 - Stakeholder feedback prioritizing simulation quality
 
-**Full Story:** See [Project Evolution](../Doc/project-evolution.md) and [ADR 004](../docs/adr/004-local-first-no-user-accounts.md)
+**Full Story:** See [Project Evolution](../Doc/project-evolution.md) and [ADR 004](../Doc/adr/004-local-first-no-user-accounts.md)
 
 ---
 
@@ -268,14 +268,14 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 3. Create new issue with `enhancement` label
 4. Explain use case and how it aligns with local-first architecture
 
-**Note:** Features requiring user accounts or cloud storage are unlikely to be prioritized. See [ADR 004](../docs/adr/004-local-first-no-user-accounts.md) for rationale.
+**Note:** Features requiring user accounts or cloud storage are unlikely to be prioritized. See [ADR 004](../Doc/adr/004-local-first-no-user-accounts.md) for rationale.
 
 ---
 
 ## See Also
 
-- **[Architecture Decision Records](../docs/adr/)** - Technical decisions with rationale
-- **[Architecture Guides](../docs/architecture/)** - Canvas internals, GUI protocols, implementation details
+- **[Architecture Decision Records](../Doc/adr/)** - Technical decisions with rationale
+- **[Architecture Guides](../Doc/architecture/)** - Canvas internals, GUI protocols, implementation details
 - **[Project Evolution](../Doc/project-evolution.md)** - How we got from discovery to implementation
 - **[Development Methodology](../Doc/autonomous-workflow.md)** - How we build this software
 - **[Discovery Documentation](../DiscoveryDocs/)** - Initial exploration (academic assignment)

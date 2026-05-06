@@ -1,7 +1,7 @@
 # Design Discussion: Epic Workflow and Branch Strategy
 
 **Date**: 2026-02-10
-**Status**: **Accepted and adopted.** Formalised as [ADR-003](../../../docs/adr/003-branching-strategy.md) on 2026-02-11. Moved into `Doc/Handoff/design-discussions/` on 2026-04-29 — this document is the long-form rationale, not an active ADR. **For the active decision, read ADR-003.**
+**Status**: **Accepted and adopted.** Formalised as [ADR-003](../../adr/003-branching-strategy.md) on 2026-02-11. Moved into `Doc/Handoff/design-discussions/` on 2026-04-29 — this document is the long-form rationale, not an active ADR. **For the active decision, read ADR-003.**
 **Participants**: Jeremy (Software Architect), Claude Agent (Opus 4.6)
 **Context**: Discussion continued from Session 3 feedback review
 

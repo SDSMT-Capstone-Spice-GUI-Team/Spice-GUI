@@ -104,9 +104,8 @@ Spice-GUI/
 │   └── examples/                   ← Example circuit files
 │
 ├── data/                           ← Example circuits (JSON)
-├── docs/                           ← Architecture Decision Records
+├── Doc/                            ← All documentation: ADRs, architecture, handoff, legacy docs
 ├── wiki/                           ← User-facing documentation
-├── Doc/                            ← Legacy docs + this handoff
 ├── scripts/                        ← Build/dev scripts
 │
 ├── Makefile                        ← Build targets

@@ -332,8 +332,8 @@ If web interface needed:
 
 - [ADR 004](004-local-first-no-user-accounts.md) - Desktop-first aligns with local architecture
 - [ADR 005](005-mvc-architecture-zero-qt-dependencies.md) - Qt only in view layer
-- [docs/architecture/canvas-architecture.md](../architecture/canvas-architecture.md) - Canvas layering on top of QGraphicsView
-- [docs/architecture/gui-protocol-guide.md](../architecture/gui-protocol-guide.md) - Protocol-based view contracts
+- [Doc/architecture/canvas-architecture.md](../architecture/canvas-architecture.md) - Canvas layering on top of QGraphicsView
+- [Doc/architecture/gui-protocol-guide.md](../architecture/gui-protocol-guide.md) - Protocol-based view contracts
 
 ---
 
@@ -356,7 +356,7 @@ If web interface needed:
 - **Custom font rendering** integrated via `dev-main-epic-front` merge.
 - **Component-palette overhaul:** European/American icon swap, palette filter by class.
 - **Wire-editing UX:** waypoint manipulation with undo/redo, blocked-path feedback (#483–484, #913).
-- **Canvas now formalised** in [docs/architecture/canvas-architecture.md](../architecture/canvas-architecture.md); a protocol layer for views ([gui-protocol-guide.md](../architecture/gui-protocol-guide.md)) was added on top of MVC.
+- **Canvas now formalised** in [Doc/architecture/canvas-architecture.md](../architecture/canvas-architecture.md); a protocol layer for views ([gui-protocol-guide.md](../architecture/gui-protocol-guide.md)) was added on top of MVC.
 
 CI matrix narrowed to Python 3.12 only (was Python 3.11/3.12/3.13 in this ADR's wishlist) — pragmatic narrowing once 3.12 was confirmed stable across platforms.
 

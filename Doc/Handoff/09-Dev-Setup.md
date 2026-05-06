@@ -56,7 +56,7 @@ The repo includes configs for both **PyCharm** (`.idea/`) and **VS Code** (`.vsc
 
 ## Branching Strategy
 
-See [`docs/adr/003-branching-strategy.md`](../../docs/adr/003-branching-strategy.md) and the long-form discussion in [`Doc/Handoff/design-discussions/2026-02-10-epic-workflow-and-branch-strategy.md`](design-discussions/2026-02-10-epic-workflow-and-branch-strategy.md) for the full branching model. In short:
+See [`Doc/adr/003-branching-strategy.md`](../adr/003-branching-strategy.md) and the long-form discussion in [`Doc/Handoff/design-discussions/2026-02-10-epic-workflow-and-branch-strategy.md`](design-discussions/2026-02-10-epic-workflow-and-branch-strategy.md) for the full branching model. In short:
 
 - `main` — stable, releasable code
 - `dev-main-epic-*` — epic-level feature branches

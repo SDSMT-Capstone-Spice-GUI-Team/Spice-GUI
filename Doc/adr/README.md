@@ -2,7 +2,7 @@
 
 This directory captures the **architectural decisions** made during the development of SDM Spice — the *why*, *what was considered*, and *what trade-offs were accepted* for each significant choice.
 
-> **Consolidated 2026-04-29.** ADRs were previously split across `Doc/decisions/` and `docs/adr/` with conflicting numbering. All foundational ADRs were renumbered into the 004–011 range under `docs/adr/`; ADRs 001–003 (added 2026-02-11) keep their original numbering. See [Doc/Handoff/design-discussions/](../../Doc/Handoff/design-discussions/) for long-form design discussions that informed but are not themselves ADRs. Architecture *guides* (canvas internals, GUI protocols) live in [docs/architecture/](../architecture/).
+> **Consolidated 2026-04-29.** ADRs were previously split across `Doc/decisions/` and `docs/adr/` with conflicting numbering. All foundational ADRs were renumbered into the 004–011 range under `Doc/adr/`; ADRs 001–003 (added 2026-02-11) keep their original numbering. See [Doc/Handoff/design-discussions/](../Handoff/design-discussions/) for long-form design discussions that informed but are not themselves ADRs. Architecture *guides* (canvas internals, GUI protocols) live in [Doc/architecture/](../architecture/).
 
 ---
 

@@ -29,7 +29,7 @@ The project follows a **tiered testing** approach:
 2. **Netlist snapshot tests** — Verify generated SPICE output matches expected strings.
 3. **Widget tests** — Individual dialogs tested with `pytest-qt` (`qtbot`). MainWindow is NOT tested this way.
 4. **Structural assertions** — Terminal positions, bounding boxes, z-order.
-5. **Human testing** — Visual aesthetics, drag feel, print output. See `docs/human-testing-guide.md`.
+5. **Human testing** — Visual aesthetics, drag feel, print output. See `Doc/human-testing-guide.md`.
 
 ## Running Tests
 

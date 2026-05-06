@@ -60,7 +60,7 @@ After discussions with:
 - Existing solutions for assignment submission (LMS integration simpler than custom)
 
 **This led to a pivot documented in:**
-- **[ADR 004: Local-First Architecture Without User Accounts](../../docs/adr/004-local-first-no-user-accounts.md)**
+- **[ADR 004: Local-First Architecture Without User Accounts](../adr/004-local-first-no-user-accounts.md)**
 - **[Updated Roadmap in README](../../README.md#roadmap)**
 
 ---
@@ -148,10 +148,10 @@ If the project grows beyond Phase 1:
 
 ## Related Documentation
 
-- **[Architecture Decision Records](../../docs/adr/)** - Why we made specific technical choices
+- **[Architecture Decision Records](../adr/)** - Why we made specific technical choices
 - **[README Roadmap](../../README.md#roadmap)** - Current project phases and priorities
 - **[Development Methodology](../autonomous-workflow.md)** - How we build the software
-- **[ADR 004](../../docs/adr/004-local-first-no-user-accounts.md)** - Key decision to go local-first
+- **[ADR 004](../adr/004-local-first-no-user-accounts.md)** - Key decision to go local-first
 
 ---
 
@@ -181,6 +181,6 @@ If the project grows beyond Phase 1:
 ## Contact & Questions
 
 For questions about the evolution from discovery to implementation, see:
-- Architecture Decision Records in `docs/adr/`
+- Architecture Decision Records in `Doc/adr/`
 - Git commit history showing implementation choices
 - Capstone project documentation

@@ -86,7 +86,7 @@ REPLACEMENT_NOTE = (
     "Each checklist item above has a **report bug** link. "
     "Click it to open a pre-filled bug report — just fill in the blanks and submit. "
     "See the [detailed guide](https://github.com/SDSMT-Capstone-Spice-GUI-Team/"
-    "Spice-GUI/blob/develop/docs/how-to-file-a-bug.md) if you need help."
+    "Spice-GUI/blob/develop/Doc/how-to-file-a-bug.md) if you need help."
 )
 
 # Matches the old "Bug Report Template" section up to (but not including) <details>

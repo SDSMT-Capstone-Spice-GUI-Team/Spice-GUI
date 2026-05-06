@@ -39,10 +39,9 @@ The project has documentation in several places:
 
 | Location | Content |
 |----------|---------|
-| `docs/adr/` | Architecture Decision Records (MVC, testing, branching) |
-| `docs/` | Canvas rebuild guide, human testing guide, bug filing |
+| `Doc/adr/` | Architecture Decision Records (MVC, testing, branching) |
+| `Doc/` | Canvas rebuild guide, human testing guide, bug filing, legacy docs, this handoff |
 | `wiki/` | 16 user-facing guides (install, quick start, shortcuts, etc.) |
-| `Doc/` | Legacy docs, discovery phase materials, this handoff |
 | `README.md` | Project overview |
 
 ## Where to Start
@@ -50,6 +49,6 @@ The project has documentation in several places:
 1. Read this handoff documentation
 2. Run `python app/main.py` to see the app
 3. Open a template circuit (File → Templates) and run a simulation
-4. Read `docs/adr/` for architectural decisions
+4. Read `Doc/adr/` for architectural decisions
 5. Browse `wiki/` for user-facing documentation
 6. Run `make test` to verify everything passes
