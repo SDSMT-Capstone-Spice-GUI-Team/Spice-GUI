@@ -345,9 +345,10 @@ The pathfinding algorithms in `algorithms/` are pure Python and framework-agnost
 You can reuse them for wire routing — only the rendering needs reimplementation.
 
 ```python
-from algorithms.wire_routing import route_wire
+from algorithms.path_finding import IDAStarPathfinder
 
-waypoints = route_wire(start_pos, end_pos, obstacles, algorithm="idastar")
+pathfinder = IDAStarPathfinder(grid, obstacles)
+waypoints = pathfinder.find_path(start_pos, end_pos)
 ```
 
 ## Reference Implementation

@@ -6,7 +6,7 @@ skinparam packageStyle rectangle
 skinparam groupInheritance 2
 
 title Spice-GUI — Full Class Diagram
-footer Generated 2026-03-03
+footer Generated 2026-05-06
 
 ' ============================================================
 ' MODELS LAYER
@@ -140,6 +140,9 @@ package "models" <<Frame>> #F5F5DC {
         + assignment_version : str
         + template : Optional[TemplateData]
         + rubric : Optional[dict]
+        --
+        + to_dict() : dict
+        + {static} from_dict(data) : AssignmentBundle
     }
 
     class SubcircuitDefinition <<dataclass>> {
@@ -157,6 +160,30 @@ package "models" <<Frame>> #F5F5DC {
         + get_subcircuit(name) : Optional[SubcircuitDefinition]
         + list_subcircuits() : list[str]
     }
+
+    class GradingSessionData <<dataclass>> {
+        + session_version : str
+        + timestamp : str
+        + rubric_title : str
+        + rubric_hash : str
+        + rubric_path : str
+        + student_folder : str
+        + results : list[dict]
+        + errors : list[str]
+        --
+        + to_dict() : dict
+        + {static} from_dict(data) : GradingSessionData
+    }
+
+    note bottom of CircuitModel
+        circuit_schema_validator module:
+          validate_circuit_data(data) → bool
+        waveform_defaults module:
+          default_waveform_params(type) → dict
+          format_waveform_spice_value(...) → str
+        builtin_subcircuits module:
+          register_builtin_subcircuits(library)
+    end note
 
     CircuitModel *-- "0..*" ComponentData
     CircuitModel *-- "0..*" WireData
@@ -213,6 +240,42 @@ package "protocols" <<Frame>> #E8F5E9 {
         + update(value, message) : bool
         + close()
     }
+
+    interface ComponentPaletteProtocol <<Protocol>> {
+        + set_component_selected_callback(cb)
+        + set_recommended_components(types: list[str])
+        + set_filter_text(text: str)
+    }
+
+    interface PropertiesPanelProtocol <<Protocol>> {
+        + show_component(comp: ComponentData)
+        + show_multi_selection(count: int)
+        + show_no_selection()
+        + set_property_change_callback(cb)
+    }
+
+    interface ResultsDisplayProtocol <<Protocol>> {
+        + display_simulation_result(result: SimulationResult)
+        + display_text(text: str)
+        + set_netlist_preview(text: str)
+        + clear()
+        + set_export_enabled(enabled: bool)
+    }
+
+    class ObserverEvent <<constants>> {
+        COMPONENT_ADDED : str
+        COMPONENT_REMOVED : str
+        COMPONENT_MOVED : str
+        WIRE_ADDED : str
+        WIRE_REMOVED : str
+        MODEL_LOADED : str
+        CIRCUIT_CLEARED : str
+        ANNOTATION_ADDED : str
+        ANNOTATION_REMOVED : str
+        ANNOTATION_UPDATED : str
+        ..
+        EVENT_PAYLOADS : dict
+    }
 }
 
 ' ============================================================
@@ -237,9 +300,11 @@ package "controllers" <<Frame>> #E3F2FD {
     class ToggleWireLockCommand { }
     class RerouteWireCommand { }
     class PasteCommand { }
+    class CutCommand { }
     class AddAnnotationCommand { }
     class DeleteAnnotationCommand { }
     class EditAnnotationCommand { }
+    class LockComponentCommand { }
     class CompoundCommand {
         + commands : list[Command]
         + description : str
@@ -256,9 +321,11 @@ package "controllers" <<Frame>> #E3F2FD {
     Command <|-- ToggleWireLockCommand
     Command <|-- RerouteWireCommand
     Command <|-- PasteCommand
+    Command <|-- CutCommand
     Command <|-- AddAnnotationCommand
     Command <|-- DeleteAnnotationCommand
     Command <|-- EditAnnotationCommand
+    Command <|-- LockComponentCommand
     Command <|-- CompoundCommand
 
     class UndoManager {
@@ -288,20 +355,40 @@ package "controllers" <<Frame>> #E3F2FD {
         + add_component(type, position) : ComponentData
         + remove_component(id: str)
         + rotate_component(id, clockwise)
+        + set_component_rotation(id, angle)
         + flip_component(id, horizontal)
         + update_component_value(id, value)
         + move_component(id, position)
         + add_wire(start_id, start_term, end_id, end_term)
         + remove_wire(index)
-        + execute_command(cmd: Command)
-        + push_already_executed(cmd: Command)
+        + route_wire(index)
+        + toggle_wire_lock(index)
+        + get_wire_lock_state(index) : bool
+        + add_annotation(text, x, y)
+        + remove_annotation(index)
+        + update_annotation(index, text)
+        + lock_component(id)
+        + unlock_component(id)
+        + is_component_locked(id) : bool
+        + get_locked_components() : set[str]
         + copy_components(ids) : bool
+        + cut_components(ids) : bool
         + paste_components() : tuple
+        + has_clipboard_content() : bool
+        + undo() : bool
+        + redo() : bool
+        + can_undo() : bool
+        + can_redo() : bool
+        + clear_undo_stack()
+        + set_recommended_components(types: list[str])
+        + get_recommended_components() : list[str]
+        + clear_recommended()
         + get_components() : dict
         + get_wires() : list
         + get_nodes_and_terminal_map() : tuple
         + set_net_name(node, label)
         + rebuild_nodes()
+        + clear_circuit()
         + to_dict() : dict
     }
 
@@ -328,6 +415,8 @@ package "controllers" <<Frame>> #E3F2FD {
         + validate_circuit() : SimulationResult
         + generate_netlist() : str
         + run_simulation() : SimulationResult
+        + run_monte_carlo(runs, tolerances) : list[SimulationResult]
+        + run_parameter_sweep(param, values) : list[SimulationResult]
         + cancel_simulation()
     }
 
@@ -382,6 +471,16 @@ package "controllers" <<Frame>> #E3F2FD {
         + list_themes() : list[str]
     }
 
+    note bottom of FileController
+        assignment_controller module:
+          validate_assignment_data(data)
+          save_assignment(bundle, path)
+          load_assignment(path) → AssignmentBundle
+        recent_exports module:
+          get_recent_exports() → list[str]
+          add_recent_export(path)
+    end note
+
     CircuitController *-- CircuitModel
     CircuitController *-- UndoManager
     CircuitController *-- ClipboardData
@@ -419,9 +518,172 @@ package "algorithms" <<Frame>> #FFF3E0 {
     WeightedPathfinder <|-- IDAStarPathfinder
 
     note right of WeightedPathfinder
-        Qt-free: works with
-        plain (x, y) tuples
+        Qt-free: works with plain (x, y) tuples.
+        graph_ops module (pure functions):
+          handle_ground_added(model)
+          update_nodes_for_wire(model, wire)
+          shift_wire_indices(model, removed_idx)
+          rebuild_nodes_after_wire_removal(model)
+          rebuild_all_nodes(model)
     end note
+}
+
+' ============================================================
+' UTILS LAYER
+' ============================================================
+package "utils" <<Frame>> #FFF8E1 {
+
+    class format_utils <<module>> {
+        + parse_value(s) : float
+        + format_value(v, unit) : str
+        + validate_component_value(v) : bool
+        + format_si(v) : str
+        + parse_spice_value(s) : float
+        + format_frequency(hz) : str
+    }
+
+    class connectivity <<module>> {
+        + find_floating_terminals(model) : list[tuple]
+    }
+
+    class drag_drop_router <<module>> {
+        + EXTENSION_ROUTES : dict
+        + route_dropped_file(path) : str
+    }
+
+    class atomic_write <<module>> {
+        + atomic_write_text(path, text)
+    }
+
+    class constants <<module>> {
+        + SIMULATION_TIMEOUT : int
+    }
+}
+
+' ============================================================
+' SERVICES LAYER
+' ============================================================
+package "services" <<Frame>> #E1F5FE {
+
+    class ThemeManager <<singleton>> {
+        - _current_theme : BaseTheme
+        + symbol_style : str
+        + color_mode : str
+        + wire_thickness : str
+        + wire_thickness_px : int
+        + routing_mode : str
+        + show_junction_dots : bool
+        + font_family : str
+        --
+        + set_theme(theme: BaseTheme)
+        + set_theme_by_key(key: str)
+        + get_theme_key() : str
+        + get_available_themes() : list[str]
+        + set_symbol_style(style: str)
+        + set_color_mode(mode: str)
+        + set_wire_thickness(thickness: str)
+        + set_show_junction_dots(show: bool)
+        + set_routing_mode(mode: str)
+        + set_font_family(family: str)
+        + on_theme_changed(listener)
+        + remove_listener(listener)
+        + color(name) : QColor
+        + color_hex(name) : str
+        + pen(name) : QPen
+        + brush(name) : QBrush
+        + font(name) : QFont
+        + load_qss(name) : str
+        + stylesheet(name) : str
+        + get_component_color(type) : QColor
+        + create_component_pen(type) : QPen
+        + create_component_brush(type) : QBrush
+    }
+
+    class ReportConfig <<dataclass>> {
+        + student_name : str
+        + circuit_name : str
+        + include_title : bool
+        + include_schematic : bool
+        + include_netlist : bool
+        + include_analysis_config : bool
+        + include_results : bool
+    }
+
+    class ReportData <<dataclass>> {
+        + config : ReportConfig
+        + netlist_text : str
+        + analysis_config_text : str
+        + results_text : str
+        + schematic_image_path : Optional[Path]
+    }
+
+    class ReportDataBuilder {
+        + {static} build(config, sim_ctrl, tmp_dir) : ReportData
+        - {static} _format_analysis_config(sim_ctrl) : str
+    }
+
+    note bottom of ThemeManager
+        palette_profiles module:
+          list_profiles() → list[str]
+          get_active_profile_key() → str
+          set_active_profile_key(key)
+          get_layout(key) → list[str]
+        theme_store module:
+          list_custom_themes() → list[str]
+          load_theme(name) → BaseTheme
+          save_theme(theme, name)
+          delete_theme(name)
+          export_theme(name, path)
+          import_theme(path) → str
+    end note
+
+    ReportDataBuilder ..> ReportConfig
+    ReportDataBuilder ..> ReportData
+}
+
+' ============================================================
+' SCRIPTING LAYER
+' ============================================================
+package "scripting" <<Frame>> #F3E5F5 {
+
+    class Circuit {
+        - _model : CircuitModel
+        - _controller : CircuitController
+        - _sim : SimulationController
+        --
+        + {static} load(path) : Circuit
+        + {static} from_netlist(text) : Circuit
+        + add_component(type, x, y) : str
+        + remove_component(id)
+        + update_value(id, value)
+        + add_wire(id1, term1, id2, term2)
+        + set_analysis(type, **params)
+        + simulate() : SimulationResult
+        + validate() : tuple[bool, list, list]
+        + save(path)
+        + clear()
+        + find_components(type) : list[str]
+        + get_connections(id) : list
+        + summary() : str
+        + undo()
+        + redo()
+        + can_undo() : bool
+        + can_redo() : bool
+        + {static} result_to_csv(result, path)
+        + _repr_svg_() : str
+        + plot_result(result)
+    }
+
+    note right of Circuit
+        jupyter module (pure functions):
+          circuit_to_svg(model) → str
+          plot_result(result) → Figure
+          register_jupyter_formatters()
+    end note
+
+    Circuit *-- CircuitModel
+    Circuit *-- CircuitController
+    Circuit *-- SimulationController
 }
 
 ' ============================================================
@@ -523,49 +785,29 @@ package "GUI.canvas" <<Frame>> #FCE4EC {
         + {static} from_dict(data) : ComponentGraphicsItem
     }
 
-    class Resistor <<ComponentGraphicsItem>> {
-    }
-    class Capacitor <<ComponentGraphicsItem>> {
-    }
-    class Inductor <<ComponentGraphicsItem>> {
-    }
-    class VoltageSource <<ComponentGraphicsItem>> {
-    }
-    class CurrentSource <<ComponentGraphicsItem>> {
-    }
+    class Resistor <<ComponentGraphicsItem>> { }
+    class Capacitor <<ComponentGraphicsItem>> { }
+    class Inductor <<ComponentGraphicsItem>> { }
+    class VoltageSource <<ComponentGraphicsItem>> { }
+    class CurrentSource <<ComponentGraphicsItem>> { }
     class WaveformVoltageSource <<ComponentGraphicsItem>> {
         + waveform_type : str
         + waveform_params : dict
     }
-    class Ground <<ComponentGraphicsItem>> {
-        + paint(painter, option, widget)
-    }
-    class OpAmp <<ComponentGraphicsItem>> {
-    }
-    class VCVS <<ComponentGraphicsItem>> {
-    }
-    class CCVS <<ComponentGraphicsItem>> {
-    }
-    class VCCS <<ComponentGraphicsItem>> {
-    }
-    class CCCS <<ComponentGraphicsItem>> {
-    }
-    class BJTNPN <<ComponentGraphicsItem>> {
-    }
-    class BJTPNP <<ComponentGraphicsItem>> {
-    }
-    class MOSFETNMOS <<ComponentGraphicsItem>> {
-    }
-    class MOSFETPMOS <<ComponentGraphicsItem>> {
-    }
-    class VCSwitch <<ComponentGraphicsItem>> {
-    }
-    class Diode <<ComponentGraphicsItem>> {
-    }
-    class LEDComponent <<ComponentGraphicsItem>> {
-    }
-    class ZenerDiode <<ComponentGraphicsItem>> {
-    }
+    class Ground <<ComponentGraphicsItem>> { }
+    class OpAmp <<ComponentGraphicsItem>> { }
+    class VCVS <<ComponentGraphicsItem>> { }
+    class CCVS <<ComponentGraphicsItem>> { }
+    class VCCS <<ComponentGraphicsItem>> { }
+    class CCCS <<ComponentGraphicsItem>> { }
+    class BJTNPN <<ComponentGraphicsItem>> { }
+    class BJTPNP <<ComponentGraphicsItem>> { }
+    class MOSFETNMOS <<ComponentGraphicsItem>> { }
+    class MOSFETPMOS <<ComponentGraphicsItem>> { }
+    class VCSwitch <<ComponentGraphicsItem>> { }
+    class Diode <<ComponentGraphicsItem>> { }
+    class LEDComponent <<ComponentGraphicsItem>> { }
+    class ZenerDiode <<ComponentGraphicsItem>> { }
     class Transformer <<ComponentGraphicsItem>> {
         + draw_component_body(painter)
         + get_obstacle_shape() : list[tuple]
@@ -633,6 +875,21 @@ package "GUI.canvas" <<Frame>> #FCE4EC {
         + {static} from_dict(data) : AnnotationItem
     }
 
+    class CanvasProbeOverlay {
+        + canvas : CircuitCanvasView
+        + probe_mode : bool
+        + probe_results : dict
+        --
+        + set_probe_mode(active: bool)
+        + clear_probes()
+        + display_node_voltages(voltages: dict)
+        + hide_node_voltages()
+        + probe_at_position(scene_pos) : Optional[str]
+        + find_node_at_position(scene_pos) : Optional[NodeData]
+        - _probe_component(comp: ComponentGraphicsItem)
+        - _probe_node(node: NodeData)
+    }
+
     class _ComponentAdapter {
         - _comp : ComponentGraphicsItem
         --
@@ -646,10 +903,16 @@ package "GUI.canvas" <<Frame>> #FCE4EC {
         + waypoints : list[tuple]  <<property>>
     }
 
+    note bottom of CircuitCanvasView
+        canvas_context_menu module (pure):
+          build_context_menu(canvas, pos, item) → QMenu
+    end note
+
     CircuitCanvasView ..|> CircuitCanvasProtocol
     CircuitCanvasView *-- "0..*" ComponentGraphicsItem : components
     CircuitCanvasView *-- "0..*" WireGraphicsItem : wires
     CircuitCanvasView *-- "0..*" AnnotationItem : annotations
+    CircuitCanvasView *-- CanvasProbeOverlay
     CircuitCanvasView --> CircuitController : observes
     ComponentGraphicsItem *-- ComponentData : model
     ComponentGraphicsItem --> CircuitCanvasView : canvas
@@ -658,6 +921,7 @@ package "GUI.canvas" <<Frame>> #FCE4EC {
     WireGraphicsItem --> CircuitCanvasView : canvas
     WireGraphicsItem --> ComponentGraphicsItem : start_comp / end_comp
     AnnotationItem --> CircuitCanvasView : canvas
+    CanvasProbeOverlay --> CircuitCanvasView : canvas
     _ComponentAdapter --> ComponentGraphicsItem : wraps
     _WireAdapter --> WireGraphicsItem : wraps
 }
@@ -692,7 +956,6 @@ package "GUI.renderers" <<Frame>> #F3E5F5 {
     class IEEEDiode { }
     class IEEELED { }
     class IEEEZenerDiode { }
-
     class IECResistor { }
     class IECCapacitor { }
     class IECInductor { }
@@ -722,8 +985,11 @@ package "GUI.renderers" <<Frame>> #F3E5F5 {
     ComponentRenderer <|-- IECInductor
 
     note bottom of ComponentRenderer
-        Registry: _registry[(type, style)] -> renderer
-        IEC delegates to IEEE for most types
+        Registry: _registry[(type, style)] -> renderer.
+        IEC delegates to IEEE for most types.
+        subcircuit_gui_registration module:
+          register_subcircuit_gui(definition)
+          registers SubcircuitRenderer at runtime.
     end note
 }
 
@@ -743,11 +1009,18 @@ package "GUI.styles" <<Frame>> #EFEBE9 {
 
     class BaseTheme {
         - _colors : dict[str, str]
+        + name : str
+        + is_dark : bool
         --
         + color(name) : QColor
+        + color_hex(name) : str
+        + color_rgb(name) : tuple
+        + color_rgba(name, alpha) : QColor
         + pen(name) : QPen
         + brush(name) : QBrush
         + font(name) : QFont
+        + load_qss(name) : str
+        + set_global_font_family(family)
     }
 
     class LightTheme { }
@@ -757,23 +1030,13 @@ package "GUI.styles" <<Frame>> #EFEBE9 {
         + save_to_file(filepath)
     }
 
-    class ThemeManager <<singleton>> {
-        - _current_theme : BaseTheme
-        + symbol_style : str
-        + wire_thickness_px : int
-        + routing_mode : str
-        + show_junction_dots : bool
-        --
-        + color(name) : QColor
-        + color_hex(name) : str
-        + pen(name) : QPen
-        + brush(name) : QBrush
-        + font(name) : QFont
-        + get_component_color(type) : QColor
-        + create_component_pen(type) : QPen
-        + set_theme(theme: BaseTheme)
-        + stylesheet(name) : str
-    }
+    note bottom of BaseTheme
+        font_loader module:
+          load_bundled_fonts()
+          available_font_families() → list[str]
+          DYSLEXIA_FONT_FAMILY = "OpenDyslexic"
+          DEFAULT_FONT_FAMILY = "JetBrains Mono"
+    end note
 
     BaseTheme ..|> ThemeProtocol
     BaseTheme <|-- LightTheme
@@ -892,6 +1155,10 @@ package "GUI.panels" <<Frame>> #E0F7FA {
     class SpiceHighlighter <<QSyntaxHighlighter>> {
         + highlightBlock(text)
     }
+
+    ComponentPalette ..|> ComponentPaletteProtocol
+    PropertiesPanel ..|> PropertiesPanelProtocol
+    ResultsPanel ..|> ResultsDisplayProtocol
 }
 
 package "GUI.dialogs" <<Frame>> #FFF9C4 {
@@ -929,6 +1196,14 @@ package "GUI.dialogs" <<Frame>> #FFF9C4 {
     class SaveAsTemplateDialog <<QDialog>> {
         + get_template_metadata()
     }
+    class TemplateMetadataDialog <<QDialog>> {
+        + get_metadata() : TemplateMetadata
+        + get_instructions() : str
+    }
+    class TemplatePreviewDialog <<QDialog>> {
+        + _populate()
+        + _populate_circuit_preview()
+    }
     class BatchGradingDialog <<QDialog>> {
         + start_batch_grading(dir, rubric)
     }
@@ -938,7 +1213,58 @@ package "GUI.dialogs" <<Frame>> #FFF9C4 {
     class SubcircuitLibraryDialog <<QDialog>> {
         + load_library(path)
     }
-    class HelpDialog <<QDialog>> {
+    class RecommendedComponentsDialog <<QDialog>> {
+        + get_recommendations() : list[str]
+    }
+    class HelpDialog <<QDialog>> { }
+
+    class CircuiTikZOptionsDialog <<QDialog>> {
+        + get_style() : str
+        + get_scale() : float
+        + get_include_ids() : bool
+        + get_include_values() : bool
+    }
+    class ReportDialog <<QDialog>> {
+        + get_config() : ReportConfig
+        + get_student_name() : str
+    }
+    class MonteCarloResultsDialog <<QDialog>> {
+        - _mc_data : list[SimulationResult]
+        - _base_type : str
+        --
+        + _plot_overlay()
+        + _update_histogram()
+        + _compute_summary()
+    }
+    class ParameterSweepPlotDialog <<QDialog>> {
+        - _sweep_data : list[SimulationResult]
+        --
+        + _plot_op_sweep()
+        + _plot_transient_sweep()
+        + _plot_ac_sweep()
+    }
+    class DCSweepPlotDialog <<QDialog>> { }
+    class ACSweepPlotDialog <<QDialog>> { }
+    class TransientPlotDialog <<QDialog>> { }
+    class NoiseResultsDialog <<QDialog>> { }
+
+    class MeasurementCursors {
+        - _ax : Axes
+        - _a_x : Optional[float]
+        - _b_x : Optional[float]
+        - _active_cursor : str
+        --
+        + set_data(x_data)
+        + set_active_cursor(label: str)
+        - _snap(x) : float
+    }
+
+    class PDFReportRenderer {
+        + render(data: ReportData, printer: QPrinter)
+        - _render_title_page(painter, data)
+        - _render_schematic_page(painter, data)
+        - _render_text_section(painter, text, heading)
+        - _render_table(painter, rows)
     }
 
     class QtDialogProvider <<QObject>> {
@@ -958,9 +1284,23 @@ package "GUI.dialogs" <<Frame>> #FFF9C4 {
         + close()
     }
 
+    note bottom of ReportDialog
+        plot_utils module:
+          safe_legend(ax)
+          apply_mpl_theme(fig)
+          build_analysis_base_form(layout)
+        validation_helpers module:
+          set_field_error(widget, msg)
+          clear_field_error(widget)
+          show_validation_error(parent, msg)
+    end note
+
     QtDialogProvider ..|> DialogProvider
     QtProgressHandle ..|> ProgressHandle
     QtDialogProvider --> QtProgressHandle : creates
+    PDFReportRenderer ..> ReportData : renders
+    MeasurementCursors --* TransientPlotDialog
+    MeasurementCursors --* ACSweepPlotDialog
 }
 
 ' ============================================================
@@ -969,7 +1309,14 @@ package "GUI.dialogs" <<Frame>> #FFF9C4 {
 package "simulation" <<Frame>> #FFEBEE {
 
     class NgspiceRunner {
-        + run(netlist, timeout) : tuple[bool, str, str]
+        + output_dir : Path
+        - _settings : SettingsService
+        - _keep_files : bool
+        - _prev_run_files : list[Path]
+        --
+        + find_ngspice() : str
+        + register_extra_files(files: list[Path])
+        + run_simulation(netlist, timeout) : tuple[bool, str, str]
         + is_installed() : bool
         + get_version() : str
     }
@@ -981,8 +1328,11 @@ package "simulation" <<Frame>> #FFEBEE {
         + analysis_type : str
         + analysis_params : dict
         + measurements : list[str]
+        + spice_options : dict
+        + wrdata_filepath : Optional[Path]
         --
         + generate() : str
+        + {static} generate_analysis_command(type, params) : str
     }
 
     class ResultParser {
@@ -1018,15 +1368,138 @@ package "simulation" <<Frame>> #FFEBEE {
     class FFTResult <<dataclass>> {
         + frequencies : list[float]
         + magnitudes : list[float]
+        + magnitude_db : list[float]
         + phases : list[float]
+        + signal_name : str
+        + sample_rate : float
+        + window_type : str
         + fundamental_freq : Optional[float]
+        + thd_percent : Optional[float]
         + harmonics : dict[int, float]
+    }
+
+    class CheckResult <<dataclass>> {
+        + name : str
+        + passed : bool
+        + message : str
+    }
+
+    class SelftestResult <<dataclass>> {
+        + checks : list[CheckResult]
+        --
+        + passed : bool  <<property>>
+    }
+
+    ' ---- Exporters (pure-function modules) ----
+
+    class AscExporter <<module>> {
+        + export(model: CircuitModel) : str
+    }
+
+    class AscParser <<module>> {
+        + AscParseError <<exception>>
+        + parse(text: str) : CircuitModel
+    }
+
+    class NetlistParser <<module>> {
+        + NetlistParseError <<exception>>
+        + parse_netlist(text: str) : CircuitModel
+        + import_netlist(path: Path) : CircuitModel
+    }
+
+    class CircuiTikZExporter <<module>> {
+        + export(model: CircuitModel, options) : str
+    }
+
+    class CircuiTikZParser <<module>> {
+        + CircuitikzParseError <<exception>>
+        + parse(text: str) : CircuitModel
+    }
+
+    class BOMExporter <<module>> {
+        + generate_bom(model: CircuitModel) : list[dict]
+        + export_bom_csv(model, path)
+        + export_bom_excel(model, path)
+    }
+
+    class BundleExporter <<module>> {
+        + create_bundle(model, sim_result, output_dir) : Path
+    }
+
+    class CSVExporter <<module>> {
+        + export_op_results(result, path)
+        + export_transient_results(result, path)
+        + export_ac_results(result, path)
+        + export_dc_sweep_results(result, path)
+    }
+
+    class ExcelExporter <<module>> {
+        + export_to_excel(result, path)
+    }
+
+    class MarkdownExporter <<module>> {
+        + export_op_results(result) : str
+        + export_transient_results(result) : str
+        + export_ac_results(result) : str
+        + export_dc_sweep_results(result) : str
+    }
+
+    class SVGShareable <<module>> {
+        + embed_circuit_data(svg_text, model) : str
+        + extract_circuit_data(svg_path) : Optional[dict]
+    }
+
+    class MonteCarlo <<module>> {
+        + DEFAULT_TOLERANCES : dict
+        + apply_tolerance(value, tolerance, dist) : str
+        + run_monte_carlo(ctrl, runs, tolerances) : list[SimulationResult]
+    }
+
+    class PowerCalculator <<module>> {
+        + calculate_power(model, op_result) : dict
+    }
+
+    class PowerMetrics <<module>> {
+        + compute_rms(signal) : float
+        + compute_transient_power_metrics(result) : dict
+    }
+
+    class FrequencyMarkers <<module>> {
+        + compute_markers(ac_data) : dict
+    }
+
+    class MeasurementBuilder <<module>> {
+        + MEAS_TYPES : dict
+        + build_directive(meas_type, params, signal) : str
+    }
+
+    class CircuitSemanticValidator <<module>> {
+        + validate_circuit(model) : tuple[bool, list, list]
+    }
+
+    class SpiceSanitizer <<module>> {
+        + sanitize_spice_value(v) : str
+        + sanitize_spice_identifier(s) : str
+        + sanitize_netlist_text(text) : str
+        + validate_output_dir(path) : Path
+    }
+
+    class Selftest <<module>> {
+        + check_imports() : CheckResult
+        + check_ngspice() : CheckResult
+        + check_simulation() : CheckResult
+        + run_selftest() : SelftestResult
     }
 
     SimulationController --> NgspiceRunner : runs
     SimulationController --> NetlistGenerator : generates
     SimulationController --> ResultParser : parses
     SimulationController --> PresetManager
+    SimulationController --> CircuitSemanticValidator : validates
+    SimulationController --> MonteCarlo : uses
+    SimulationController --> SimulationResult : produces
+    Selftest ..> CheckResult
+    Selftest ..> SelftestResult
 }
 
 ' ============================================================
@@ -1093,6 +1566,40 @@ package "grading" <<Frame>> #F1F8E9 {
         + get_check_pass_rate(check_id) : float
     }
 
+    class FeedbackExporter <<module>> {
+        + generate_student_report_html(result: GradingResult) : str
+    }
+
+    class GradeExporter <<module>> {
+        + export_gradebook_csv(results: list[GradingResult], path)
+    }
+
+    class ScoreHistogram <<module>> {
+        + compute_score_bins(results) : dict
+        + create_histogram_figure(results) : Figure
+    }
+
+    class RubricGenerator <<module>> {
+        + generate_rubric_from_circuit(model: CircuitModel) : Rubric
+    }
+
+    class RubricValidator <<module>> {
+        + CHECK_TYPE_PARAMS : dict
+        + get_required_params(check_type) : list[str]
+        + validate_rubric(rubric: Rubric) : list[str]
+    }
+
+    class SessionPersistence <<module>> {
+        + GRADES_EXTENSION : str
+        + save_session(session: GradingSessionData, path)
+        + load_session(path) : GradingSessionData
+        + grading_result_to_dict(result: GradingResult) : dict
+    }
+
+    class ComponentMapper <<module>> {
+        + extract_component_ids(check_id: str) : list[str]
+    }
+
     Rubric *-- "1..*" RubricCheck
     CircuitGrader *-- CircuitComparer
     CircuitGrader --> Rubric : uses
@@ -1100,6 +1607,28 @@ package "grading" <<Frame>> #F1F8E9 {
     BatchGrader --> CircuitGrader : uses
     BatchGradingResult *-- "0..*" GradingResult
     CheckAnalytics --> GradingResult : analyzes
+    FeedbackExporter ..> GradingResult
+    GradeExporter ..> GradingResult
+    ScoreHistogram ..> GradingResult
+    RubricGenerator ..> Rubric
+    SessionPersistence ..> GradingSessionData
+}
+
+' ============================================================
+' CLI
+' ============================================================
+package "cli" <<Frame>> #ECEFF1 {
+    class CLI <<module>> {
+        + cmd_simulate(args)
+        + cmd_validate(args)
+        + cmd_export(args)
+        + cmd_batch(args)
+        + cmd_repl(args)
+        + main()
+    }
+
+    CLI ..> Circuit : headless use
+    CLI ..> SimulationController : batch ops
 }
 
 ' ============================================================
@@ -1122,8 +1651,25 @@ CircuitCanvasView ..> ThemeManager : colors, pens, fonts
 ComponentGraphicsItem ..> ThemeManager : component colors
 WireGraphicsItem ..> ThemeManager : wire colors
 AnnotationItem ..> ThemeManager : text colors
+ThemeController --> ThemeManager : manages
 
 ' Simulation flow
 SimulationController --> CircuitModel : reads for netlist
+
+' Services → GUI (report pipeline)
+ReportDialog ..> ReportConfig : collects
+ReportDataBuilder ..> SimulationController : reads
+PDFReportRenderer ..> ReportData : renders
+
+' Scripting API
+Circuit ..> CircuitController : wraps
+Circuit ..> SimulationController : wraps
+
+' Utils usage
+FileController ..> atomic_write : crash-safe saves
+CircuitController ..> connectivity : floating terminals
+SimulationController ..> SpiceSanitizer : sanitizes values
+MainWindow ..> drag_drop_router : file drop handling
+PropertiesPanel ..> format_utils : value display
 
 @enduml

@@ -2,7 +2,7 @@
 
 ## Current Branch
 
-**`dev-main-epic-front`** — focused on frontend/UI work. Working tree is clean.
+**`design-fair`** — working tree is clean.
 
 ## Recent Work
 
@@ -14,7 +14,7 @@ The last several commits focused on:
 4. **Theming** — dark mode and light mode fully implemented with QSS stylesheets
 5. **Scrollbar** — component palette scrollbar fixed and styled
 6. **UI polish** — layout tweaks, margins, dark-mode-specific styling fixes
-7. **Test coverage** — MVC layers brought to 99-100% (148 unit test files)
+7. **Test coverage** — MVC layers brought to 99-100% (186 unit test files)
 8. **Canvas features** — middle-mouse-button panning, splash screen
 
 ## What's Working

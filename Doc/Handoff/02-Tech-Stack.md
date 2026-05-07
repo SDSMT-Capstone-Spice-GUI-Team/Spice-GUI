@@ -8,18 +8,18 @@
 | PyQt6 | 6.9.1 | Desktop GUI framework |
 | ngspice | 36+ | SPICE simulation engine (external binary) |
 | matplotlib | 3.10.6 | Waveform plotting |
-| numpy | (via matplotlib) | Numerical computing |
-| scipy | 1.16.2 | Scientific computing |
+| numpy | 2.3.3 | Numerical computing (direct dependency) |
+| scipy | 1.16.2 | In `requirements.txt` — not currently imported in production code |
 
 ## Supporting Libraries
 
 | Library | Role |
 |---------|------|
-| PyYAML | Configuration file parsing |
 | openpyxl | Excel (.xlsx) export |
-| Pillow | Image processing |
-| requests | HTTP (future cloud features) |
-| PySpice | SPICE utility reference |
+| PyYAML | In `requirements.txt` — not currently imported in production code |
+| Pillow | In `requirements.txt` — not currently imported in production code |
+| requests | In `requirements.txt` — not currently imported in production code |
+| PySpice | In `requirements.txt` — not currently imported in production code |
 
 ## Dev Tools
 

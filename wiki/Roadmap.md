@@ -66,16 +66,16 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 
 **Goal:** Enable assignment distribution and submission without building custom account system.
 
-**Status:** 📋 Planned
+**Status:** 🔄 Partial
 
-**Planned Features:**
-- Enhanced export features (circuit reports, better image export)
-- LMS integration via API (Canvas, Blackboard)
-  - Export assignment as template JSON
-  - Submit completed circuit via LMS file upload
-- Shared circuit library (read-only examples, no accounts needed)
-- Batch operations via CLI (for instructors)
-- Improved documentation and tutorials
+**Implemented:**
+- [x] Enhanced export (Markdown reports, PDF, ZIP bundle, BOM, SVG with embedded circuit data)
+- [x] Batch operations via CLI (`cli.py`)
+- [x] Improved documentation and tutorials
+
+**Not built:**
+- LMS integration via API (Canvas, Blackboard) — out of scope for Capstone timeline
+- Shared circuit library requiring server infrastructure
 
 **Technical Approach:**
 - **No user accounts** - Leverage existing LMS infrastructure
@@ -90,20 +90,16 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 
 **Goal:** Support instructor workflows without custom assignment system.
 
-**Planned Features:**
-- Assignment template creation wizard
-- Verification scripts for auto-grading
-  - Define circuit requirements (component count, values)
-  - Simulation result checking (voltage at node X = Y ± tolerance)
-- Template circuit library
-- Bulk circuit validation tools
-- Export to LMS-compatible format
+**Status:** ✅ **COMPLETE**
 
-**Technical Approach:**
-- Local tools (desktop app features)
-- Command-line utilities for batch operations
-- Export scripts for LMS integration
-- No cloud storage required
+**Implemented:**
+- [x] Template creation and management (`template_controller.py`, `template_manager.py`)
+- [x] 7 built-in circuit templates
+- [x] Rubric-based auto-grading with simulation result checking
+- [x] Rubric generator (auto-generate from reference circuit)
+- [x] Bulk circuit validation (`batch_grader.py`)
+- [x] Palette profiles for restricting component sets per assignment
+- [x] Export to JSON for distribution
 
 ---
 
@@ -111,17 +107,16 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 
 **Goal:** Provide analytics and insights without centralized system.
 
-**Planned Features:**
-- Circuit analysis tools (complexity metrics)
-- Batch testing of student circuits (via CLI)
-- Common error detection
-- Export data for external analytics tools
-- Rubric templates
+**Status:** ✅ **COMPLETE**
 
-**Technical Approach:**
-- Standalone analysis scripts
-- Export to CSV/Excel for instructors to analyze
-- Integration with existing analytics tools
+**Implemented:**
+- [x] Circuit analysis tools (`check_analytics.py`, `circuit_comparer.py`)
+- [x] Batch testing of student circuits (`batch_grader.py`)
+- [x] Common error detection (`rubric_validator.py`)
+- [x] Export data to CSV/Excel (`grade_exporter.py`)
+- [x] Grade distribution histograms (`histogram.py`)
+- [x] Rubric templates (`rubric_generator.py`)
+- [x] Grading session persistence (`session_persistence.py`)
 
 ---
 
@@ -143,19 +138,15 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 
 **Goal:** Unlock advanced features for research users.
 
-**Planned Features:**
-- Python scripting API for automation
-- Batch simulation capabilities
-- Parameter sweep utilities
-- Custom SPICE model import
-- Advanced data export formats
-- Performance profiling tools
-- Integration with Jupyter notebooks
+**Status:** ✅ **COMPLETE**
 
-**Technical Approach:**
-- Expose model/controller as Python API
-- CLI tools for scripting
-- No GUI changes needed (use programmatic interface)
+**Implemented:**
+- [x] Python scripting API (`scripting/circuit.py`) — programmatic circuit creation and simulation
+- [x] Jupyter notebook integration with inline rendering (`scripting/jupyter.py`)
+- [x] Parameter sweep and Monte Carlo batch simulation (`simulation_controller.py`)
+- [x] SPICE netlist import (`netlist_parser.py`)
+- [x] CLI for batch operations (`cli.py`)
+- [x] Advanced data export (CSV, Excel, Markdown, PDF, ZIP, BOM)
 
 ---
 
@@ -178,11 +169,11 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 | Phase | Duration | Focus | Status |
 |-------|----------|-------|--------|
 | **1** | Months 1-8 | Student MVP | ✅ Complete |
-| **2** | TBD | Enhanced export & LMS integration | 📋 Planned |
-| **3** | TBD | Instructor tools | 📋 Planned |
-| **4** | TBD | Advanced instructor features | 📋 Planned |
+| **2** | Months 1-8 | Enhanced export & LMS integration | 🔄 Partial (export done; LMS not built) |
+| **3** | Months 1-8 | Instructor tools | ✅ Complete |
+| **4** | Months 1-8 | Advanced instructor features | ✅ Complete |
 | **5** | TBD | TA support | 📋 Planned |
-| **6** | TBD | Researcher features | 📋 Planned |
+| **6** | Months 1-8 | Researcher features / Scripting API | ✅ Complete |
 | **7** | TBD | Advanced features & polish | 📋 Planned |
 
 **Note:** Timeline depends on post-Capstone project continuation and available resources.
@@ -216,18 +207,18 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 
 ---
 
-## Current Status (as of Feb 2026)
+## Current Status (as of May 2026)
 
-### Recently Completed
-- ✅ Dark mode and theme switching
+### Implemented (Full Feature Set)
+- ✅ Dark mode and theme switching (custom theme editor, IEEE/IEC symbol toggle)
 - ✅ Parameter sweep across component values
+- ✅ Monte Carlo analysis for component tolerance simulation
 - ✅ Measurement cursors in waveform viewer
 - ✅ Configurable keyboard shortcuts
 - ✅ Auto-save and crash recovery
 - ✅ Overlay multiple simulation results
 - ✅ FFT/harmonic analysis for transient results
 - ✅ Temperature sweep analysis
-- ✅ Fourier/FFT analysis
 - ✅ SPICE netlist import (.cir/.spice)
 - ✅ DC operating point annotations on schematic
 - ✅ Interactive voltage/current probes
@@ -235,11 +226,14 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 - ✅ Power dissipation per component
 - ✅ Drag-and-drop from component palette
 - ✅ In-place component value editing
-- ✅ Circuit annotations and net labels
+- ✅ Wire labels and net names
+- ✅ Circuit annotations
 - ✅ Copy/paste/cut for components
-- ✅ Image/PDF export (PNG/SVG/PDF)
-- ✅ CSV export for simulation data
-- ✅ Diodes, LEDs, Zener diodes, BJTs, MOSFETs
+- ✅ Image/PDF/SVG export (with embedded circuit data in SVG)
+- ✅ CSV/Excel export for simulation data
+- ✅ Markdown and PDF circuit reports
+- ✅ Print preview and print schematic
+- ✅ Diodes, LEDs, Zener diodes, BJTs, MOSFETs, Transformer, AC sources, Current Probe
 - ✅ Voltage-controlled switch
 - ✅ Dependent sources (VCVS, CCVS, VCCS, CCCS)
 - ✅ Multi-select with marquee selection
@@ -247,15 +241,15 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 - ✅ Undo/redo system
 - ✅ Zoom controls
 - ✅ Recent files menu
+- ✅ Scripting API and Jupyter integration
+- ✅ Rubric-based auto-grading system
+- ✅ Palette profiles for course-specific component sets
+- ✅ Bundled accessible fonts (OpenDyslexic, JetBrains Mono)
 
-### In Progress
-- Wire labels and net names
-- Monte Carlo analysis for component tolerance simulation
-- Documentation and examples
-
-### Next Up
-- Print preview and print schematic
-- Additional polish and bug fixes
+### What's Left
+- LMS integration (Canvas, Blackboard) — not built; would require server infrastructure
+- TA role tooling (Phase 5) — not started
+- Advanced polish and accessibility improvements (Phase 7)
 
 ---
 
@@ -289,7 +283,8 @@ SDM Spice follows a phased development approach, prioritizing the student experi
 | Version | Date | Highlights |
 |---------|------|------------|
 | 0.1.0 (Phase 1) | Feb 2026 | Initial Student MVP - Core circuit design and simulation |
+| 0.2.0 (Phases 2–4, 6) | May 2026 | Instructor tools, grading system, scripting API, extended export formats, Monte Carlo, palette profiles, accessible fonts |
 
 ---
 
-*Last Updated: 2026-02-10*
+*Last Updated: 2026-05-06*

@@ -34,9 +34,10 @@ You should see the main window with the component palette on the left, canvas in
 ### 1.3  Drive a simulation by hand (~10 min)
 
 1. **File → Templates → Voltage Divider** (loads a built-in circuit).
-2. **Simulate → Run Analysis** → pick **DC Operating Point** → Run.
-3. Confirm the results panel shows node voltages.
-4. **File → Export → Markdown Report** to see the full output flow.
+2. **Analysis → DC Operating Point (.op)** to select the analysis type.
+3. Press **F5** (or **Simulation → Run Simulation**) to run.
+4. Confirm the results panel shows node voltages.
+5. **File → Export → Markdown Report** to see the full output flow.
 
 If anything in 1.1–1.3 fails, that's your first issue to file. The bug-report path is `Doc/how-to-file-a-bug.md`.
 

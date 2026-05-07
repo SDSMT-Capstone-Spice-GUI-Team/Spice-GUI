@@ -284,6 +284,58 @@ Runs multiple simulations with randomized component values within specified tole
 
 ---
 
+## Transfer Function
+
+### Description
+Computes the small-signal transfer function from an input source to a specified output. Returns the DC gain, input resistance, and output resistance of the circuit.
+
+### When to Use
+- Finding input/output impedance of a circuit
+- Calculating DC gain without frequency sweeping
+- Verifying amplifier gain stages
+
+### How to Run
+1. Go to **Analysis > Transfer Function**
+2. Select the output variable (e.g., `V(out)`) and input source (e.g., `V1`)
+3. Press **F5** or **Simulation > Run Simulation**
+
+### Output
+- DC gain
+- Input resistance
+- Output resistance
+
+### SPICE Command Generated
+```spice
+.tf V(out) V1
+```
+
+---
+
+## Pole-Zero Analysis
+
+### Description
+Finds the poles and zeros of the small-signal transfer function. Poles determine stability and transient response; zeros affect gain and phase characteristics.
+
+### When to Use
+- Stability analysis of feedback amplifiers
+- Understanding filter order and cutoff characteristics
+- Control systems design
+
+### How to Run
+1. Go to **Analysis > Pole-Zero**
+2. Select input/output nodes and analysis type (poles, zeros, or both)
+3. Press **F5** or **Simulation > Run Simulation**
+
+### Output
+- List of pole and zero frequencies (real and imaginary parts)
+
+### SPICE Command Generated
+```spice
+.pz V(in) V(out) vol pz
+```
+
+---
+
 ## Sensitivity Analysis
 
 ### Description
@@ -319,6 +371,8 @@ Measures how much each component's value affects a circuit output. Ranks compone
 | Noise | Frequency | Amplifier noise | Noise spectral density |
 | Monte Carlo | Statistical | Manufacturing yield | Distribution of results |
 | Sensitivity | Parametric | Component ranking | Sensitivity table |
+| Transfer Function | DC | Gain and impedance | DC gain, Rin, Rout |
+| Pole-Zero | Frequency | Stability analysis | Poles and zeros |
 
 ---
 

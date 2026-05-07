@@ -86,19 +86,23 @@ Spice-GUI/
 │   │
 │   ├── services/                   ← Cross-cutting services
 │   │   ├── theme_manager.py        ←   Theme singleton
+│   │   ├── theme_store.py          ←   Persisted theme preferences
+│   │   ├── palette_profiles.py     ←   Course-specific palette filtering
 │   │   └── report_generator.py     ←   Report creation
 │   │
 │   ├── protocols/                  ← Type contracts (no Qt)
-│   │   └── application.py, canvas.py, dialogs.py, ...
+│   │   └── application.py, canvas.py, dialogs.py, events.py, palette.py, properties.py, results.py
 │   │
 │   ├── utils/                      ← Shared utilities (no Qt)
 │   │   ├── format_utils.py         ←   SI unit parsing (1k → 1000)
 │   │   ├── connectivity.py         ←   Wire connectivity helpers
+│   │   ├── atomic_write.py         ←   Crash-safe file writes
+│   │   ├── drag_drop_router.py     ←   Drag-and-drop MIME routing
 │   │   └── constants.py            ←   Global constants
 │   │
 │   ├── tests/                      ← Test suite
-│   │   ├── unit/                   ←   142 unit test files
-│   │   └── integration/            ←   4 integration test files
+│   │   ├── unit/                   ←   186 unit test files
+│   │   └── integration/            ←   3 integration test files
 │   │
 │   ├── templates/                  ← 7 built-in circuit templates (JSON)
 │   └── examples/                   ← Example circuit files

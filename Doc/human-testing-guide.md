@@ -308,6 +308,23 @@ After a testing session:
 
 ---
 
+## Features Without Dedicated Testing Issues
+
+The following features are fully implemented but do **not** yet have a GitHub testing issue covering them. The next team should create issues and add them to the testing board before release:
+
+| Feature | Suggested new testing issue |
+|---------|----------------------------|
+| Grading / Instructor tools (rubrics, batch grading, grade export) | New issue — "Grading System" |
+| Parameter Sweep dialog and overlaid plot output | New issue — "Parameter Sweep" |
+| Monte Carlo analysis dialog and statistical output | New issue — "Monte Carlo Analysis" |
+| CircuiTikZ export and import round-trip | Extend #275 or new issue |
+| BOM export, ZIP bundle export | Extend #274 or new issue |
+| SVG shareable (export + import circuit data) | Extend #274 or new issue |
+| Subcircuit library and placement | New issue — "Subcircuits" |
+| Palette profiles (instructor-restricted component sets) | New issue — "Palette Profiles" |
+
+---
+
 ## For Agents: Adding New Testing Items
 
 When you ship a PR with UI-visible behavior, add a checkbox to the appropriate testing issue. After editing issue checklists, regenerate the pre-filled "report bug" links:

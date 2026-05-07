@@ -346,6 +346,60 @@ Example: `EXP(0 5 0 1m 5m 1m)` - Exponential rise and fall
 
 ---
 
+### Transformer (K)
+
+| Property | Value |
+|----------|-------|
+| Symbol | K |
+| Terminals | 4 |
+| Status | Fully Functional |
+
+**Description:** Coupled inductors with a configurable turns ratio. Implemented as two inductors linked by a SPICE `K` coupling statement.
+
+**SPICE Syntax:** `K<name> L<primary> L<secondary> <coupling>`
+
+---
+
+### Current Probe (CP)
+
+| Property | Value |
+|----------|-------|
+| Symbol | CP |
+| Terminals | 2 (series) |
+| Status | Fully Functional |
+
+**Description:** Measures branch current through a wire. Insert in series with the wire you want to measure.
+
+---
+
+### AC Voltage Source (VAC)
+
+| Property | Value |
+|----------|-------|
+| Symbol | VAC |
+| Terminals | 2 |
+| Status | Fully Functional |
+
+**Description:** Sinusoidal voltage source for AC sweep analysis. Sets the AC magnitude used by the `.ac` ngspice command.
+
+**SPICE Syntax:** `V<name> <node+> <node-> AC <magnitude>`
+
+---
+
+### AC Current Source (IAC)
+
+| Property | Value |
+|----------|-------|
+| Symbol | IAC |
+| Terminals | 2 |
+| Status | Fully Functional |
+
+**Description:** Sinusoidal current source for AC sweep analysis.
+
+**SPICE Syntax:** `I<name> <node+> <node-> AC <magnitude>`
+
+---
+
 ### Switches
 
 #### Voltage-Controlled Switch (S)
@@ -382,19 +436,6 @@ SDM Spice supports standard engineering notation:
 - `4.7k` = 4,700 ohms
 - `100n` = 100 nanofarads = 0.0000001 farads
 - `2.2u` = 2.2 microfarads
-
----
-
-## Recently Added Components
-
-The following components have been implemented and are fully functional:
-
-- **Transformer** — Coupled inductors with configurable turns ratio
-- **Current Probe** — Measures branch current through a wire
-- **AC Voltage Source (VAC)** — Sinusoidal voltage source for AC sweep analysis
-- **AC Current Source (IAC)** — Sinusoidal current source for AC sweep analysis
-
-See the [GitHub Issues](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/issues) for component requests and status.
 
 ---
 

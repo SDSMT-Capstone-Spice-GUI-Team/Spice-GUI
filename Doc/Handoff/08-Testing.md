@@ -5,7 +5,7 @@
 ```
 app/tests/
 ├── conftest.py              ← Shared pytest fixtures
-├── unit/                    ← 148 test files
+├── unit/                    ← 186 test files
 │   ├── test_circuit_model.py
 │   ├── test_circuit_controller.py
 │   ├── test_component_*.py
@@ -14,10 +14,9 @@ app/tests/
 │   ├── test_*_exporter.py
 │   ├── test_grading_*.py
 │   └── controllers/        ← Controller-specific coverage tests
-└── integration/             ← 4 integration test files
+└── integration/             ← 3 integration test files
     ├── test_ngspice_smoke.py         ← Is ngspice installed?
     ├── test_ngspice_workflows.py     ← Full simulation flows
-    ├── test_save_load.py             ← File I/O round-trips
     └── test_phase4_mvc_integration.py
 ```
 

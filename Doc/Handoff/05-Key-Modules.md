@@ -108,12 +108,19 @@ Executes `ngspice` as a subprocess, manages temp files, captures stdout/stderr.
 ### ResultParser (`result_parser.py`)
 Parses ngspice text output into structured `SimulationResult` objects.
 
-### Exporters
+### Exporters and Analysis Helpers
 - `csv_exporter.py`, `excel_exporter.py` — data export
+- `markdown_exporter.py` — Markdown circuit reports
 - `asc_exporter.py` / `asc_parser.py` — LTSpice format
-- `circuitikz_exporter.py` — LaTeX diagrams
+- `circuitikz_exporter.py` / `circuitikz_parser.py` — LaTeX diagrams (bidirectional)
+- `netlist_parser.py` — SPICE netlist import
 - `bom_exporter.py` — bill of materials
 - `bundle_exporter.py` — ZIP with all artifacts
+- `svg_shareable.py` — embed/extract circuit data in SVG files
+- `power_calculator.py` / `power_metrics.py` — per-component power dissipation
+- `freq_markers.py` — Bode plot frequency markers (-3dB, bandwidth, unity-gain)
+- `convergence.py` — simulation convergence checking
+- `measurement_builder.py` — custom SPICE measurement directives
 
 ---
 
@@ -123,9 +130,16 @@ Educational auto-grading system. Pure Python — no Qt.
 
 - `grader.py` — compares a student circuit against a rubric
 - `rubric.py` — defines grading criteria
+- `rubric_generator.py` — auto-generates rubrics from reference circuits
+- `rubric_validator.py` — validates rubric structure
 - `circuit_comparer.py` — matches components/wires between circuits
+- `component_mapper.py` — maps student components to reference circuit
 - `batch_grader.py` — grades multiple submissions at once
 - `feedback_exporter.py` — generates student-facing feedback
+- `grade_exporter.py` — exports grade data (CSV, etc.)
+- `check_analytics.py` — circuit complexity and quality metrics
+- `histogram.py` — grade distribution histograms
+- `session_persistence.py` — persists grading session state
 
 ---
 
@@ -140,6 +154,9 @@ Educational auto-grading system. Pure Python — no Qt.
 
 ### PaletteProfiles (`palette_profiles.py`)
 Defines which component categories/classes are visible in the `ComponentPalette`. Ships built-in profiles (`circuits_1`, `circuits_2`) for common course tracks and supports user-defined profiles loaded from disk, letting instructors restrict the palette for assignments.
+
+### ThemeStore (`theme_store.py`)
+Persists theme preferences (active theme, symbol style, font choice) across sessions. Read by `ThemeManager` on startup.
 
 ---
 

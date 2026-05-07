@@ -17,11 +17,12 @@
 
 | Category | Components |
 |----------|-----------|
-| **Passive** | Resistor, Capacitor, Inductor |
-| **Sources** | Voltage Source, Current Source, Waveform Source, Ground |
+| **Passive** | Resistor, Capacitor, Inductor, Transformer |
+| **Sources** | Voltage Source, Current Source, Waveform Source, AC Voltage Source (VAC), AC Current Source (IAC), Ground |
 | **Semiconductors** | Diode, LED, Zener Diode, BJT (NPN/PNP), MOSFET (NMOS/PMOS) |
 | **Controlled Sources** | VCVS, CCVS, VCCS, CCCS |
-| **Other** | Op-Amp, VC Switch, Transformer |
+| **Probes** | Current Probe |
+| **Other** | Op-Amp, VC Switch |
 
 ## Simulation
 
@@ -48,9 +49,11 @@
 | SPICE netlist | Yes | Yes |
 | LTSpice (.asc) | Yes | Yes |
 | LaTeX (CircuitikZ) | Yes | Yes |
+| SVG (with embedded circuit data) | Yes (`File > Import from SVG…`) | Yes (`Export Image > SVG`) |
 | CSV | — | Yes |
 | Excel (.xlsx) | — | Yes |
 | Markdown report | — | Yes |
+| PDF report | — | Yes |
 | ZIP bundle | — | Yes |
 | Bill of Materials | — | Yes |
 

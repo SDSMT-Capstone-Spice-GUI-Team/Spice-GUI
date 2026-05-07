@@ -1,6 +1,6 @@
 # Developer Setup / Install from Source
 
-> **Just want to use Spice GUI?** Download the Windows installer from the [Releases page](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/releases). For step-by-step instructions, see the **[Installation Guide](../docs/installation-guide.md)**.
+> **Just want to use Spice GUI?** Download the Windows installer from the [Releases page](https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI/releases). For step-by-step instructions, see the **[Installation Guide](../Doc/installation-guide.md)**.
 >
 > This page is for **developers and contributors** who want to run Spice GUI from source, or for **macOS/Linux users** (no installer is available for these platforms yet).
 
