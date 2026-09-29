@@ -68,8 +68,8 @@ class TestNgspiceRunnerPlatformDetection:
             ),
         ):
             runner.find_ngspice()
-        assert any("ngspice" in p.lower() for p in checked_paths)
-        assert any("Program Files" in p for p in checked_paths)
+        assert any("ngspice" in str(p).lower() for p in checked_paths)
+        assert any("Program Files" in str(p) for p in checked_paths)
 
 
 class TestOutputDirCreation:
