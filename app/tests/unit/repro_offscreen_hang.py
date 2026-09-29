@@ -5,10 +5,9 @@ off-screen and asserts the committed position stays within the route window.
 If the clamp (or its commit) regresses, this fails loudly instead of hanging.
 """
 
-from PyQt6.QtCore import QPointF
-
 from GUI.component_item import ComponentGraphicsItem, Resistor
 from GUI.styles import GRID_EXTENT, GRID_SIZE
+from PyQt6.QtCore import QPointF
 
 
 def _clamp_and_commit(comp, proposed):

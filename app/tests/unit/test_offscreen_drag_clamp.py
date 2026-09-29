@@ -16,11 +16,10 @@ route window, and (b) the committed ``_pending_position`` — the value actually
 passed to ``move_component`` and the batch reroute — is likewise clamped.
 """
 
-from PyQt6.QtCore import QPointF
-from PyQt6.QtWidgets import QGraphicsScene
-
 from GUI.component_item import ComponentGraphicsItem, Resistor
 from GUI.styles import GRID_EXTENT
+from PyQt6.QtCore import QPointF
+from PyQt6.QtWidgets import QGraphicsScene
 
 
 def _add_resistor(scene, comp_id, x, y):
