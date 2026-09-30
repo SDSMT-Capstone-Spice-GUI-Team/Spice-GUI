@@ -7,7 +7,7 @@ from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 from utils.format_utils import validate_component_value
 
-from .styles import GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
+from .styles import GRID_EXTENT, GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
 
 
 class ComponentGraphicsItem(QGraphicsItem):
@@ -523,13 +523,31 @@ class ComponentGraphicsItem(QGraphicsItem):
         elif show_value:
             painter.drawText(-20, -25, f"({value})")
 
+    def _clamp_position(self, pos):
+        """Clamp a scene position to a *fixed* route window.
+
+        The pathfinding route window is the fixed rect
+        ``(-GRID_EXTENT, -GRID_EXTENT, GRID_EXTENT * 2)``. We must clamp to a
+        fixed boundary here, *not* ``scene().sceneRect()``: ``QGraphicsScene``
+        auto-expands ``sceneRect()`` to follow whatever item is dragged, so
+        clamping to it is a no-op and a component can be pulled arbitrarily
+        far off-screen. A terminal outside the route window makes pathfinding
+        prune every neighbor, fall back to a straight-line wire spanning
+        off-screen, and hang the viewport repaint in ``_do_batch_reroute``.
+        """
+        bound = GRID_EXTENT
+        x = max(-bound, min(bound, pos.x()))
+        y = max(-bound, min(bound, pos.y()))
+        return QPointF(x, y)
+
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
-            # Snap to grid
+            # Snap to grid, then clamp so a dragged component can't be placed
+            # outside the pathfinding route window.
             new_pos = value
             grid_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
             grid_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
-            snapped_pos = QPointF(grid_x, grid_y)
+            snapped_pos = self._clamp_position(QPointF(grid_x, grid_y))
 
             # Move other selected items by the same delta (group drag)
             if not self._group_moving:
@@ -544,7 +562,10 @@ class ComponentGraphicsItem(QGraphicsItem):
                             item.setPos(item.pos() + raw_delta)
                             item._group_moving = False
 
-            self._pending_position = (grid_x, grid_y)
+            # Commit the *clamped* position — never the raw off-screen grid
+            # value — so move_component / batch reroute never route a terminal
+            # outside the route window.
+            self._pending_position = (snapped_pos.x(), snapped_pos.y())
             self._schedule_controller_update()
 
             return snapped_pos
