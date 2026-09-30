@@ -92,6 +92,7 @@ class FileController:
         self.current_file = None
         if self.circuit_ctrl:
             self.circuit_ctrl.clear_undo_history()
+            self.circuit_ctrl.notify("circuit_cleared", None)
 
     def save_circuit(self, filepath) -> None:
         """
