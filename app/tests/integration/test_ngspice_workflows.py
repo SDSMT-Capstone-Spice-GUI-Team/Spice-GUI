@@ -235,3 +235,47 @@ class TestACSweep:
 
             # At minimum, the data dict should not be empty
             assert len(result.data) > 0, "AC sweep data is empty"
+
+    def test_dc_source_ac_sweep_varies_across_frequency(self):
+        """A plain DC voltage source must still produce a varying AC sweep.
+
+        Regression: a source written as "DC 1" (no AC term) left ngspice with
+        no drive reference during .ac analysis, so vm() returned ~0 at every
+        frequency and the plot was a flat line. The netlist must attach an AC
+        reference so the magnitude actually rolls off through the sweep.
+        """
+        model, ctrl = _build_rc_circuit()
+        # Switch the AC source to a plain DC source to reproduce the bug.
+        v1_id = next(cid for cid, c in model.components.items() if "V1" in cid)
+        ctrl.update_component_value(v1_id, "1")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sim = SimulationController(model=model, circuit_ctrl=ctrl)
+            sim._runner = NgspiceRunner(output_dir=tmpdir)
+
+            sim.set_analysis(
+                "AC Sweep",
+                {
+                    "fStart": 1,
+                    "fStop": 1e6,
+                    "points": 50,
+                    "sweepType": "dec",
+                },
+            )
+            result = sim.run_simulation()
+
+            assert result.success, f"Simulation failed: {result.error}"
+            assert result.data is not None
+            assert isinstance(result.data, dict)
+
+            magnitude = result.data.get("magnitude", {})
+            assert magnitude, "No magnitude data parsed from AC sweep"
+
+            # nodeA sits directly on the source, so it is flat by design.
+            # The output node (nodeB) must roll off through the sweep — this is
+            # the core guard against the flat-line bug.
+            assert "nodeB" in magnitude, f"Expected output node 'nodeB' in {list(magnitude)}"
+            trace = magnitude["nodeB"]
+            assert (
+                len(set(round(v, 4) for v in trace)) > 5
+            ), f"AC sweep magnitude on nodeB is flat (bug regression): {trace[:6]}..."

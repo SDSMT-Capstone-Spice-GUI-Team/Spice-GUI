@@ -284,10 +284,20 @@ class NetlistGenerator:
                 lines.append(f"{comp_id} {' '.join(nodes)} {val}{ic}")
             elif comp.component_type == "Voltage Source":
                 val = self._sanitize_value(comp.value)
-                lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
+                # AC sweep needs a drive reference on every independent source;
+                # a plain "DC X" source has no AC term, so ngspice's vm() returns
+                # 0 everywhere and the plot is a flat line. Inject a default AC
+                # magnitude when this is an AC sweep and the value has none.
+                if self.analysis_type == "AC Sweep" and "AC" not in val.upper():
+                    lines.append(f"{comp_id} {' '.join(nodes)} DC {val} AC 1")
+                else:
+                    lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
             elif comp.component_type == "Current Source":
                 val = self._sanitize_value(comp.value)
-                lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
+                if self.analysis_type == "AC Sweep" and "AC" not in val.upper():
+                    lines.append(f"{comp_id} {' '.join(nodes)} DC {val} AC 1")
+                else:
+                    lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
             elif comp.component_type == "AC Voltage Source":
                 # Vxxx n+ n- AC magnitude phase
                 val = self._sanitize_value(comp.value)
