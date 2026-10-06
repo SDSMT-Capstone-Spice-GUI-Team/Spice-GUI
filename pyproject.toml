@@ -1,3 +1,24 @@
+# SDM Spice — a PyQt6 desktop app for drag-and-drop circuit design and
+# ngspice simulation. See wiki/System-Requirements.md for the target Python
+# versions. This [project] block is the single source of truth for uv so that
+# `uv sync` installs the runtime dependencies instead of silently installing
+# nothing (the previous pyproject had no [project] section at all).
+[project]
+name = "spice-gui"
+version = "0.1.0"
+description = "SDM Spice — drag-and-drop circuit design GUI with ngspice simulation"
+requires-python = ">=3.11"
+dependencies = [
+    "PyQt6>=6.6.0,<7.0.0",
+    "matplotlib>=3.7.0",
+    "numpy>=1.24.0",
+    "openpyxl>=3.1.0",
+    "PySpice>=1.5.0",
+    "PyYAML>=6.0.0",
+    "requests>=2.31.0",
+    "scipy>=1.10.0",
+]
+
 [tool.pytest.ini_options]
 pythonpath = ["app"]
 testpaths = ["app/tests"]
