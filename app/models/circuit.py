@@ -25,6 +25,22 @@ logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
 
+# Known aliases for analysis types that are not stored in canonical form.
+# The controller, GUI, CLI and grading all treat ``"DC Operating Point"``
+# as canonical, but legacy/example files sometimes stored the shorter
+# ``"Operating Point"`` which the simulator would otherwise reject.
+_ANALYSIS_TYPE_ALIASES = {
+    "Operating Point": "DC Operating Point",
+    "Operational Point": "DC Operating Point",
+    "OperatingPoint": "DC Operating Point",
+    "DCOP": "DC Operating Point",
+}
+
+
+def _normalize_analysis_type(raw: str) -> str:
+    """Map a stored analysis-type alias to its canonical name."""
+    return _ANALYSIS_TYPE_ALIASES.get(raw, raw)
+
 
 @dataclass
 class CircuitModel:
@@ -179,7 +195,7 @@ class CircuitModel:
         """
         model = cls()
         model.component_counter = data.get("counters", {}).copy()
-        model.analysis_type = data.get("analysis_type", "DC Operating Point")
+        model.analysis_type = _normalize_analysis_type(data.get("analysis_type", "DC Operating Point"))
         model.analysis_params = data.get("analysis_params", {}).copy()
 
         for i, comp_data in enumerate(data.get("components", [])):
