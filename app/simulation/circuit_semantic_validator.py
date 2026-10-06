@@ -5,8 +5,7 @@ ground presence, connected terminals, analysis-specific source requirements.
 No Qt dependencies. Error messages are student-friendly.
 """
 
-from simulation.spice_sanitizer import (has_ac_drive_reference,
-                                        sanitize_spice_value)
+from simulation.spice_sanitizer import has_ac_drive_reference, sanitize_spice_value
 
 # Re-exported so existing call sites (`_has_ac_drive_reference`) keep working
 # while the detection logic lives in one place (see spice_sanitizer).

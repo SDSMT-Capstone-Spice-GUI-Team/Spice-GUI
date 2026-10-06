@@ -6,10 +6,12 @@ Handles SPICE netlist generation from circuit data
 
 import logging
 
-from simulation.spice_sanitizer import (has_ac_drive_reference,
-                                        sanitize_netlist_text,
-                                        sanitize_spice_value,
-                                        validate_wrdata_filepath)
+from simulation.spice_sanitizer import (
+    has_ac_drive_reference,
+    sanitize_netlist_text,
+    sanitize_spice_value,
+    validate_wrdata_filepath,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -290,7 +292,7 @@ class NetlistGenerator:
                         node_labels[node_num] = node_comp.get_label()
                         break
 
-        # Build diode model name map: (type, value) → shared model name
+        # Build diode model name map: (type, value) -> shared model name
         _diode_base = {"Diode": "D_Ideal", "LED": "D_LED", "Zener Diode": "D_Zener"}
         self._diode_model_map = {}
         _used_names = set()
