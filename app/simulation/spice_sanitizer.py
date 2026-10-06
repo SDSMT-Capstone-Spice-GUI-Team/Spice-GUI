@@ -172,3 +172,28 @@ def validate_output_dir(output_dir: str) -> str:
         raise ValueError(f"Output directory contains path traversal: {output_dir!r}")
 
     return output_dir
+
+
+def has_ac_drive_reference(components):
+    """Return True if any source already declares an AC drive term.
+
+    An AC Sweep needs exactly one input to nudge. That is a source with an
+    "AC" term — either a dedicated AC source, or a plain Voltage/Current
+    Source whose value contains an "AC" keyword (e.g. "1V AC 1"). A source
+    with no AC term is treated as a steady DC supply and does not count.
+
+    Args:
+        components: Mapping of component id to component, as produced by
+            the circuit model.
+
+    Returns:
+        True if at least one source qualifies as an AC drive input.
+    """
+    for comp in components.values():
+        if comp.component_type in ("AC Voltage Source", "AC Current Source"):
+            return True
+        if comp.component_type in ("Voltage Source", "Current Source"):
+            if "AC" in sanitize_spice_value(comp.value).upper():
+                return True
+    return False
+

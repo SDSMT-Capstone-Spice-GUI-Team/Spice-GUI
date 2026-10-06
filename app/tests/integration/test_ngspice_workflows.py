@@ -279,3 +279,58 @@ class TestACSweep:
             assert (
                 len(set(round(v, 4) for v in trace)) > 5
             ), f"AC sweep magnitude on nodeB is flat (bug regression): {trace[:6]}..."
+
+    def test_ac_sweep_supply_stays_dc_netlist(self):
+        """One AC input plus a DC supply: only the input carries AC in the netlist.
+
+        Regression for the two-source bug fix (#943): an AC Sweep should mark
+        the existing AC source as the drive, but must NOT append "AC 1" to a
+        plain DC supply. If the supply is also wiggled, its 0.5x attenuation
+        is wrong. Build V1(AC) and V2(6V DC) feeding a common node through
+        equal 1k resistors and assert the supply's netlist line stays a plain
+        "DC 6V" source with no AC term.
+        """
+        model = CircuitModel()
+        ctrl = CircuitController(model)
+
+        v1 = ctrl.add_component("Voltage Source", (0, 0))
+        v2 = ctrl.add_component("Voltage Source", (0, 100))
+        r1 = ctrl.add_component("Resistor", (100, 0))
+        r2 = ctrl.add_component("Resistor", (100, 100))
+        gnd = ctrl.add_component("Ground", (200, 50))
+
+        ctrl.update_component_value(v1.component_id, "AC 1")
+        ctrl.update_component_value(v2.component_id, "6V")
+        ctrl.update_component_value(r1.component_id, "1k")
+        ctrl.update_component_value(r2.component_id, "1k")
+
+        # V1+ -> R1, V2+ -> R2, R1- -> GND, R2- -> GND, V1-, V2- -> GND
+        ctrl.add_wire(v1.component_id, 0, r1.component_id, 0)
+        ctrl.add_wire(v2.component_id, 0, r2.component_id, 0)
+        ctrl.add_wire(r1.component_id, 1, gnd.component_id, 0)
+        ctrl.add_wire(r2.component_id, 1, gnd.component_id, 0)
+        ctrl.add_wire(v1.component_id, 1, gnd.component_id, 0)
+        ctrl.add_wire(v2.component_id, 1, gnd.component_id, 0)
+
+        sim = SimulationController(model=model, circuit_ctrl=ctrl)
+        sim._runner = NgspiceRunner(output_dir=None)
+        sim.set_analysis(
+            "AC Sweep",
+            {
+                "fStart": 1,
+                "fStop": 1e6,
+                "points": 10,
+                "sweepType": "dec",
+            },
+        )
+        netlist = sim.generate_netlist()
+
+        supply_line = next(
+            (ln for ln in netlist.splitlines() if ln.strip().startswith(f"{v2.component_id} ")),
+            None,
+        )
+        supply_line = supply_line.strip() if supply_line else ""
+        assert supply_line, f"Supply {v2.component_id} not found in netlist"
+        # The supply must remain a plain DC source: DC value, no AC term.
+        assert "AC" not in supply_line.upper(), f"DC supply must not gain an AC term: {supply_line}"
+        assert supply_line.endswith("DC 6V"), f"Supply must keep its DC value, got: {supply_line}"

@@ -92,6 +92,72 @@ class TestValidateCircuitNoSources:
         assert any("source" in w.lower() for w in warnings)
 
 
+class TestValidateCircuitACSweep:
+    def test_no_ac_source_generates_warning(self):
+        # Several plain DC sources, none marked AC: the sweep has no way to
+        # know which one to nudge, so it should warn rather than guess.
+        components = {
+            "V1": _comp("Voltage Source", "V1", "5"),
+            "V2": _comp("Voltage Source", "V2", "12"),
+            "R1": _comp("Resistor", "R1", "1k"),
+            "GND1": _comp("Ground", "GND1"),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "V2", 0),
+            make_wire("V1", 1, "GND1", 0),
+            make_wire("V2", 1, "GND1", 0),
+        ]
+        _, _, warnings = validate_circuit(components, wires, "AC Sweep")
+        assert any("AC Sweep needs" in w for w in warnings)
+
+    def test_single_dc_source_no_warning(self):
+        # A lone DC source with no explicit AC drive reference is unambiguous:
+        # the generator can safely drive it as the sweep input, so no warning.
+        components = {
+            "V1": _comp("Voltage Source", "V1", "5"),
+            "R1": _comp("Resistor", "R1", "1k"),
+            "GND1": _comp("Ground", "GND1"),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        _, _, warnings = validate_circuit(components, wires, "AC Sweep")
+        assert not any("AC sweep needs" in w.lower() for w in warnings)
+
+    def test_existing_ac_source_suppresses_warning(self):
+        # V1 already declares an AC term, so it is the sweep input.
+        components = {
+            "V1": _comp("Voltage Source", "V1", "AC 1"),
+            "R1": _comp("Resistor", "R1", "1k"),
+            "GND1": _comp("Ground", "GND1"),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        _, _, warnings = validate_circuit(components, wires, "AC Sweep")
+        assert not any("AC source" in w.lower() for w in warnings)
+
+    def test_ac_voltage_source_suppresses_warning(self):
+        # A dedicated AC Voltage Source counts as the sweep input.
+        components = {
+            "V1": _comp("AC Voltage Source", "V1", "1V"),
+            "R1": _comp("Resistor", "R1", "1k"),
+            "GND1": _comp("Ground", "GND1"),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        _, _, warnings = validate_circuit(components, wires, "AC Sweep")
+        assert not any("AC source" in w.lower() for w in warnings)
+
+
 class TestValidateCircuitValid:
     def test_valid_resistor_circuit_no_errors(self):
         components = {

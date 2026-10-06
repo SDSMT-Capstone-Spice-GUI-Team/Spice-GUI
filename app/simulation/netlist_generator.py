@@ -6,7 +6,10 @@ Handles SPICE netlist generation from circuit data
 
 import logging
 
-from simulation.spice_sanitizer import sanitize_netlist_text, sanitize_spice_value, validate_wrdata_filepath
+from simulation.spice_sanitizer import (has_ac_drive_reference,
+                                        sanitize_netlist_text,
+                                        sanitize_spice_value,
+                                        validate_wrdata_filepath)
 
 logger = logging.getLogger(__name__)
 
@@ -162,10 +165,62 @@ class NetlistGenerator:
         """Sanitize a component value before interpolation into the netlist."""
         return sanitize_spice_value(value)
 
+    def _has_ac_drive_reference(self) -> bool:
+        """Return True if the circuit already carries an AC drive reference.
+
+        An AC Sweep asks ngspice to nudge one input by 1 V and watch how
+        every node responds. That input is whichever source already declares
+        an AC term; every other source stays a steady DC value. Delegates to
+        the shared detection logic in spice_sanitizer so the two code paths
+        cannot drift apart.
+        """
+        return has_ac_drive_reference(self.components)
+
+    def _compute_ac_sweep_drive_sources(self) -> set:
+        """Return the set of DC sources that need an "AC 1" reference.
+
+        ngspice needs exactly one independent source to carry the AC drive
+        reference. If the circuit already has an AC source (see
+        ``_has_ac_drive_reference``), no injection is needed. Otherwise
+        appending "AC 1" is only safe when there is a single plain source --
+        it must be the input. With several DC sources and none marked AC, we
+        cannot know which one is the intended input, so we return an empty
+        set and leave every source steady instead of guessing.
+        """
+        if self.analysis_type != "AC Sweep":
+            return set()
+        if self._has_ac_drive_reference():
+            return set()
+        plain = [
+            comp.component_id
+            for comp in self.components.values()
+            if comp.component_type in ("Voltage Source", "Current Source")
+            and "AC" not in self._sanitize_value(comp.value).upper()
+        ]
+        return set(plain) if len(plain) == 1 else set()
+
+    def _format_dc_source(self, comp_id: str, nodes: list, val: str) -> str:
+        """Render a DC source netlist line, adding an AC term when needed.
+
+        Shared by Voltage Source and Current Source so the "DC {val}" /
+        "DC {val} AC 1" formats cannot drift apart. The "AC 1" suffix is
+        appended only when the AC Sweep drive logic has decided exactly this
+        source is the circuit's single input (see
+        ``_compute_ac_sweep_drive_sources``).
+        """
+        line = f"{comp_id} {' '.join(nodes)} DC {val}"
+        if comp_id in self._ac_sweep_drive_sources:
+            line += " AC 1"
+        return line
+
     def generate(self):
         """Generate complete SPICE netlist"""
         # Validate component values before generation (#541)
         self._validate_component_values()
+
+        # Decide which DC sources (if any) need an "AC 1" reference before
+        # the source loop, so the check runs once for the whole circuit.
+        self._ac_sweep_drive_sources = self._compute_ac_sweep_drive_sources()
 
         lines = ["My Test Circuit", "* Generated netlist", ""]
 
@@ -284,20 +339,10 @@ class NetlistGenerator:
                 lines.append(f"{comp_id} {' '.join(nodes)} {val}{ic}")
             elif comp.component_type == "Voltage Source":
                 val = self._sanitize_value(comp.value)
-                # AC sweep needs a drive reference on every independent source;
-                # a plain "DC X" source has no AC term, so ngspice's vm() returns
-                # 0 everywhere and the plot is a flat line. Inject a default AC
-                # magnitude when this is an AC sweep and the value has none.
-                if self.analysis_type == "AC Sweep" and "AC" not in val.upper():
-                    lines.append(f"{comp_id} {' '.join(nodes)} DC {val} AC 1")
-                else:
-                    lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
+                lines.append(self._format_dc_source(comp_id, nodes, val))
             elif comp.component_type == "Current Source":
                 val = self._sanitize_value(comp.value)
-                if self.analysis_type == "AC Sweep" and "AC" not in val.upper():
-                    lines.append(f"{comp_id} {' '.join(nodes)} DC {val} AC 1")
-                else:
-                    lines.append(f"{comp_id} {' '.join(nodes)} DC {val}")
+                lines.append(self._format_dc_source(comp_id, nodes, val))
             elif comp.component_type == "AC Voltage Source":
                 # Vxxx n+ n- AC magnitude phase
                 val = self._sanitize_value(comp.value)

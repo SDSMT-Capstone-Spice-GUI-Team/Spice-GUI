@@ -5,6 +5,13 @@ ground presence, connected terminals, analysis-specific source requirements.
 No Qt dependencies. Error messages are student-friendly.
 """
 
+from simulation.spice_sanitizer import (has_ac_drive_reference,
+                                        sanitize_spice_value)
+
+# Re-exported so existing call sites (`_has_ac_drive_reference`) keep working
+# while the detection logic lives in one place (see spice_sanitizer).
+_has_ac_drive_reference = has_ac_drive_reference
+
 
 def validate_circuit(components, wires, analysis_type):
     """
@@ -95,6 +102,25 @@ def validate_circuit(components, wires, analysis_type):
             "Add a Voltage Source or Current Source to provide power "
             "to the circuit."
         )
+
+    if analysis_type == "AC Sweep":
+        # ngspice needs exactly one source to carry the AC drive reference. A
+        # lone DC source is unambiguous (the generator drives it), so only
+        # several unmarked DC sources are genuinely ambiguous — there we can't
+        # know which one to nudge, so warn rather than guess.
+        plain_sources = [
+            comp for comp in components.values()
+            if comp.component_type in ("Voltage Source", "Current Source")
+            and "AC" not in sanitize_spice_value(comp.value).upper()
+        ]
+        if len(plain_sources) > 1 and not _has_ac_drive_reference(components):
+            warnings.append(
+                "AC Sweep needs one source to use as the input. Your circuit "
+                "has several DC sources and none marked with an 'AC' term, so "
+                "ngspice doesn't know which one to nudge. Add an 'AC' term to "
+                "one source (its value field), or use a dedicated AC Voltage / "
+                "AC Current source, and leave the others as steady DC supplies."
+            )
 
     is_valid = len(errors) == 0
     return is_valid, errors, warnings
