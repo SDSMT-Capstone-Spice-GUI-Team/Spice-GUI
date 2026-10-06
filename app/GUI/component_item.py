@@ -7,7 +7,8 @@ from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 from utils.format_utils import validate_component_value
 
-from .styles import GRID_EXTENT, GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
+from .styles import (GRID_EXTENT, GRID_SIZE, TERMINAL_HOVER_RADIUS,
+                     theme_manager)
 
 
 class ComponentGraphicsItem(QGraphicsItem):
@@ -524,21 +525,86 @@ class ComponentGraphicsItem(QGraphicsItem):
             painter.drawText(-20, -25, f"({value})")
 
     def _clamp_position(self, pos):
-        """Clamp a scene position to a *fixed* route window.
+        """Clamp a scene position so *every terminal* stays inside the route window.
 
         The pathfinding route window is the fixed rect
         ``(-GRID_EXTENT, -GRID_EXTENT, GRID_EXTENT * 2)``. We must clamp to a
         fixed boundary here, *not* ``scene().sceneRect()``: ``QGraphicsScene``
         auto-expands ``sceneRect()`` to follow whatever item is dragged, so
         clamping to it is a no-op and a component can be pulled arbitrarily
-        far off-screen. A terminal outside the route window makes pathfinding
-        prune every neighbor, fall back to a straight-line wire spanning
-        off-screen, and hang the viewport repaint in ``_do_batch_reroute``.
+        far off-screen.
+
+        The route window constrains *terminal* positions (``pos()`` plus the
+        rotated terminal offset), not the component origin. A component clamped
+        to the edge still has a terminal a few px past the window — e.g. a
+        resistor clamped to ``x=500`` has a terminal at ``x=530``. Clamping to
+        the raw origin would then route from that terminal and fall back to a
+        straight-line wire spanning off-screen, hanging the viewport repaint in
+        ``_do_batch_reroute``. So instead we clamp the origin far enough *inward*
+        that the extreme terminal on each axis never crosses the window edge.
         """
+        # Terminal offsets in this component's local frame, rotated into world
+        # space by update_terminals(). Projecting them onto the axes gives the
+        # largest +1/-1 offset a terminal can reach on each axis.
+        xs = [t.x() for t in self.terminals] or [0.0]
+        ys = [t.y() for t in self.terminals] or [0.0]
+        min_tx, max_tx = min(xs), max(xs)
+        min_ty, max_ty = min(ys), max(ys)
+
         bound = GRID_EXTENT
-        x = max(-bound, min(bound, pos.x()))
-        y = max(-bound, min(bound, pos.y()))
+        # Keep the origin inside so that origin + max_tx <= bound and
+        # origin + min_tx >= -bound on each axis.
+        x = max(-bound - min_tx, min(bound - max_tx, pos.x()))
+        y = max(-bound - min_ty, min(bound - max_ty, pos.y()))
+
+        # Re-snap: rotated offsets can carry tiny float error (e.g. 1e-15);
+        # snapping keeps the component on the grid it was dragged from.
+        x = round(x / GRID_SIZE) * GRID_SIZE
+        y = round(y / GRID_SIZE) * GRID_SIZE
         return QPointF(x, y)
+
+    def _max_group_delta(self, members, desired):
+        """Largest delta that keeps *every* member's terminals inside the route.
+
+        A group drag must move all selected components by the same delta so the
+        selection keeps its shape. Any one member can hit the route boundary
+        first: applying the leader's raw delta alone would push a later member
+        past its own clamp and collapse the selection onto itself (#939). This
+        clamps ``desired`` to the tightest per-axis bound across all members.
+
+        Args:
+            members: leader + followers to move together.
+            desired: the leader's raw (unsnapped) drag delta, used to pick which
+                end of the allowed range to use (i.e. the drag direction).
+
+        Returns:
+            A ``QPointF`` delta guaranteed to keep every member's terminals
+            inside the fixed route window, or ``(0, 0)`` if no members.
+        """
+        if not members:
+            return QPointF(0, 0)
+
+        hi_x = hi_y = None
+        lo_x = lo_y = None
+        for member in members:
+            xs = [t.x() for t in member.terminals] or [0.0]
+            ys = [t.y() for t in member.terminals] or [0.0]
+            min_tx, max_tx = min(xs), max(xs)
+            min_ty, max_ty = min(ys), max(ys)
+            # Movement allowed before this member's extreme terminal crosses a
+            # window edge (see _clamp_position for the per-axis derivation).
+            cand_hi_x = GRID_EXTENT - max_tx - member.pos().x()
+            cand_lo_x = -GRID_EXTENT - min_tx - member.pos().x()
+            cand_hi_y = GRID_EXTENT - max_ty - member.pos().y()
+            cand_lo_y = -GRID_EXTENT - min_ty - member.pos().y()
+            hi_x = cand_hi_x if hi_x is None else min(hi_x, cand_hi_x)
+            lo_x = cand_lo_x if lo_x is None else max(lo_x, cand_lo_x)
+            hi_y = cand_hi_y if hi_y is None else min(hi_y, cand_hi_y)
+            lo_y = cand_lo_y if lo_y is None else max(lo_y, cand_lo_y)
+
+        dx = max(lo_x, min(hi_x, desired.x()))
+        dy = max(lo_y, min(hi_y, desired.y()))
+        return QPointF(dx, dy)
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
@@ -548,27 +614,49 @@ class ComponentGraphicsItem(QGraphicsItem):
             grid_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
             grid_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
             snapped_pos = self._clamp_position(QPointF(grid_x, grid_y))
+            raw_delta = new_pos - self.pos()
 
-            # Move other selected items by the same delta (group drag)
+            # A group drag must move every selected component by the same
+            # tightest delta (see _max_group_delta): one member can hit the
+            # route boundary first, and applying the leader's raw delta alone
+            # would push later members past their own clamp and collapse the
+            # selection onto itself (#939). The guard on the leader's *snapped*
+            # net movement avoids touching followers when the leader doesn't
+            # actually move (e.g. 103 -> snaps back to 100).
+            group_delta = raw_delta
+            if not self._group_moving and (snapped_pos != self.pos()):
+                members = [self] + [
+                    item
+                    for item in self.scene().selectedItems()
+                    if item is not self and isinstance(item, ComponentGraphicsItem)
+                ]
+                group_delta = self._max_group_delta(members, raw_delta)
+
+            # The leader snaps to the (possibly clamped) group delta so it can
+            # never drift past the tightest member; followers snap individually
+            # via setPos (#193).
+            leader_pos = self._clamp_position(self.pos() + group_delta)
+
             if not self._group_moving:
-                snapped_delta = snapped_pos - self.pos()
-                if snapped_delta.x() != 0 or snapped_delta.y() != 0:
-                    # Use raw (unsnapped) delta so each follower snaps
-                    # independently to its nearest grid point (#193).
-                    raw_delta = new_pos - self.pos()
-                    for item in self.scene().selectedItems():
-                        if item is not self and isinstance(item, ComponentGraphicsItem):
-                            item._group_moving = True
-                            item.setPos(item.pos() + raw_delta)
-                            item._group_moving = False
+                for item in self.scene().selectedItems():
+                    if item is self or not isinstance(item, ComponentGraphicsItem):
+                        continue
+                    item._group_moving = True
+                    item.setPos(item.pos() + group_delta)
+                    item._group_moving = False
 
             # Commit the *clamped* position — never the raw off-screen grid
             # value — so move_component / batch reroute never route a terminal
-            # outside the route window.
-            self._pending_position = (snapped_pos.x(), snapped_pos.y())
+            # outside the route window. During a group drag this is
+            # ``leader_pos`` (the leader clamped to the group's tightest delta),
+            # not the leader's own ``snapped_pos``: the leader must not jump
+            # past a follower that is already at the boundary, or it would
+            # overlap that follower (#939).
+            committed = leader_pos
+            self._pending_position = (committed.x(), committed.y())
             self._schedule_controller_update()
 
-            return snapped_pos
+            return committed
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             # Show straight-line preview for connected wires during drag
             # (full pathfinding runs after drag ends via debounced timer)

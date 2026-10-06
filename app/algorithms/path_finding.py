@@ -7,6 +7,7 @@ All positions are represented as plain (x, y) tuples — no Qt dependency.
 Callers using QPointF should convert before calling and after receiving results.
 """
 
+import heapq
 import math
 import time
 from abc import ABC, abstractmethod
@@ -283,7 +284,15 @@ class IDAStarPathfinder(WeightedPathfinder):
         current_net=None,
     ):
         """
-        IDA* (Iterative Deepening A*) algorithm - memory-efficient A* variant
+        A* (best-first) grid search for wire routing.
+
+        Replaces the previous recursive IDA* implementation with an explicit
+        heap + open-set so it has no per-grid-step recursion depth. The old
+        recursion grew one Python stack frame per grid cell, so a wire routed
+        a few hundred cells off-screen blew past Python's recursion limit and
+        crashed (or hung iterating for a long time first). The heap-based A*
+        below is equivalent for routing but bounded by the number of free
+        cells in ``bounds`` and uses no deep recursion.
 
         Returns:
             tuple: (waypoints, routing_failed)
@@ -297,133 +306,125 @@ class IDAStarPathfinder(WeightedPathfinder):
         max_x = min_x + width
         max_y = min_y + height
 
-        iterations = 0
-        max_iterations = 10000
+        self.last_iterations = 0
 
-        # Initial threshold is the heuristic estimate
-        threshold = self._heuristic(start_grid, end_grid)
+        # The bend penalty makes an edge's cost depend on the direction we came
+        # *from*, so path cost is no longer a pure function of the current node.
+        # A* therefore keys its state on (grid_pos, incoming_direction): the same
+        # cell reached from a different direction is a distinct state. This keeps
+        # the search correct and optimal under the penalty.
+        start_state = (start_grid, None)
+        g_score: dict = {start_state: 0.0}
+        came_from: dict = {}
+        closed: set = set()
 
-        while iterations < max_iterations:
-            result = self._idastar_search(
-                start_grid,
-                end_grid,
-                0,
-                threshold,
-                None,
-                0,
-                obstacles,
-                min_x,
-                max_x,
-                min_y,
-                max_y,
-                {},
-            )
-            iterations += 1
+        # A constant f0 keeps the heap ordered while start==end has zero
+        # distance; the resulting path (only the cost is affected) is what
+        # matters, so this is harmless.
+        f0 = self._heuristic(start_grid, end_grid)
 
-            if isinstance(result, list):
-                # Found path
-                waypoints = [self._grid_to_pos(grid_pos) for grid_pos in result]
-                waypoints = self._simplify_path(waypoints)
-                self.last_iterations = iterations
-                return waypoints, False
-            elif result == float("inf"):
-                # No path exists
+        # Heap entries: (f_score, counter, grid_pos, incoming_direction,
+        # bend_count). The counter keeps heap comparisons from falling back to
+        # comparing grid_pos/tuple operands; bend_count is carried so the
+        # per-bend penalty matches the original recursive search.
+        counter = 0
+        open_heap = [(f0, counter, start_grid, None, 0)]
+
+        found = False
+        while open_heap:
+            _, _, current, incoming_dir, bend_count = heapq.heappop(open_heap)
+
+            if (current, incoming_dir) in closed:
+                continue
+
+            self.last_iterations += 1
+            if current == end_grid:
+                found = True
                 break
-            else:
-                # Increase threshold and continue
-                threshold = result
 
-        self.last_iterations = iterations
-        return [start_pos, end_pos], True
+            closed.add((current, incoming_dir))
 
-    def _idastar_search(
-        self,
-        current,
-        goal,
-        g_score,
-        threshold,
-        direction,
-        bend_count,
-        obstacles,
-        min_x,
-        max_x,
-        min_y,
-        max_y,
-        visited,
-    ):
-        """
-        Recursive depth-first search for IDA*
-
-        Returns:
-            - list of grid positions if path found
-            - new threshold (float) if path not found within threshold
-            - float('inf') if no path exists
-        """
-        f_score = g_score + self._heuristic(current, goal)
-
-        if f_score > threshold:
-            return f_score
-
-        if current == goal:
-            return [current]
-
-        visited_key = (current, direction)
-        if visited_key in visited and visited[visited_key] <= g_score:
-            return float("inf")
-        visited[visited_key] = g_score
-
-        min_threshold = float("inf")
-
-        directions = self.DIAGONAL_DIRS if self.allow_diagonal else self.ORTHOGONAL_DIRS
-        for dx, dy in directions:
-            neighbor = (current[0] + dx, current[1] + dy)
-            new_direction = (dx, dy)
-
-            neighbor_pos = self._grid_to_pos(neighbor)
-            if not (min_x <= neighbor_pos[0] <= max_x and min_y <= neighbor_pos[1] <= max_y):
-                continue
-
-            if neighbor in obstacles:
-                continue
-
-            # For diagonal moves, check that both adjacent orthogonal cells are clear
-            # (prevents corner-cutting through obstacles)
-            is_diagonal = dx != 0 and dy != 0
-            if is_diagonal:
-                adj1 = (current[0] + dx, current[1])
-                adj2 = (current[0], current[1] + dy)
-                if adj1 in obstacles or adj2 in obstacles:
+            directions = self.DIAGONAL_DIRS if self.allow_diagonal else self.ORTHOGONAL_DIRS
+            for dx, dy in directions:
+                neighbor = (current[0] + dx, current[1] + dy)
+                neighbor_pos = self._grid_to_pos(neighbor)
+                if not (min_x <= neighbor_pos[0] <= max_x and min_y <= neighbor_pos[1] <= max_y):
+                    continue
+                if neighbor in obstacles or (neighbor, (dx, dy)) in closed:
                     continue
 
-            # Diagonal moves cost √2, orthogonal moves cost 1
-            edge_cost = self.SQRT2 if is_diagonal else 1
-            new_bend_count = bend_count
+                # For diagonal moves, block corner-cutting through obstacles by
+                # requiring both adjacent orthogonal cells to be clear.
+                is_diagonal = dx != 0 and dy != 0
+                if is_diagonal:
+                    adj1 = (current[0] + dx, current[1])
+                    adj2 = (current[0], current[1] + dy)
+                    if adj1 in obstacles or adj2 in obstacles:
+                        continue
 
-            if direction is not None and direction != new_direction:
-                new_bend_count += 1
-                edge_cost += self.bend_penalty_base**new_bend_count
+                # Diagonal moves cost √2, orthogonal moves cost 1. A bend from
+                # the incoming direction adds an escalating penalty so the
+                # router prefers few, gradual turns over jagged paths.
+                edge_cost = self.SQRT2 if is_diagonal else 1
+                new_bend_count = bend_count
+                if incoming_dir is not None and incoming_dir != (dx, dy):
+                    new_bend_count += 1
+                    edge_cost += self.bend_penalty_base ** new_bend_count
 
-            result = self._idastar_search(
-                neighbor,
-                goal,
-                g_score + edge_cost,
-                threshold,
-                new_direction,
-                new_bend_count,
-                obstacles,
-                min_x,
-                max_x,
-                min_y,
-                max_y,
-                visited,
-            )
+                prev_g = g_score.get((current, incoming_dir))
+                if prev_g is None:
+                    continue
 
-            if isinstance(result, list):
-                return [current] + result
-            elif result < min_threshold:
-                min_threshold = result
+                new_g = prev_g + edge_cost
 
-        return min_threshold
+                if (neighbor, (dx, dy)) not in g_score or new_g < g_score[(neighbor, (dx, dy))]:
+                    g_score[(neighbor, (dx, dy))] = new_g
+                    came_from[(neighbor, (dx, dy))] = (current, incoming_dir)
+                    heapq.heappush(
+                        open_heap,
+                        (new_g + self._heuristic(neighbor, end_grid), counter, neighbor, (dx, dy), new_bend_count),
+                    )
+                    counter += 1
+
+        if not found:
+            # No path was found; fall back to a straight-line wire.
+            self.last_iterations += 1
+            return [start_pos, end_pos], True
+
+        # Walk came_from back from the reached state to reconstruct the path.
+        end_state = None
+        for state in g_score:
+            if state[0] == end_grid:
+                end_state = state
+                break
+        if end_state is None:
+            self.last_iterations += 1
+            return [start_pos, end_pos], True
+
+        grid_path = []
+        state = end_state
+        while state is not None:
+            grid_path.append(state[0])
+            state = came_from.get(state)
+        grid_path.reverse()
+
+        waypoints = [self._grid_to_pos(g) for g in grid_path]
+        waypoints = self._simplify_path(waypoints)
+        return waypoints, False
+
+    def _reconstruct_path(self, came_from, current):
+        """
+        Reconstruct a path from start to ``current`` following ``came_from``.
+
+        Returns:
+            list of grid (x, y) tuples ordered from start to current (inclusive).
+        """
+        path = [current]
+        while current in came_from:
+            current = came_from[current]
+            path.append(current)
+        path.reverse()
+        return path
 
 
 # ============================================================================

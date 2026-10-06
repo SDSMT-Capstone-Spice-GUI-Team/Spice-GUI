@@ -46,29 +46,58 @@ def _in_window(pos):
     return -GRID_EXTENT <= x <= GRID_EXTENT and -GRID_EXTENT <= y <= GRID_EXTENT
 
 
-class TestClampToFixedRouteWindow:
-    """The accepted snapped position from a drag stays within ±GRID_EXTENT."""
+def _terminals_in_window(comp):
+    """True if *every* terminal of the component stays inside the route window.
 
-    def test_far_offscreen_drag_clamps_to_corner(self, qtbot):
-        """Dragging far off-screen returns the clipped corner, not a huge coord."""
+    This is the invariant the clamp must actually guarantee. The pathfinding
+    window constrains terminal positions (the component's ``pos()`` plus its
+    rotated terminal offset), not the component origin. A component whose
+    terminals extend past its origin, if clamped to the origin at
+    +/-GRID_EXTENT, would leave a terminal outside the window -- the
+    off-screen-hang bug this suite targets. The clamp therefore pulls the
+    origin inward by the terminal extent so the extreme terminal still lands at
+    the window edge.
+    """
+    return all(_in_window(comp.get_terminal_pos(i)) for i in range(len(comp.terminals)))
+
+
+def _clamp_edge(comp, axis):
+    """The origin the clamp returns when dragging that axis fully off-screen.
+
+    Equal to +/- (GRID_EXTENT - terminal_extent) for that axis, where
+    terminal_extent is how far the extreme terminal sits from the origin.
+    """
+    coord_key = "x" if axis == "x" else "y"
+    extent = max(abs(getattr(comp.terminals[i], coord_key)()) for i in range(len(comp.terminals)))
+    return GRID_EXTENT - extent
+
+
+class TestClampToFixedRouteWindow:
+    """Dragging a component off-screen keeps its terminals inside the window."""
+
+    def test_far_offscreen_drag_clamps_keeping_terminals_in_window(self, qtbot):
+        """Dragging far off-screen clamps so both terminals land in-window."""
         scene = QGraphicsScene()
         comp = _add_resistor(scene, "R1", 0, 0)
 
         result = _drag(comp, QPointF(100000, 100000))
 
-        assert result.x() == GRID_EXTENT, f"Expected x clamped to {GRID_EXTENT}, got {result.x()}"
-        assert result.y() == GRID_EXTENT, f"Expected y clamped to {GRID_EXTENT}, got {result.y()}"
-        assert _in_window(result)
+        # The origin clamps inward by the terminal extent on each axis so the
+        # extreme terminal still lands at exactly GRID_EXTENT.
+        assert result.x() == _clamp_edge(comp, "x"), f"got {result.x()}"
+        assert result.y() == _clamp_edge(comp, "y"), f"got {result.y()}"
+        assert _terminals_in_window(comp)
 
-    def test_far_negative_drag_clamps_to_corner(self, qtbot):
-        """Dragging far negative clamps to the (-GRID_EXTENT, -GRID_EXTENT) corner."""
+    def test_far_negative_drag_clamps_keeping_terminals_in_window(self, qtbot):
+        """Dragging far negative clamps so terminals land in-window."""
         scene = QGraphicsScene()
         comp = _add_resistor(scene, "R1", 0, 0)
 
         result = _drag(comp, QPointF(-999999, -999999))
 
-        assert result.x() == -GRID_EXTENT
-        assert result.y() == -GRID_EXTENT
+        assert result.x() == -_clamp_edge(comp, "x")
+        assert result.y() == -_clamp_edge(comp, "y")
+        assert _terminals_in_window(comp)
 
     def test_asymmetric_offscreen_drag_clamps_each_axis(self, qtbot):
         """Each axis is clamped independently (one may be in-bounds)."""
@@ -77,9 +106,9 @@ class TestClampToFixedRouteWindow:
 
         result = _drag(comp, QPointF(750, -600))
 
-        assert result.x() == GRID_EXTENT  # x off-screen -> clamped
-        assert result.y() == -GRID_EXTENT  # y off-screen -> clamped
-        assert _in_window(result)
+        assert result.x() == _clamp_edge(comp, "x")  # x off-screen -> clamped
+        assert result.y() == -_clamp_edge(comp, "y")  # y off-screen -> clamped
+        assert _terminals_in_window(comp)
 
     def test_in_bounds_drag_returns_unchanged(self, qtbot):
         """A drag within the route window passes through unchanged."""
@@ -91,6 +120,7 @@ class TestClampToFixedRouteWindow:
         assert result.x() == 70
         assert result.y() == 200
         assert _in_window(result)
+        assert _terminals_in_window(comp)
 
     def test_just_outside_boundary_clamps_in(self, qtbot):
         """A value just outside the boundary clamps back inside."""
@@ -99,8 +129,11 @@ class TestClampToFixedRouteWindow:
 
         result = _drag(comp, QPointF(GRID_EXTENT + 1, 450))
 
-        assert result.x() == GRID_EXTENT, f"Expected x clamped to {GRID_EXTENT}, got {result.x()}"
+        # The +1 pushes x past the window; the +30 terminal would sit at
+        # GRID_EXTENT + 1 + 30, so the origin clamps inward to GRID_EXTENT - 30.
+        assert result.x() == GRID_EXTENT - 30, f"got {result.x()}"
         assert result.y() == 450  # comfortably inside the route window -> unchanged
+        assert _terminals_in_window(comp)
 
 
 class TestClampedCommittedPosition:
@@ -153,8 +186,9 @@ class TestGroupDragClamp:
             QPointF(999999, 999999),
         )
 
-        assert result.x() == GRID_EXTENT, f"Follower x not clamped: {result.x()}"
-        assert result.y() == GRID_EXTENT, f"Follower y not clamped: {result.y()}"
+        assert result.x() == _clamp_edge(follower, "x"), f"Follower x not clamped: {result.x()}"
+        assert result.y() == _clamp_edge(follower, "y"), f"Follower y not clamped: {result.y()}"
+        assert _terminals_in_window(follower)
 
     def test_leader_itemChange_clamps_offscreen(self, qtbot):
         """The leader's accepted position clamps when dragged off-screen."""
@@ -166,5 +200,97 @@ class TestGroupDragClamp:
             QPointF(100000, 100000),
         )
 
-        assert result.x() == GRID_EXTENT, f"Leader x not clamped: {result.x()}"
-        assert result.y() == GRID_EXTENT, f"Leader y not clamped: {result.y()}"
+        assert result.x() == _clamp_edge(leader, "x"), f"Leader x not clamped: {result.x()}"
+        assert result.y() == _clamp_edge(leader, "y"), f"Leader y not clamped: {result.y()}"
+        assert _terminals_in_window(leader)
+
+
+class TestGroupDragPreservesSpacing:
+    """A group drag must move every selected component by the *same tightest* delta.
+
+    The leader passes a raw (unclamped) delta to followers. When the leader is
+    dragged past the route boundary, the naive behavior still sends followers the
+    full mouse delta, so each follower clamps to the same edge and the selection
+    collapses onto itself. The leader must instead move every selected component
+    by the *same tightest* delta — the largest delta that keeps *every* component's
+    terminals in bounds — so the group keeps its shape.
+    """
+
+    def test_leader_limiting_group_moves_by_leader_delta(self, qtbot):
+        """When the leader is the limiting component, the group moves by +70.
+
+        Leader at 400, follower at 300 (100 px to the left). Dragging the leader
+        far off-screen (+x) would, with the raw delta, push the follower to
+        x=1_000_300 (then clamped to 470) and stack it on the leader. Instead the
+        leader is the limiting component (reaches its clamp edge at x=470), so
+        the shared delta is +70 and the follower lands at x=370.
+        """
+        scene = QGraphicsScene()
+        leader = _add_resistor(scene, "R1", 400, 0)
+        follower = _add_resistor(scene, "R2", 300, 0)
+        leader.setSelected(True)
+        follower.setSelected(True)
+
+        _drag(leader, QPointF(1_000_000, 0))
+
+        assert follower.x() == 370, f"follower collapsed to {follower.x()} (expected 370)"
+
+    def test_follower_limiting_group_moves_by_follower_delta(self, qtbot):
+        """When a follower is the limiting component, the group moves by +70.
+
+        Leader at 300, follower at 400 (100 px to the right, closer to the +x
+        boundary). The leader alone could reach x=470 (delta +170), but the
+        follower is the tighter component: it hits its clamp edge at x=470 with
+        only a +70 delta. The shared delta is the tightest (+70), so the whole
+        group moves by +70 and keeps its shape — the leader can't drift past the
+        follower (#939). (Note: in this unit harness only the follower's position
+        is updated by the group loop; the leader's own ``pos()`` is moved by Qt.)
+        """
+        scene = QGraphicsScene()
+        leader = _add_resistor(scene, "R1", 300, 0)
+        follower = _add_resistor(scene, "R2", 400, 0)
+        leader.setSelected(True)
+        follower.setSelected(True)
+
+        _drag(leader, QPointF(1_000_000, 0))
+
+        # Tightest delta is +70 (the follower's clamp edge at x=470), so the
+        # follower lands at 470 rather than overshooting into the leader.
+        assert follower.x() == 470, f"follower should move +70 (tightest), got {follower.x()}"
+        assert _terminals_in_window(follower)
+
+
+class TestConnectedComponentsOffscreen:
+    """Two connected components dragged off-screen must stay in-window (Blake's request).
+
+    Blake flagged that dragging one of two *connected* components off-screen crashes
+    the app via the line pathing: if the moved component's terminal settles outside
+    the route window, rerouting the wire between them falls back to a straight-line
+    spanning off-screen. The group-drag clamp must therefore keep *every* connected
+    component's terminals in-window, not just the leader's, so reroute always has an
+    in-bounds path to work with.
+    """
+
+    def test_connected_pair_stays_in_window_when_leader_dragged_offscreen(self, qtbot):
+        """Dragging the leader far off-screen keeps both connected components in-window.
+
+        The two resistors are 100 px apart (leader at 400, follower at 300). Dragging
+        the leader far off-screen (+x) would collapse the follower onto the leader with
+        the old raw-delta behavior. With the group clamp, the shared delta is limited by
+        the leader's own clamp edge (x=470, delta +70), so the follower lands at x=370.
+        Crucially, *both* components' terminals must remain inside the route window —
+        that is what lets the wire between them route without falling off-screen.
+        """
+        scene = QGraphicsScene()
+        leader = _add_resistor(scene, "R1", 400, 0)
+        follower = _add_resistor(scene, "R2", 300, 0)
+        leader.setSelected(True)
+        follower.setSelected(True)
+
+        _drag(leader, QPointF(1_000_000, 0))
+
+        # The group keeps its shape (follower moves +70, not collapsed onto leader).
+        assert follower.x() == 370, f"follower collapsed to {follower.x()}, expected 370"
+        # Both components' terminals must stay in-window so the wire between them routes.
+        assert _terminals_in_window(leader), "leader terminals escaped the route window"
+        assert _terminals_in_window(follower), "follower terminals escaped the route window"
