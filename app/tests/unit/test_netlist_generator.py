@@ -548,9 +548,9 @@ class TestAnalysisCommands:
         for source_id in ("V1", "V2"):
             for line in netlist.splitlines():
                 if line.strip().startswith(f"{source_id}"):
-                    assert "AC" not in line.upper(), (
-                        f"{source_id} should not gain an AC term with multiple DC sources: {line}"
-                    )
+                    assert (
+                        "AC" not in line.upper()
+                    ), f"{source_id} should not gain an AC term with multiple DC sources: {line}"
 
     def test_two_source_regression_supply_keeps_dc(self):
         """One AC input plus a DC supply: only the input carries AC.
@@ -603,14 +603,10 @@ class TestAnalysisCommands:
             analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
         )
         # No DC source should receive a newly injected "AC 1" suffix.
-        injected = [
-            l.strip() for l in netlist.splitlines() if l.strip().endswith("AC 1")
-        ]
+        injected = [l.strip() for l in netlist.splitlines() if l.strip().endswith("AC 1")]
         assert injected == [], f"No source should gain an injected AC 1 term, got: {injected}"
         # The supply line is still a plain DC source.
-        supply_line = next(
-            l.strip() for l in netlist.splitlines() if l.strip().startswith("V2")
-        )
+        supply_line = next(l.strip() for l in netlist.splitlines() if l.strip().startswith("V2"))
         assert "AC" not in supply_line.upper(), f"Supply must not gain AC term: {supply_line}"
 
     def test_dc_sweep_includes_sweep_source_in_print(self, simple_resistor_circuit):

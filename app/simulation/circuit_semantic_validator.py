@@ -108,7 +108,8 @@ def validate_circuit(components, wires, analysis_type):
         # several unmarked DC sources are genuinely ambiguous — there we can't
         # know which one to nudge, so warn rather than guess.
         plain_sources = [
-            comp for comp in components.values()
+            comp
+            for comp in components.values()
             if comp.component_type in ("Voltage Source", "Current Source")
             and "AC" not in sanitize_spice_value(comp.value).upper()
         ]

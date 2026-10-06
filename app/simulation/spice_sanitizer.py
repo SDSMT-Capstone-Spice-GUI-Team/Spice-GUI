@@ -196,4 +196,3 @@ def has_ac_drive_reference(components):
             if "AC" in sanitize_spice_value(comp.value).upper():
                 return True
     return False
-
