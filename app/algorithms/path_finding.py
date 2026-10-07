@@ -369,7 +369,7 @@ class IDAStarPathfinder(WeightedPathfinder):
                 new_bend_count = bend_count
                 if incoming_dir is not None and incoming_dir != (dx, dy):
                     new_bend_count += 1
-                    edge_cost += self.bend_penalty_base ** new_bend_count
+                    edge_cost += self.bend_penalty_base**new_bend_count
 
                 prev_g = g_score.get((current, incoming_dir))
                 if prev_g is None:
