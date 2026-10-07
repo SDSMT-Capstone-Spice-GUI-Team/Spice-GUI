@@ -53,7 +53,9 @@ class WeightedPathfinder(ABC):
         self.crossing_penalty = 20  # Penalty for crossing different nets
         self.same_net_cost = 0.1  # Low cost for same-net bundling
         self.body_crossing_penalty = float("inf")  # Component body crossing (blocked)
-        self.non_net_crossing_penalty = float("inf")  # Non-net terminal crossing (blocked)
+        self.non_net_crossing_penalty = float(
+            "inf"
+        )  # Non-net terminal crossing (blocked)
 
         # Performance tracking
         self.last_runtime = 0
@@ -331,6 +333,7 @@ class IDAStarPathfinder(WeightedPathfinder):
         open_heap = [(f0, counter, start_grid, None, 0)]
 
         found = False
+        goal_state = None
         while open_heap:
             _, _, current, incoming_dir, bend_count = heapq.heappop(open_heap)
 
@@ -339,16 +342,26 @@ class IDAStarPathfinder(WeightedPathfinder):
 
             self.last_iterations += 1
             if current == end_grid:
+                # The goal popped from the heap has the lowest f-score of every
+                # open state, so it carries the best route. Record that state so
+                # we can reconstruct the settled path (not an earlier, costlier
+                # route that happened to touch the goal cell first).
                 found = True
+                goal_state = (current, incoming_dir)
                 break
 
             closed.add((current, incoming_dir))
 
-            directions = self.DIAGONAL_DIRS if self.allow_diagonal else self.ORTHOGONAL_DIRS
+            directions = (
+                self.DIAGONAL_DIRS if self.allow_diagonal else self.ORTHOGONAL_DIRS
+            )
             for dx, dy in directions:
                 neighbor = (current[0] + dx, current[1] + dy)
                 neighbor_pos = self._grid_to_pos(neighbor)
-                if not (min_x <= neighbor_pos[0] <= max_x and min_y <= neighbor_pos[1] <= max_y):
+                if not (
+                    min_x <= neighbor_pos[0] <= max_x
+                    and min_y <= neighbor_pos[1] <= max_y
+                ):
                     continue
                 if neighbor in obstacles or (neighbor, (dx, dy)) in closed:
                     continue
@@ -377,12 +390,20 @@ class IDAStarPathfinder(WeightedPathfinder):
 
                 new_g = prev_g + edge_cost
 
-                if (neighbor, (dx, dy)) not in g_score or new_g < g_score[(neighbor, (dx, dy))]:
+                if (neighbor, (dx, dy)) not in g_score or new_g < g_score[
+                    (neighbor, (dx, dy))
+                ]:
                     g_score[(neighbor, (dx, dy))] = new_g
                     came_from[(neighbor, (dx, dy))] = (current, incoming_dir)
                     heapq.heappush(
                         open_heap,
-                        (new_g + self._heuristic(neighbor, end_grid), counter, neighbor, (dx, dy), new_bend_count),
+                        (
+                            new_g + self._heuristic(neighbor, end_grid),
+                            counter,
+                            neighbor,
+                            (dx, dy),
+                            new_bend_count,
+                        ),
                     )
                     counter += 1
 
@@ -391,15 +412,9 @@ class IDAStarPathfinder(WeightedPathfinder):
             self.last_iterations += 1
             return [start_pos, end_pos], True
 
-        # Walk came_from back from the reached state to reconstruct the path.
-        end_state = None
-        for state in g_score:
-            if state[0] == end_grid:
-                end_state = state
-                break
-        if end_state is None:
-            self.last_iterations += 1
-            return [start_pos, end_pos], True
+        # Walk came_from back from the settled goal state (the one popped from
+        # the heap) to reconstruct the best route.
+        end_state = goal_state
 
         grid_path = []
         state = end_state
@@ -411,20 +426,6 @@ class IDAStarPathfinder(WeightedPathfinder):
         waypoints = [self._grid_to_pos(g) for g in grid_path]
         waypoints = self._simplify_path(waypoints)
         return waypoints, False
-
-    def _reconstruct_path(self, came_from, current):
-        """
-        Reconstruct a path from start to ``current`` following ``came_from``.
-
-        Returns:
-            list of grid (x, y) tuples ordered from start to current (inclusive).
-        """
-        path = [current]
-        while current in came_from:
-            current = came_from[current]
-            path.append(current)
-        path.reverse()
-        return path
 
 
 # ============================================================================
@@ -526,7 +527,9 @@ def polygon_to_grid_filled(
             if y_min <= scan_y_world < y_max:
                 # Calculate x coordinate of intersection in WORLD space
                 # Linear interpolation: x = x1 + (scan_y - y1) * (x2 - x1) / (y2 - y1)
-                x_intersect_world = p1[0] + (scan_y_world - p1[1]) * (p2[0] - p1[0]) / (p2[1] - p1[1])
+                x_intersect_world = p1[0] + (scan_y_world - p1[1]) * (p2[0] - p1[0]) / (
+                    p2[1] - p1[1]
+                )
                 intersections.append(x_intersect_world)
 
         if debug_first and len(obstacles) < 20:
@@ -550,7 +553,9 @@ def polygon_to_grid_filled(
                 # Fill by converting each world X position using round() to match _pos_to_grid()
                 # This ensures obstacle coordinates exactly match the pathfinding grid system
                 # Sample at small intervals to catch all grid cells that overlap the filled region
-                step = grid_size / 4.0  # Sample 4 times per grid cell to ensure coverage
+                step = (
+                    grid_size / 4.0
+                )  # Sample 4 times per grid cell to ensure coverage
                 x_current = x_start_world
                 while x_current <= x_end_world:
                     grid_x = round(x_current / grid_size)
@@ -782,7 +787,9 @@ def get_component_obstacles(
             )
             terminal_key = (comp.component_id, i)
             is_active = terminal_key in active_terminals_set
-            terminal_info.append({"grid": term_grid, "pos": term_pos, "is_active": is_active})
+            terminal_info.append(
+                {"grid": term_grid, "pos": term_pos, "is_active": is_active}
+            )
 
         # Get active terminal positions for exclusion from body obstacles
         active_terminal_positions = {t["grid"] for t in terminal_info if t["is_active"]}

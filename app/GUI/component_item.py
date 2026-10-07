@@ -146,7 +146,11 @@ class ComponentGraphicsItem(QGraphicsItem):
         if not hasattr(self, "_drag_start_positions") or not self._drag_start_positions:
             return
 
-        if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
+        if (
+            not self.canvas
+            or not hasattr(self.canvas, "controller")
+            or not self.canvas.controller
+        ):
             self._drag_start_positions = {}
             return
 
@@ -162,7 +166,9 @@ class ComponentGraphicsItem(QGraphicsItem):
             new_pos = component.position
             # Only create a command if the component actually moved
             if old_pos[0] != new_pos[0] or old_pos[1] != new_pos[1]:
-                cmd = MoveComponentCommand(controller, comp_id, new_pos, old_position=old_pos)
+                cmd = MoveComponentCommand(
+                    controller, comp_id, new_pos, old_position=old_pos
+                )
                 move_commands.append(cmd)
 
         self._drag_start_positions = {}
@@ -174,7 +180,9 @@ class ComponentGraphicsItem(QGraphicsItem):
             # Push directly to undo stack (move already happened during drag)
             controller.push_already_executed(move_commands[0])
         else:
-            compound = CompoundCommand(move_commands, f"Move {len(move_commands)} components")
+            compound = CompoundCommand(
+                move_commands, f"Move {len(move_commands)} components"
+            )
             controller.push_already_executed(compound)
 
     def hoverEnterEvent(self, event):
@@ -244,14 +252,22 @@ class ComponentGraphicsItem(QGraphicsItem):
         )
 
         if ok and new_value:
-            is_valid, error_msg = validate_component_value(new_value, self.component_type)
+            is_valid, error_msg = validate_component_value(
+                new_value, self.component_type
+            )
             if not is_valid:
                 QMessageBox.warning(None, "Invalid Value", error_msg)
                 return
 
             # Route through controller; observer callback syncs the local model
-            if self.canvas and hasattr(self.canvas, "controller") and self.canvas.controller:
-                self.canvas.controller.update_component_value(self.component_id, new_value)
+            if (
+                self.canvas
+                and hasattr(self.canvas, "controller")
+                and self.canvas.controller
+            ):
+                self.canvas.controller.update_component_value(
+                    self.component_id, new_value
+                )
 
     # --- Geometry ---
 
@@ -266,10 +282,14 @@ class ComponentGraphicsItem(QGraphicsItem):
         # paint() draws text inside a rotated/flipped painter context, so
         # the text rect must be transformed to match.
         show_label = (
-            self.canvas.show_component_labels if self.canvas and hasattr(self.canvas, "show_component_labels") else True
+            self.canvas.show_component_labels
+            if self.canvas and hasattr(self.canvas, "show_component_labels")
+            else True
         )
         show_value = (
-            self.canvas.show_component_values if self.canvas and hasattr(self.canvas, "show_component_values") else True
+            self.canvas.show_component_values
+            if self.canvas and hasattr(self.canvas, "show_component_values")
+            else True
         )
         if show_label or show_value:
             text = self._label_text(show_label, show_value)
@@ -309,7 +329,9 @@ class ComponentGraphicsItem(QGraphicsItem):
         # or flip keeps the full extent covered. Text above at -25 needs
         # the same extent below for 180° rotation, and wide labels need
         # equal horizontal extent for 90° rotation.
-        extent = max(abs(base.left()), abs(base.right()), abs(base.top()), abs(base.bottom()))
+        extent = max(
+            abs(base.left()), abs(base.right()), abs(base.top()), abs(base.bottom())
+        )
         return QRectF(-extent, -extent, extent * 2, extent * 2)
 
     def shape(self):
@@ -472,10 +494,14 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         # Draw label (check canvas visibility settings via injected reference)
         show_label = (
-            self.canvas.show_component_labels if self.canvas and hasattr(self.canvas, "show_component_labels") else True
+            self.canvas.show_component_labels
+            if self.canvas and hasattr(self.canvas, "show_component_labels")
+            else True
         )
         show_value = (
-            self.canvas.show_component_values if self.canvas and hasattr(self.canvas, "show_component_values") else True
+            self.canvas.show_component_values
+            if self.canvas and hasattr(self.canvas, "show_component_values")
+            else True
         )
 
         if show_label or show_value:
@@ -507,7 +533,9 @@ class ComponentGraphicsItem(QGraphicsItem):
         else:
             return f"({self.value})"
 
-    def _draw_label_text(self, painter, color, sx, sy, show_label, show_value, label, value):
+    def _draw_label_text(
+        self, painter, color, sx, sy, show_label, show_value, label, value
+    ):
         """Draw counter-flipped label text above the component.
 
         Shared by ComponentGraphicsItem.paint() and Ground.paint() to avoid
@@ -528,10 +556,14 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         The pathfinding route window is the fixed rect
         ``(-GRID_EXTENT, -GRID_EXTENT, GRID_EXTENT * 2)``. We must clamp to a
-        fixed boundary here, *not* ``scene().sceneRect()``: ``QGraphicsScene``
-        auto-expands ``sceneRect()`` to follow whatever item is dragged, so
-        clamping to it is a no-op and a component can be pulled arbitrarily
-        far off-screen.
+        fixed boundary here, *not* ``scene().sceneRect()``: ``CircuitCanvas``
+        sets an explicit ``sceneRect`` in its ``__init__``
+        (``CircuitCanvas`` stops ``QGraphicsScene`` from auto-growing
+        ``sceneRect()`` once one is set), so the scene rect is exactly the
+        fixed route window and clamping to ``sceneRect()`` here would couple
+        this component to the canvas. A component can still be dragged
+        arbitrarily far off-screen (Qt clamps to the item, not the scene rect),
+        so we clamp here to keep it in bounds.
 
         The route window constrains *terminal* positions (``pos()`` plus the
         rotated terminal offset), not the component origin. A component clamped
@@ -606,7 +638,10 @@ class ComponentGraphicsItem(QGraphicsItem):
         return QPointF(dx, dy)
 
     def itemChange(self, change, value):
-        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
+        if (
+            change == QGraphicsItem.GraphicsItemChange.ItemPositionChange
+            and self.scene()
+        ):
             # Snap to grid, then clamp so a dragged component can't be placed
             # outside the pathfinding route window.
             new_pos = value
@@ -673,7 +708,11 @@ class ComponentGraphicsItem(QGraphicsItem):
         """Sync local model position immediately, debounce wire rerouting."""
         if self._position_update_timer:
             self._position_update_timer.stop()
-        if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
+        if (
+            not self.canvas
+            or not hasattr(self.canvas, "controller")
+            or not self.canvas.controller
+        ):
             return
 
         # Sync the *local rendering copy* of position immediately so
@@ -688,7 +727,9 @@ class ComponentGraphicsItem(QGraphicsItem):
         if self._position_update_timer is None:
             self._position_update_timer = QTimer()
             self._position_update_timer.setSingleShot(True)
-            self._position_update_timer.timeout.connect(self._notify_controller_position)
+            self._position_update_timer.timeout.connect(
+                self._notify_controller_position
+            )
         self._position_update_timer.start(50)  # 50ms debounce
 
     def _notify_controller_position(self):
@@ -696,7 +737,11 @@ class ComponentGraphicsItem(QGraphicsItem):
         if not self._pending_position:
             return
 
-        if not self.canvas or not hasattr(self.canvas, "controller") or not self.canvas.controller:
+        if (
+            not self.canvas
+            or not hasattr(self.canvas, "controller")
+            or not self.canvas.controller
+        ):
             return
 
         # Notify controller - observer will update wires
@@ -724,7 +769,9 @@ class ComponentGraphicsItem(QGraphicsItem):
         comp_data = ComponentData.from_dict(data_dict)
 
         # Find the right GUI class, falling back to GenericComponent
-        component_class = COMPONENT_CLASSES.get(comp_data.component_type, GenericComponent)
+        component_class = COMPONENT_CLASSES.get(
+            comp_data.component_type, GenericComponent
+        )
 
         # Create GUI component backed by the model
         comp = component_class(comp_data.component_id, model=comp_data)
@@ -863,14 +910,20 @@ class Ground(ComponentGraphicsItem):
         self.draw_component_body(painter)
 
         show_label = (
-            self.canvas.show_component_labels if self.canvas and hasattr(self.canvas, "show_component_labels") else True
+            self.canvas.show_component_labels
+            if self.canvas and hasattr(self.canvas, "show_component_labels")
+            else True
         )
         show_value = (
-            self.canvas.show_component_values if self.canvas and hasattr(self.canvas, "show_component_values") else True
+            self.canvas.show_component_values
+            if self.canvas and hasattr(self.canvas, "show_component_values")
+            else True
         )
 
         if show_label or show_value:
-            self._draw_label_text(painter, color, sx, sy, show_label, show_value, "GND", "0V")
+            self._draw_label_text(
+                painter, color, sx, sy, show_label, show_value, "GND", "0V"
+            )
 
         painter.restore()
 
