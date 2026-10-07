@@ -49,9 +49,7 @@ def test_long_route_completes_without_recursion_error(pathfinder):
     start = _grid(-58, -58)
     end = _grid(58, 58)
     # Orthogonal routing (default) — the depth that previously overflowed.
-    waypoints, routing_failed = _unpack(
-        pathfinder.find_path(start, end, set(), bounds=WIDE_BOUNDS)
-    )
+    waypoints, routing_failed = _unpack(pathfinder.find_path(start, end, set(), bounds=WIDE_BOUNDS))
     assert routing_failed is False
     assert len(waypoints) >= 2
     assert waypoints[0] == start
@@ -62,9 +60,7 @@ def test_long_route_completes_within_time(pathfinder):
     """The non-recursive search stays fast even on the largest window."""
     start = _grid(-58, -58)
     end = _grid(58, 58)
-    _, routing_failed = _unpack(
-        pathfinder.find_path(start, end, set(), bounds=WIDE_BOUNDS)
-    )
+    _, routing_failed = _unpack(pathfinder.find_path(start, end, set(), bounds=WIDE_BOUNDS))
     assert routing_failed is False
     assert pathfinder.last_runtime < 1.0
 
@@ -73,9 +69,7 @@ def test_diagonal_long_route_completes(diagonal_pathfinder):
     """A long diagonal route also completes without recursion error."""
     start = _grid(-58, -58)
     end = _grid(58, 58)
-    waypoints, routing_failed = _unpack(
-        diagonal_pathfinder.find_path(start, end, set(), bounds=WIDE_BOUNDS)
-    )
+    waypoints, routing_failed = _unpack(diagonal_pathfinder.find_path(start, end, set(), bounds=WIDE_BOUNDS))
     assert routing_failed is False
     assert waypoints[0] == start
     assert waypoints[-1] == end
@@ -95,15 +89,8 @@ def test_walled_in_target_fails_fast(pathfinder):
     """A goal enclosed by obstacles must fail quickly, not hang (#939)."""
     # Box the goal cell in on all four sides; the start is outside the box.
     gx, gy = 5, 0
-    obstacles = {
-        (gx + dx, gy + dy)
-        for dx in (-1, 0, 1)
-        for dy in (-1, 0, 1)
-        if (dx, dy) not in ((0, 0),)
-    }
-    waypoints, routing_failed = _unpack(
-        pathfinder.find_path(_grid(0, 0), _grid(gx, gy), obstacles)
-    )
+    obstacles = {(gx + dx, gy + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if (dx, dy) not in ((0, 0),)}
+    waypoints, routing_failed = _unpack(pathfinder.find_path(_grid(0, 0), _grid(gx, gy), obstacles))
     assert routing_failed is True
     assert pathfinder.last_runtime < 2.0
 
@@ -122,9 +109,7 @@ def test_route_quality_l_shape_single_bend(pathfinder):
 
     # L-shaped route must not be longer than necessary: two points differ by
     # (5, 3); an optimal route visits at most 3 waypoints (one bend).
-    l_shape, routing_failed = _unpack(
-        pathfinder.find_path(_grid(0, 0), _grid(5, 3), set())
-    )
+    l_shape, routing_failed = _unpack(pathfinder.find_path(_grid(0, 0), _grid(5, 3), set()))
     assert routing_failed is False
     assert len(l_shape) == 3
 
@@ -136,9 +121,7 @@ def test_route_around_obstacles_over_long_span(pathfinder):
     obstacles = {(40, y) for y in range(-58, 59) if y != 0}
     start = _grid(-58, 0)
     end = _grid(58, 0)
-    waypoints, routing_failed = _unpack(
-        pathfinder.find_path(start, end, obstacles, bounds=WIDE_BOUNDS)
-    )
+    waypoints, routing_failed = _unpack(pathfinder.find_path(start, end, obstacles, bounds=WIDE_BOUNDS))
     assert routing_failed is False
     # The path should not pass through any obstacle cell.
     cell = {(round(p[0] / GRID), round(p[1] / GRID)) for p in waypoints}

@@ -53,9 +53,7 @@ class WeightedPathfinder(ABC):
         self.crossing_penalty = 20  # Penalty for crossing different nets
         self.same_net_cost = 0.1  # Low cost for same-net bundling
         self.body_crossing_penalty = float("inf")  # Component body crossing (blocked)
-        self.non_net_crossing_penalty = float(
-            "inf"
-        )  # Non-net terminal crossing (blocked)
+        self.non_net_crossing_penalty = float("inf")  # Non-net terminal crossing (blocked)
 
         # Performance tracking
         self.last_runtime = 0
@@ -359,16 +357,11 @@ class AStarPathfinder(WeightedPathfinder):
 
             closed.add((current, incoming_dir))
 
-            directions = (
-                self.DIAGONAL_DIRS if self.allow_diagonal else self.ORTHOGONAL_DIRS
-            )
+            directions = self.DIAGONAL_DIRS if self.allow_diagonal else self.ORTHOGONAL_DIRS
             for dx, dy in directions:
                 neighbor = (current[0] + dx, current[1] + dy)
                 neighbor_pos = self._grid_to_pos(neighbor)
-                if not (
-                    min_x <= neighbor_pos[0] <= max_x
-                    and min_y <= neighbor_pos[1] <= max_y
-                ):
+                if not (min_x <= neighbor_pos[0] <= max_x and min_y <= neighbor_pos[1] <= max_y):
                     continue
                 if neighbor in obstacles or (neighbor, (dx, dy)) in closed:
                     continue
@@ -397,9 +390,7 @@ class AStarPathfinder(WeightedPathfinder):
 
                 new_g = prev_g + edge_cost
 
-                if (neighbor, (dx, dy)) not in g_score or new_g < g_score[
-                    (neighbor, (dx, dy))
-                ]:
+                if (neighbor, (dx, dy)) not in g_score or new_g < g_score[(neighbor, (dx, dy))]:
                     g_score[(neighbor, (dx, dy))] = new_g
                     came_from[(neighbor, (dx, dy))] = (current, incoming_dir)
                     heapq.heappush(
@@ -534,9 +525,7 @@ def polygon_to_grid_filled(
             if y_min <= scan_y_world < y_max:
                 # Calculate x coordinate of intersection in WORLD space
                 # Linear interpolation: x = x1 + (scan_y - y1) * (x2 - x1) / (y2 - y1)
-                x_intersect_world = p1[0] + (scan_y_world - p1[1]) * (p2[0] - p1[0]) / (
-                    p2[1] - p1[1]
-                )
+                x_intersect_world = p1[0] + (scan_y_world - p1[1]) * (p2[0] - p1[0]) / (p2[1] - p1[1])
                 intersections.append(x_intersect_world)
 
         if debug_first and len(obstacles) < 20:
@@ -560,9 +549,7 @@ def polygon_to_grid_filled(
                 # Fill by converting each world X position using round() to match _pos_to_grid()
                 # This ensures obstacle coordinates exactly match the pathfinding grid system
                 # Sample at small intervals to catch all grid cells that overlap the filled region
-                step = (
-                    grid_size / 4.0
-                )  # Sample 4 times per grid cell to ensure coverage
+                step = grid_size / 4.0  # Sample 4 times per grid cell to ensure coverage
                 x_current = x_start_world
                 while x_current <= x_end_world:
                     grid_x = round(x_current / grid_size)
@@ -794,9 +781,7 @@ def get_component_obstacles(
             )
             terminal_key = (comp.component_id, i)
             is_active = terminal_key in active_terminals_set
-            terminal_info.append(
-                {"grid": term_grid, "pos": term_pos, "is_active": is_active}
-            )
+            terminal_info.append({"grid": term_grid, "pos": term_pos, "is_active": is_active})
 
         # Get active terminal positions for exclusion from body obstacles
         active_terminal_positions = {t["grid"] for t in terminal_info if t["is_active"]}
