@@ -412,11 +412,11 @@ package "algorithms" <<Frame>> #FFF3E0 {
         # _grid_to_pos(grid) : tuple
     }
 
-    class IDAStarPathfinder {
+    class AStarPathfinder {
         + find_path(start, end, obstacles, ...) : tuple
     }
 
-    WeightedPathfinder <|-- IDAStarPathfinder
+    WeightedPathfinder <|-- AStarPathfinder
 
     note right of WeightedPathfinder
         Qt-free: works with
@@ -1113,9 +1113,9 @@ CircuitController --> CircuitModel : owns & mutates
 CircuitCanvasView --> CircuitController : registers as observer
 
 ' Canvas → Pathfinder
-WireGraphicsItem ..> IDAStarPathfinder : lazy import for routing
-_ComponentAdapter ..> IDAStarPathfinder : obstacle data
-_WireAdapter ..> IDAStarPathfinder : obstacle data
+WireGraphicsItem ..> AStarPathfinder : lazy import for routing
+_ComponentAdapter ..> AStarPathfinder : obstacle data
+_WireAdapter ..> AStarPathfinder : obstacle data
 
 ' Theme usage
 CircuitCanvasView ..> ThemeManager : colors, pens, fonts

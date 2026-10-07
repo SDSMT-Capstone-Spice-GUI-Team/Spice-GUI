@@ -1,7 +1,7 @@
 """Tests for path_finding.py — IDA* wire routing algorithm."""
 
 import pytest
-from algorithms.path_finding import IDAStarPathfinder
+from algorithms.path_finding import AStarPathfinder
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -13,7 +13,7 @@ GRID = 20  # default grid size used in pathfinder
 @pytest.fixture
 def pathfinder():
     """Yield the IDA* pathfinder implementation."""
-    return IDAStarPathfinder(grid_size=GRID)
+    return AStarPathfinder(grid_size=GRID)
 
 
 # Small bounds that keep tests fast
@@ -355,18 +355,18 @@ class TestWireDataRoutingFailed:
 @pytest.fixture
 def diagonal_pathfinder():
     """Yield an IDA* pathfinder with diagonal routing enabled."""
-    return IDAStarPathfinder(grid_size=GRID, allow_diagonal=True)
+    return AStarPathfinder(grid_size=GRID, allow_diagonal=True)
 
 
 class TestDiagonalRouting:
     def test_default_is_orthogonal(self):
         """Default pathfinder should use orthogonal-only movement."""
-        pf = IDAStarPathfinder(grid_size=GRID)
+        pf = AStarPathfinder(grid_size=GRID)
         assert pf.allow_diagonal is False
 
     def test_diagonal_flag_accepted(self):
         """Pathfinder should accept and store the allow_diagonal flag."""
-        pf = IDAStarPathfinder(grid_size=GRID, allow_diagonal=True)
+        pf = AStarPathfinder(grid_size=GRID, allow_diagonal=True)
         assert pf.allow_diagonal is True
 
     def test_diagonal_path_has_diagonal_segments(self, diagonal_pathfinder):

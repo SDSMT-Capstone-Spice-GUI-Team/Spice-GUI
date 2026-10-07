@@ -353,7 +353,7 @@ Heavy modules are loaded on first use rather than at startup:
 # Example: Lazy import in wire_item.py
 def update_position(self):
     # Lazy import - only loaded when wires are created
-    from .path_finding import IDAStarPathfinder, get_component_obstacles
+    from .path_finding import AStarPathfinder, get_component_obstacles
     # ... routing logic
 ```
 

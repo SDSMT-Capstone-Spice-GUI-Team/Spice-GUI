@@ -44,7 +44,7 @@
       "type": "Capacitor",
       "id": "C1",
       "value": "100u",
-      "pos": {"x": 550.0, "y": 200.0},
+      "pos": {"x": 470.0, "y": 200.0},
       "rotation": 90
     },
     {

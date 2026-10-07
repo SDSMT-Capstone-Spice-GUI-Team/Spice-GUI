@@ -1,4 +1,4 @@
-from algorithms.path_finding import IDAStarPathfinder, get_component_obstacles, get_wire_obstacles
+from algorithms.path_finding import AStarPathfinder, get_component_obstacles, get_wire_obstacles
 
 from .analysis_dialog import AnalysisDialog
 from .circuit_canvas import CircuitCanvas, CircuitCanvasView
@@ -17,7 +17,7 @@ __all__ = [
     "MainWindow",
     "ComponentGraphicsItem",
     "ComponentPalette",
-    "IDAStarPathfinder",
+    "AStarPathfinder",
     "get_component_obstacles",
     "get_wire_obstacles",
     "WireGraphicsItem",

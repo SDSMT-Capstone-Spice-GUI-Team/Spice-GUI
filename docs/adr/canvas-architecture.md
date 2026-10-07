@@ -208,7 +208,7 @@ statusMessage = pyqtSignal(str, int)          # message, timeout_ms (relay for s
 
 ### Pathfinding
 
-Wires are routed using `IDAStarPathfinder` (imported lazily for fast startup). The pathfinder receives obstacle polygons built from component shapes and existing wire paths via the `_ComponentAdapter` and `_WireAdapter` helpers.
+Wires are routed using `AStarPathfinder` (imported lazily for fast startup). The pathfinder receives obstacle polygons built from component shapes and existing wire paths via the `_ComponentAdapter` and `_WireAdapter` helpers.
 
 ### Debounced Batch Rerouting
 

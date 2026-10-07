@@ -269,7 +269,7 @@ class WireGraphicsItem(QGraphicsPathItem):
     def update_position(self):
         """Update wire path using selected algorithm"""
         # Lazy import for faster startup - only loaded when wires are created
-        from algorithms.path_finding import IDAStarPathfinder, get_component_obstacles
+        from algorithms.path_finding import AStarPathfinder, get_component_obstacles
 
         # Get old bounding rect for invalidation
         old_rect = self.boundingRect()
@@ -328,7 +328,7 @@ class WireGraphicsItem(QGraphicsPathItem):
             end_tuple = (end_qpt.x(), end_qpt.y())
 
             allow_diagonal = theme_manager.routing_mode == "diagonal"
-            pathfinder = IDAStarPathfinder(GRID_SIZE, allow_diagonal=allow_diagonal)
+            pathfinder = AStarPathfinder(GRID_SIZE, allow_diagonal=allow_diagonal)
             result = pathfinder.find_path(start_tuple, end_tuple, obstacles, algorithm=self.algorithm)
 
             # Unpack result (waypoints, runtime, iterations, routing_failed)
