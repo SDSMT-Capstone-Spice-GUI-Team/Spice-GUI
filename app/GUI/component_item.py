@@ -7,8 +7,7 @@ from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog, QLineEdit, QMessageBox
 from utils.format_utils import validate_component_value
 
-from .styles import (GRID_EXTENT, GRID_SIZE, TERMINAL_HOVER_RADIUS,
-                     theme_manager)
+from .styles import GRID_EXTENT, GRID_SIZE, TERMINAL_HOVER_RADIUS, theme_manager
 
 
 class ComponentGraphicsItem(QGraphicsItem):
