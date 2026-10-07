@@ -1,5 +1,5 @@
 from .path_finding import (
-    IDAStarPathfinder,
+    AStarPathfinder,
     WeightedPathfinder,
     get_component_obstacles,
     get_wire_obstacles,
@@ -12,7 +12,7 @@ from .path_finding import (
 # Import directly from algorithms.graph_ops instead.
 
 __all__ = [
-    "IDAStarPathfinder",
+    "AStarPathfinder",
     "WeightedPathfinder",
     "get_component_obstacles",
     "get_wire_obstacles",

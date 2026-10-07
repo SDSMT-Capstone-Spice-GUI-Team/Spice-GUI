@@ -233,8 +233,15 @@ class WeightedPathfinder(ABC):
         return sign(dx1) == sign(dx2) and sign(dy1) == sign(dy2)
 
 
-class IDAStarPathfinder(WeightedPathfinder):
-    """IDA* (Iterative Deepening A*) algorithm - memory-efficient A* variant"""
+class AStarPathfinder(WeightedPathfinder):
+    """A* (best-first) grid search for wire routing.
+
+    A heap-based A* replaces the old recursive IDA* (Iterative Deepening
+    A*) implementation. The old recursion grew one Python stack frame per
+    grid cell, so routing a wire a few hundred cells off-screen blew past
+    Python's recursion limit and crashed; this heap-based search is bounded
+    by the free cells in ``bounds`` and uses no deep recursion.
+    """
 
     def __init__(self, grid_size=20, allow_diagonal=False):
         super().__init__(grid_size, allow_diagonal=allow_diagonal)
@@ -250,7 +257,7 @@ class IDAStarPathfinder(WeightedPathfinder):
         current_net=None,
     ):
         """
-        Find path using IDA* algorithm.
+        Find path using A* algorithm.
 
         Returns:
             tuple: (waypoints, runtime, iterations, routing_failed)

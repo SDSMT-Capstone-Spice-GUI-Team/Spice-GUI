@@ -14,7 +14,7 @@ pins the no-hang / no-crash behaviour of the non-recursive pathfinder.
 """
 
 import pytest
-from algorithms.path_finding import IDAStarPathfinder
+from algorithms.path_finding import AStarPathfinder
 
 # A route window large enough that a full-width orthogonal route reaches past
 # Python's recursion limit (~1000 cells deep): ±600 spans 1200 grid cells. This
@@ -25,12 +25,12 @@ GRID = 10
 
 @pytest.fixture
 def pathfinder():
-    return IDAStarPathfinder(grid_size=GRID)
+    return AStarPathfinder(grid_size=GRID)
 
 
 @pytest.fixture
 def diagonal_pathfinder():
-    return IDAStarPathfinder(grid_size=GRID, allow_diagonal=True)
+    return AStarPathfinder(grid_size=GRID, allow_diagonal=True)
 
 
 def _grid(gx, gy):
