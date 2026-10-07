@@ -15,7 +15,7 @@ from typing import List, Optional
 logger = logging.getLogger(__name__)
 
 from controllers.settings_service import settings
-from models.circuit import CircuitModel
+from models.circuit import CircuitModel, _normalize_analysis_type
 
 SESSION_FILE = "last_session.txt"
 AUTOSAVE_FILE = ".autosave_recovery.json"
@@ -92,6 +92,7 @@ class FileController:
         self.current_file = None
         if self.circuit_ctrl:
             self.circuit_ctrl.clear_undo_history()
+            self.circuit_ctrl.notify("circuit_cleared", None)
 
     def save_circuit(self, filepath) -> None:
         """
@@ -324,7 +325,7 @@ class FileController:
         new_model, analysis = import_netlist(text)
 
         if analysis:
-            new_model.analysis_type = analysis["type"]
+            new_model.analysis_type = _normalize_analysis_type(analysis["type"])
             new_model.analysis_params = analysis["params"]
 
         self._replace_model(new_model)
@@ -362,7 +363,7 @@ class FileController:
         new_model, analysis, warnings = import_asc(text)
 
         if analysis:
-            new_model.analysis_type = analysis["type"]
+            new_model.analysis_type = _normalize_analysis_type(analysis["type"])
             new_model.analysis_params = analysis["params"]
 
         self._replace_model(new_model)

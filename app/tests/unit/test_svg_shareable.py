@@ -224,8 +224,9 @@ class TestSVGShareableInfrastructure:
         )
         fake_self.scene.return_value.items.return_value = [fake_item]
 
-        with patch("simulation.svg_shareable.embed_circuit_data") as mock_embed, patch(
-            "GUI.main_window_view.embed_circuit_data", mock_embed, create=True
+        with (
+            patch("simulation.svg_shareable.embed_circuit_data") as mock_embed,
+            patch("GUI.main_window_view.embed_circuit_data", mock_embed, create=True),
         ):
             try:
                 ViewOperationsMixin.export_image(fake_self, "circuit.svg")

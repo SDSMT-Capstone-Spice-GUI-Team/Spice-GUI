@@ -305,6 +305,310 @@ class TestAnalysisCommands:
                 assert mag_nodes == vp_nodes, f"Mismatched mag/vp nodes: mag={mag_nodes}, vp={vp_nodes}"
                 break
 
+    def _build_rc_dc_source(self, v1_value="5"):
+        """Build an RC low-pass with a plain DC 'Voltage Source' (not AC).
+
+        This reproduces the flat-line AC sweep bug: a DC source with no
+        AC magnitude gives ngspice no drive reference during .ac analysis.
+        """
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", v1_value, (0, 0)),
+            "R1": make_component("Resistor", "R1", "1k", (100, 0)),
+            "C1": make_component("Capacitor", "C1", "1u", (200, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (200, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "C1", 0),
+            make_wire("C1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_in = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="in",
+        )
+        node_out = NodeData(
+            terminals={("R1", 1), ("C1", 0)},
+            wire_indices={1},
+            auto_label="out",
+        )
+        node_gnd = NodeData(
+            terminals={("C1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={2, 3},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_in, node_out, node_gnd]
+        t2n = {
+            ("V1", 0): node_in,
+            ("R1", 0): node_in,
+            ("R1", 1): node_out,
+            ("C1", 0): node_out,
+            ("C1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        return components, wires, nodes, t2n
+
+    def _build_two_source_circuit(self):
+        """Build a circuit with an AC input plus a separate DC supply.
+
+        Two sources each drive a common node through equal 1k resistors.
+        V1 is the AC input (1 V); V2 is a steady 5 V supply. Under AC
+        sweep only V1 should carry an AC drive reference — the supply must
+        remain a plain DC source, so ngspice measures only V1's response
+        (this is the two-source repro from the review: correct answer 0.5).
+        """
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("AC Voltage Source", "V1", "1V 0", (0, 0)),
+            "V2": make_component("Voltage Source", "V2", "5V", (0, 100)),
+            "R1": make_component("Resistor", "R1", "1k", (100, 0)),
+            "R2": make_component("Resistor", "R2", "1k", (100, 100)),
+            "GND1": make_component("Ground", "GND1", "0V", (200, 50)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("V1", 1, "GND1", 0),
+            make_wire("V2", 0, "R2", 0),
+            make_wire("V2", 1, "GND1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("R2", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_b = NodeData(
+            terminals={("V2", 0), ("R2", 0)},
+            wire_indices={1},
+            auto_label="nodeB",
+        )
+        node_gnd = NodeData(
+            terminals={("V1", 1), ("V2", 1), ("R1", 1), ("R2", 1), ("GND1", 0)},
+            wire_indices={2, 3, 4, 5},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_b, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("V1", 1): node_gnd,
+            ("V2", 0): node_b,
+            ("R2", 0): node_b,
+            ("V2", 1): node_gnd,
+            ("R1", 1): node_gnd,
+            ("R2", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+        }
+        return components, wires, nodes, t2n
+
+    def _dc_source_line(self, netlist):
+        """Return the V1 source line from a generated netlist."""
+        for line in netlist.splitlines():
+            if line.startswith("V1"):
+                return line.strip()
+        return None
+
+    def test_ac_sweep_dc_source_gets_ac_reference(self):
+        """AC Sweep must give a plain DC voltage source an AC magnitude.
+
+        A ".ac" analysis needs an AC reference on every source; a source
+        written as "DC 5" with no AC term drives ngspice with zero signal,
+        producing a flat vm() result. The netlist must append "AC 1".
+        """
+        components, wires, nodes, t2n = self._build_rc_dc_source()
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+        )
+        line = self._dc_source_line(netlist)
+        assert line is not None, "V1 source line not found in netlist"
+        assert "AC" in line.upper(), f"AC Sweep source line must carry an AC term, got: {line}"
+
+    def test_ac_sweep_voltage_source_already_has_ac_term(self):
+        """A DC source that already declares an AC term is left untouched.
+
+        V1 is given a value containing an "AC" term, so it is already an AC
+        input. The generator must not append a second "AC 1" — exactly one
+        "AC" keyword must remain on the line.
+        """
+        components, wires, nodes, t2n = self._build_rc_dc_source(v1_value="AC 1")
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+        )
+        line = self._dc_source_line(netlist)
+        assert line is not None, "V1 source line not found in netlist"
+        # Not double-applied: exactly one "AC" keyword on the line.
+        assert line.upper().count("AC") == 1, f"AC term should not be duplicated, got: {line}"
+
+    def test_dc_source_without_ac_sweep_keeps_dc_only(self):
+        """DC Operating Point must NOT gain an AC term on its source."""
+        components, wires, nodes, t2n = self._build_rc_dc_source()
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="DC Operating Point",
+        )
+        line = self._dc_source_line(netlist)
+        assert line is not None
+        assert "AC" not in line.upper(), f"Non-AC sweep must not add AC term, got: {line}"
+
+    def test_single_dc_source_gets_ac_reference(self):
+        """A lone DC source on an AC sweep is safe to drive.
+
+        With exactly one source there is nothing else it could be, so it
+        becomes the input and gets an "AC 1" reference.
+        """
+        components, wires, nodes, t2n = self._build_rc_dc_source()
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+        )
+        line = self._dc_source_line(netlist)
+        assert line is not None, "V1 source line not found in netlist"
+        assert line.upper().endswith("AC 1"), f"Single DC source should get AC 1, got: {line}"
+
+    def test_multiple_dc_sources_get_no_ac_reference(self):
+        """Multiple DC sources with none marked AC are left steady.
+
+        With several unmarked DC sources the generator cannot know which is
+        the intended input, so it injects nothing (the user is warned by
+        the semantic validator instead). Neither source gains an "AC" term.
+        """
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "V2": make_component("Voltage Source", "V2", "12V", (200, 0)),
+            "R1": make_component("Resistor", "R1", "1k", (100, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (100, 100)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "V2", 0),
+            make_wire("V1", 1, "GND1", 0),
+            make_wire("V2", 1, "GND1", 0),
+        ]
+        node_a = NodeData(
+            terminals={("V1", 0), ("R1", 0)},
+            wire_indices={0},
+            auto_label="nodeA",
+        )
+        node_b = NodeData(
+            terminals={("R1", 1), ("V2", 0)},
+            wire_indices={1},
+            auto_label="nodeB",
+        )
+        node_gnd = NodeData(
+            terminals={("V1", 1), ("V2", 1), ("GND1", 0)},
+            wire_indices={2, 3},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_b, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_b,
+            ("V2", 0): node_b,
+            ("V1", 1): node_gnd,
+            ("V2", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+        }
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+        )
+        for source_id in ("V1", "V2"):
+            for line in netlist.splitlines():
+                if line.strip().startswith(f"{source_id}"):
+                    assert (
+                        "AC" not in line.upper()
+                    ), f"{source_id} should not gain an AC term with multiple DC sources: {line}"
+
+    def test_two_source_regression_supply_keeps_dc(self):
+        """One AC input plus a DC supply: only the input carries AC.
+
+        Regression for the review's two-source repro: with V1 as the AC
+        input and V2 as a steady 5 V supply, only V1 must get an "AC 1"
+        reference. The supply stays a plain "DC 5V" source so ngspice
+        measures only V1's response (0.5, not 1.0).
+        """
+        components, wires, nodes, t2n = self._build_two_source_circuit()
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+        )
+        supply_line = None
+        ac_line = None
+        for line in netlist.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("V2"):
+                supply_line = stripped
+            if stripped.startswith("V1"):
+                ac_line = stripped
+        assert supply_line is not None and ac_line is not None
+
+        # Supply stays a pure DC source — no AC term, still the 5 V value.
+        assert "AC" not in supply_line.upper(), f"DC supply must not gain AC term: {supply_line}"
+        assert "DC 5V" in supply_line, f"Supply must keep its DC value: {supply_line}"
+
+        # The AC input is the only source driven by the sweep.
+        assert "AC 1V" in ac_line.upper(), f"AC input must carry its AC term: {ac_line}"
+
+    def test_two_source_regression_no_sweep_source_marked(self):
+        """The AC sweep marks exactly one source, never the supply.
+
+        Confirms the whole-circuit check: with an existing AC input, no DC
+        source receives a spurious drive. V1 is already the input, so
+        nothing new should be injected onto the supply.
+        """
+        components, wires, nodes, t2n = self._build_two_source_circuit()
+        netlist = _generate(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+        )
+        # No DC source should receive a newly injected "AC 1" suffix.
+        injected = [l.strip() for l in netlist.splitlines() if l.strip().endswith("AC 1")]
+        assert injected == [], f"No source should gain an injected AC 1 term, got: {injected}"
+        # The supply line is still a plain DC source.
+        supply_line = next(l.strip() for l in netlist.splitlines() if l.strip().startswith("V2"))
+        assert "AC" not in supply_line.upper(), f"Supply must not gain AC term: {supply_line}"
+
     def test_dc_sweep_includes_sweep_source_in_print(self, simple_resistor_circuit):
         """DC Sweep print command must include the sweep source variable (#854)."""
         components, wires, nodes, t2n = simple_resistor_circuit
