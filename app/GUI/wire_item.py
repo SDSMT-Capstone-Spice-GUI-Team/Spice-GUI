@@ -6,8 +6,7 @@ from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QBrush, QPainterPath, QPainterPathStroker, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem
 
-from .styles import (GRID_SIZE, WIRE_CLICK_WIDTH, Z_SEGMENT_HANDLE,
-                     Z_WAYPOINT_HANDLE, Z_WIRE, theme_manager)
+from .styles import GRID_SIZE, WIRE_CLICK_WIDTH, Z_SEGMENT_HANDLE, Z_WAYPOINT_HANDLE, Z_WIRE, theme_manager
 
 # Radius of the draggable waypoint handles (in scene units)
 _HANDLE_RADIUS = 5
@@ -270,8 +269,7 @@ class WireGraphicsItem(QGraphicsPathItem):
     def update_position(self):
         """Update wire path using selected algorithm"""
         # Lazy import for faster startup - only loaded when wires are created
-        from algorithms.path_finding import (AStarPathfinder,
-                                             get_component_obstacles)
+        from algorithms.path_finding import AStarPathfinder, get_component_obstacles
 
         # Get old bounding rect for invalidation
         old_rect = self.boundingRect()

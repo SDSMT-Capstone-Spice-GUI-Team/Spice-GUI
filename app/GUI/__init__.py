@@ -1,14 +1,13 @@
-from algorithms.path_finding import (AStarPathfinder, get_component_obstacles,
-                                     get_wire_obstacles)
+from algorithms.path_finding import AStarPathfinder, get_component_obstacles, get_wire_obstacles
 
 from .analysis_dialog import AnalysisDialog
 from .circuit_canvas import CircuitCanvas, CircuitCanvasView
 from .component_item import ComponentGraphicsItem
 from .component_palette import ComponentPalette
 from .main_window import MainWindow
+
 # Re-export from centralized styles module
-from .styles import (COMPONENTS, DEFAULT_COMPONENT_COUNTER, GRID_SIZE,
-                     theme_manager)
+from .styles import COMPONENTS, DEFAULT_COMPONENT_COUNTER, GRID_SIZE, theme_manager
 from .wire_item import WireGraphicsItem, WireItem
 
 __all__ = [
