@@ -12,6 +12,7 @@ from simulation.spice_sanitizer import (
     sanitize_spice_value,
     validate_wrdata_filepath,
 )
+from simulation.spice_value_normalizer import normalize_spice_value
 
 logger = logging.getLogger(__name__)
 
@@ -164,8 +165,21 @@ class NetlistGenerator:
             raise ValueError("Invalid component values:\n" + "\n".join(errors))
 
     def _sanitize_value(self, value: str) -> str:
-        """Sanitize a component value before interpolation into the netlist."""
-        return sanitize_spice_value(value)
+        """Sanitize a component value before interpolation into the netlist.
+
+        Sanitization runs first as the security gate (rejecting newlines and
+        directive injection); the resulting sanitized value is then normalized
+        so its SI suffix matches what the UI already displays. This is a bug
+        fix for a bare ``M`` suffix, which the UI parses as mega (1e6) but
+        ngspice interprets as milli (1e-3). Normalizing ``1M`` -> ``1meg``
+        makes ngspice agree with the UI without touching any other value.
+        """
+        sanitized = sanitize_spice_value(value)
+        try:
+            return normalize_spice_value(value, sanitized)
+        except Exception:  # pragma: no cover - normalization must never break a sim
+            logger.warning("Failed to normalize value %r; using sanitized value", value)
+            return sanitized
 
     def _has_ac_drive_reference(self) -> bool:
         """Return True if the circuit already carries an AC drive reference.

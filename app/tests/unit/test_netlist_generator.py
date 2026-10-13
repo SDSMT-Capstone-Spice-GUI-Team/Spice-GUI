@@ -430,7 +430,12 @@ class TestAnalysisCommands:
             nodes,
             t2n,
             analysis_type="AC Sweep",
-            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
         )
         line = self._dc_source_line(netlist)
         assert line is not None, "V1 source line not found in netlist"
@@ -450,7 +455,12 @@ class TestAnalysisCommands:
             nodes,
             t2n,
             analysis_type="AC Sweep",
-            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
         )
         line = self._dc_source_line(netlist)
         assert line is not None, "V1 source line not found in netlist"
@@ -484,7 +494,12 @@ class TestAnalysisCommands:
             nodes,
             t2n,
             analysis_type="AC Sweep",
-            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
         )
         line = self._dc_source_line(netlist)
         assert line is not None, "V1 source line not found in netlist"
@@ -543,7 +558,12 @@ class TestAnalysisCommands:
             nodes,
             t2n,
             analysis_type="AC Sweep",
-            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
         )
         for source_id in ("V1", "V2"):
             for line in netlist.splitlines():
@@ -567,7 +587,12 @@ class TestAnalysisCommands:
             nodes,
             t2n,
             analysis_type="AC Sweep",
-            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
         )
         supply_line = None
         ac_line = None
@@ -600,7 +625,12 @@ class TestAnalysisCommands:
             nodes,
             t2n,
             analysis_type="AC Sweep",
-            analysis_params={"sweep_type": "dec", "points": "10", "fStart": "1", "fStop": "1MEG"},
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
         )
         # No DC source should receive a newly injected "AC 1" suffix.
         injected = [l.strip() for l in netlist.splitlines() if l.strip().endswith("AC 1")]
@@ -1010,3 +1040,172 @@ class TestWrdataPathCrossPlatform:
         )
         netlist = gen.generate()
         assert "C:/Users/test/AppData/Local/wrdata.txt" in netlist
+
+
+class TestBareMSuffixNormalization:
+    """A bare ``M`` value is normalized to ``meg`` in the netlist.
+
+    The UI and ``parse_value`` read a bare ``M`` as mega (1e6), but ngspice
+    reads a bare ``M`` as milli (1e-3).  The netlist must write ``1meg`` so
+    ngspice agrees with the UI.  Lowercase ``m`` (milli) is already consistent
+    and stays milli; ``MEG`` variants are canonicalized to lowercase ``meg``.
+    """
+
+    def _build(self, values, analysis_type="DC Operating Point"):
+        """Build a V1 -- R1 -- R2 -- R3 -- GND chain with the given R1..R3."""
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "10V", (0, 0)),
+            "R1": make_component("Resistor", "R1", values[0], (100, 0)),
+            "R2": make_component("Resistor", "R2", values[1], (200, 0)),
+            "R3": make_component("Resistor", "R3", values[2], (300, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (400, 0)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "R2", 0),
+            make_wire("R2", 1, "R3", 0),
+            make_wire("R3", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_in = NodeData(terminals={("V1", 0), ("R1", 0)}, wire_indices={0}, auto_label="nodeA")
+        node_mid1 = NodeData(terminals={("R1", 1), ("R2", 0)}, wire_indices={1}, auto_label="nodeB")
+        node_mid2 = NodeData(terminals={("R2", 1), ("R3", 0)}, wire_indices={2}, auto_label="nodeC")
+        node_gnd = NodeData(
+            terminals={("R3", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={3, 4},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_in, node_mid1, node_mid2, node_gnd]
+        t2n = {
+            ("V1", 0): node_in,
+            ("R1", 0): node_in,
+            ("R1", 1): node_mid1,
+            ("R2", 0): node_mid1,
+            ("R2", 1): node_mid2,
+            ("R3", 0): node_mid2,
+            ("R3", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        return _generate(components, wires, nodes, t2n, analysis_type)
+
+    def test_bare_mega_normalized_in_resistor_line(self):
+        import re
+
+        netlist = self._build(["1M", "1k", "1k"])
+        assert re.search(r"\bR1\b.*\b1meg\b", netlist), f"Expected 1meg, got: {netlist}"
+        assert re.search(r"\bR1\b.*\s1M\b", netlist) is None, "Bare 1M should be normalized to 1meg"
+
+    def test_milli_stays_milli(self):
+        import re
+
+        netlist = self._build(["1m", "1k", "1k"])
+        assert re.search(r"\bR1\b.*\s1m\b", netlist), f"1m should stay milli: {netlist}"
+        assert re.search(r"\bR1\b.*\bmeg\b", netlist) is None, "1m must not be normalized to meg"
+
+    @pytest.mark.parametrize("variant", ["10MEG", "10Meg", "10meg"])
+    def test_meg_variants_stay_mega(self, variant):
+        import re
+
+        netlist = self._build([variant, "1k", "1k"])
+        assert re.search(r"\bR1\b.*\b10meg\b", netlist), f"{variant} should stay mega: {netlist}"
+
+    def test_bare_mega_netlist_matches_mega_semantics(self):
+        import re
+
+        bare = self._build(["1M", "1k", "1k"])
+        explicit = self._build(["1meg", "1k", "1k"])
+        assert re.search(r"\bR1\b.*\b1meg\b", bare)
+        assert re.search(r"\bR1\b.*\b1meg\b", explicit)
+
+    def test_model_names_and_waveform_unchanged(self):
+        """Model names (e.g. diode models) pass through untouched by normalization."""
+        import re
+
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "R1": make_component("Resistor", "R1", "1M", (100, 0)),
+            "D1": make_component("Diode", "D1", "D_Ideal", (200, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (300, 0)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "D1", 0),
+            make_wire("D1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(terminals={("V1", 0), ("R1", 0)}, wire_indices={0}, auto_label="nodeA")
+        node_b = NodeData(terminals={("R1", 1), ("D1", 0)}, wire_indices={1}, auto_label="nodeB")
+        node_gnd = NodeData(
+            terminals={("D1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={2, 3},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_b, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_b,
+            ("D1", 0): node_b,
+            ("D1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        netlist = _generate(components, wires, nodes, t2n)
+        # Bare-M resistor still normalizes to meg.
+        assert re.search(r"\bR1\b.*\b1meg\b", netlist)
+        # Diode model name passes through untouched.
+        assert "D_Ideal" in netlist
+
+    def test_ac_sweep_drive_detection_robust_to_bare_m(self):
+        """Drive detection works correctly even with a bare-M resistor value present."""
+        from simulation.netlist_generator import NetlistGenerator
+        from tests.conftest import make_component, make_wire
+
+        components = {
+            "V1": make_component("Voltage Source", "V1", "5V", (0, 0)),
+            "R1": make_component("Resistor", "R1", "1M", (100, 0)),
+            "GND1": make_component("Ground", "GND1", "0V", (200, 0)),
+        }
+        wires = [
+            make_wire("V1", 0, "R1", 0),
+            make_wire("R1", 1, "GND1", 0),
+            make_wire("V1", 1, "GND1", 0),
+        ]
+        node_a = NodeData(terminals={("V1", 0), ("R1", 0)}, wire_indices={0}, auto_label="nodeA")
+        node_gnd = NodeData(
+            terminals={("R1", 1), ("GND1", 0), ("V1", 1)},
+            wire_indices={1, 2},
+            is_ground=True,
+            auto_label="0",
+        )
+        nodes = [node_a, node_gnd]
+        t2n = {
+            ("V1", 0): node_a,
+            ("R1", 0): node_a,
+            ("R1", 1): node_gnd,
+            ("GND1", 0): node_gnd,
+            ("V1", 1): node_gnd,
+        }
+        gen = NetlistGenerator(
+            components,
+            wires,
+            nodes,
+            t2n,
+            analysis_type="AC Sweep",
+            analysis_params={
+                "sweep_type": "dec",
+                "points": "10",
+                "fStart": "1",
+                "fStop": "1MEG",
+            },
+        )
+        # With a single plain DC source and no existing AC reference, that source
+        # becomes the AC drive input (and its bare-M value still normalizes fine).
+        assert gen._compute_ac_sweep_drive_sources() == {"V1"}
