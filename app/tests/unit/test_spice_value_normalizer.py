@@ -11,8 +11,7 @@ translated (µ -> u, Ω dropped) on the way to the netlist.
 """
 
 import pytest
-from simulation.spice_value_normalizer import normalize_spice_value
-from simulation.spice_value_normalizer import translate_spice_unicode
+from simulation.spice_value_normalizer import normalize_spice_value, translate_spice_unicode
 
 
 class TestNormalizeSpiceValueBareM:
