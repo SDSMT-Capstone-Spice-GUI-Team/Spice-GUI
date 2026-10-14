@@ -17,6 +17,8 @@ class TestParseValue:
             ("4.7M", 4_700_000.0),
             ("100n", 100e-9),
             ("1u", 1e-6),
+            ("100µ", 100e-6),  # micro sign (U+00B5)
+            ("100μ", 100e-6),  # Greek small letter mu (U+03BC) — matches netlist #949
             ("10m", 10e-3),
             ("2.2p", 2.2e-12),
             ("1f", 1e-15),
@@ -26,6 +28,15 @@ class TestParseValue:
     )
     def test_si_suffixes(self, input_str, expected):
         assert parse_value(input_str) == pytest.approx(expected)
+
+    def test_micro_sign(self):
+        assert parse_value("100µ") == pytest.approx(100e-6)
+
+    def test_greek_mu(self):
+        # The netlist translates Greek mu (U+03BC) to ngspice's ``u``; the app's
+        # own parser must read the same value the same way, or validation and
+        # simulation disagree.  (Restored alongside the micro-sign case.)
+        assert parse_value("100μ") == pytest.approx(100e-6)
 
     def test_meg_suffix(self):
         assert parse_value("4.7MEG") == pytest.approx(4_700_000.0)

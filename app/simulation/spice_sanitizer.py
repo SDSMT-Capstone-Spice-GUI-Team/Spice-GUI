@@ -18,7 +18,13 @@ _DANGEROUS_DIRECTIVES = re.compile(
 # Valid SPICE value: optional sign, digits/decimal, optional SI suffix and unit,
 # or a known model/subcircuit name (alphanumeric with underscores).
 # Examples: "1k", "4.7u", "10MEG", "+3.3V", "2N3904", "SINE(0 1 1k)"
-_SPICE_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.+\-*/() ,=]+$")
+#
+# The micro sign (U+00B5) and omega characters (U+03A9, U+2126) are accepted so
+# values the user typed with SI unicode are not rejected here; the normalizer
+# (the next stage) translates µ -> u and drops omega before the value ever reaches
+# ngspice. This check is purely about *which characters are legal*, not their
+# meaning — it does not relax the injection guard or the newline rejection above.
+_SPICE_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.+\-*/() ,=\u00b5\u03bc\u03a9\u2126]+$")
 
 # Disallowed patterns within values — newlines and directive injections
 _VALUE_INJECTION_PATTERN = re.compile(
