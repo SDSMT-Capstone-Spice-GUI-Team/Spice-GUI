@@ -30,10 +30,20 @@ class TestSanitizeSpiceValue:
             "BF=300 IS=1e-14 VAF=100",
             "VTO=0.7 KP=110u",
             "10mH 10mH 0.99",
+            "100µ",  # U+00B5 MICRO SIGN — accepted, translated to 'u' downstream (#949)
+            "100Ω",  # U+03A9 GREEK CAPITAL OMEGA — accepted, dropped downstream (#949)
+            "100Ω",  # U+2126 OHM SIGN — accepted, dropped downstream (#949)
+            "1µF",
         ],
     )
     def test_valid_values_pass(self, value):
         assert sanitize_spice_value(value) == value
+
+    def test_unicode_micro_sign_accepted(self):
+        # The sanitizer only guards *which* characters are legal, not their
+        # meaning — µ/Ω reach the normalizer, which translates them to ASCII.
+        assert sanitize_spice_value("100µ") == "100µ"
+        assert sanitize_spice_value("100Ω") == "100Ω"
 
     def test_strips_whitespace(self):
         assert sanitize_spice_value("  1k  ") == "1k"
