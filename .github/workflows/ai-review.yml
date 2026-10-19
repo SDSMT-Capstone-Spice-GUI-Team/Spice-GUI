@@ -56,7 +56,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          DIFF_SIZE: ${{ github.event.pull_request.additions + github.event.pull_request.deletions }}
+          DIFF_ADDITIONS: ${{ github.event.pull_request.additions }}
+          DIFF_DELETIONS: ${{ github.event.pull_request.deletions }}
         run: python scripts/ai-review.py
 
   check-ci:
