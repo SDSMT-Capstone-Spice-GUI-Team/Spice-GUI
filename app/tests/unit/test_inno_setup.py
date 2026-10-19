@@ -68,7 +68,11 @@ class TestFilesSection:
 
     def test_license_files_included(self, iss_content):
         assert "LICENSE-COMBINED.txt" in iss_content
-        assert "NGSPICE-LICENSE.txt" in iss_content
+        # Licenses are bundled via the ..\licenses\* wildcard, which covers every
+        # collected third-party license (including NGSPICE-LICENSE.txt).
+        assert r"\licenses\*" in iss_content
+        licenses_dir = Path(__file__).resolve().parent.parent.parent.parent / "licenses"
+        assert (licenses_dir / "NGSPICE-LICENSE.txt").is_file()
 
 
 class TestIconsSection:
