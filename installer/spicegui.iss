@@ -16,7 +16,7 @@
 ; =========================================================================
 
 #define MyAppName      "Spice GUI"
-#define MyAppVersion        "0.1.0"
+#define MyAppVersion        "0.1.0-alpha1"
 #define MyAppNumericVersion "0.1.0"
 #define MyAppPublisher "SDSMT Capstone Spice GUI Team"
 #define MyAppURL       "https://github.com/SDSMT-Capstone-Spice-GUI-Team/Spice-GUI"
