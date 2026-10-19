@@ -68,7 +68,7 @@ Name: "fileassoc"; Description: "Associate .spice files with {#MyAppName}"; Grou
 Source: "..\dist\SpiceGUI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Licenses
 Source: "LICENSE-COMBINED.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
-Source: "..\licenses\NGSPICE-LICENSE.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "..\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion
 
 [Icons]
 ; Start Menu
