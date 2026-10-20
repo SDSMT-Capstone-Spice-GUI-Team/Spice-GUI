@@ -58,6 +58,15 @@ NGSPICE_LICENSE = REPO_ROOT / "licenses" / "NGSPICE-LICENSE.txt"
 if NGSPICE_LICENSE.is_file():
     datas.append((str(NGSPICE_LICENSE), "licenses"))
 
+# Bundle the Visual C++ redistributable when present at <repo>/vc_redist/
+# PyInstaller places it under <bundle>/redist/; the Inno Setup [Run] step
+# installs {app}\redist\vc_redist.x64.exe. When absent, the [Run] step is
+# skipped (skipifdoesntexist) and the installer warns instead.
+VC_REDIST_DIR = REPO_ROOT / "vc_redist"
+VC_REDIST_EXE = VC_REDIST_DIR / "vc_redist.x64.exe"
+if VC_REDIST_EXE.is_file():
+    datas.append((str(VC_REDIST_EXE), "redist"))
+
 # ---------------------------------------------------------------------------
 # Hidden imports
 #
