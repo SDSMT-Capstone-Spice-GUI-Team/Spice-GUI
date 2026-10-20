@@ -93,9 +93,7 @@ class UpdateDialog(QDialog):
         if status == "up_to_date":
             return QLabel("You are running the latest version.")
         if status == "network_error":
-            return QLabel(
-                "Couldn't check for updates. Check your internet connection and try again."
-            )
+            return QLabel("Couldn't check for updates. Check your internet connection and try again.")
         if status == "skipped":
             return QLabel(
                 "A newer release exists, but you chose not to be reminded. "
@@ -104,8 +102,7 @@ class UpdateDialog(QDialog):
             )
         if status == "prerelease":
             return QLabel(
-                "A newer development build is available, but only full releases are "
-                "checked for updates.",
+                "A newer development build is available, but only full releases are " "checked for updates.",
             )
         return QLabel(f"Version {result.get('version')} is available.")
 
@@ -143,9 +140,7 @@ class UpdateMixin:
         self._current_version = current_version
         self._check_for_update(current_version)
 
-    def _check_for_update(
-        self, current_version: str | None = None, *, notify: bool = True
-    ):
+    def _check_for_update(self, current_version: str | None = None, *, notify: bool = True):
         """Run an update check and (optionally) show the result dialog.
 
         Called by :meth:`schedule_update_check` (startup, ``notify=False``) and by
