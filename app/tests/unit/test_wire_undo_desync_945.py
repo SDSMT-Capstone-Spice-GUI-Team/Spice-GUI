@@ -23,7 +23,7 @@ geometry off the wrong model entry (issue #945).
 """
 
 from controllers.circuit_controller import CircuitController
-from controllers.commands import DeleteWireCommand
+from controllers.commands import DeleteComponentCommand, DeleteWireCommand
 from GUI.circuit_canvas import CircuitCanvasView
 from models.circuit import CircuitModel
 
@@ -127,4 +127,32 @@ class TestWireUndoDesync:
 
         ctrl.undo()
         assert len(canvas.wires) == 2
+        _assert_aligned(canvas, ctrl)
+
+    def test_undo_delete_component_restores_multiple_wires_aligned(self):
+        """Undoing a DeleteComponentCommand restores several wires in a single
+        command — a different path from the two separate DeleteWireCommands
+        above. All restored wires must land identity- and order-aligned."""
+        ctrl = CircuitController(CircuitModel())
+        canvas = CircuitCanvasView(ctrl)
+
+        v1 = ctrl.add_component("Voltage Source", (0, 0))
+        r1 = ctrl.add_component("Resistor", (200, 0))
+        r2 = ctrl.add_component("Resistor", (400, 0))
+        ctrl.add_component("Ground", (600, 0))
+        # A three-wire chain: V1[0]--R1[0], R1[1]--R2[0], R2[1]--GND1[0]
+        ctrl.add_wire(v1.component_id, 0, r1.component_id, 0)
+        ctrl.add_wire(r1.component_id, 1, r2.component_id, 0)
+        ctrl.add_wire(r2.component_id, 1, "GND1", 0)
+        assert len(canvas.wires) == 3
+
+        ctrl.execute_command(DeleteComponentCommand(ctrl, r1.component_id))
+        # Deleting the middle component removes the two wires attached to it
+        # (W0, W1); the third (R2 -> GND) is untouched.
+        assert len(ctrl.model.wires) == 1
+        assert len(canvas.wires) == 1
+
+        # One undo restores the component and both deleted wires at once.
+        ctrl.undo()
+        assert len(ctrl.model.wires) == 3
         _assert_aligned(canvas, ctrl)

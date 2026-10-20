@@ -360,8 +360,11 @@ class CircuitCanvasView(QGraphicsView):
         authoritative instance so geometry reads align.
         """
         model_wires = list(self.controller.model.wires)
+        # Early-return when empty rather than ``self.wires.clear()``: clearing
+        # empties the Python list but leaves the graphics items in the scene as
+        # untracked "ghost" wires (selectable? no, deletable? no). The model is
+        # the source of truth, so an empty model means an empty canvas list.
         if not model_wires:
-            self.wires.clear()
             return
 
         by_key = {
@@ -403,7 +406,7 @@ class CircuitCanvasView(QGraphicsView):
                 item.model.end_component_id,
                 item.model.end_terminal,
             )
-            item.model = restored_by_key[key]
+            item.model = restored_by_key.get(key, item.model)
 
     def _handle_wire_routed(self, data) -> None:
         """Update wire waypoints from a (wire_index, wire_data) tuple."""
