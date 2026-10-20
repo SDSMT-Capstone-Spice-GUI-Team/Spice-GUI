@@ -37,6 +37,11 @@ REPO = f"{REPO_OWNER}/{REPO_NAME}"
 # keeping the response small.
 LATEST_RELEASE_URL = f"https://api.github.com/repos/{REPO}/releases/latest?per_page=1"
 
+# Releases list endpoint.  ``releases/latest`` only ever returns a single tag
+# (which may be a pre-release); the list lets us skip pre-releases and fall back
+# to the newest *full* release instead.
+RELEASES_LIST_URL = f"https://api.github.com/repos/{REPO}/releases?per_page=100"
+
 # Settings keys (persisted via ``settings_service``).
 SETTINGS_KEY_SKIP_VERSION = "update/skipped_version"  # tag_name the user dismissed
 
@@ -152,11 +157,7 @@ def check_for_update(
     if _is_prerelease(remote):
         return {"status": "prerelease", "version": remote, "has_downloader": False}
 
-    if (
-        skipped_version
-        and _parse_version(remote)
-        and _parse_version(remote) == _parse_version(skipped_version)
-    ):
+    if skipped_version and _parse_version(remote) and _parse_version(remote) == _parse_version(skipped_version):
         return {"status": "skipped", "version": remote, "has_downloader": False}
 
     if new_version_available(local, remote):
@@ -166,12 +167,18 @@ def check_for_update(
 
 
 def latest_release_tag(
-    *, api_url: str = LATEST_RELEASE_URL, timeout: float = DEFAULT_TIMEOUT_SECONDS
+    *,
+    api_url: str = RELEASES_LIST_URL,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> Optional[str]:
-    """Return the latest published release tag, or ``None`` on any failure.
+    """Return the latest *full* release tag (``x.x.x``, no suffix), or ``None``.
 
-    A network timeout, connection error, non-200 status, malformed JSON, or an
-    assetless response all result in ``None`` (logged) — never an exception.
+    GitHub's ``releases/latest`` only ever returns a single tag, which may be a
+    pre-release; the *list* endpoint lets us skip pre-releases and fall back to
+    the newest full release instead.  A network timeout, connection error,
+    non-200 status, malformed JSON, or "no full releases" all result in ``None``
+    (logged) -- never an exception.  The single-dict ``releases/latest`` shape is
+    also accepted for backward compatibility.
     """
     try:
         response = requests.get(api_url, timeout=timeout)
@@ -189,11 +196,21 @@ def latest_release_tag(
         logger.warning("Update check response was not valid JSON")
         return None
 
-    tag = data.get("tag_name")
-    if not tag:
-        logger.debug("Latest release response had no tag_name")
+    if isinstance(data, list):
+        # GitHub lists newest first; take the newest tag that is a full release.
+        for release in data:
+            tag = release.get("tag_name")
+            if tag and not _is_prerelease(str(tag)):
+                return str(tag)
+        logger.debug("Releases list had no full release (only pre-releases)")
         return None
-    return str(tag)
+
+    # Backward-compat single-release shape: the only release returned.
+    tag = data.get("tag_name")
+    if tag and not _is_prerelease(str(tag)):
+        return str(tag)
+    logger.debug("Latest release response had no full-release tag_name")
+    return None
 
 
 def _find_installer_asset(release_data: dict) -> Optional[str]:
@@ -259,9 +276,7 @@ def download_installer(
     dest_dir = Path(tmp_dir) if tmp_dir is not None else Path(tempfile.gettempdir())
     try:
         # Use the release tag as the filename so the user sees a sensible name.
-        safe_tag = "".join(
-            ch if (ch.isalnum() or ch in ".-_") else "_" for ch in remote_tag
-        )
+        safe_tag = "".join(ch if (ch.isalnum() or ch in ".-_") else "_" for ch in remote_tag)
         filename = f"SpiceGUI-{safe_tag}{INSTALLER_ASSET_SUFFIX}"
         target = dest_dir / filename
 

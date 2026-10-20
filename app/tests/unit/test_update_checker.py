@@ -165,6 +165,41 @@ def test_latest_release_tag_none_when_no_tag(monkeypatch):
     assert update_checker.latest_release_tag() is None
 
 
+def test_latest_release_tag_skips_prerelease_and_returns_latest_full(monkeypatch):
+    # GitHub lists newest first; the newest entry is a pre-release and must be
+    # skipped in favour of the newest full release.
+    list_data = [
+        {"tag_name": "v0.1.0-alpha1"},
+        {"tag_name": "v1.0.0"},
+        {"tag_name": "v0.9.0"},
+    ]
+    monkeypatch.setattr(
+        update_checker.requests,
+        "get",
+        lambda *args, **kwargs: _FakeResponse(200, list_data),
+    )
+    assert update_checker.latest_release_tag() == "v1.0.0"
+
+
+def test_latest_release_tag_none_when_only_prereleases(monkeypatch):
+    monkeypatch.setattr(
+        update_checker.requests,
+        "get",
+        lambda *args, **kwargs: _FakeResponse(200, [{"tag_name": "v0.1.0-alpha1"}]),
+    )
+    assert update_checker.latest_release_tag() is None
+
+
+def test_latest_release_tag_none_when_prerelease_alone_in_single_shape(monkeypatch):
+    # A single-dict response whose only release is a pre-release yields ``None``.
+    monkeypatch.setattr(
+        update_checker.requests,
+        "get",
+        lambda *args, **kwargs: _FakeResponse(200, {"tag_name": "v0.1.0-alpha1"}),
+    )
+    assert update_checker.latest_release_tag() is None
+
+
 # --- download_installer -------------------------------------------------------
 
 
@@ -173,9 +208,7 @@ def test_download_installer_streams_to_file(monkeypatch, tmp_path):
     download_url = "https://example.com/SpiceGUI-1.0.0.exe"
     release = {
         "tag_name": "v1.0.0",
-        "assets": [
-            {"name": "SpiceGUI-1.0.0.exe", "browser_download_url": download_url}
-        ],
+        "assets": [{"name": "SpiceGUI-1.0.0.exe", "browser_download_url": download_url}],
     }
 
     captured = {}
@@ -199,18 +232,14 @@ def test_download_installer_streams_to_file(monkeypatch, tmp_path):
 def test_download_installer_none_when_no_exe_asset(monkeypatch, tmp_path):
     release = {
         "tag_name": "v1.0.0",
-        "assets": [
-            {"name": "notes.txt", "browser_download_url": "https://x/notes.txt"}
-        ],
+        "assets": [{"name": "notes.txt", "browser_download_url": "https://x/notes.txt"}],
     }
     monkeypatch.setattr(
         update_checker.requests,
         "get",
         lambda url, **kw: _FakeResponse(200, release),
     )
-    assert (
-        update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
-    )
+    assert update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
 
 
 def test_download_installer_none_on_network_error(monkeypatch, tmp_path):
@@ -218,9 +247,7 @@ def test_download_installer_none_on_network_error(monkeypatch, tmp_path):
         raise update_checker.requests.RequestException("offline")
 
     monkeypatch.setattr(update_checker.requests, "get", boom)
-    assert (
-        update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
-    )
+    assert update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
 
 
 def test_download_installer_none_on_bad_json(monkeypatch, tmp_path):
@@ -230,9 +257,7 @@ def test_download_installer_none_on_bad_json(monkeypatch, tmp_path):
     resp = _FakeResponse(200, object())
     monkeypatch.setattr(resp, "json", bad_json)
     monkeypatch.setattr(update_checker.requests, "get", lambda *a, **k: resp)
-    assert (
-        update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
-    )
+    assert update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
 
 
 # --- helper -------------------------------------------------------------------
