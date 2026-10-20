@@ -653,6 +653,11 @@ class MenuBarMixin:
             tutorial_action.triggered.connect(self._start_tutorial)
             help_menu.addAction(tutorial_action)
 
+            update_action = QAction("Check for &Update...", self)
+            update_action.setToolTip("Check GitHub Releases for a newer version of SDM-Spice")
+            update_action.triggered.connect(self._check_for_update)
+            help_menu.addAction(update_action)
+
     def _open_preferences_dialog(self):
         """Open the unified preferences dialog (single-instance, non-modal)."""
         from .preferences_dialog import PreferencesDialog

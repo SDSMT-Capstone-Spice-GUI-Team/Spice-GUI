@@ -45,6 +45,51 @@ def test_compare_versions_alpha_tag_treated_as_older():
     assert update_checker.new_version_available("1.0.0", "dev") is False
 
 
+# --- check_for_update ---------------------------------------------------------
+
+
+def test_check_for_update_network_error():
+    result = update_checker.check_for_update("0.1.0", None)
+    assert result["status"] == "network_error"
+    assert result["version"] is None
+    assert result["has_downloader"] is False
+
+
+def test_check_for_update_available():
+    result = update_checker.check_for_update("0.1.0", "v1.0.0")
+    assert result["status"] == "update_available"
+    assert result["version"] == "v1.0.0"
+    assert result["has_downloader"] is True
+
+
+def test_check_for_update_up_to_date():
+    result = update_checker.check_for_update("1.0.0", "v1.0.0")
+    assert result["status"] == "up_to_date"
+    assert result["has_downloader"] is False
+
+
+def test_check_for_update_skipped():
+    result = update_checker.check_for_update("1.0.0", "v2.0.0", skipped_version="2.0.0")
+    assert result["status"] == "skipped"
+
+
+def test_check_for_update_skipped_ignores_prefix_mismatch():
+    # skipped_version stored as "2.0.0" matches remote "v2.0.0" by numeric form.
+    result = update_checker.check_for_update("1.0.0", "v2.0.0", skipped_version="2.0.0")
+    assert result["status"] == "skipped"
+
+
+def test_check_for_update_not_skipped_when_version_differs():
+    result = update_checker.check_for_update("1.0.0", "v2.0.0", skipped_version="2.1.0")
+    assert result["status"] == "update_available"
+
+
+def test_check_for_update_network_error_when_not_skipped():
+    # No remote tag at all beats skip handling.
+    result = update_checker.check_for_update("1.0.0", None, skipped_version="2.0.0")
+    assert result["status"] == "network_error"
+
+
 # --- new_version_available ----------------------------------------------------
 
 

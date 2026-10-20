@@ -105,6 +105,43 @@ def new_version_available(local: str, remote: str) -> bool:
     return compare_versions(local, remote) < 0
 
 
+def check_for_update(
+    local: str,
+    remote: str | None,
+    *,
+    skipped_version: str = "",
+    api_url: str = LATEST_RELEASE_URL,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+) -> dict:
+    """Run a complete update check and return a structured result dict.
+
+    Pure function (no Qt): takes the local version and the raw result of
+    :func:`latest_release_tag` and decides which state the caller should show.
+
+    The ``status`` key is one of:
+
+    * ``"network_error"`` -- no remote tag returned (offline, bad response, …).
+    * ``"up_to_date"`` -- a tag was returned and it is not newer than ``local``.
+    * ``"update_available"`` -- a newer release was found.
+    * ``"skipped"`` -- the user previously dismissed ``remote`` and it still
+      matches; the caller should not nag again.
+
+    When ``status`` is ``"update_available"`` the dict also carries the remote
+    tag under ``"version"`` and ``"has_downloader"`` is set so a caller can offer
+    the download action.
+    """
+    if remote is None:
+        return {"status": "network_error", "version": None, "has_downloader": False}
+
+    if skipped_version and _parse_version(remote) and _parse_version(remote) == _parse_version(skipped_version):
+        return {"status": "skipped", "version": remote, "has_downloader": False}
+
+    if new_version_available(local, remote):
+        return {"status": "update_available", "version": remote, "has_downloader": True}
+
+    return {"status": "up_to_date", "version": remote, "has_downloader": False}
+
+
 def latest_release_tag(*, api_url: str = LATEST_RELEASE_URL, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> Optional[str]:
     """Return the latest published release tag, or ``None`` on any failure.
 
