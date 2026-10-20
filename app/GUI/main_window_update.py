@@ -22,6 +22,10 @@ from services import update_checker
 
 logger = logging.getLogger(__name__)
 
+# Shown in place of a version when none is known — i.e. a development run
+# (``uv run``), where ``main.py`` does not pass the bundled version.
+DEV_VERSION_LABEL = "development version"
+
 
 class UpdateDialog(QDialog):
     """Dialog showing the result of an update check.
@@ -89,12 +93,19 @@ class UpdateDialog(QDialog):
         if status == "up_to_date":
             return QLabel("You are running the latest version.")
         if status == "network_error":
-            return QLabel("Couldn't check for updates. Check your internet connection and try again.")
+            return QLabel(
+                "Couldn't check for updates. Check your internet connection and try again."
+            )
         if status == "skipped":
             return QLabel(
                 "A newer release exists, but you chose not to be reminded. "
                 f"Release {result.get('version')} is available. "
                 "Use 'Check for Update' to install it, or click Dismiss.",
+            )
+        if status == "prerelease":
+            return QLabel(
+                "A newer development build is available, but only full releases are "
+                "checked for updates.",
             )
         return QLabel(f"Version {result.get('version')} is available.")
 
@@ -132,7 +143,9 @@ class UpdateMixin:
         self._current_version = current_version
         self._check_for_update(current_version)
 
-    def _check_for_update(self, current_version: str | None = None, *, notify: bool = True):
+    def _check_for_update(
+        self, current_version: str | None = None, *, notify: bool = True
+    ):
         """Run an update check and (optionally) show the result dialog.
 
         Called by :meth:`schedule_update_check` (startup, ``notify=False``) and by
@@ -141,7 +154,7 @@ class UpdateMixin:
         failures are logged, not shown.
         """
         if current_version is None:
-            current_version = getattr(self, "_current_version", "?")
+            current_version = getattr(self, "_current_version", DEV_VERSION_LABEL)
 
         def _run_check():
             try:
@@ -159,16 +172,18 @@ class UpdateMixin:
                 ),
             )
 
-            if result["status"] == "network_error":
-                logger.debug("Update check failed: %s", current_version)
-                return
-
             # Startup stays silent unless an update is available; the manual
             # check always surfaces the result so the user can see the fetch.
             if not notify and result["status"] != "update_available":
+                if result["status"] == "network_error":
+                    logger.debug("Update check failed: %s", current_version)
                 return
 
-            logger.debug("Running version %s is up to date", current_version)
+            logger.debug(
+                "Running version %s, check result: %s",
+                current_version,
+                result["status"],
+            )
             dialog = UpdateDialog(result, current_version, parent=self)
             dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
             dialog.show()

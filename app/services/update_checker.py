@@ -72,6 +72,16 @@ def _parse_version(tag: str) -> Tuple[int, ...]:
     return tuple(components)
 
 
+def _is_prerelease(tag: str) -> bool:
+    """Return True when a release tag is a pre-release, e.g. ``v0.1.0-alpha1``.
+
+    A pre-release carries a hyphenated identifier after the dotted version
+    (SemVer ``X.Y.Z-<identifier>``).  Only stable ("full") releases are tracked
+    for updates, so anything with such a suffix is reported separately.
+    """
+    return "-" in tag.lstrip("vV")
+
+
 def compare_versions(local: str, remote: str) -> int:
     """Return -1, 0, or 1 comparing ``local`` to ``remote``.
 
@@ -122,7 +132,10 @@ def check_for_update(
 
     * ``"network_error"`` -- no remote tag returned (offline, bad response, …).
     * ``"up_to_date"`` -- a tag was returned and it is not newer than ``local``.
-    * ``"update_available"`` -- a newer release was found.
+    * ``"update_available"`` -- a newer (stable) release was found.
+    * ``"prerelease"`` -- the latest published release is a pre-release (e.g. an
+      ``-alpha1`` build).  Stable releases are what we track, so the caller is
+      shown a distinct "development version" note instead of an offer to update.
     * ``"skipped"`` -- the user previously dismissed ``remote`` and it still
       matches; the caller should not nag again.
 
@@ -133,7 +146,17 @@ def check_for_update(
     if remote is None:
         return {"status": "network_error", "version": None, "has_downloader": False}
 
-    if skipped_version and _parse_version(remote) and _parse_version(remote) == _parse_version(skipped_version):
+    # A pre-release (e.g. "v0.1.0-alpha1") is treated as a development build, not
+    # a full release to offer.  It must be handled before the skip check so it is
+    # reported distinctly rather than as a skipped update.
+    if _is_prerelease(remote):
+        return {"status": "prerelease", "version": remote, "has_downloader": False}
+
+    if (
+        skipped_version
+        and _parse_version(remote)
+        and _parse_version(remote) == _parse_version(skipped_version)
+    ):
         return {"status": "skipped", "version": remote, "has_downloader": False}
 
     if new_version_available(local, remote):
@@ -142,7 +165,9 @@ def check_for_update(
     return {"status": "up_to_date", "version": remote, "has_downloader": False}
 
 
-def latest_release_tag(*, api_url: str = LATEST_RELEASE_URL, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> Optional[str]:
+def latest_release_tag(
+    *, api_url: str = LATEST_RELEASE_URL, timeout: float = DEFAULT_TIMEOUT_SECONDS
+) -> Optional[str]:
     """Return the latest published release tag, or ``None`` on any failure.
 
     A network timeout, connection error, non-200 status, malformed JSON, or an
@@ -234,7 +259,9 @@ def download_installer(
     dest_dir = Path(tmp_dir) if tmp_dir is not None else Path(tempfile.gettempdir())
     try:
         # Use the release tag as the filename so the user sees a sensible name.
-        safe_tag = "".join(ch if (ch.isalnum() or ch in ".-_") else "_" for ch in remote_tag)
+        safe_tag = "".join(
+            ch if (ch.isalnum() or ch in ".-_") else "_" for ch in remote_tag
+        )
         filename = f"SpiceGUI-{safe_tag}{INSTALLER_ASSET_SUFFIX}"
         target = dest_dir / filename
 

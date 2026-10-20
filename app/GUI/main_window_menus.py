@@ -51,12 +51,16 @@ class MenuBarMixin:
         file_menu.addSeparator()
 
         new_from_template_action = QAction("New from &Template...", self)
-        new_from_template_action.setToolTip("Create a new circuit from an assignment template")
+        new_from_template_action.setToolTip(
+            "Create a new circuit from an assignment template"
+        )
         new_from_template_action.triggered.connect(self._on_new_from_template)
         file_menu.addAction(new_from_template_action)
 
         save_as_template_action = QAction("Save as Temp&late...", self)
-        save_as_template_action.setToolTip("Save current circuit as an assignment template with metadata")
+        save_as_template_action.setToolTip(
+            "Save current circuit as an assignment template with metadata"
+        )
         save_as_template_action.triggered.connect(self._on_save_as_template)
         file_menu.addAction(save_as_template_action)
 
@@ -73,7 +77,9 @@ class MenuBarMixin:
         file_menu.addAction(import_asc_action)
 
         import_tikz_action = QAction("Import Circui&TikZ LaTeX...", self)
-        import_tikz_action.setToolTip("Import a circuit from CircuiTikZ LaTeX code (.tex)")
+        import_tikz_action.setToolTip(
+            "Import a circuit from CircuiTikZ LaTeX code (.tex)"
+        )
         import_tikz_action.triggered.connect(self._on_import_circuitikz)
         file_menu.addAction(import_tikz_action)
 
@@ -84,7 +90,9 @@ class MenuBarMixin:
 
         export_netlist_action = QAction("Export &Netlist...", self)
         export_netlist_action.setShortcut(kb.get("file.export_netlist"))
-        export_netlist_action.setToolTip("Export the generated SPICE netlist to a .cir file")
+        export_netlist_action.setToolTip(
+            "Export the generated SPICE netlist to a .cir file"
+        )
         export_netlist_action.triggered.connect(self.export_netlist)
         file_menu.addAction(export_netlist_action)
 
@@ -99,7 +107,9 @@ class MenuBarMixin:
         file_menu.addAction(export_pdf_action)
 
         export_latex_action = QAction("Export as &LaTeX...", self)
-        export_latex_action.setToolTip("Export circuit as CircuiTikZ LaTeX code (.tex file)")
+        export_latex_action.setToolTip(
+            "Export circuit as CircuiTikZ LaTeX code (.tex file)"
+        )
         export_latex_action.triggered.connect(self.export_circuitikz)
         file_menu.addAction(export_latex_action)
 
@@ -109,22 +119,30 @@ class MenuBarMixin:
         file_menu.addAction(export_asc_action)
 
         export_bom_action = QAction("Export &BOM...", self)
-        export_bom_action.setToolTip("Export Bill of Materials listing all components with quantities")
+        export_bom_action.setToolTip(
+            "Export Bill of Materials listing all components with quantities"
+        )
         export_bom_action.triggered.connect(self._on_export_bom)
         file_menu.addAction(export_bom_action)
 
         export_markdown_action = QAction("Export Results as &Markdown...", self)
-        export_markdown_action.setToolTip("Export simulation results as a Markdown table (.md file)")
+        export_markdown_action.setToolTip(
+            "Export simulation results as a Markdown table (.md file)"
+        )
         export_markdown_action.triggered.connect(self.export_results_markdown)
         file_menu.addAction(export_markdown_action)
 
         generate_report_action = QAction("&Generate Circuit Report (PDF)...", self)
-        generate_report_action.setToolTip("Generate a comprehensive PDF report with schematic, netlist, and results")
+        generate_report_action.setToolTip(
+            "Generate a comprehensive PDF report with schematic, netlist, and results"
+        )
         generate_report_action.triggered.connect(self._on_generate_report)
         file_menu.addAction(generate_report_action)
 
         export_bundle_action = QAction("Export Lab &Bundle (.zip)...", self)
-        export_bundle_action.setToolTip("Export all circuit artifacts as a ZIP bundle for lab submission")
+        export_bundle_action.setToolTip(
+            "Export all circuit artifacts as a ZIP bundle for lab submission"
+        )
         export_bundle_action.triggered.connect(self._on_export_bundle)
         file_menu.addAction(export_bundle_action)
 
@@ -140,7 +158,9 @@ class MenuBarMixin:
 
         self._recent_exports_menu = QMenu("Recent E&xports", self)
         file_menu.addMenu(self._recent_exports_menu)
-        self._recent_exports_menu.aboutToShow.connect(self._populate_recent_exports_menu)
+        self._recent_exports_menu.aboutToShow.connect(
+            self._populate_recent_exports_menu
+        )
 
         file_menu.addSeparator()
 
@@ -211,7 +231,9 @@ class MenuBarMixin:
         edit_menu.addSeparator()
 
         copy_latex_action = QAction("Copy as La&TeX", self)
-        copy_latex_action.setToolTip("Copy the CircuiTikZ environment block to the clipboard")
+        copy_latex_action.setToolTip(
+            "Copy the CircuiTikZ environment block to the clipboard"
+        )
         copy_latex_action.triggered.connect(self.copy_circuitikz)
         edit_menu.addAction(copy_latex_action)
 
@@ -250,7 +272,9 @@ class MenuBarMixin:
         edit_menu.addSeparator()
 
         recommended_action = QAction("Edit &Recommended Components...", self)
-        recommended_action.setToolTip("Edit file-level recommended components shown at the top of the palette")
+        recommended_action.setToolTip(
+            "Edit file-level recommended components shown at the top of the palette"
+        )
         recommended_action.triggered.connect(self._edit_recommended_components)
         edit_menu.addAction(recommended_action)
 
@@ -295,7 +319,9 @@ class MenuBarMixin:
         self.probe_action = QAction("&Probe Tool", self)
         self.probe_action.setCheckable(True)
         self.probe_action.setShortcut(kb.get("tools.probe"))
-        self.probe_action.setToolTip("Click nodes or components to see voltage/current values")
+        self.probe_action.setToolTip(
+            "Click nodes or components to see voltage/current values"
+        )
         self.probe_action.triggered.connect(self._toggle_probe_mode)
         view_menu.addAction(self.probe_action)
 
@@ -316,7 +342,9 @@ class MenuBarMixin:
         self.light_theme_action = QAction("&Light", self)
         self.light_theme_action.setCheckable(True)
         self.light_theme_action.setChecked(True)
-        self.light_theme_action.triggered.connect(lambda: self._set_theme_by_key("light"))
+        self.light_theme_action.triggered.connect(
+            lambda: self._set_theme_by_key("light")
+        )
         self.theme_menu.addAction(self.light_theme_action)
         self.theme_group.addAction(self.light_theme_action)
 
@@ -356,7 +384,9 @@ class MenuBarMixin:
 
         self.monochrome_mode_action = QAction("&Monochrome", self)
         self.monochrome_mode_action.setCheckable(True)
-        self.monochrome_mode_action.triggered.connect(lambda: self.set_color_mode("monochrome"))
+        self.monochrome_mode_action.triggered.connect(
+            lambda: self.set_color_mode("monochrome")
+        )
         color_mode_menu.addAction(self.monochrome_mode_action)
 
         self.color_mode_group = QActionGroup(self)
@@ -505,19 +535,25 @@ class MenuBarMixin:
 
         sens_action = QAction("&Sensitivity...", self)
         sens_action.setCheckable(True)
-        sens_action.setToolTip("DC sensitivity analysis — shows impact of each component on output (.sens)")
+        sens_action.setToolTip(
+            "DC sensitivity analysis — shows impact of each component on output (.sens)"
+        )
         sens_action.triggered.connect(self.set_analysis_sensitivity)
         analysis_menu.addAction(sens_action)
 
         tf_action = QAction("Transfer &Function...", self)
         tf_action.setCheckable(True)
-        tf_action.setToolTip("Small-signal DC transfer function — gain, input and output impedance (.tf)")
+        tf_action.setToolTip(
+            "Small-signal DC transfer function — gain, input and output impedance (.tf)"
+        )
         tf_action.triggered.connect(self.set_analysis_tf)
         analysis_menu.addAction(tf_action)
 
         pz_action = QAction("Pole-&Zero...", self)
         pz_action.setCheckable(True)
-        pz_action.setToolTip("Pole-Zero analysis for stability and frequency response (.pz)")
+        pz_action.setToolTip(
+            "Pole-Zero analysis for stability and frequency response (.pz)"
+        )
         pz_action.triggered.connect(self.set_analysis_pz)
         analysis_menu.addAction(pz_action)
 
@@ -525,7 +561,9 @@ class MenuBarMixin:
 
         mc_action = QAction("&Monte Carlo...", self)
         mc_action.setCheckable(True)
-        mc_action.setToolTip("Run Monte Carlo tolerance analysis with randomized component values")
+        mc_action.setToolTip(
+            "Run Monte Carlo tolerance analysis with randomized component values"
+        )
         mc_action.triggered.connect(self.set_analysis_monte_carlo)
         analysis_menu.addAction(mc_action)
 
@@ -591,7 +629,9 @@ class MenuBarMixin:
         instructor_menu = menubar.addMenu("&Instructor")
         if instructor_menu:
             create_rubric_action = QAction("&Create Rubric...", self)
-            create_rubric_action.setToolTip("Open the rubric editor to create or edit a grading rubric")
+            create_rubric_action.setToolTip(
+                "Open the rubric editor to create or edit a grading rubric"
+            )
             create_rubric_action.triggered.connect(self._on_create_rubric)
             instructor_menu.addAction(create_rubric_action)
 
@@ -605,7 +645,9 @@ class MenuBarMixin:
             instructor_menu.addSeparator()
 
             grade_action = QAction("&Grade Student Circuit...", self)
-            grade_action.setToolTip("Open the grading panel to grade a student submission")
+            grade_action.setToolTip(
+                "Open the grading panel to grade a student submission"
+            )
             grade_action.triggered.connect(self._toggle_grading_panel)
             instructor_menu.addAction(grade_action)
 
@@ -617,12 +659,16 @@ class MenuBarMixin:
             instructor_menu.addSeparator()
 
             open_assignment_action = QAction("&Open Assignment...", self)
-            open_assignment_action.setToolTip("Open a .spice-assignment bundle (template + rubric)")
+            open_assignment_action.setToolTip(
+                "Open a .spice-assignment bundle (template + rubric)"
+            )
             open_assignment_action.triggered.connect(self._on_open_assignment)
             instructor_menu.addAction(open_assignment_action)
 
             save_assignment_action = QAction("&Save as Assignment...", self)
-            save_assignment_action.setToolTip("Bundle the current circuit and a rubric into a .spice-assignment file")
+            save_assignment_action.setToolTip(
+                "Bundle the current circuit and a rubric into a .spice-assignment file"
+            )
             save_assignment_action.triggered.connect(self._on_save_assignment)
             instructor_menu.addAction(save_assignment_action)
 
@@ -649,13 +695,19 @@ class MenuBarMixin:
             help_menu.addAction(help_action)
 
             tutorial_action = QAction("Guided &Tutorial...", self)
-            tutorial_action.setToolTip("Step-by-step tutorial for building your first circuit")
+            tutorial_action.setToolTip(
+                "Step-by-step tutorial for building your first circuit"
+            )
             tutorial_action.triggered.connect(self._start_tutorial)
             help_menu.addAction(tutorial_action)
 
             update_action = QAction("Check for &Update...", self)
-            update_action.setToolTip("Check GitHub Releases for a newer version of SDM-Spice")
-            update_action.triggered.connect(self._check_for_update)
+            update_action.setToolTip(
+                "Check GitHub Releases for a newer version of SDM-Spice"
+            )
+            update_action.triggered.connect(
+                lambda _checked: self._check_for_update(notify=True)
+            )
             help_menu.addAction(update_action)
 
     def _open_preferences_dialog(self):
@@ -697,14 +749,18 @@ class MenuBarMixin:
 
         # Add custom themes after a separator
         available = theme_manager.get_available_themes()
-        custom_themes = [(name, key) for name, key in available if key.startswith("custom:")]
+        custom_themes = [
+            (name, key) for name, key in available if key.startswith("custom:")
+        ]
         if custom_themes:
             sep = self.theme_menu.addSeparator()
             self._custom_theme_actions.append(sep)
             for display_name, key in custom_themes:
                 action = QAction(display_name, self)
                 action.setCheckable(True)
-                action.triggered.connect(lambda checked, k=key: self._set_theme_by_key(k))
+                action.triggered.connect(
+                    lambda checked, k=key: self._set_theme_by_key(k)
+                )
                 self.theme_menu.addAction(action)
                 self.theme_group.addAction(action)
                 self._custom_theme_actions.append(action)

@@ -55,6 +55,15 @@ def test_check_for_update_network_error():
     assert result["has_downloader"] is False
 
 
+def test_check_for_update_prerelease():
+    # A pre-release (e.g. "v0.1.0-alpha1") is treated as a development build, not
+    # a full release to offer as an update.
+    result = update_checker.check_for_update("0.1.0", "v0.1.0-alpha1")
+    assert result["status"] == "prerelease"
+    assert result["version"] == "v0.1.0-alpha1"
+    assert result["has_downloader"] is False
+
+
 def test_check_for_update_available():
     result = update_checker.check_for_update("0.1.0", "v1.0.0")
     assert result["status"] == "update_available"
@@ -162,7 +171,12 @@ def test_latest_release_tag_none_when_no_tag(monkeypatch):
 def test_download_installer_streams_to_file(monkeypatch, tmp_path):
     payload = b"INSTALLER-BYTES"
     download_url = "https://example.com/SpiceGUI-1.0.0.exe"
-    release = {"tag_name": "v1.0.0", "assets": [{"name": "SpiceGUI-1.0.0.exe", "browser_download_url": download_url}]}
+    release = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {"name": "SpiceGUI-1.0.0.exe", "browser_download_url": download_url}
+        ],
+    }
 
     captured = {}
 
@@ -183,13 +197,20 @@ def test_download_installer_streams_to_file(monkeypatch, tmp_path):
 
 
 def test_download_installer_none_when_no_exe_asset(monkeypatch, tmp_path):
-    release = {"tag_name": "v1.0.0", "assets": [{"name": "notes.txt", "browser_download_url": "https://x/notes.txt"}]}
+    release = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {"name": "notes.txt", "browser_download_url": "https://x/notes.txt"}
+        ],
+    }
     monkeypatch.setattr(
         update_checker.requests,
         "get",
         lambda url, **kw: _FakeResponse(200, release),
     )
-    assert update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
+    assert (
+        update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
+    )
 
 
 def test_download_installer_none_on_network_error(monkeypatch, tmp_path):
@@ -197,7 +218,9 @@ def test_download_installer_none_on_network_error(monkeypatch, tmp_path):
         raise update_checker.requests.RequestException("offline")
 
     monkeypatch.setattr(update_checker.requests, "get", boom)
-    assert update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
+    assert (
+        update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
+    )
 
 
 def test_download_installer_none_on_bad_json(monkeypatch, tmp_path):
@@ -207,7 +230,9 @@ def test_download_installer_none_on_bad_json(monkeypatch, tmp_path):
     resp = _FakeResponse(200, object())
     monkeypatch.setattr(resp, "json", bad_json)
     monkeypatch.setattr(update_checker.requests, "get", lambda *a, **k: resp)
-    assert update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
+    assert (
+        update_checker.download_installer(remote_tag="v1.0.0", tmp_dir=tmp_path) is None
+    )
 
 
 # --- helper -------------------------------------------------------------------
