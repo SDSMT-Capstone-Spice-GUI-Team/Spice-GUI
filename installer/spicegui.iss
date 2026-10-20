@@ -299,25 +299,13 @@ begin
   // 4. ngspice detection (informational, not a warning)
   NgspicePath := FindNgspiceVersion;
 
-  // 5. VC++ Redistributable
-  if not IsVCRedistInstalled then
-  begin
-    if FileExists(ExpandConstant('{src}\redist\vc_redist.x64.exe')) or
-       FileExists(ExpandConstant('{autopf}\{#MyAppName}\redist\vc_redist.x64.exe')) then
-    begin
-      // VC++ redist is bundled — will be installed automatically
-      // No warning needed
-    end
-    else
-    begin
-      WarningCount := WarningCount + 1;
-      Warnings := Warnings + #13#10 + #13#10 +
-        IntToStr(WarningCount) + '. VISUAL C++ REDISTRIBUTABLE NOT FOUND' + #13#10 +
-        '   The Microsoft Visual C++ 2015-2022 Redistributable (x64) is' + #13#10 +
-        '   required but was not detected on this system.' + #13#10 +
-        '   Download it from: https://aka.ms/vs/17/release/vc_redist.x64.exe';
-    end;
-  end;
+  // 5. VC++ Redistributable: no preflight warning.
+  //    The installer ships {app}\redist\vc_redist.x64.exe (see SpiceGUI.spec)
+  //    and the [Run] step installs it at the end of setup (guarded by
+  //    NeedsVCRedist, which checks the registry). Because {src} is the folder
+  //    containing the setup .exe, an in-archive binary can't be probed here,
+  //    and warning on a clean machine would be a false positive. The [Run]
+  //    step is the single source of truth.
 
   // Show combined warning dialog if any issues found
   if WarningCount > 0 then
