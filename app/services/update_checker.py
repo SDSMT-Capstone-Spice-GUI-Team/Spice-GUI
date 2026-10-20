@@ -175,8 +175,10 @@ def latest_release_tag(
 
     GitHub's ``releases/latest`` only ever returns a single tag, which may be a
     pre-release; the *list* endpoint lets us skip pre-releases and fall back to
-    the newest full release instead.  A network timeout, connection error,
-    non-200 status, malformed JSON, or "no full releases" all result in ``None``
+    the newest full release instead.  When only pre-releases exist, the newest
+    pre-release is returned so the caller can surface a "development build" note
+    rather than a network error.  A genuine network/parse failure -- no HTTP 200,
+    connection error, malformed JSON, or empty response -- still returns ``None``
     (logged) -- never an exception.  The single-dict ``releases/latest`` shape is
     also accepted for backward compatibility.
     """
@@ -198,19 +200,34 @@ def latest_release_tag(
 
     if isinstance(data, list):
         # GitHub lists newest first; take the newest tag that is a full release.
+        # If every release is a pre-release, fall back to the newest one so the
+        # caller can surface "development build" rather than a network error.
+        latest_prerelease = None
         for release in data:
             tag = release.get("tag_name")
-            if tag and not _is_prerelease(str(tag)):
-                return str(tag)
-        logger.debug("Releases list had no full release (only pre-releases)")
+            if not tag:
+                continue
+            tag = str(tag)
+            if not _is_prerelease(tag):
+                return tag
+            if latest_prerelease is None:
+                latest_prerelease = tag
+        if latest_prerelease:
+            logger.debug("No full release found; falling back to latest pre-release %s", latest_prerelease)
+            return latest_prerelease
         return None
 
     # Backward-compat single-release shape: the only release returned.
     tag = data.get("tag_name")
-    if tag and not _is_prerelease(str(tag)):
-        return str(tag)
-    logger.debug("Latest release response had no full-release tag_name")
-    return None
+    if not tag:
+        return None
+    tag = str(tag)
+    if not _is_prerelease(tag):
+        return tag
+    # A single pre-release means only development builds exist; return it so the
+    # caller shows a "development build" note instead of a network error.
+    logger.debug("Single release is a pre-release %s (only development builds available)", tag)
+    return tag
 
 
 def _find_installer_asset(release_data: dict) -> Optional[str]:

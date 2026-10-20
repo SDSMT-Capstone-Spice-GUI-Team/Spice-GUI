@@ -181,23 +181,25 @@ def test_latest_release_tag_skips_prerelease_and_returns_latest_full(monkeypatch
     assert update_checker.latest_release_tag() == "v1.0.0"
 
 
-def test_latest_release_tag_none_when_only_prereleases(monkeypatch):
+def test_latest_release_tag_returns_latest_prerelease_when_only_prereleases(monkeypatch):
+    # Only pre-releases exist: the newest one is returned so the caller can
+    # surface a "development build" note rather than a network error.
     monkeypatch.setattr(
         update_checker.requests,
         "get",
         lambda *args, **kwargs: _FakeResponse(200, [{"tag_name": "v0.1.0-alpha1"}]),
     )
-    assert update_checker.latest_release_tag() is None
+    assert update_checker.latest_release_tag() == "v0.1.0-alpha1"
 
 
-def test_latest_release_tag_none_when_prerelease_alone_in_single_shape(monkeypatch):
-    # A single-dict response whose only release is a pre-release yields ``None``.
+def test_latest_release_tag_returns_prerelease_in_single_shape(monkeypatch):
+    # A single-dict response whose only release is a pre-release yields that tag.
     monkeypatch.setattr(
         update_checker.requests,
         "get",
         lambda *args, **kwargs: _FakeResponse(200, {"tag_name": "v0.1.0-alpha1"}),
     )
-    assert update_checker.latest_release_tag() is None
+    assert update_checker.latest_release_tag() == "v0.1.0-alpha1"
 
 
 # --- download_installer -------------------------------------------------------
