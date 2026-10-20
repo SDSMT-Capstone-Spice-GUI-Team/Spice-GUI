@@ -21,9 +21,7 @@ import re
 # A leading/trailing unit letter (V, A, H, F, ...) may trail a bare number.
 # Examples that must normalize: "1M" -> "1meg", "10K" -> "10k", "5m" stays "5m".
 # Anything else (letters before the number, parentheses, etc.) is left alone.
-_NUMERIC_SUFFIX_PATTERN = re.compile(
-    r"^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)([a-zA-Zµ]+)$"
-)
+_NUMERIC_SUFFIX_PATTERN = re.compile(r"^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)([a-zA-Zµ]+)$")
 
 # Suffix (as written by the user) -> canonical SPICE suffix.
 #
