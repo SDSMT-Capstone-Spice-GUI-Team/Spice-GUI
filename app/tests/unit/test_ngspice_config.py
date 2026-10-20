@@ -1,6 +1,7 @@
 """Tests for simulation.ngspice_config (#832)."""
 
 import os
+import platform
 import types
 from pathlib import Path
 from unittest.mock import patch
@@ -74,7 +75,9 @@ class TestBundledNgspicePath:
         meipass_dir = tmp_path / "meipass"
         ngspice_bin = meipass_dir / "ngspice" / "bin"
         ngspice_bin.mkdir(parents=True)
-        exe = ngspice_bin / "ngspice.exe"
+        # Match the resolver's OS-dependent executable name.
+        is_windows = platform.system() == "Windows"
+        exe = ngspice_bin / ("ngspice.exe" if is_windows else "ngspice")
         exe.write_text("fake")
 
         # Replace the module's ``sys`` with a fake frozen build: ``_MEIPASS``
