@@ -42,6 +42,15 @@ def main():
 
     window = MainWindow()
     window.show()
+
+    # Check for a newer release once the window has painted.  Only when running
+    # inside the frozen PyInstaller bundle — dev-mode runs skip this so offline
+    # dev machines never hit the network or spam the console.
+    if getattr(sys, "frozen", False):
+        from version import __version__
+
+        window.schedule_update_check(__version__)
+
     # widget = SplashScreen(main_window=window)
     # window.splash_screen = widget
     # widget.show()

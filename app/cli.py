@@ -24,8 +24,6 @@ from controllers.circuit_controller import CircuitController
 from controllers.file_controller import validate_circuit_data
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
-
-__version__ = "0.1.0"
 from simulation.csv_exporter import (
     export_ac_results,
     export_dc_sweep_results,
@@ -33,6 +31,7 @@ from simulation.csv_exporter import (
     export_op_results,
     export_transient_results,
 )
+from version import __version__
 
 
 def try_load_circuit(filepath: str) -> tuple[CircuitModel | None, str]:

@@ -48,6 +48,7 @@ from .main_window_print import PrintExportMixin
 from .main_window_settings import SettingsMixin
 from .main_window_simulation import SimulationMixin
 from .main_window_view import ViewOperationsMixin
+from .main_window_update import UpdateMixin
 from .properties_panel import PropertiesPanel
 from .results_panel import ResultsPanel
 from .styles import (
@@ -69,6 +70,7 @@ class MainWindow(
     PrintExportMixin,
     HelpMixin,
     SettingsMixin,
+    UpdateMixin,
     QMainWindow,
 ):
     """Main application window with MVC architecture.
