@@ -33,10 +33,19 @@ def _is_frozen() -> bool:
 def _bundle_root() -> Path:
     """Return the root directory of the PyInstaller bundle.
 
-    In a --onedir build this is the directory containing the executable.
+    Under a ``--onefile`` build PyInstaller's bootloader extracts the bundle
+    into ``sys._MEIPASS`` (the ``_internal`` folder); that is where vendored
+    data such as ``ngspice/bin/`` lives, so it must win over the folder that
+    merely *contains* ``SpiceGUI.exe``.  A ``--onedir`` build keeps everything
+    flat next to the executable and has no ``_MEIPASS``, so we fall back to the
+    executable's own directory in that case.
+
     Falls back to the current working directory when not frozen.
     """
     if _is_frozen():
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            return Path(meipass)
         return Path(sys.executable).parent
     # During development, allow an env-var override for testing.
     return Path(os.environ.get("SPICEGUI_BUNDLE_ROOT", Path.cwd()))
