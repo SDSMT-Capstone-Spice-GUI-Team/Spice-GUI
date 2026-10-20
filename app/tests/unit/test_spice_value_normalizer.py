@@ -143,3 +143,44 @@ class TestNormalizeSpiceValueEdgeCases:
 
     def test_scientific_with_suffix(self):
         assert normalize_spice_value("1e6M", "1e6M") == "1e6meg"
+
+
+class TestNormalizeSpiceValueMegWithTrailingUnit:
+    """A unit letter after ``M`` must still normalize to mega (#948 follow-up).
+
+    The original lookup only rewrote a suffix that is exactly ``M``.  For
+    ``1Mohm`` the regex captures ``Mohm`` as the suffix, the lookup misses, and
+    the value passes through to ngspice as milli (1e-3) even though the UI and
+    ``parse_value`` read it as mega (1e6).  We rewrite ``Mohm`` -> ``megohm``
+    (preserving the trailing unit) so ngspice matches the UI.
+    """
+
+    @pytest.mark.parametrize(
+        "raw, expected",
+        [
+            ("1Mohm", "1megohm"),
+            ("2MV", "2megv"),
+            ("4.7MOhm", "4.7megohm"),
+            ("1MOhm", "1megohm"),
+        ],
+    )
+    def test_mega_with_trailing_unit_is_normalized(self, raw, expected):
+        assert normalize_spice_value(raw, raw) == expected
+
+
+class TestNormalizeSpiceValueMegaWhitespace:
+    """Leading/trailing whitespace around a bare M must still normalize.
+
+    ``sanitize_spice_value`` strips whitespace, so the sanitized (``validated``)
+    form is clean but ``raw`` retains the spaces.  Matching against the
+    sanitized form avoids the anchored regex missing on whitespace.
+    """
+
+    def test_trailing_space(self):
+        assert normalize_spice_value("1M ", "1M") == "1meg"
+
+    def test_leading_space(self):
+        assert normalize_spice_value(" 1M", "1M") == "1meg"
+
+    def test_both_spaces(self):
+        assert normalize_spice_value(" 1M ", "1M") == "1meg"
