@@ -6,13 +6,16 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from simulation.ngspice_config import (SETTINGS_KEY_NGSPICE_PATH,
-                                       SETTINGS_KEY_NGSPICE_SOURCE,
-                                       bundled_ngspice_path,
-                                       detect_ngspice_sources,
-                                       needs_user_choice, resolve_ngspice_path,
-                                       save_ngspice_preference,
-                                       system_ngspice_path)
+from simulation.ngspice_config import (
+    SETTINGS_KEY_NGSPICE_PATH,
+    SETTINGS_KEY_NGSPICE_SOURCE,
+    bundled_ngspice_path,
+    detect_ngspice_sources,
+    needs_user_choice,
+    resolve_ngspice_path,
+    save_ngspice_preference,
+    system_ngspice_path,
+)
 
 
 class _FakeSettings:
