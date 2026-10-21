@@ -62,6 +62,22 @@ The `bin/` and `lib/` tree is placed by `SpiceGUI.spec` (via `datas`) next to
 the app executable, so the runtime path resolution in
 `app/simulation/ngspice_config.py` finds `ngspice/bin/ngspice.exe`.
 
+## Device models are committed to the repo
+
+The `lib/ngspice/` tree above (`*.osdi`, `*.cm`, `*.vpi`) is **committed to this
+repository** (not vendored via git-lfs) so the models are available for local
+development, CI, and testing without re-downloading or re-building them. This is
+an explicit decision — see #829.
+
+These files are the **advanced device models** (BSIM4, BSIMBULK, BSIMCMG, HICUM,
+EKV, PSP, VBIK, MOSVAR, BJTs) and the **analog/digital/time-varying component
+macros** (`*.cm`) plus **VPI entry points** (`*.vpi`). ngspice discovers them from
+`lib/ngspice/` at runtime; without them, models that depend on these definitions
+(`.model`, subcircuits, VPI-loaded modules) fail to load. They are not required
+for the app's default components — ngspice's generic MOSFET/BJT models cover the
+default `nmos`/`pmos` components (see note below) — but are required for
+user-defined, SPICE-style, or advanced device definitions.
+
 ## What is intentionally *not* bundled
 
 | File / dir | Reason |
