@@ -18,6 +18,7 @@ jobs:
         with:
           version: "0.13.4"
           cache-dependency-glob: uv.lock
+          cache-suffix: ${{ runner.os }}
 
       - name: Install dev deps
         run: uv sync --dev
@@ -43,6 +44,7 @@ jobs:
         with:
           version: "0.13.4"
           cache-dependency-glob: uv.lock
+          cache-suffix: ${{ runner.os }}
 
       - name: Run bandit (via uvx)
         run: uvx bandit -r app/ -x app/tests --severity-level medium
@@ -64,6 +66,7 @@ jobs:
           version: "0.13.4"
           python-version: ${{ matrix.python-version }}
           cache-dependency-glob: uv.lock
+          cache-suffix: ${{ runner.os }}
 
       - name: Install system dependencies (Ubuntu)
         if: runner.os == 'Linux'
@@ -94,6 +97,7 @@ jobs:
         with:
           version: "0.13.4"
           cache-dependency-glob: uv.lock
+          cache-suffix: ${{ runner.os }}
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y ngspice libegl1 xvfb
@@ -121,6 +125,7 @@ jobs:
         with:
           version: "0.13.4"
           cache-dependency-glob: uv.lock
+          cache-suffix: ${{ runner.os }}
 
       - name: Install dependencies
         run: uv sync
