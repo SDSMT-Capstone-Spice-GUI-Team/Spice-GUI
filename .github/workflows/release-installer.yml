@@ -29,6 +29,7 @@ jobs:
           version: "0.13.4"
           python-version: "3.12"
           cache-dependency-glob: uv.lock
+          cache-suffix: ${{ runner.os }}
 
       - name: Install dependencies (runtime only, no dev tooling)
         run: uv sync --no-dev
