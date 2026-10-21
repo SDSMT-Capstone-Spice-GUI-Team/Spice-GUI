@@ -2,7 +2,14 @@ import logging
 
 from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QPen
-from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsScene, QGraphicsView, QInputDialog, QLineEdit, QRubberBand
+from PyQt6.QtWidgets import (
+    QGraphicsLineItem,
+    QGraphicsScene,
+    QGraphicsView,
+    QInputDialog,
+    QLineEdit,
+    QRubberBand,
+)
 
 logger = logging.getLogger(__name__)
 from models.clipboard import ClipboardData
@@ -170,6 +177,12 @@ class CircuitCanvasView(QGraphicsView):
         else:
             logger.debug("Unhandled observer event: %s", event)
 
+        # Undo/redo of wire deletion restore wires at their original model index
+        # while the append-style observer handler leaves the canvas in a
+        # different order; re-sync wire order to the authoritative model order.
+        if event == "undo_state_changed":
+            self._sync_wires_to_model_order()
+
         # Clear stale OP annotations when circuit is modified
         _stale_events = {
             "component_added",
@@ -325,6 +338,75 @@ class CircuitCanvasView(QGraphicsView):
             # Without this, stale node annotations remain as ghost artifacts
             # when the deleted wire's node is removed from the model.
             self._scene.update()
+
+    def _sync_wires_to_model_order(self) -> None:
+        """Reorder ``self.wires`` to match the model's wire order.
+
+        Undo/redo of wire deletion is the single source of truth for wire
+        ordering: ``DeleteWireCommand.undo`` restores each wire at its
+        *original* index (``model.wires.insert(...)``), while the canvas
+        observer appends restored items to the end.  With multiple wires
+        restored in reverse order these two diverge, so ``canvas.wires[i]`` and
+        ``model.wires[i]`` would reference different wires and the graphics
+        item's geometry would no longer match the model wire it should draw
+        (issue #945).
+
+        Re-sorts ``self.wires`` in place to mirror ``controller.model.wires``.
+        This matches the invariant the canvas already uses on load
+        (``_handle_model_loaded``), delete-affected reroute, and
+        ``rebuild_scene``.  Matching is by start/end component + terminal rather
+        than object identity because the restored model wire is a *fresh*
+        ``WireData``; the canvas item's own ``.model`` is then re-synced to that
+        authoritative instance so geometry reads align.
+        """
+        model_wires = list(self.controller.model.wires)
+        # Early-return when empty rather than ``self.wires.clear()``: clearing
+        # empties the Python list but leaves the graphics items in the scene as
+        # untracked "ghost" wires (selectable? no, deletable? no). The model is
+        # the source of truth, so an empty model means an empty canvas list.
+        if not model_wires:
+            return
+
+        by_key = {
+            (
+                m.start_component_id,
+                m.start_terminal,
+                m.end_component_id,
+                m.end_terminal,
+            ): index
+            for index, m in enumerate(model_wires)
+        }
+
+        def _model_index_for(item) -> int:
+            key = (
+                item.model.start_component_id,
+                item.model.start_terminal,
+                item.model.end_component_id,
+                item.model.end_terminal,
+            )
+            return by_key.get(key, len(model_wires))
+
+        self.wires.sort(key=_model_index_for)
+
+        # Re-point each item at the restored (fresh) model instance so its
+        # geometry is read from the same WireData the rest of the system sees.
+        restored_by_key = {
+            (
+                m.start_component_id,
+                m.start_terminal,
+                m.end_component_id,
+                m.end_terminal,
+            ): m
+            for m in model_wires
+        }
+        for item in self.wires:
+            key = (
+                item.model.start_component_id,
+                item.model.start_terminal,
+                item.model.end_component_id,
+                item.model.end_terminal,
+            )
+            item.model = restored_by_key.get(key, item.model)
 
     def _handle_wire_routed(self, data) -> None:
         """Update wire waypoints from a (wire_index, wire_data) tuple."""
@@ -1488,7 +1570,10 @@ class CircuitCanvasView(QGraphicsView):
                 status = main_window.statusBar()
                 if status:
                     n = len(component_ids)
-                    status.showMessage(f"Copied {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
+                    status.showMessage(
+                        f"Copied {n} component{'s' if n != 1 else ''}",
+                        STATUS_DURATION_SHORT,
+                    )
 
         return copied
 
@@ -1551,7 +1636,10 @@ class CircuitCanvasView(QGraphicsView):
             status = main_window.statusBar()
             if status:
                 n = len(new_components)
-                status.showMessage(f"Pasted {n} component{'s' if n != 1 else ''}", STATUS_DURATION_SHORT)
+                status.showMessage(
+                    f"Pasted {n} component{'s' if n != 1 else ''}",
+                    STATUS_DURATION_SHORT,
+                )
 
     def drawForeground(self, painter, rect):
         """Draw node labels, voltages, and OP annotations on top of everything."""
@@ -1810,7 +1898,10 @@ class CircuitCanvasView(QGraphicsView):
             if main_window and hasattr(main_window, "statusBar"):
                 status = main_window.statusBar()
                 if status:
-                    status.showMessage("Wire already exists between these terminals", STATUS_DURATION_DEFAULT)
+                    status.showMessage(
+                        "Wire already exists between these terminals",
+                        STATUS_DURATION_DEFAULT,
+                    )
             return False
 
         return True
