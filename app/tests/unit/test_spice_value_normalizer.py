@@ -65,6 +65,22 @@ class TestNormalizeSpiceValueMegVariants:
     def test_mega_variants_normalized(self, raw, expected):
         assert normalize_spice_value(raw, raw) == expected
 
+    # Restored in full from #956: the renamed test above kept the class name and
+    # the canonicalization guarantee, but this original method pins every MEG /
+    # Meg / meg spelling explicitly, including the 1.5 and 4.7 cases.
+    @pytest.mark.parametrize(
+        "raw, expected",
+        [
+            ("10MEG", "10meg"),
+            ("10Meg", "10meg"),
+            ("10meg", "10meg"),
+            ("1.5MEG", "1.5meg"),
+            ("4.7MEG", "4.7meg"),
+        ],
+    )
+    def test_meg_variants(self, raw, expected):
+        assert normalize_spice_value(raw, raw) == expected
+
 
 class TestNormalizeSpiceValueOtherSuffixes:
     """Case-correct canonicalization of other SI suffixes (restored from #948)."""
