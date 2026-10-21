@@ -1,6 +1,8 @@
 """Tests for simulation.ngspice_config (#832)."""
 
 import os
+import platform
+import types
 from pathlib import Path
 from unittest.mock import patch
 
@@ -64,6 +66,30 @@ class TestBundledNgspicePath:
             with patch("simulation.ngspice_config.platform.system", return_value="Windows"):
                 result = bundled_ngspice_path()
         assert result == str(exe)
+
+    def test_finds_venv_ngspice_via_meipass(self, tmp_path, monkeypatch):
+        """A --onedir PyInstaller bundle exposes ``sys._MEIPASS`` pointing at the
+        ``_internal`` folder where vendored data (incl. ``ngspice/bin/``) lives.
+        The resolver must use that, not the folder containing the executable.
+        """
+        meipass_dir = tmp_path / "meipass"
+        ngspice_bin = meipass_dir / "ngspice" / "bin"
+        ngspice_bin.mkdir(parents=True)
+        # Match the resolver's OS-dependent executable name.
+        is_windows = platform.system() == "Windows"
+        exe = ngspice_bin / ("ngspice.exe" if is_windows else "ngspice")
+        exe.write_text("fake")
+
+        # Replace the module's ``sys`` with a fake frozen build: ``_MEIPASS``
+        # points at the extracted folder, while the executable's own directory
+        # (the bundle root) does NOT contain ngspice.
+        fake_sys = types.SimpleNamespace(
+            frozen=True,
+            _MEIPASS=str(meipass_dir),
+            executable=str(tmp_path / "SpiceGUI.exe"),
+        )
+        monkeypatch.setattr("simulation.ngspice_config.sys", fake_sys)
+        assert bundled_ngspice_path() == str(exe)
 
 
 # ── system_ngspice_path ──────────────────────────────────────────────

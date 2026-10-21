@@ -62,8 +62,8 @@ preflight:  ## Run pre-flight checks before starting work
 	@echo ""
 	@echo "✅ All pre-flight checks passed!"
 
-install-dev:  ## Install development dependencies
-	pip install -r app/requirements.txt -r app/requirements-dev.txt
+install-dev:  ## Install development dependencies (runtime + dev tooling via uv)
+	uv sync --dev
 
 install-hooks:  ## Install pre-commit hooks
 	pre-commit install

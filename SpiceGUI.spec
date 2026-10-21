@@ -58,6 +58,9 @@ NGSPICE_LICENSE = REPO_ROOT / "licenses" / "NGSPICE-LICENSE.txt"
 if NGSPICE_LICENSE.is_file():
     datas.append((str(NGSPICE_LICENSE), "licenses"))
 
+# The Visual C++ redistributable is installed by Inno Setup from {tmp} (see installer/spicegui.iss),
+# not bundled into the PyInstaller app, so there is nothing to add to `datas` here.
+
 # ---------------------------------------------------------------------------
 # Hidden imports
 #

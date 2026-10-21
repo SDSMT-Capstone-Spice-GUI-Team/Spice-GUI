@@ -10,7 +10,8 @@ import pytest
 
 INSTALLER_DIR = Path(__file__).resolve().parent.parent.parent.parent / "installer"
 ISS_FILE = INSTALLER_DIR / "spicegui.iss"
-COMBINED_LICENSE = INSTALLER_DIR / "LICENSE-COMBINED.txt"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+COMBINED_LICENSE = REPO_ROOT / "LICENSE-COMBINED.txt"
 
 
 @pytest.fixture
@@ -68,7 +69,31 @@ class TestFilesSection:
 
     def test_license_files_included(self, iss_content):
         assert "LICENSE-COMBINED.txt" in iss_content
-        assert "NGSPICE-LICENSE.txt" in iss_content
+        # Licenses are bundled via the ..\licenses\* wildcard, which covers every
+        # collected third-party license (including NGSPICE-LICENSE.txt).
+        assert r"\licenses\*" in iss_content
+        licenses_dir = Path(__file__).resolve().parent.parent.parent.parent / "licenses"
+        assert (licenses_dir / "NGSPICE-LICENSE.txt").is_file()
+
+
+class TestVCRedist:
+    # The Visual C++ 2015-2022 redistributable (x64) ships so a clean machine
+    # has the runtime PyQt6 and ngspice need. It is not bundled inside the app
+    # (PyInstaller 6 --onedir places data under _internal/); instead it is
+    # extracted to {tmp} by the [Files] section and installed from there by the
+    # [Run] step, then deleted. This avoids the old {app}\redist\ path, which a
+    # --onedir build never populates, so the install silently did nothing.
+    def test_iss_installs_vc_redist(self, iss_content):
+        assert r"{tmp}\vc_redist.x64.exe" in iss_content
+
+    def test_is_installed_when_redist_present(self, iss_content):
+        # The binary is extracted to {tmp} and cleaned up afterwards
+        # (deleteafterinstall), and the [Run] step installs it only when the
+        # registry check (NeedsVCRedist) reports it missing.
+        assert "deleteafterinstall" in iss_content
+        assert "skipifdoesntexist" not in iss_content
+        vc_redist = REPO_ROOT / "vc_redist" / "vc_redist.x64.exe"
+        assert vc_redist.is_file(), f"VC++ redist binary missing: {vc_redist}"
 
 
 class TestIconsSection:

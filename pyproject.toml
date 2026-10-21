@@ -22,7 +22,15 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-cov>=4.1.0",
     "pytest-qt>=4.2.0",
+    "ruff>=0.15.0",
+    "black==26.1.0",
+    "isort>=5.13.0",
+    "pre-commit>=4.0.0",
+    "mypy>=1.13.0",
+    "bandit>=1.8.0",
+    "pyinstaller>=6.11.0",
 ]
 
 [tool.pytest.ini_options]
