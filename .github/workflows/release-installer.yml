@@ -26,9 +26,9 @@ jobs:
 
       - uses: astral-sh/setup-uv@v5
         with:
-          uv-version: "stable"
+          version: "stable"
           python-version: "3.12"
-          cache-dependency-path: uv.lock
+          cache-dependency-glob: uv.lock
 
       - name: Install dependencies (runtime only, no dev tooling)
         run: uv sync --no-dev

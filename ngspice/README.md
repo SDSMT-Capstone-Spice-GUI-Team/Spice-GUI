@@ -7,8 +7,40 @@ SpiceGUI installer is self-contained and no system ngspice is required.
 
 - Engine: **ngspice 47** from the system install at
   `C:\Program Files\Spice64` (the "Spice64" Windows port).
-- License: **Modified BSD** (see `../../../licenses/NGSPICE-LICENSE.txt` in the
+- License: **Modified BSD** (see `../licenses/NGSPICE-LICENSE.txt` in the
   repo, which is bundled into the PyInstaller distribution by `SpiceGUI.spec`).
+
+## Provenance & verification
+
+The vendored files below are committed so the installer is self-contained. To
+verify them later — e.g. if the original download link goes stale — compare the
+recorded values against a fresh copy of the same files.
+
+### ngspice engine (sha256)
+
+ngspice 47, byte-identical to the official ngspice-47 release. Verify with
+(`sha256sum -c` reads the entries as relative to `ngspice/`):
+
+```bash
+cd ngspice && sha256sum -c SHASUMS256.txt
+```
+
+| Path | SHA-256 |
+| --- | --- |
+| `ngspice/bin/ngspice.exe` | `fa4f083058c1799d9f6da7ae2a99e3034b7bb92d056095de7d2df59e6f627d49` |
+| `ngspice/bin/libomp140.x86_64.dll` | `644c49149f8a5d9275a83e9331a0adbd14620f930190e985d30b842107123597` |
+| `ngspice/bin/samplerate.dll` | `2e24802f94b584173de7358a5f26d3147226f417dcebeb69bee98994022483ce` |
+| `ngspice/bin/sndfile.dll` | `4e3bd2de8e1485110eaebef8e1239471f73d608773831c323bf528e05645655e` |
+
+### vc_redist.x64.exe (signature + version)
+
+Microsoft Visual C++ 2015-2022 Redistributable (x64) v14.44.35211. A SHA-256
+only proves "this exact file"; for vc_redist the authoritative check is the
+Microsoft Authenticode signature:
+
+- **SignatureStatus:** `Valid`
+- **Signer:** `CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US`
+- **File version:** `14.44.35211.0` (`Get-AuthenticodeSignature ../vc_redist/vc_redist.x64.exe`)
 
 ## Layout (mirrors a normal ngspice install prefix)
 

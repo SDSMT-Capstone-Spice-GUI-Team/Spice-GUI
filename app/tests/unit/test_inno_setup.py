@@ -10,7 +10,8 @@ import pytest
 
 INSTALLER_DIR = Path(__file__).resolve().parent.parent.parent.parent / "installer"
 ISS_FILE = INSTALLER_DIR / "spicegui.iss"
-COMBINED_LICENSE = INSTALLER_DIR / "LICENSE-COMBINED.txt"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+COMBINED_LICENSE = REPO_ROOT / "LICENSE-COMBINED.txt"
 
 
 @pytest.fixture
@@ -76,18 +77,22 @@ class TestFilesSection:
 
 
 class TestVCRedist:
-    # The Visual C++ 2015-2022 redistributable (x64) is bundled so a clean
-    # machine has the runtime PyQt6 and ngspice need. The [Run] step installs
-    # {app}\redist\vc_redist.x64.exe, so the binary must ship in the bundle.
+    # The Visual C++ 2015-2022 redistributable (x64) ships so a clean machine
+    # has the runtime PyQt6 and ngspice need. It is not bundled inside the app
+    # (PyInstaller 6 --onedir places data under _internal/); instead it is
+    # extracted to {tmp} by the [Files] section and installed from there by the
+    # [Run] step, then deleted. This avoids the old {app}\redist\ path, which a
+    # --onedir build never populates, so the install silently did nothing.
     def test_iss_installs_vc_redist(self, iss_content):
-        assert r"redist\vc_redist.x64.exe" in iss_content
+        assert r"{tmp}\vc_redist.x64.exe" in iss_content
 
     def test_is_installed_when_redist_present(self, iss_content):
-        # {src}\redist\vc_redist.x64.exe is the pre-flight path Inno checks;
-        # the binary is bundled at <repo>/vc_redist/ by the PyInstaller spec.
-        assert "skipifdoesntexist" in iss_content
-        root = Path(__file__).resolve().parent.parent.parent.parent
-        vc_redist = root / "vc_redist" / "vc_redist.x64.exe"
+        # The binary is extracted to {tmp} and cleaned up afterwards
+        # (deleteafterinstall), and the [Run] step installs it only when the
+        # registry check (NeedsVCRedist) reports it missing.
+        assert "deleteafterinstall" in iss_content
+        assert "skipifdoesntexist" not in iss_content
+        vc_redist = REPO_ROOT / "vc_redist" / "vc_redist.x64.exe"
         assert vc_redist.is_file(), f"VC++ redist binary missing: {vc_redist}"
 
 

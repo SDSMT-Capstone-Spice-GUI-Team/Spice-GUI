@@ -41,6 +41,11 @@ _LICENSE_NAMES = ("LICENSE", "LICENSE.txt", "LICENSE.md", "LICENSE.rst",
 _EXTRA = {
     "PYTHON": REPO_ROOT / "licenses" / "PYTHON-LICENSE.txt",
     "NGSPICE": REPO_ROOT / "licenses" / "NGSPICE-LICENSE.txt",
+    # Bundled non-Python binaries from ngspice/bin/ — not in the pyproject scan.
+    "SNDFILE": REPO_ROOT / "licenses" / "SNDFILE-LICENSE.txt",
+    "SAMPLERATE": REPO_ROOT / "licenses" / "SAMPLERATE-LICENSE.txt",
+    "LIBOMP": REPO_ROOT / "licenses" / "LIBOMP-LICENSE.txt",
+    "VCREDIST": REPO_ROOT / "licenses" / "VCREDIST-LICENSE.txt",
 }
 
 

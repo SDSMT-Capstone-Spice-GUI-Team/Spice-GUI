@@ -33,7 +33,7 @@ AppSupportURL={#MyAppURL}/issues
 AppUpdatesURL={#MyAppURL}/releases
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-LicenseFile=LICENSE-COMBINED.txt
+LicenseFile=..\LICENSE-COMBINED.txt
 OutputDir=Output
 OutputBaseFilename=SpiceGUI-v{#MyAppVersion}-win64-setup
 Compression=lzma2/ultra64
@@ -67,8 +67,13 @@ Name: "fileassoc"; Description: "Associate .spice files with {#MyAppName}"; Grou
 ; Copy the entire PyInstaller dist output
 Source: "..\dist\SpiceGUI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Licenses
-Source: "LICENSE-COMBINED.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "..\LICENSE-COMBINED.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 Source: "..\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion
+; Visual C++ redistributable: ship the raw .exe (unmodified) and extract it to
+; {tmp} so the [Run] step can install it and Inno delete it afterward. It is
+; NOT bundled into the app bundle (see SpiceGUI.spec) because that path never
+; resolves at install time (see test_inno_setup.py).
+Source: "..\vc_redist\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Icons]
 ; Start Menu
@@ -85,8 +90,14 @@ Root: HKA; Subkey: "Software\Classes\SpiceGUI.Circuit\DefaultIcon"; ValueType: s
 Root: HKA; Subkey: "Software\Classes\SpiceGUI.Circuit\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Tasks: fileassoc
 
 [Run]
-; Install VC++ redistributable silently if bundled and missing
-Filename: "{app}\redist\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Visual C++ Redistributable..."; Flags: waituntilterminated skipifdoesntexist; Check: NeedsVCRedist
+; Install VC++ redistributable silently if missing.
+; Redistributable ships under {tmp} (see [Files]); Inno extracts it there at
+; run time and deletes it afterward. {app} never holds a copy (PyInstaller 6
+; --onedir places data under an _internal folder, not a top-level redist/), so
+; routing it through {app}\redist\ was a silent no-op.
+Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; \
+  StatusMsg: "Installing Visual C++ Redistributable..."; \
+  Flags: waituntilterminated; Check: NeedsVCRedist
 ; Launch application after install
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
@@ -300,12 +311,12 @@ begin
   NgspicePath := FindNgspiceVersion;
 
   // 5. VC++ Redistributable: no preflight warning.
-  //    The installer ships {app}\redist\vc_redist.x64.exe (see SpiceGUI.spec)
-  //    and the [Run] step installs it at the end of setup (guarded by
-  //    NeedsVCRedist, which checks the registry). Because {src} is the folder
-  //    containing the setup .exe, an in-archive binary can't be probed here,
-  //    and warning on a clean machine would be a false positive. The [Run]
-  //    step is the single source of truth.
+  //    The installer ships vc_redist.x64.exe (see SpiceGUI.spec) and extracts
+  //    it to {tmp} (the [Files] section) so the [Run] step installs it at the
+  //    end of setup, guarded by NeedsVCRedist which checks the registry.
+  //    Because {src} is the folder containing the setup .exe, an in-archive
+  //    binary can't be probed here, and warning on a clean machine would be a
+  //    false positive. The [Run] step is the single source of truth.
 
   // Show combined warning dialog if any issues found
   if WarningCount > 0 then
