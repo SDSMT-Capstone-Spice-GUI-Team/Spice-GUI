@@ -14,14 +14,57 @@ Only *clean* numeric values with a known SI suffix are touched.  Anything
 that does not match a numeric prefix is returned unchanged, so model names
 (``2N3904``), waveform specs (``SIN(...)``, ``PULSE(...)``) and compound
 strings (``10mH 10mH 0.99``) pass straight through.
+
+Component values may also contain UI-facing SI unicode characters (the micro
+sign ``µ`` and omega ``Ω``) that ngspice rejects.  :func:`normalize_spice_value`
+runs :func:`translate_spice_unicode` first so the netlist only ever carries
+ASCII.
 """
 
 import re
 
+# UI-facing SI characters the user may type or paste but that ngspice does not
+# speak: the micro sign ``µ`` (U+00B5, which the app also emits) and the
+# Greek-mu variant (U+03BC, common from paste), plus the omega characters (U+03A9
+# GREEK CAPITAL OMEGA and U+2126 OHM SIGN) used for ohms.
+#
+# SPICE passive values carry their unit implicitly (``10k`` *is* 10k ohms) and
+# use ``u`` for micro, so we translate ``µ`` -> ``u`` and simply drop ``Ω``.
+# For resistors a dropped omega still yields the correct ohm magnitude; for
+# capacitors/inductors a trailing ``Ω`` is meaningless, so dropping it leaves
+# the magnitude untouched.
+_TRANSLATION_TABLE = str.maketrans(
+    {
+        "µ": "u",  # U+00B5 MICRO SIGN -> ngspice micro
+        "μ": "u",  # U+03BC GREEK SMALL LETTER MU -> ngspice micro
+        "Ω": "",  # U+03A9 GREEK CAPITAL OMEGA -> drop (ohms implicit)
+        "Ω": "",  # U+2126 OHM SIGN -> drop (ohms implicit)
+    }
+)
+
+
+def translate_spice_unicode(value: str) -> str:
+    """Replace UI-facing SI unicode characters with their ngspice equivalents.
+
+    ngspice reads micro as the ASCII ``u`` and expresses resistance as a bare
+    SI-multiplied number (a trailing ``Ω`` carries no ngspice meaning), so any
+    ``µ`` is lowered to ``u`` and every omega character is removed. Non-unicode
+    values pass straight through.
+
+    Args:
+        value: The value string to translate.
+
+    Returns:
+        The value with ``µ``-family characters replaced by ``u`` and ``Ω``-family
+        characters removed.
+    """
+    return value.translate(_TRANSLATION_TABLE)
+
+
 # A leading/trailing unit letter (V, A, H, F, ...) may trail a bare number.
 # Examples that must normalize: "1M" -> "1meg", "10K" -> "10k", "5m" stays "5m".
 # Anything else (letters before the number, parentheses, etc.) is left alone.
-_NUMERIC_SUFFIX_PATTERN = re.compile(r"^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)([a-zA-Zµ]+)$")
+_NUMERIC_SUFFIX_PATTERN = re.compile(r"^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)([a-zA-Z]+)$")
 
 # Suffix (as written by the user) -> canonical SPICE suffix.
 #
@@ -38,8 +81,7 @@ _SUFFIX_CANON = {
     "f": "f",
     "p": "p",
     "n": "n",
-    "u": "u",
-    "µ": "µ",
+    "u": "u",  # micro — already the ngspice form after translate_spice_unicode()
     "m": "m",  # milli — ngspice and the UI already agree
     "M": "meg",  # bare M — the bug: ngspice read it as milli
     "k": "k",
@@ -72,6 +114,15 @@ def normalize_spice_value(raw: str, validated: str) -> str:
     """
     if not isinstance(validated, str) or not isinstance(raw, str):
         return validated
+
+    # Translate UI-facing SI unicode (µ/Ω) to ngspice's ASCII equivalents before
+    # matching. Translating ``validated`` -- the whitespace-stripped form
+    # :func:`sanitize_spice_value` produces -- keeps the anchored regex working
+    # even when ``raw`` carries leading/trailing spaces. The translation turns
+    # ``100Ω`` into ``100`` (no suffix) and ``1µF`` into ``1uF`` (an unhandled
+    # suffix that falls back to ``validated``), so the netlist never carries a
+    # non-ASCII character.
+    validated = translate_spice_unicode(validated)
 
     match = _NUMERIC_SUFFIX_PATTERN.match(validated)
     if match is None:

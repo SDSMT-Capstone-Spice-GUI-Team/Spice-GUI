@@ -17,7 +17,8 @@ SI_PREFIX_MULTIPLIERS = {
     "p": 1e-12,  # Pico
     "n": 1e-9,  # Nano
     "u": 1e-6,  # Micro
-    "µ": 1e-6,  # Micro
+    "µ": 1e-6,  # Micro sign (U+00B5)
+    "μ": 1e-6,  # Greek small letter mu (U+03BC) — matches normalize_spice_unicode
     "m": 1e-3,  # Milli
     "k": 1e3,  # Kilo
     "M": 1e6,  # Mega
@@ -68,7 +69,7 @@ def parse_value(s: str) -> float:
             raise ValueError(f"Invalid number format: {s}")
 
     # Use regex to separate the number from the potential prefix/unit
-    match = re.match(r"^(-?\d+\.?\d*e?[-+]?\d*)([a-zA-Zµ]*)", s)
+    match = re.match(r"^(-?\d+\.?\d*e?[-+]?\d*)([a-zA-Zµμ]*)", s)
     if not match:
         raise ValueError(f"Invalid number format: {s}")
 
