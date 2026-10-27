@@ -78,13 +78,23 @@ for the app's default components — ngspice's generic MOSFET/BJT models cover t
 default `nmos`/`pmos` components (see note below) — but are required for
 user-defined, SPICE-style, or advanced device definitions.
 
+### The runtime `spinit` (`share/ngspice/scripts/`)
+
+`ngspice/share/ngspice/scripts/spinit` is the init script ngspice auto-loads from
+its install prefix at startup. It loads the XSPICE **code models**
+(`*.cm` — e.g. transmission-line models via `spice2poly.cm`, `tlines.cm`) and,
+when enabled, the **OpenVAF/OSDI models** (`*.osdi` — the advanced device models
+above). The app bundles this tree via `SpiceGUI.spec`, so the code models are
+available at runtime; see #829. By default `osdi_enabled` is left off, so the
+advanced `.osdi` models must be explicitly enabled by the caller if a netlist
+needs them.
+
 ## What is intentionally *not* bundled
 
 | File / dir | Reason |
 | --- | --- |
 | `ngspice_con.exe` (7.3 MB) | Interactive console front-end; the runner uses batch mode. |
 | `docs/` (PDF + text) | Reference docs, not needed at runtime. |
-| `share/ngspice/scripts/` | tclspice console scripts, interactive only. |
 
 ## Verification
 

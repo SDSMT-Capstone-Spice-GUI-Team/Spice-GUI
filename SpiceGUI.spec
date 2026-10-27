@@ -16,11 +16,13 @@
 #
 # Bundled ngspice:
 #   Place an ngspice distribution at ``ngspice/`` relative to the repo root
-#   (i.e. ``ngspice/bin/ngspice.exe`` and supporting DLLs).  When present
-#   the build will embed it in the bundle under ``ngspice/`` next to the
-#   executable.  At runtime the app checks for a bundled copy first; if
-#   an existing system installation is also found the user is prompted to
-#   choose (see simulation/ngspice_config.py).
+#   (i.e. ``ngspice/bin/ngspice.exe`` and supporting DLLs, plus
+#   ``ngspice/share/ngspice/scripts/spinit``).  When present
+#   the build will embed it in the bundle's ``_internal/`` folder under
+#   ``ngspice/`` (the whole tree is copied via ``datas``, so ``share/`` and
+#   ``lib/`` come along too).  At runtime the app checks for a bundled copy
+#   first; if an existing system installation is also found the user is
+#   prompted to choose (see simulation/ngspice_config.py).
 #
 #   If the ``ngspice/`` directory is absent the build proceeds without it
 #   and the user must install ngspice separately.

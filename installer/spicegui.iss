@@ -90,14 +90,22 @@ Root: HKA; Subkey: "Software\Classes\SpiceGUI.Circuit\DefaultIcon"; ValueType: s
 Root: HKA; Subkey: "Software\Classes\SpiceGUI.Circuit\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Tasks: fileassoc
 
 [Run]
-; Install VC++ redistributable silently if missing.
+; Install VC++ redistributable silently on every run.
+; With /install /quiet /norestart the redistributable exits harmlessly when
+; the same or a newer version is already present. We run it unconditionally
+; (no Check:) because the old NeedsVCRedist gate was wrong: IsVCRedistInstalled
+; only checks that any v14.x runtime is registered (Installed = 1), so a
+; machine with an older 14.x runtime (e.g. from a 2015-era app) passes the
+; check and our 14.44 runtime never installs — but ngspice-47, built with a
+; newer compiler, needs a runtime at least as new. See #829.
+;
 ; Redistributable ships under {tmp} (see [Files]); Inno extracts it there at
 ; run time and deletes it afterward. {app} never holds a copy (PyInstaller 6
 ; --onedir places data under an _internal folder, not a top-level redist/), so
 ; routing it through {app}\redist\ was a silent no-op.
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; \
   StatusMsg: "Installing Visual C++ Redistributable..."; \
-  Flags: waituntilterminated; Check: NeedsVCRedist
+  Flags: waituntilterminated
 ; Launch application after install
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
