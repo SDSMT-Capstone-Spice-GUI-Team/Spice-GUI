@@ -10,7 +10,9 @@ skipped when ngspice is not on PATH (via the session-scoped
 require_ngspice fixture in conftest.py).
 """
 
+import json
 import tempfile
+from pathlib import Path
 
 import pytest
 from controllers.circuit_controller import CircuitController
@@ -334,3 +336,29 @@ class TestACSweep:
         # The supply must remain a plain DC source: DC value, no AC term.
         assert "AC" not in supply_line.upper(), f"DC supply must not gain an AC term: {supply_line}"
         assert supply_line.endswith("DC 6V"), f"Supply must keep its DC value, got: {supply_line}"
+
+
+# ---------------------------------------------------------------------------
+# Reopened circuits (#938)
+# ---------------------------------------------------------------------------
+
+_EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "examples"
+
+
+@pytest.mark.ngspice
+class TestReopenedCircuitSimulates:
+    """A reopened circuit must simulate without a visit to the Analysis menu (#938)."""
+
+    @pytest.mark.parametrize("name", sorted(p.name for p in _EXAMPLES_DIR.glob("*.json")))
+    def test_example_runs_after_load(self, name):
+        data = json.loads((_EXAMPLES_DIR / name).read_text(encoding="utf-8"))
+        model = CircuitModel.from_dict(data)
+        ctrl = CircuitController(model)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sim = SimulationController(model=model, circuit_ctrl=ctrl)
+            sim._runner = NgspiceRunner(output_dir=tmpdir)
+
+            result = sim.run_simulation()
+
+            assert result.success, f"{name} ({model.analysis_type}) failed: {result.error}"

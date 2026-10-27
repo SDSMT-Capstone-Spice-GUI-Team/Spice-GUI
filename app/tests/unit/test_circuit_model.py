@@ -1,9 +1,10 @@
 """Tests for CircuitModel central data store."""
 
+import json
 from pathlib import Path
 
 import pytest
-from models.circuit import CircuitModel
+from models.circuit import _ANALYSIS_TYPE_ALIASES, ANALYSIS_TYPES, CircuitModel
 from models.component import ComponentData
 from models.node import reset_node_counter
 from models.wire import WireData
@@ -287,6 +288,26 @@ class TestSerialization:
             "components": [],
             "wires": [],
             "counters": {},
+        }
+        model = CircuitModel.from_dict(data)
+        assert model.analysis_type == "DC Operating Point"
+        assert model.analysis_params == {}
+
+    @pytest.mark.parametrize("stored", ["Operating Point", "Operational Point", "OperatingPoint", "DCOP"])
+    def test_from_dict_maps_operating_point_aliases(self, stored):
+        """Files that store a short .op name must load as runnable (#938)."""
+        data = {"components": [], "wires": [], "counters": {}, "analysis_type": stored}
+        model = CircuitModel.from_dict(data)
+        assert model.analysis_type == "DC Operating Point"
+
+    def test_from_dict_unknown_analysis_falls_back_to_operating_point(self):
+        """An analysis name the simulator can't run must not break Run (#938)."""
+        data = {
+            "components": [],
+            "wires": [],
+            "counters": {},
+            "analysis_type": "Fourier",
+            "analysis_params": {"freq": 1000},
         }
         model = CircuitModel.from_dict(data)
         assert model.analysis_type == "DC Operating Point"
@@ -699,3 +720,17 @@ class TestIncrementalWireRemoval:
         ground_nodes = [n for n in model.nodes if n.is_ground]
         assert len(ground_nodes) == 1
         assert ("GND1", 0) in ground_nodes[0].terminals
+
+
+_APP_DIR = Path(__file__).resolve().parents[2]
+_BUNDLED_CIRCUITS = sorted([*(_APP_DIR / "examples").glob("*.json"), *(_APP_DIR / "templates").glob("*.json")])
+
+
+@pytest.mark.parametrize("path", _BUNDLED_CIRCUITS, ids=lambda p: f"{p.parent.name}/{p.name}")
+def test_bundled_circuits_load_with_runnable_analysis(path):
+    """Every shipped example/template must open ready to simulate (#938)."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    stored = data.get("analysis_type", "DC Operating Point")
+    # Anything else would be silently reset to DC Operating Point on load.
+    assert stored in ANALYSIS_TYPES or stored in _ANALYSIS_TYPE_ALIASES
+    assert CircuitModel.from_dict(data).analysis_type in ANALYSIS_TYPES
