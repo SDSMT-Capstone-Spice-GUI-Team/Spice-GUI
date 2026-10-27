@@ -24,7 +24,9 @@ SI_PREFIX_MULTIPLIERS = {
     "M": 1e6,  # Mega
     "MEG": 1e6,  # Mega (SPICE variant)
     "G": 1e9,  # Giga
+    "g": 1e9,  # Giga (SPICE is case-insensitive, #963)
     "T": 1e12,  # Tera
+    "t": 1e12,  # Tera (SPICE is case-insensitive, #963)
 }
 
 # For formatting, we iterate to find the best fit
@@ -78,13 +80,19 @@ def parse_value(s: str) -> float:
     if not unit_str:
         return float(num_str)
 
-    # Find the first character that is a known prefix
-    for i, char in enumerate(unit_str):
-        if char in SI_PREFIX_MULTIPLIERS:
-            multiplier = SI_PREFIX_MULTIPLIERS[char]
-            return float(num_str) * multiplier
+    # Only the first letter of the unit can be a scale factor, as in SPICE.
+    # Scanning further would let the "m" in "KOhm" act as milli (#963).
+    if unit_str[:3].upper() == "MEG":
+        return float(num_str) * SI_PREFIX_MULTIPLIERS["MEG"]
 
-    # If no known prefix is found in the unit string, just return the number
+    first = unit_str[0]
+    if first in ("M", "m"):  # the one case-sensitive pair
+        return float(num_str) * SI_PREFIX_MULTIPLIERS[first]
+    key = first.lower()  # k, g, t, u, n, p, f
+    if key in SI_PREFIX_MULTIPLIERS:
+        return float(num_str) * SI_PREFIX_MULTIPLIERS[key]
+
+    # A unit with no scale factor, e.g. "5V" or "100Ohm"
     return float(num_str)
 
 

@@ -46,10 +46,10 @@ class TestParseValue:
 
     def test_omega_does_not_match_meg(self):
         # "OMEGA" contains "MEG" as a substring; must not trigger the MEG path.
-        # After the fix the string reaches the normal SI-prefix regex and "m"
-        # (milli) is found inside "omega", returning 100e-3.
+        # Its first letter "o" is not a scale factor, so like ngspice the
+        # value is plain 100 (the "m" inside it is not milli, #963).
         result = parse_value("100omega")
-        assert result == pytest.approx(0.1)
+        assert result == pytest.approx(100.0)
 
     def test_bare_number(self):
         assert parse_value("100") == 100.0
@@ -66,6 +66,43 @@ class TestParseValue:
     def test_number_with_unit_suffix(self):
         # "10kOhm" — 'k' is the prefix, rest is unit
         assert parse_value("10kOhm") == pytest.approx(10_000.0)
+
+    # ── #963: suffixes must read the same way ngspice reads them ──────
+
+    @pytest.mark.parametrize(
+        "input_str, expected",
+        [
+            ("10K", 10_000.0),
+            ("1g", 1e9),
+            ("1t", 1e12),
+            ("1U", 1e-6),
+            ("1N", 1e-9),
+            ("2.2P", 2.2e-12),
+            ("1F", 1e-15),
+        ],
+    )
+    def test_prefixes_are_case_insensitive(self, input_str, expected):
+        assert parse_value(input_str) == pytest.approx(expected)
+
+    @pytest.mark.parametrize(
+        "input_str, expected",
+        [
+            ("2.2KOhm", 2_200.0),
+            ("1KOhm", 1_000.0),
+            ("10kHz", 10_000.0),
+            ("100Ohm", 100.0),
+            ("5V", 5.0),
+            ("1megohm", 1e6),
+            ("4.7MEGOhm", 4.7e6),
+        ],
+    )
+    def test_only_first_letter_of_unit_is_a_prefix(self, input_str, expected):
+        # The "m" in "Ohm" must not be read as milli.
+        assert parse_value(input_str) == pytest.approx(expected)
+
+    def test_bare_m_case_still_distinguishes_mega_and_milli(self):
+        assert parse_value("1M") == pytest.approx(1e6)
+        assert parse_value("1m") == pytest.approx(1e-3)
 
     def test_invalid_string_raises(self):
         with pytest.raises(ValueError):
