@@ -58,9 +58,10 @@ ngspice/
         └── *.vpi                # VPI (verilog-AMS) entry points
 ```
 
-The `bin/` and `lib/` tree is placed by `SpiceGUI.spec` (via `datas`) next to
-the app executable, so the runtime path resolution in
-`app/simulation/ngspice_config.py` finds `ngspice/bin/ngspice.exe`.
+The `bin/` and `lib/` tree is placed by `SpiceGUI.spec` (via `datas`) into the
+bundle's `_internal\` folder — that's what `sys._MEIPASS` points at under
+PyInstaller 6 `--onedir` — and the runtime path resolution in
+`app/simulation/ngspice_config.py` finds `ngspice/bin/ngspice.exe` there.
 
 ## Device models are committed to the repo
 
