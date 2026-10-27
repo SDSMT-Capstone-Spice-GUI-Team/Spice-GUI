@@ -29,6 +29,9 @@ sdist/
 var/
 wheels/
 share/python-wheels/
+# Track the vendored ngspice device models (see ngspice/README.md) after the
+# generic build-artifact lib/ rule, otherwise the negation never wins.
+!ngspice/lib
 *.egg-info/
 .installed.cfg
 *.egg
