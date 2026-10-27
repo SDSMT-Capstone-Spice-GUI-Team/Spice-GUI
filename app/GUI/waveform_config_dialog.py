@@ -1,6 +1,14 @@
-from PyQt6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout,
-                             QGroupBox, QHBoxLayout, QLabel, QLineEdit,
-                             QVBoxLayout)
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QVBoxLayout,
+)
 from utils.format_utils import parse_value
 
 from .styles import theme_manager
