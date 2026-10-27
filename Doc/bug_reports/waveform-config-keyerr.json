@@ -1,0 +1,81 @@
+{
+  "title": "Configure Waveform crashes with KeyError: 'SIN' when the loaded circuit's waveform_params lacks the currently displayed type",
+  "severity": "High",
+  "state": "open",
+  "created": "2025-08-09",
+  "area": "waveform_config_dialog.py",
+  "reported_by": "user",
+  "component": "Waveform Source > Configure waveform dialog",
+  "environment": {
+    "os": "Windows",
+    "python_version": null,
+    "commit": "e9eb855",
+    "notes": "PyQt6 desktop app"
+  },
+
+  "steps_to_reproduce": [
+    "Start from a circuit file whose stored waveform_params contains only the current type (e.g. PulseTest.json or RCCircuit.json, where waveform_params == {'PULSE': {...}}).",
+    "Open the circuit in the app (File > Open).",
+    "Select the Waveform Source component.",
+    "Click the 'Configure waveform' button in the properties panel.",
+    "Dialog raises KeyError: 'SIN'."
+  ],
+
+  "expected_behavior": "The WaveformConfigDialog opens with the current waveform type selected and its editable parameters populated, regardless of which waveform types are present in the stored waveform_params.",
+
+  "actual_behavior": "KeyError: 'SIN' is raised during dialog construction (waveform_config_dialog.py:83), so the dialog never opens.",
+
+  "traceback": "File \"...\\app\\GUI\\properties_panel.py\", line 281, in configure_waveform\n    dialog = WaveformConfigDialog(self.current_component, self)\nFile \"...\\app\\GUI\\waveform_config_dialog.py\", line 55, in init_ui\n    self.create_param_inputs()\nFile \"...\\app\\GUI\\waveform_config_dialog.py\", line 83, in create_param_inputs\n    \"offset\": QLineEdit(self.component.waveform_params[\"SIN\"][\"offset\"]),\nKeyError: 'SIN'",
+
+  "root_cause": "create_param_inputs() unconditionally reads every waveform type (SIN, PULSE, EXP) from self.component.waveform_params and wraps each in a QLineEdit at construction time. But the stored waveform_params for some saved circuits contains only the *current* waveform type (e.g. {'PULSE': {...}} in PulseTest.json and RCCircuit.json), not all three. Because the constructor reads all three keys before any type is selected, loading a PULSE-only (or EXP-only) circuit and opening the dialog raises KeyError: 'SIN'. The default freshly-created component has all three types, so the crash only occurs on loaded circuits that were serialized with a partial waveform_params dict.",
+
+  "evidence": {
+    "pulsetest": "app/tests/data/PulseTest.json -> waveform_type='PULSE', waveform_params keys=['PULSE']",
+    "rccircuit": "app/tests/data/RCCircuit.json -> waveform_type='PULSE', waveform_params keys=['PULSE']",
+    "sinusoidal": "app/tests/data/SinusoidalVoltageDivider.json -> waveform_type='SIN', waveform_params keys=['SIN','PULSE','EXP']",
+    "serialization": "models/component.py ComponentData.to_dict() writes self.waveform_params verbatim, so whatever dict the component held at save time is restored on load (component.py:from_dict lines 492-493). A component whose params were only ever set for one type (e.g. netlist_parser._setup_waveform_params only assigns a single-key dict) round-trips as a partial dict."
+  },
+
+  "related_files": {
+    "buggy": "app\\GUI\\waveform_config_dialog.py lines 79-110 (create_param_inputs) - assumes all three waveform types are present.",
+    "model": "app\\models\\component.py - to_dict (444-447) and from_dict (489-493) round-trip waveform_params without ensuring all three keys.",
+    "parsers": "app\\simulation\\netlist_parser.py _setup_waveform_params (557-600) only sets a single-key dict (e.g. {\"PULSE\": ...}); app\\simulation\\circuitikz_parser.py line 340 does comp.waveform_params[wtype] = wparams.",
+    "trigger": "app\\GUI\\properties_panel.py configure_waveform (271-285).",
+    "defaults": "app\\models\\waveform_defaults.py default_waveform_params() - the only place that reliably produces all three keys."
+  },
+
+  "fix_options": [
+    {
+      "id": "A",
+      "title": "Harden create_param_inputs to use defaults for missing keys",
+      "description": "In create_param_inputs(), fall back to default_waveform_params() for any missing type/key instead of assuming all three are present. This fixes the crash regardless of how the circuit was loaded, and keeps the per-type input dicts fully populated for on_type_changed().",
+      "severity_effort": "Low",
+      "notes": "Recommended. Adds one import from models.waveform_defaults and changes the dict-access pattern to param.get with a default."
+    },
+    {
+      "id": "B",
+      "title": "Normalize waveform_params on load to include all types",
+      "description": "In ComponentData.from_dict(), after restoring waveform_params, ensure all three keys exist by filling missing ones from default_waveform_params(). Fixes the invariant at the model boundary.",
+      "severity_effort": "Low",
+      "notes": "Defensive; also fix netlist_parser._setup_waveform_params to always set all three keys. Cures the root invariant rather than the symptom."
+    },
+    {
+      "id": "C",
+      "title": "Build param inputs lazily for the current type only",
+      "description": "Recreate_param_inputs() so it only builds inputs for the currently selected type (on init, call create for self.component.waveform_type), and rebuild on type change. Fewer widgets, but must still guard against an unknown waveform_type from a loaded file.",
+      "severity_effort": "Medium",
+      "notes": "Larger change; must still guard unknown types."
+    }
+  ],
+
+  "test_recommendations": [
+    "Add a circuit fixture (or load app/tests/data/PulseTest.json) whose waveform_params has a single key and assert the dialog constructs without raising.",
+    "Cover from_dict round-trip when stored waveform_params omits keys, to lock the model-level invariant you choose to enforce.",
+    "Cover on_type_changed switching to a type whose params were not initially loaded."
+  ],
+
+  "notes": [
+    "A UserWarning about 'No artists with labels found to put in legend' was also in the pasted output (plot_utils.py:36); it is likely unrelated to this crash (legend called on an empty plot) and should be triaged separately.",
+    "The default freshly-created Waveform Source has all three types, which is why the bug does not appear in new circuits."
+  ]
+}

@@ -1,13 +1,11 @@
 """Tests for SPICE netlist parser and import functionality."""
 
 import pytest
-from simulation.netlist_parser import (
-    NetlistParseError,
-    _extract_paren_params,
-    _tokenize_spice_line,
-    import_netlist,
-    parse_netlist,
-)
+from models.component import ComponentData
+from simulation.netlist_parser import (NetlistParseError,
+                                       _extract_paren_params,
+                                       _tokenize_spice_line, import_netlist,
+                                       parse_netlist)
 
 # ── Tokenizer ─────────────────────────────────────────────────────────
 
@@ -280,6 +278,22 @@ class TestImportNetlist:
         assert v1.waveform_type == "SIN"
         assert v1.waveform_params is not None
         assert v1.waveform_params["SIN"]["amplitude"] == "5"
+
+    def test_waveform_source_params_is_single_key_dict(self):
+        """The parser stores only the current waveform type — this is the
+        precondition for the KeyError: 'SIN' regression. Asserting it here locks
+        the invariant that makes the dialog's default-fallback fix necessary."""
+        for value, expected_type in [
+            ("SIN(0 5 1k)", "SIN"),
+            ("PULSE(0 5 0 1n 1n 500u 1m)", "PULSE"),
+            ("EXP(0 5 0 1u 1u 2u 2u)", "EXP"),
+        ]:
+            model, _ = import_netlist(f"Test\nV1 1 0 {value}\nR1 1 0 1k\n.end\n")
+            v1 = model.components["V1"]
+            assert set(v1.waveform_params.keys()) == {expected_type}
+            # A single-key dict still round-trips faithfully.
+            restored = ComponentData.from_dict(v1.to_dict())
+            assert set(restored.waveform_params.keys()) == {expected_type}
 
     def test_four_resistor_example(self):
         """Test with the actual Simple4ResistorCircuit example."""
