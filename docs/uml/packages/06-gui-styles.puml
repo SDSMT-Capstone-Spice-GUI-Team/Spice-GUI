@@ -1,0 +1,36 @@
+@startuml gui-styles
+package "GUI.styles" <<Frame>> #EFEBE9 {
+    interface ThemeProtocol <<Protocol>> {
+        + color(name) : QColor
+        + color_hex(name) : str
+        + pen(name) : QPen
+        + brush(name) : QBrush
+        + font(name) : QFont
+        + load_qss() : str
+    }
+    class BaseTheme {
+        - _colors : dict[str, str]
+        --
+        + color(name) : QColor
+        + color_hex(name) : str
+        + pen(name) : QPen
+        + brush(name) : QBrush
+        + font(name) : QFont
+        + get_component_color(type) : QColor
+    }
+    class LightTheme { }
+    class DarkTheme { }
+    class CustomTheme {
+        + load_from_file(filepath)
+        + save_to_file(filepath)
+    }
+    BaseTheme ..|> ThemeProtocol
+    BaseTheme <|-- LightTheme
+    BaseTheme <|-- DarkTheme
+    BaseTheme <|-- CustomTheme
+    note bottom of BaseTheme
+        Color palette + QSS stylesheet loading.
+        BaseTheme is thin; concrete themes override.
+    end note
+}
+@enduml

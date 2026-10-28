@@ -1,0 +1,56 @@
+@startuml gui-renderers
+package "GUI.renderers" <<Frame>> #F3E5F5 {
+    abstract class ComponentRenderer <<ABC>> {
+        + {abstract} draw(painter, component)
+        + {abstract} get_obstacle_shape(component) : list[tuple]
+    }
+    class IEEEResistor { }
+    class IEEECapacitor { }
+    class IEEEInductor { }
+    class IEEEVoltageSource { }
+    class IEEECurrentSource { }
+    class IEEEWaveformVoltageSource { }
+    class IEEEGround { }
+    class IEEEOpAmp { }
+    class IEEEVCVS { }
+    class IEEECCVS { }
+    class IEEEVCCS { }
+    class IEEEBJTNPN { }
+    class IEEEBJTPNP { }
+    class IEEEMOSFETNMOS { }
+    class IEEEMOSFETPMOS { }
+    class IEEEVCSwitch { }
+    class IEEEDiode { }
+    class IEEELED { }
+    class IEEEZenerDiode { }
+    class IECResistor { }
+    class IECCapacitor { }
+    class IECInductor { }
+    ComponentRenderer <|-- IEEEResistor
+    ComponentRenderer <|-- IEEECapacitor
+    ComponentRenderer <|-- IEEEInductor
+    ComponentRenderer <|-- IEEEVoltageSource
+    ComponentRenderer <|-- IEEECurrentSource
+    ComponentRenderer <|-- IEEEWaveformVoltageSource
+    ComponentRenderer <|-- IEEEGround
+    ComponentRenderer <|-- IEEEOpAmp
+    ComponentRenderer <|-- IEEEVCVS
+    ComponentRenderer <|-- IEEECCVS
+    ComponentRenderer <|-- IEEEVCCS
+    ComponentRenderer <|-- IEEEBJTNPN
+    ComponentRenderer <|-- IEEEBJTPNP
+    ComponentRenderer <|-- IEEEMOSFETNMOS
+    ComponentRenderer <|-- IEEEMOSFETPMOS
+    ComponentRenderer <|-- IEEEVCSwitch
+    ComponentRenderer <|-- IEEEDiode
+    ComponentRenderer <|-- IEEELED
+    ComponentRenderer <|-- IEEEZenerDiode
+    ComponentRenderer <|-- IECResistor
+    ComponentRenderer <|-- IECCapacitor
+    ComponentRenderer <|-- IECInductor
+    note bottom of ComponentRenderer
+        Registry: _registry[(type, style)] -> renderer
+        IEC delegates to IEEE for most types
+    end note
+}
+@enduml

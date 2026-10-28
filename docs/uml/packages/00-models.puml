@@ -1,0 +1,135 @@
+@startuml models
+package "models" <<Frame>> #F5F5DC {
+    class CircuitModel <<dataclass>> {
+        + components : dict[str, ComponentData]
+        + wires : list[WireData]
+        + nodes : list[NodeData]
+        + terminal_to_node : dict[tuple, NodeData]
+        + component_counter : dict[str, int]
+        + annotations : list[AnnotationData]
+        + recommended_components : list[str]
+        + analysis_type : str
+        + analysis_params : dict
+        --
+        + add_component(comp)
+        + remove_component(id) : list[int]
+        + add_wire(wire)
+        + remove_wire(index)
+        + rebuild_nodes()
+        + clear()
+        + to_dict() : dict
+        + {static} from_dict(data) : CircuitModel
+    }
+    class ComponentData <<dataclass>> {
+        + component_id : str
+        + component_type : str
+        + value : str
+        + position : tuple
+        + rotation : int
+        + flip_h : bool
+        + flip_v : bool
+        + waveform_type : str
+        + waveform_params : dict
+        + initial_condition : Optional[str]
+        --
+        + get_terminal_count() : int
+        + get_spice_symbol() : str
+        + to_dict() : dict
+        + {static} from_dict(data) : ComponentData
+    }
+    class WireData <<dataclass>> {
+        + start_component_id : str
+        + start_terminal : int
+        + end_component_id : str
+        + end_terminal : int
+        + waypoints : list[tuple]
+        + routing_failed : bool
+        + locked : bool
+        --
+        + connects_component(id) : bool
+        + to_dict() : dict
+        + {static} from_dict(data) : WireData
+    }
+    class NodeData <<dataclass>> {
+        + terminals : set[tuple[str, int]]
+        + is_ground : bool
+        + custom_label : Optional[str]
+        --
+        + get_label() : str
+        + set_custom_label(label)
+        + add_terminal(comp, term)
+        + merge_with(other)
+        + set_as_ground()
+    }
+    class NodeLabelGenerator {
+        - _counter : int
+        --
+        + reset()
+        + next_label() : str
+    }
+    class AnnotationData <<dataclass>> {
+        + text : str
+        + x : float
+        + y : float
+        + font_size : int
+        + bold : bool
+        + color : str
+        --
+        + to_dict() : dict
+        + {static} from_dict(data) : AnnotationData
+    }
+    class ClipboardData <<dataclass>> {
+        + components : list[ComponentData]
+        + wires : list[WireData]
+        + paste_count : int
+        --
+        + is_empty() : bool
+    }
+    class TemplateData <<dataclass>> {
+        + template_version : str
+        + metadata : TemplateMetadata
+        + instructions : str
+        + starter_circuit : Optional[dict]
+        + reference_circuit : Optional[dict]
+        + locked_components : list[str]
+        --
+        + to_dict() : dict
+        + {static} from_dict(data) : TemplateData
+    }
+    class TemplateMetadata <<dataclass>> {
+        + title : str
+        + description : str
+        + author : str
+        + created : str
+        + tags : list[str]
+    }
+    class AssignmentBundle <<dataclass>> {
+        + assignment_version : str
+        + template : Optional[TemplateData]
+        + rubric : Optional[dict]
+    }
+    class SubcircuitDefinition <<dataclass>> {
+        + name : str
+        + netlist : str
+        + is_builtin : bool
+    }
+    class SubcircuitLibrary {
+        - _definitions : dict[str, SubcircuitDefinition]
+        + library_path : Optional[Path]
+        --
+        + add_subcircuit(name, netlist)
+        + get_subcircuit(name) : Optional[SubcircuitDefinition]
+        + list_subcircuits() : list[str]
+    }
+    class GradingSessionData <<dataclass>> {
+        + id : str
+        + results : list
+    }
+    CircuitModel *-- "0..*" ComponentData
+    CircuitModel *-- "0..*" WireData
+    CircuitModel *-- "0..*" NodeData
+    CircuitModel *-- "0..*" AnnotationData
+    TemplateData *-- TemplateMetadata
+    SubcircuitLibrary *-- "0..*" SubcircuitDefinition
+}
+@enduml

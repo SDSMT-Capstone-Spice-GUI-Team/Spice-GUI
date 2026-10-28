@@ -1,0 +1,61 @@
+@startuml simulation
+package "simulation" <<Frame>> #FFEBEE {
+    class NgspiceRunner {
+        + _output_dir : Path
+        - _settings : dict
+        --
+        + run(netlist, timeout) : tuple[bool, str, str]
+        + is_installed() : bool
+        + get_version() : str
+        + register_extra_files(paths)
+    }
+    class NetlistGenerator {
+        + components : dict
+        + wires : list
+        + nodes : list
+        + analysis_type : str
+        + analysis_params : dict
+        --
+        + generate() : str
+    }
+    class ResultParser {
+        + parse(raw_output, analysis_type) : dict
+        + parse_node_voltages(output) : dict
+        + parse_branch_currents(output) : dict
+    }
+    class ErrorCategory {
+        CONVERGENCE
+        CIRCUIT_INCOMPLETE
+        ZERO_VOLTAGE_SOURCE
+        MISSING_GROUND
+        SYNTAX_ERROR
+        UNKNOWN
+    }
+    class ErrorDiagnosis {
+        + category : ErrorCategory
+        + severity : str
+        + message : str
+        + suggestions : list[str]
+    }
+    class FFTResult <<dataclass>> {
+        + frequencies : list[float]
+        + magnitudes : list[float]
+        + phases : list[float]
+        + fundamental_freq : Optional[float]
+    }
+    class PresetManager {
+        - _presets : dict
+        --
+        + save_preset(name, config)
+        + load_preset(name) : dict
+        + list_presets() : list[str]
+    }
+    class AscParseError(ValueError) { }
+    class CircuitikzParseError(ValueError) { }
+    SimulationController --> NgspiceRunner : runs
+    SimulationController --> NetlistGenerator : generates
+    SimulationController --> ResultParser : parses
+    SimulationController --> PresetManager
+    ErrorDiagnosis --> ErrorCategory : uses
+}
+@enduml

@@ -1,0 +1,202 @@
+@startuml Spice-GUI_Interop
+!pragma allowmixing
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam ArrowColor #555555
+skinparam BoxPadding 8
+skinparam nodesep 120
+skinparam ranksep 120
+
+title Spice-GUI — Group Interop (one box per layer)
+footer Generated 2026-03-03
+
+' ============================================================
+' Each class below is one top-level group (its internals live
+' in docs/uml/packages/00-..-13-*.puml).  Arrows show imports:
+'   A --> B : "A imports / uses B"
+' ============================================================
+
+rectangle "gui <<view layer>>" #FCE4EC {
+    class GuiView {
+        o (PyQt6 views)
+        --
+        main_window, canvas, renderers,
+        styles, shell, panels, dialogs
+    }
+}
+
+rectangle "controllers <<business logic>>" #E3F2FD {
+    class ControllersBiz {
+        o (Qt-free business logic)
+        --
+        circuit / file / simulation /
+        grading / undo / settings
+    }
+}
+
+rectangle "models <<domain data>>" #F5F5DC {
+    class ModelsData {
+        o (schema v1, JSON)
+        --
+        CircuitModel, ComponentData,
+        WireData, NodeData, subcircuits
+    }
+}
+
+rectangle "simulation <<SPICE pipeline>>" #FFEBEE {
+    class SimPipeline {
+        o (netlist -> ngspice -> parse)
+        --
+        netlist gen, ngspice runner,
+        result parser, exporters
+    }
+}
+
+rectangle "algorithms <<graph ops>>" #FFF3E0 {
+    class AlgPathfind {
+        o (A* wire routing)
+        --
+        graph_ops pathfinding
+    }
+}
+
+rectangle "grading <<rubrics>>" #F1F8E9 {
+    class GradingRubs {
+        o (compare + score)
+        --
+        Rubric, CircuitGrader,
+        BatchGrader, CheckAnalytics
+    }
+}
+
+rectangle "services <<cross-cutting>>" #FDF6E3 {
+    class ServicesOps {
+        o (persistence + config)
+        --
+        theme_manager, theme_store,
+        report_generator, palette_profiles
+    }
+}
+
+rectangle "utils <<pure funcs>>" #F0F4C0 {
+    class UtilsPure {
+        o (no group deps)
+        --
+        format_utils, connectivity,
+        drag_drop, atomic_write
+    }
+}
+
+rectangle "cli <<headless>>" #EDE7F6 {
+    class CliHeadless {
+        o (argparse entry)
+        --
+        simulate / validate / export /
+        batch / repl / import / diff / stats
+    }
+}
+
+rectangle "scripting <<python api>>" #E8F5E9 {
+    class ScriptingAPI {
+        o (Circuit REPL)
+        --
+        circuit, jupyter, __init__
+    }
+}
+
+package "protocols <<interfaces>>" #F3E5F5 {
+    class ProtocolsIf {
+        o (pure contracts)
+        --
+        CircuitCanvas, ApplicationShell,
+        DialogProvider, Theme, ...
+    }
+}
+
+' --------------------------------------------------------
+' External systems (outside the Python package tree)
+' drawn as boxed "external" boxes so they render cleanly
+' alongside class/rectangle blocks in this jar.
+' --------------------------------------------------------
+rectangle "ngspice <<external engine>>" #FFE5B5 {
+    class NgspiceExt {
+        o (SPICE subprocess)
+    }
+}
+note bottom of NgspiceExt
+    External SPICE engine, launched
+    as a subprocess (ngspice_runner).
+    Resolved via ngspice_config.
+end note
+
+rectangle "filesystem <<external I/O>>" #E0E0E0 {
+    class FS {
+        o (disk / files)
+    }
+}
+note bottom of FS
+    Circuit JSON persistence,
+    .asc/.cir/.spice import,
+    custom themes, save/restore.
+end note
+
+' ============================================================
+' GROUP-TO-GROUP DEPENDENCIES (verified from real imports)
+' ============================================================
+
+' GUI drives everything
+GuiView --> ControllersBiz : drives (observer)
+GuiView --> ModelsData : reads/writes circuit data
+GuiView --> ServicesOps : theme, palette profiles, reports
+GuiView --> UtilsPure : parse/format values
+GuiView --> AlgPathfind : lazy import for wire routing
+GuiView --> GradingRubs : grading panel
+
+' Controllers own the model and orchestrate
+ControllersBiz --> ModelsData : owns & mutates
+ControllersBiz --> SimPipeline : runs simulations
+ControllersBiz --> ServicesOps : settings, theme
+
+' Simulation + Algorithms sit on the model + external engine
+SimPipeline --> ModelsData : netlist gen / netlist parse
+SimPipeline --> UtilsPure : parse_value, atomic_write
+SimPipeline --> NgspiceExt : runs as subprocess
+
+AlgPathfind --> ModelsData : node graph for A*
+
+' Grading + Services
+GradingRubs --> UtilsPure : parse_spice_value
+ServicesOps --> ModelsData : palette categories
+ServicesOps --> ControllersBiz : settings singleton
+
+' Headless access layers
+CliHeadless --> ControllersBiz : circuit / file / simulation
+CliHeadless --> ModelsData : circuit data
+CliHeadless --> SimPipeline : netlist / export
+CliHeadless --> ScriptingAPI : repl
+ScriptingAPI --> ControllersBiz : circuit / simulation
+ScriptingAPI --> ModelsData : circuit data
+ScriptingAPI --> SimPipeline : netlist parse
+
+' Protocols implemented by concrete groups
+GuiView ..|> ProtocolsIf : implements
+ServicesOps ..|> ProtocolsIf : implements (ThemeProtocol)
+
+' Persistence + external I/O
+ModelsData --> FS : schema v1 -> to_dict/from_dict
+ControllersBiz --> FS : load / save circuits
+ServicesOps --> FS : custom themes, settings
+SimPipeline --> FS : parse_asc / write exporters
+
+' NOTE: algorithms imports models; models imports graph_ops for
+' node-graph rebuilds -> a *reversed* dependency between the two.
+
+note right of ModelsData
+    models is not pure from
+    algorithms: circuit.py pulls in
+    algorithms.graph_ops for node-graph
+    rebuilds. Intentional inversion.
+end note
+
+@enduml Spice-GUI_Interop

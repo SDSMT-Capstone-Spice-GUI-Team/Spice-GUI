@@ -1,0 +1,90 @@
+@startuml grading
+package "grading" <<Frame>> #F1F8E9 {
+    class Rubric <<dataclass>> {
+        + title : str
+        + total_points : int
+        + checks : list[RubricCheck]
+        --
+        + to_dict() : dict
+        + content_hash() : str
+    }
+    class RubricCheck <<dataclass>> {
+        + check_id : str
+        + check_type : str
+        + points : int
+        + params : dict
+        + feedback_pass : str
+        + feedback_fail : str
+        --
+        + to_dict() : dict
+        + {static} from_dict(data) : RubricCheck
+    }
+    class RubricValidationError {
+    }
+    class CircuitGrader {
+        - _comparer : CircuitComparer
+        --
+        + grade(student, rubric, reference) : GradingResult
+    }
+    class CircuitComparer {
+        + check_component_exists(circuit, id, type) : ComparisonResult
+        + check_component_value(circuit, id, value, tol) : ComparisonResult
+        + check_topology(student, reference) : ComparisonResult
+        + compare(reference, student) : ComparisonResult
+    }
+    class ComparisonResult {
+        + passed : bool
+        + details : str
+    }
+    class GradingResult <<dataclass>> {
+        + student_file : str
+        + rubric_title : str
+        + total_points : int
+        + earned_points : int
+        + check_results : list[CheckGradeResult]
+        + percentage : float  <<property>>
+    }
+    class CheckGradeResult <<dataclass>> {
+        + check_id : str
+        + passed : bool
+        + points_earned : int
+        + points_possible : int
+        + feedback : str
+    }
+    class BatchGrader {
+        + grade_directory(dir, rubric, progress) : BatchGradingResult
+    }
+    class BatchGradingResult <<dataclass>> {
+        + total_files : int
+        + successfully_graded : int
+        + results : list[GradingResult]
+    }
+    class CheckAnalytics {
+        + analyze_results(results) : dict
+        + get_check_pass_rate(check_id) : float
+    }
+    class GradingSessionData <<dataclass>> {
+        + id : str
+        + timestamp : str
+        + results : list[GradingResult]
+    }
+    class RubricGenerator {
+        + generate_from_circuit(circuit) : Rubric
+    }
+    class ComponentMapper {
+        + extract_component_ids(check_id) : list[str]
+    }
+    class GradeExporter {
+        + export_gradebook(results) : str
+    }
+    Rubric *-- "1..*" RubricCheck
+    CircuitGrader *-- CircuitComparer
+    CircuitGrader --> Rubric : uses
+    CircuitComparer --> ComparisonResult : returns
+    GradingResult *-- "0..*" CheckGradeResult
+    BatchGrader --> CircuitGrader : uses
+    BatchGradingResult *-- "0..*" GradingResult
+    CheckAnalytics --> GradingResult : analyzes
+    RubricValidator --> RubricValidationError : raises
+}
+@enduml

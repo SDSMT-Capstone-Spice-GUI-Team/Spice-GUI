@@ -1,0 +1,47 @@
+@startuml services
+package "services" <<Frame>> #FDF6E3 {
+    class ThemeManager <<singleton>> {
+        - _instance : ThemeManager
+        - _theme : ThemeProtocol
+        - _listeners : list[Callable]
+        - _color_mode : str
+        - _symbol_style : str
+        - _wire_thickness : str
+        --
+        + color(name) : QColor
+        + color_hex(name) : str
+        + pen(name) : QPen
+        + brush(name) : QBrush
+        + set_theme(theme : ThemeProtocol)
+        + set_symbol_style(style : str)
+        + set_color_mode(mode : str)
+        + set_wire_thickness(width : str)
+        + stylesheet(name) : str
+    }
+    class ReportConfig {
+        + format : str
+        + title : str
+        + include_analysis : bool
+    }
+    class ReportData {
+        + components : list[dict]
+        + analysis : dict
+        + statistics : dict
+    }
+    class ReportDataBuilder {
+        + add_component(c)
+        + add_analysis(d)
+        + build() : ReportData
+    }
+    note right of ThemeManager
+        Singleton. Canonical location
+        (re-exported via GUI.styles).
+        Owns theme + symbol style +
+        color mode + wire thickness.
+    end note
+    note left of ReportDataBuilder
+        Builds ReportData for the
+        ReportDialog / print flow.
+    end note
+}
+@enduml

@@ -1,0 +1,171 @@
+@startuml controllers
+package "controllers" <<Frame>> #E3F2FD {
+    abstract class Command <<ABC>> {
+        + {abstract} execute()
+        + {abstract} undo()
+        + get_description() : str
+    }
+    class AddComponentCommand { }
+    class DeleteComponentCommand { }
+    class MoveComponentCommand { }
+    class RotateComponentCommand { }
+    class FlipComponentCommand { }
+    class ChangeValueCommand { }
+    class AddWireCommand { }
+    class DeleteWireCommand { }
+    class ToggleWireLockCommand { }
+    class RerouteWireCommand { }
+    class PasteCommand { }
+    class AddAnnotationCommand { }
+    class DeleteAnnotationCommand { }
+    class EditAnnotationCommand { }
+    class CompoundCommand {
+        + commands : list[Command]
+        + description : str
+    }
+    Command <|-- AddComponentCommand
+    Command <|-- DeleteComponentCommand
+    Command <|-- MoveComponentCommand
+    Command <|-- RotateComponentCommand
+    Command <|-- FlipComponentCommand
+    Command <|-- ChangeValueCommand
+    Command <|-- AddWireCommand
+    Command <|-- DeleteWireCommand
+    Command <|-- ToggleWireLockCommand
+    Command <|-- RerouteWireCommand
+    Command <|-- PasteCommand
+    Command <|-- AddAnnotationCommand
+    Command <|-- DeleteAnnotationCommand
+    Command <|-- EditAnnotationCommand
+    Command <|-- CompoundCommand
+    class UndoManager {
+        + max_depth : int
+        - _undo_stack : list[Command]
+        - _redo_stack : list[Command]
+        --
+        + execute(cmd : Command)
+        + undo() : bool
+        + redo() : bool
+        + clear()
+    }
+    class CircuitController {
+        + model : CircuitModel
+        + undo_manager : UndoManager
+        --
+        + add_observer(cb)
+        + add_component(type, position) : ComponentData
+        + remove_component(id)
+        + rotate_component(id, cw)
+        + flip_component(id, horizontal)
+        + update_component_value(id, value)
+        + move_component(id, position)
+        + add_wire(start, st, end, et)
+        + remove_wire(index)
+        + execute_command(cmd)
+        + copy_components(ids) : bool
+        + paste_components() : tuple
+        + get_components() : dict
+        + to_dict() : dict
+    }
+    class FileController {
+        + model : CircuitModel
+        + circuit_ctrl : CircuitController
+        + current_file : Optional[Path]
+        --
+        + new_circuit()
+        + save_circuit(filepath)
+        + load_circuit(filepath)
+        + load_from_dict(data)
+        + has_file() : bool
+        + get_recent_files() : list[str]
+        + auto_save()
+        + import_netlist(filepath)
+    }
+    class SimulationController {
+        + model : CircuitModel
+        - _runner : Optional[NgspiceRunner]
+        --
+        + set_analysis(type, params)
+        + validate_circuit() : SimulationResult
+        + generate_netlist() : str
+        + run_simulation() : SimulationResult
+        + run_parameter_sweep(config) : SimulationResult
+        + run_monte_carlo(config) : SimulationResult
+        + preset_manager() : PresetManager
+        + export_netlist(filepath)
+        + export_results_csv(results)
+    }
+    class SimulationResult <<dataclass>> {
+        + success : bool
+        + analysis_type : str
+        + data : Any
+        + errors : list[str]
+        + warnings : list[str]
+        + error : str
+        + netlist : str
+        + raw_output : str
+        + measurements : Optional[dict]
+    }
+    class TemplateController {
+        + template_manager : TemplateManager
+        + circuit_ctrl : CircuitController
+        + file_ctrl : FileController
+        --
+        + create_template_from_circuit() : TemplateData
+        + load_template(path) : TemplateData
+    }
+    class TemplateManager {
+        + template_dir : Path
+        --
+        + list_templates() : list[TemplateInfo]
+        + load_template(filepath) : CircuitModel
+        + save_template(template) : TemplateInfo
+        + delete_template(filepath) : bool
+    }
+    class TemplateInfo {
+        + name : str
+        + path : Path
+        + is_builtin : bool
+    }
+    class SettingsService {
+        + get_value(key, default) : Any
+        + set_value(key, value)
+        + get_recent_files() : list[str]
+    }
+    class KeybindingsRegistry {
+        - _bindings : dict[str, str]
+        --
+        + register_binding(action, keys)
+        + get_binding(action) : Optional[str]
+        + load_bindings()
+        + save_bindings()
+    }
+    class ThemeController {
+        + theme_manager : ThemeManager
+        --
+        + set_theme(name)
+        + get_current_theme() : str
+        + list_themes() : list[str]
+    }
+    class AssignmentController {
+        + template_manager : TemplateManager
+        + circuit_ctrl : CircuitController
+        --
+        + start_assignment(bundle)
+        + is_locked(component_id) : bool
+    }
+    class RecentExports {
+        + export_dir : Path
+        --
+        + export(...)
+    }
+    CircuitController *-- CircuitModel
+    CircuitController *-- UndoManager
+    CircuitController *-- ClipboardData
+    FileController --> CircuitController
+    SimulationController --> CircuitController
+    TemplateController --> TemplateManager
+    UndoManager o-- "0..*" Command
+    CompoundCommand o-- "1..*" Command
+}
+@enduml

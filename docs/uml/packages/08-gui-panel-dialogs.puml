@@ -1,0 +1,117 @@
+@startuml gui-panel-dialogs
+package "GUI.panels" <<Frame>> #E0F7FA {
+    class ComponentPalette <<QWidget>> {
+        + get_selected_component_type() : Optional[str]
+    }
+    class PropertiesPanel <<QWidget>> {
+        + set_selected_component(comp)
+        + update_component_value(value)
+        + clear_selection()
+    }
+    class ResultsPanel <<QWidget>> {
+        + display_simulation_result(result : SimulationResult)
+        + clear_results()
+    }
+    class CircuitStatisticsPanel <<QWidget>> {
+        + update_statistics(components, wires)
+    }
+    class GradingPanel <<QWidget>> {
+        + load_rubric(path)
+        + grade_circuit(circuit) : GradingResult
+    }
+    class NetlistPreviewWidget <<QWidget>> {
+        + set_netlist(text)
+        + get_netlist() : str
+    }
+    class SpiceHighlighter <<QSyntaxHighlighter>> {
+        + highlightBlock(text)
+    }
+    ComponentPalette ..|> ComponentPaletteProtocol
+    PropertiesPanel ..|> PropertiesPanelProtocol
+    ResultsPanel ..|> ResultsDisplayProtocol
+}
+
+package "GUI.dialogs" <<Frame>> #FFF9C4 {
+    class AnalysisDialog <<QDialog>> {
+        + get_analysis_params() : dict
+    }
+    class WaveformConfigDialog <<QDialog>> {
+        + get_waveform_config() : dict
+    }
+    class WaveformDialog <<QDialog>> {
+        + plot_waveform(data, signals)
+    }
+    class ParameterSweepDialog <<QDialog>> {
+        + get_sweep_config() : dict
+    }
+    class MonteCarloDialog <<QDialog>> {
+        + get_monte_carlo_config() : dict
+    }
+    class MeasurementDialog <<QDialog>> {
+        + get_measurements() : list
+    }
+    class PreferencesDialog <<QDialog>> {
+        + get_preferences() : dict
+    }
+    class KeybindingsDialog <<QDialog>> {
+        + get_keybindings() : dict
+    }
+    class ThemeEditorDialog <<QDialog>> {
+        + apply_theme()
+    }
+    class NewFromTemplateDialog <<QDialog>> {
+        + get_selected_template()
+    }
+    class TemplateMetadataDialog <<QDialog>> {
+        + get_metadata() : dict
+    }
+    class TemplatePreviewDialog <<QDialog>> {
+        + render_preview()
+    }
+    class SaveAsTemplateDialog <<QDialog>> {
+        + get_template_metadata()
+    }
+    class BatchGradingDialog <<QDialog>> {
+        + start_batch_grading(dir, rubric)
+    }
+    class RubricEditorDialog <<QDialog>> {
+        + get_rubric() : Rubric
+    }
+    class SubcircuitLibraryDialog <<QDialog>> {
+        + load_library(path)
+    }
+    class HelpDialog <<QDialog>> {
+    }
+    class ResultsPlotDialog <<QDialog>> {
+        + render_plot()
+    }
+    class MonteCarloResultsDialog <<QDialog>> {
+        + render_results()
+    }
+    class ReportDialog <<QDialog>> {
+        + generate_report()
+    }
+    class CustomReportGenerator {
+        + generate(circuit) : ReportData
+    }
+
+    class QtDialogProvider <<QObject>> {
+        - _parent : QWidget
+        --
+        + ask_save_file(title, filters, default) : Optional[Path]
+        + ask_open_file(title, filters) : Optional[Path]
+        + confirm(title, message) : bool
+        + show_error(title, message)
+        + create_progress(title, msg, max) : QtProgressHandle
+    }
+    class QtProgressHandle <<QObject>> {
+        - _dialog : QProgressDialog
+        --
+        + update(value, message) : bool
+        + close()
+    }
+    QtDialogProvider ..|> DialogProvider
+    QtProgressHandle ..|> ProgressHandle
+    QtDialogProvider --> QtProgressHandle : creates
+}
+@enduml gui-panel-dialogs
