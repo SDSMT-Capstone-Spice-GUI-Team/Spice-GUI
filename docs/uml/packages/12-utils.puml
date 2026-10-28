@@ -1,0 +1,22 @@
+@startuml utils
+package "utils" <<Frame>> #F0F4C0 {
+    class FormatUtils {
+        + parse_value(s : str) : float
+        + format_value(value : float, unit : str) : str
+        + validate_component_value(value : str, type : str) : tuple[bool, str]
+        + format_si(value : float, unit : str) : str
+    }
+    class ConnectivityUtils {
+        + find_floating_terminals(components, wires) : list
+        + compute_node_map(components, wires) : dict
+    }
+    class DragDropRouter {
+        + route_dropped_file(extension : str) : Optional[str]
+    }
+    note bottom of FormatUtils
+        Used by WaveformConfigDialog
+        to parse/validate waveform values
+        so dialogs agree with the simulation.
+    end note
+}
+@enduml

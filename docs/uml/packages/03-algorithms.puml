@@ -1,0 +1,21 @@
+@startuml algorithms
+package "algorithms" <<Frame>> #FFF3E0 {
+    abstract class WeightedPathfinder <<ABC>> {
+        + grid_size : int
+        + allow_diagonal : bool
+        --
+        + find_path(start, end, obstacles) : tuple
+        # _pos_to_grid(pos) : tuple
+        # _grid_to_pos(grid) : tuple
+        # _calculate_edge_cost(...) : float
+    }
+    class AStarPathfinder {
+        + find_path(start, end, obstacles) : tuple
+    }
+    WeightedPathfinder <|-- AStarPathfinder
+    note right of WeightedPathfinder
+        Qt-free: works with plain (x,y) tuples.
+        Routed via lazy import from GUI.
+    end note
+}
+@enduml

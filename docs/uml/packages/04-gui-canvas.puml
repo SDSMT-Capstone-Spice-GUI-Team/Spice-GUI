@@ -1,0 +1,84 @@
+@startuml gui-canvas
+package "GUI.canvas" <<Frame>> #FCE4EC {
+    class CircuitCanvasView <<QGraphicsView>> {
+        .. Signals ..
+        + componentAdded : pyqtSignal(str)
+        + wireAdded : pyqtSignal(str, str)
+        + selectionChanged : pyqtSignal(object)
+        + statusMessage : pyqtSignal(str, int)
+        .. State ..
+        + controller : CircuitController
+        + components : dict[str, ComponentGraphicsItem]
+        + wires : list[WireGraphicsItem]
+        + annotations : list[AnnotationItem]
+        + node_voltages : dict[str, float]
+        + probe_overlay : CanvasProbeOverlay
+        + show_component_labels : bool
+        .. Observer ..
+        - _on_model_changed(event, data)
+        .. Editing ..
+        + delete_selected()
+        + add_component_at_center(type)
+        .. Zoom ..
+        + zoom_in(center)
+        + zoom_fit()
+        .. Simulation ..
+        + set_node_voltages(voltages)
+        + set_op_results(voltages, currents)
+        .. Rendering ..
+        + draw_grid()
+        + refresh_theme()
+    }
+    class ComponentGraphicsItem <<QGraphicsItem>> {
+        + model : ComponentData
+        + canvas : CircuitCanvasView
+        + terminals : list[QPointF]
+        - _locked : bool
+        --
+        + component_id : str  <<property>>
+        + value : str  <<property>>
+        + update_terminals()
+        + sync_from_data(data : ComponentData)
+        + paint(painter, option, widget)
+        + to_dict() : dict
+    }
+    class WireGraphicsItem <<QGraphicsPathItem>> {
+        + model : WireData
+        + start_comp : ComponentGraphicsItem
+        + end_comp : ComponentGraphicsItem
+        + canvas : CircuitCanvasView
+        + node : Optional[NodeData]
+        --
+        + update_position()
+        + show_drag_preview()
+        + paint(painter, option, widget)
+        + to_dict() : dict
+    }
+    class WaypointHandle <<QGraphicsEllipseItem>> {
+        - _wire : WireGraphicsItem
+        --
+        + mouseReleaseEvent(event)
+    }
+    class AnnotationItem <<QGraphicsTextItem>> {
+        + canvas : CircuitCanvasView
+        + model : AnnotationData
+        --
+        + mouseDoubleClickEvent(event)
+        + to_dict() : dict
+    }
+    class CanvasProbeOverlay {
+        + canvas : CircuitCanvasView
+        --
+        + set_probe_mode(active : bool)
+        + hit_test(pos) : Optional[NodeData]
+    }
+    CircuitCanvasView ..|> CircuitCanvasProtocol
+    CircuitCanvasView *-- "0..*" ComponentGraphicsItem
+    CircuitCanvasView *-- "0..*" WireGraphicsItem
+    CircuitCanvasView *-- "0..*" AnnotationItem
+    ComponentGraphicsItem *-- ComponentData : model
+    WireGraphicsItem *-- WireData : model
+    WireGraphicsItem *-- "0..*" WaypointHandle
+    AnnotationItem *-- AnnotationData : model
+}
+@enduml

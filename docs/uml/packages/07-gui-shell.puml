@@ -1,0 +1,62 @@
+@startuml gui-shell
+package "GUI.shell" <<Frame>> #E8EAF6 {
+    class MainWindow <<QMainWindow>> {
+        + model : CircuitModel
+        + canvas : CircuitCanvasView
+        + keybindings : KeybindingsRegistry
+        + dialogs : QtDialogProvider
+        --
+        + init_ui()
+        + circuit_ctrl : CircuitController  <<property>>
+        + file_ctrl : FileController  <<property>>
+        + simulation_ctrl : SimulationController  <<property>>
+        + show_status_message(msg, timeout)
+        + set_dirty(dirty)
+    }
+    class MenuBarMixin {
+        + create_menu_bar()
+    }
+    class FileOperationsMixin {
+        + new_circuit()
+        + open_circuit()
+        + save_circuit()
+        + save_circuit_as()
+    }
+    class SimulationMixin {
+        + run_simulation()
+        + cancel_simulation()
+    }
+    class AnalysisSettingsMixin {
+        + show_analysis_settings()
+    }
+    class ViewOperationsMixin {
+        + toggle_grid()
+        + toggle_probe_mode()
+    }
+    class PrintExportMixin {
+        + print_circuit()
+        + export_pdf()
+    }
+    class HelpMixin {
+        + show_help()
+    }
+    class SettingsMixin {
+        + show_preferences_dialog()
+        - _restore_settings()
+        - _auto_save()
+    }
+    MainWindow --|> MenuBarMixin
+    MainWindow --|> FileOperationsMixin
+    MainWindow --|> SimulationMixin
+    MainWindow --|> AnalysisSettingsMixin
+    MainWindow --|> ViewOperationsMixin
+    MainWindow --|> PrintExportMixin
+    MainWindow --|> HelpMixin
+    MainWindow --|> SettingsMixin
+    MainWindow ..|> ApplicationShellProtocol
+    MainWindow *-- CircuitCanvasView
+    MainWindow *-- CircuitController
+    MainWindow *-- FileController
+    MainWindow *-- SimulationController
+}
+@enduml

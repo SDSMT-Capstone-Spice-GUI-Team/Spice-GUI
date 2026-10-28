@@ -1,0 +1,65 @@
+@startuml protocols
+package "protocols" <<Frame>> #E8F5E9 {
+    interface CircuitCanvasProtocol <<Protocol>> {
+        + handle_observer_event(event, data)
+        + get_selected_component_ids() : list[str]
+        + clear_selection()
+        + select_components(ids : list[str])
+        + zoom_in()
+        + zoom_fit()
+        + get_zoom_level() : float
+        + set_show_component_labels(show : bool)
+        + set_node_voltages(voltages : dict)
+        + clear_op_annotations()
+        + export_image(filepath, include_grid)
+        + refresh_theme()
+    }
+    interface ApplicationShellProtocol <<Protocol>> {
+        + circuit_ctrl : CircuitController
+        + file_ctrl : FileController
+        + simulation_ctrl : SimulationController
+        + set_window_title(title : str)
+        + show_status_message(msg, timeout)
+        + set_dirty(dirty : bool)
+    }
+    interface DialogProvider <<Protocol>> {
+        + ask_save_file(title, filters, default) : Optional[Path]
+        + ask_open_file(title, filters) : Optional[Path]
+        + confirm(title, message) : bool
+        + show_error(title, message)
+        + ask_analysis_params(analysis_type, current_params) : Optional[dict]
+        + ask_parameter_sweep_config(components) : Optional[dict]
+        + ask_monte_carlo_config(components) : Optional[dict]
+        + create_progress(title, msg, max) : ProgressHandle
+    }
+    interface ProgressHandle <<Protocol>> {
+        + update(value, message) : bool
+        + close()
+    }
+    interface ComponentPaletteProtocol <<Protocol>> {
+        + set_component_selected_callback(cb)
+        + set_recommended_components(types : list[str])
+        + set_filter_text(text : str)
+    }
+    interface PropertiesPanelProtocol <<Protocol>> {
+        + show_component(comp : ComponentData)
+        + show_multi_selection(count : int)
+        + set_property_change_callback(cb)
+    }
+    interface ResultsDisplayProtocol <<Protocol>> {
+        + display_simulation_result(result : SimulationResult)
+        + display_text(text : str)
+        + set_netlist_preview(netlist : str)
+        + clear()
+        + set_export_enabled(enabled : bool)
+    }
+    interface ThemeProtocol <<Protocol>> {
+        + color(name) : QColor
+        + color_hex(name) : str
+        + pen(name) : QPen
+        + brush(name) : QBrush
+        + font(name) : QFont
+        + load_qss() : str
+    }
+}
+@enduml

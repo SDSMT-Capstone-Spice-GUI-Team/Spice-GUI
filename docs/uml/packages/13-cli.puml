@@ -1,0 +1,28 @@
+@startuml cli
+package "app.cli" <<Frame>> #EDE7F6 {
+    class CLI {
+        + build_parser() : ArgumentParser
+        + main(argv : Optional[list[str]]) : int
+    }
+    class CommandHandlers {
+        + cmd_simulate(netlist)
+        + cmd_validate(circuit)
+        + cmd_export(circuit, format)
+        + cmd_batch(dir, rubric)
+        + cmd_diff(a, b)
+        + cmd_stats(circuit)
+        + cmd_import(file)
+    }
+    class REPL {
+        + run(namespace : dict)
+    }
+    CLI --> CommandHandlers : uses
+    CLI --> REPL : enters
+    note bottom of CLI
+        Headless entry point.
+        No Qt. Drives the
+        simulation/grading/
+        export layers directly.
+    end note
+}
+@enduml
