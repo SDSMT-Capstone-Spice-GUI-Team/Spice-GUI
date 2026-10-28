@@ -2,10 +2,13 @@
 
 import pytest
 from models.component import ComponentData
-from simulation.netlist_parser import (NetlistParseError,
-                                       _extract_paren_params,
-                                       _tokenize_spice_line, import_netlist,
-                                       parse_netlist)
+from simulation.netlist_parser import (
+    NetlistParseError,
+    _extract_paren_params,
+    _tokenize_spice_line,
+    import_netlist,
+    parse_netlist,
+)
 
 # ── Tokenizer ─────────────────────────────────────────────────────────
 

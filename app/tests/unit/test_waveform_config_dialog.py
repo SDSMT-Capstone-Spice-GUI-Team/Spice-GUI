@@ -84,6 +84,7 @@ class TestWaveformConfigDialogParams:
         assert wtype == "EXP"
         assert set(params.keys()) == {"v1", "v2", "td1", "tau1", "td2", "tau2"}
 
+
 class TestWaveformConfigDialogPartialParams:
     """Regression coverage for the KeyError 'SIN' crash on partial waveform_params.
 
@@ -138,9 +139,7 @@ class TestWaveformConfigDialogPartialParams:
 
     def test_stored_values_take_precedence_over_defaults(self, qtbot):
         """A partial param present in the file overrides the default."""
-        component = self._partial_params_component(
-            "SIN", {"offset": "2.5"}
-        )
+        component = self._partial_params_component("SIN", {"offset": "2.5"})
         dialog = WaveformConfigDialog(component)
         qtbot.addWidget(dialog)
         assert dialog.param_inputs["SIN"]["offset"].text() == "2.5"
