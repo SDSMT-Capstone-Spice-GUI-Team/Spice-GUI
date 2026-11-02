@@ -37,6 +37,24 @@ _ANALYSIS_TYPE_ALIASES = {
 }
 
 
+# Canonical analysis types the simulator can run. A loaded file naming
+# anything else would fail on every Run until the user picked a mode from
+# the Analysis menu (#938), so from_dict falls back to the default instead.
+ANALYSIS_TYPES = (
+    "DC Operating Point",
+    "DC Sweep",
+    "AC Sweep",
+    "Transient",
+    "Temperature Sweep",
+    "Noise",
+    "Sensitivity",
+    "Transfer Function",
+    "Pole-Zero",
+    "Parameter Sweep",
+    "Monte Carlo",
+)
+
+
 def _normalize_analysis_type(raw: str) -> str:
     """Map a stored analysis-type alias to its canonical name."""
     return _ANALYSIS_TYPE_ALIASES.get(raw, raw)
@@ -195,8 +213,12 @@ class CircuitModel:
         """
         model = cls()
         model.component_counter = data.get("counters", {}).copy()
-        model.analysis_type = _normalize_analysis_type(data.get("analysis_type", "DC Operating Point"))
-        model.analysis_params = data.get("analysis_params", {}).copy()
+        analysis_type = _normalize_analysis_type(data.get("analysis_type", "DC Operating Point"))
+        if analysis_type in ANALYSIS_TYPES:
+            model.analysis_type = analysis_type
+            model.analysis_params = data.get("analysis_params", {}).copy()
+        else:
+            logger.warning("Unknown analysis type %r; using DC Operating Point", analysis_type)
 
         for i, comp_data in enumerate(data.get("components", [])):
             try:
