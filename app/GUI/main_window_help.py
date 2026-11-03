@@ -4,6 +4,7 @@ import logging
 
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import (
+    QApplication,
     QDialog,
     QLineEdit,
     QListWidget,
@@ -293,3 +294,21 @@ class HelpMixin:
             )
             if result == QMessageBox.StandardButton.Cancel:
                 break
+
+    def _check_for_update(self):
+        """Run an immediate "check for update" via the status dialog.
+
+        Blocks the calling menu until the check finishes, pumping the event
+        loop so the dialog's background worker can emit its result. No-op in
+        dev mode (running from source), where the check is intentionally
+        disabled.
+        """
+        from .update_dialog import CheckUpdateDialog
+
+        dialog = CheckUpdateDialog(self)
+        dialog.show()
+        dialog.start()
+        app = QApplication.instance()
+        assert app is not None
+        while dialog._worker is not None and not dialog._worker._finished:
+            app.processEvents()

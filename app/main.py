@@ -28,6 +28,7 @@ def main():
 
     from GUI.main_window import MainWindow  # , SplashScreen
     from GUI.styles.font_loader import DEFAULT_FONT_FAMILY, load_bundled_fonts
+    from PyQt6.QtCore import QTimer
     from PyQt6.QtWidgets import QApplication
 
     app = QApplication(sys.argv)
@@ -45,6 +46,14 @@ def main():
     # widget = SplashScreen(main_window=window)
     # window.splash_screen = widget
     # widget.show()
+
+    # Defer the update check so the window paints first, and run it only for the
+    # frozen PyInstaller bundle (see services.update_checker._is_frozen) so that
+    # running from source never queries GitHub. Network errors are swallowed.
+    from GUI.update_dialog import schedule_update_check
+
+    QTimer.singleShot(1500, lambda: schedule_update_check(window))
+
     sys.exit(app.exec())
 
 
