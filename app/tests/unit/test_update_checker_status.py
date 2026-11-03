@@ -27,9 +27,13 @@ class FakeResponse:
 
 
 def _json_response(tag_name: str, assets=None) -> FakeResponse:
+    # ``/releases`` returns a list of release objects; each entry needs a tag and
+    # a publication date to be selectable by ``_pick_latest_release``.
     if assets is None:
         assets = [{"name": "SpiceGUI-0.1.0.exe", "browser_download_url": "https://dl/SpiceGUI.exe"}]
-    payload = json.dumps({"tag_name": tag_name, "assets": assets}).encode("utf-8")
+    payload = json.dumps([{"tag_name": tag_name, "published_at": "2024-01-01T00:00:00Z", "assets": assets}]).encode(
+        "utf-8"
+    )
     return FakeResponse(payload)
 
 

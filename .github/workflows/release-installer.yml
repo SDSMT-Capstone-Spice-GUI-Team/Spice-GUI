@@ -53,6 +53,21 @@ jobs:
         # NOTE: `uvx pyinstaller` must NOT be used here — it runs in a throwaway
         # isolated env without the project deps, so PyQt6, the Qt DLLs, and the
         # qwindows platform plugin are silently dropped from the bundle.
+      - name: Write the version into app/_version.py
+        shell: bash
+        run: |
+          # The heredoc body inherits the step's indentation, so strip the leading
+          # whitespace from each line; the written file must start at column 0.
+          cat <<EOF | sed 's/^[[:space:]]*//' > app/_version.py
+          """Auto-generated version string for the packaged build.
+
+          This file is overwritten by the release workflow with the current git
+          tag so the installed app reports exactly the version it ships with.
+          """
+
+          __version__ = "${{ steps.version.outputs.version }}"
+          EOF
+          cat app/_version.py
       - name: Build PyInstaller bundle
         run: uv run pyinstaller SpiceGUI.spec
 

@@ -50,9 +50,12 @@ def main():
     # Defer the update check so the window paints first, and run it only for the
     # frozen PyInstaller bundle (see services.update_checker._is_frozen) so that
     # running from source never queries GitHub. Network errors are swallowed.
+    #
+    # A single 1.5s deferral (issue #10): the check already runs on a background
+    # worker, so there is no need to defer twice.
     from GUI.update_dialog import schedule_update_check
 
-    QTimer.singleShot(1500, lambda: schedule_update_check(window))
+    QTimer.singleShot(1500, lambda: schedule_update_check(window, delay_ms=0))
 
     sys.exit(app.exec())
 

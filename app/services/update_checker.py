@@ -1,11 +1,11 @@
 """Qt-free update checker for the installed application (issue #905).
 
-The GitHub Releases API is queried for the latest release, its version compared
-against the running version, and the Windows installer (``.exe``) offered to the
-user. Everything here is framework-agnostic and dependency-free (``urllib``
-only) so it can be unit-tested without a network connection. The actual
-notification/download/open orchestration lives in the Qt layer
-(:mod:`GUI.update_dialog`).
+The GitHub Releases API is queried for the set of releases (including pre-releases),
+the newest one is selected, its version compared against the running version, and
+the Windows installer (``.exe``) offered to the user. Everything here is
+framework-agnostic and dependency-free (``urllib`` only) so it can be unit-tested
+without a network connection. The actual notification/download/open orchestration
+lives in the Qt layer (:mod:`GUI.update_dialog`).
 
 Network failures are intentionally swallowed -- an offline classroom machine
 should not crash on startup.
@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -29,16 +30,31 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# GitHub Releases endpoint for the latest tagged release.
-_LATEST_RELEASE_URL = "https://api.github.com/repos/{owner}/{repo}/releases/latest"
+# GitHub Releases endpoint for the full list of releases.
+#
+# We query ``/releases`` rather than ``/releases/latest``: the latest endpoint
+# skips pre-releases, and this project's tags are pre-releases (``-alpha``), so
+# ``/releases/latest`` returns 404 for us. Fetching the list and selecting the
+# newest tag works regardless of how each release is flagged.
+_LATEST_RELEASE_URL = "https://api.github.com/repos/{owner}/{repo}/releases"
 
 # Suffix used to identify the Windows installer asset on a release.
 INSTALLER_SUFFIX = ".exe"
 
-# Timeout (seconds) for the release query; startup must never hang on the network.
+# Timeout (seconds) for release queries; startup must never hang on the network.
 _NETWORK_TIMEOUT = 5.0
 
-Fetcher = Callable[[urllib.request.Request], object]
+# GitHub hosts that may serve a downloadable installer asset.
+_GITHUB_INSTALLER_HOSTS = (
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.github.com",
+)
+
+# Fixed temp-file prefix, so the file name never reflects the (untrusted) URL.
+_INSTALLER_TEMP_PREFIX = "SpiceGUI-update-"
+
+Fetcher = Callable[["urllib.request.Request"], object]
 Downloader = Callable[[str, "os.PathLike[str]"], None]
 InstallerOpener = Callable[["os.PathLike[str]"], bool]
 
@@ -116,14 +132,42 @@ def _select_installer(assets: list[dict]) -> str | None:
     return None
 
 
+def _pick_latest_release(releases) -> LatestRelease | None:
+    """Return the newest downloadable release from a ``/releases`` list payload.
+
+    Pre-releases are included (this repo tags releases ``-alpha``); only drafts
+    and entries without a publication date are skipped. The returned release is
+    the one with the newest tag that has a downloadable ``.exe`` installer.
+    """
+    if not isinstance(releases, list):
+        return None
+    best: LatestRelease | None = None
+    for entry in releases:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("draft", False) or not entry.get("published_at"):
+            continue
+        tag = entry.get("tag_name")
+        if not tag:
+            continue
+        installer_url = _select_installer(entry.get("assets") or [])
+        if not installer_url:
+            continue
+        candidate = LatestRelease(tag=tag, installer_url=installer_url)
+        if best is None or parse_version(tag) > parse_version(best.tag):
+            best = candidate
+    return best
+
+
 def _fetch_latest(
     owner: str,
     repo: str,
     opener: Fetcher,
-    timeout: float = _NETWORK_TIMEOUT,
 ) -> LatestRelease | None:
-    """Query the GitHub Releases API for the latest release.
+    """Query the GitHub Releases API for the newest downloadable release.
 
+    Queries the full ``/releases`` list (not ``/releases/latest``, which skips
+    pre-releases) and selects the newest release with a downloadable installer.
     Swallows all I/O / parsing errors and returns ``None`` so startup never
     crashes on a network failure. ``opener`` is injectable for testing.
     """
@@ -131,10 +175,8 @@ def _fetch_latest(
         url = _LATEST_RELEASE_URL.format(owner=owner, repo=repo)
         request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
         response = opener(request)
-        payload = json.loads(response.read().decode("utf-8"))
-        assets = payload.get("assets", [])
-        installer_url = _select_installer(assets)
-        return LatestRelease(tag=payload["tag_name"], installer_url=installer_url)
+        releases = json.loads(response.read().decode("utf-8"))
+        return _pick_latest_release(releases)
     except Exception as exc:  # noqa: BLE001 - network errors must never crash startup
         logger.debug("Update check unavailable: %s", exc)
         return None
@@ -193,26 +235,54 @@ def check_for_update_status(
         return UpdateResult(UpdateOutcome.ERROR, error=str(exc))
     if release is None:
         return UpdateResult(UpdateOutcome.ERROR, error="Unable to reach the release server.")
-    if not release.installer_url:
-        return UpdateResult(UpdateOutcome.ERROR, error="This release has no installer to download.")
     if is_newer(release.tag, current_version):
+        # A newer release exists. Surface it even when it has no downloadable
+        # installer (e.g. a docs-only release); the dialog disables the
+        # download button in that case rather than showing a misleading error.
         return UpdateResult(UpdateOutcome.AVAILABLE, latest=release)
     return UpdateResult(UpdateOutcome.UP_TO_DATE)
+
+
+def _validate_installer_url(installer_url: str) -> None:
+    """Validate that ``installer_url`` is a safe HTTPS GitHub download.
+
+    Raises ``ValueError`` unless the URL uses HTTPS and points at one of GitHub's
+    download hosts. This is the single place where untrusted installer URLs from
+    a release payload are rejected before any request is made.
+    """
+    parsed = urllib.parse.urlparse(installer_url)
+    if parsed.scheme != "https":
+        raise ValueError(f"Disallowed installer URL scheme: {parsed.scheme!r} (only HTTPS is permitted)")
+    if not _is_github_host(parsed.netloc):
+        raise ValueError(f"Disallowed installer host: {parsed.netloc!r} (only GitHub download hosts are permitted)")
 
 
 def _download_to(installer_url: str, dest: "os.PathLike[str]") -> None:
     """Download the installer ``installer_url`` to ``dest``.
 
-    Only ``https://`` / ``http://`` URLs are permitted; anything else raises so
-    we never fetch an arbitrary ``file:`` / custom scheme supplied in the payload.
+    Only ``https://`` GitHub-hosted URLs are permitted; anything else raises so
+    we never fetch an arbitrary ``file:`` / custom scheme supplied in the
+    payload. The download is streamed to disk (``shutil.copyfileobj``) rather
+    than buffered in memory, and carries the network timeout so a stalled
+    connection cannot hang the UI thread.
     """
-    scheme = urllib.parse.urlparse(installer_url).scheme
-    if scheme not in {"https", "http"}:
-        raise ValueError(f"Disallowed installer URL scheme: {scheme!r}")
+    _validate_installer_url(installer_url)
     request = urllib.request.Request(installer_url)
-    with _HTTP_OPENER.open(request) as response:
+    with _HTTP_OPENER.open(request, timeout=_NETWORK_TIMEOUT) as response:
         with open(dest, "wb") as handle:
-            handle.write(response.read())
+            shutil.copyfileobj(response, handle)
+
+
+def _normalize_netloc(netloc: str) -> str:
+    """Strip an optional ``:port`` suffix from a URL netloc."""
+    if ":" in netloc:
+        return netloc.rsplit(":", 1)[0]
+    return netloc
+
+
+def _is_github_host(netloc: str) -> bool:
+    """Return True when ``netloc`` (with optional port) is a GitHub download host."""
+    return _normalize_netloc(netloc) in _GITHUB_INSTALLER_HOSTS
 
 
 def _open_installer(path: "os.PathLike[str]") -> bool:
@@ -245,7 +315,9 @@ def download_and_open_installer(
     if not release.installer_url:
         return False
     try:
-        fd, raw_path = tempfile.mkstemp(suffix=release.installer_url.rsplit("/", 1)[-1] or INSTALLER_SUFFIX)
+        # Fixed prefix + suffix so the temp name never reflects the (untrusted)
+        # URL and is always a plain .exe.
+        fd, raw_path = tempfile.mkstemp(prefix=_INSTALLER_TEMP_PREFIX, suffix=INSTALLER_SUFFIX)
         os.close(fd)
         dest = Path(raw_path)
         downloader(release.installer_url, dest)

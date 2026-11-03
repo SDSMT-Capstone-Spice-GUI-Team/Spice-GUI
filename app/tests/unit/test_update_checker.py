@@ -106,12 +106,17 @@ class TestSelectInstaller:
 
 def _json_response(tag_name: str, assets=None) -> FakeResponse:
     assets = assets or [{"name": "SpiceGUI.exe", "browser_download_url": "https://dl/SpiceGUI.exe"}]
-    payload = json.dumps({"tag_name": tag_name, "assets": assets}).encode("utf-8")
+    # ``/releases`` returns a *list* of release objects (not a single object,
+    # which is what ``/releases/latest`` returns); each entry needs a tag and a
+    # publication date to be selectable by ``_pick_latest_release``.
+    payload = json.dumps([{"tag_name": tag_name, "published_at": "2024-01-01T00:00:00Z", "assets": assets}]).encode(
+        "utf-8"
+    )
     return FakeResponse(payload)
 
 
 class TestFetchLatest:
-    """_fetch_latest parses the GitHub releases payload."""
+    """_fetch_latest parses the GitHub ``/releases`` list payload."""
 
     def test_fetch_parses_release(self):
         resp = _json_response("0.2.0")
@@ -119,9 +124,10 @@ class TestFetchLatest:
         assert release == LatestRelease("0.2.0", "https://dl/SpiceGUI.exe")
 
     def test_fetch_no_installer(self):
+        # A list entry with no ``.exe`` asset is skipped entirely, so nothing is
+        # selected and ``_fetch_latest`` returns None (new list-based contract).
         resp = _json_response("0.2.0", assets=[{"name": "a.zip"}])
-        release = _fetch_latest(OWNER, REPO, lambda req: resp)
-        assert release.installer_url is None
+        assert _fetch_latest(OWNER, REPO, lambda req: resp) is None
 
     def test_fetch_network_error_returns_none(self):
         """A network failure is swallowed, not raised."""

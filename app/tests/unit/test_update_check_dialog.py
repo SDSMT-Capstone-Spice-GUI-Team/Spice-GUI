@@ -9,7 +9,8 @@ made.
 
 from unittest.mock import MagicMock, patch
 
-from GUI.update_dialog import CheckUpdateDialog, _CheckUpdateWorker
+import pytest
+from GUI.update_dialog import CheckUpdateDialog, UpdateDialog, _CheckUpdateWorker
 from PyQt6.QtCore import QCoreApplication
 from services.update_checker import LatestRelease, UpdateOutcome, UpdateResult
 
@@ -104,21 +105,40 @@ class TestCheckUpdateDialog:
         assert "Offline" in dialog._result_text.text()
         assert not dialog._download_btn.isEnabled()
 
-    def test_download_calls_and_hides_buttons(self, qtbot, monkeypatch):
-        monkeypatch.setattr("GUI.update_dialog.download_and_open_installer", MagicMock())
-        dialog = CheckUpdateDialog(parent=None)
-        dialog.start()
-        qtbot.addWidget(dialog)
-        # join the worker so the process can exit (avoid hanging on interpreter shutdown)
-        qtbot.waitUntil(lambda: dialog._worker._finished, timeout=5000)
-        result = UpdateResult(UpdateOutcome.AVAILABLE, latest=LatestRelease("1.2.0", "https://dl/SpiceGUI.exe"))
-        dialog._on_check_finished(result)
-        dialog._on_download()
-        from GUI import update_dialog as mod
+    def test_download_runs_on_worker_and_quits_on_success(self, qtbot, monkeypatch):
+        # The download runs on a background worker; patch the function where the
+        # worker calls it so no real I/O happens.
+        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=True)):
+            dialog = CheckUpdateDialog(parent=None)
+            dialog.start()
+            qtbot.addWidget(dialog)
+            qtbot.waitUntil(lambda: dialog._worker._finished, timeout=5000)
+            result = UpdateResult(UpdateOutcome.AVAILABLE, latest=LatestRelease("1.2.0", "https://dl/SpiceGUI.exe"))
+            dialog._on_check_finished(result)
+            assert dialog._download_btn.isEnabled()
+            dialog._on_download()
+            # The download happened on a worker; the buttons are disabled while it runs.
+            assert not dialog._download_btn.isEnabled()
+            qtbot.waitUntil(lambda: dialog._worker._finished, timeout=5000)
+            QCoreApplication.processEvents()
+            # After a successful download the app quits via _quit_after_launch.
+            assert dialog._status_label.text() == "The installer has launched. Quitting to let it install…"
 
-        mod.download_and_open_installer.assert_called_once_with(result.latest)
-        assert not dialog._download_btn.isVisible()
-        assert not dialog._dismiss_btn.isVisible()
+    def test_download_reports_failure_and_reenables_buttons(self, qtbot, monkeypatch):
+        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=False)):
+            dialog = CheckUpdateDialog(parent=None)
+            dialog.start()
+            qtbot.addWidget(dialog)
+            qtbot.waitUntil(lambda: dialog._worker._finished, timeout=5000)
+            dialog._on_check_finished(
+                UpdateResult(UpdateOutcome.AVAILABLE, latest=LatestRelease("1.2.0", "https://dl/SpiceGUI.exe"))
+            )
+            dialog._on_download()
+            qtbot.waitUntil(lambda: dialog._worker._finished, timeout=5000)
+            QCoreApplication.processEvents()
+            assert dialog._status_label.text() == "Download failed. You can try again."
+            assert dialog._download_btn.isEnabled()
+            assert dialog._dismiss_btn.isEnabled()
 
     def test_uses_versioned_release_url(self, qtbot, monkeypatch):
         monkeypatch.setattr(
@@ -136,6 +156,42 @@ class TestCheckUpdateDialog:
         assert "1.2.0" in dialog._result_text.text()
         # A release with no installer URL should be handled gracefully.
         assert not dialog._download_btn.isEnabled()
+
+
+class TestUpdateDialogSkip:
+    """The "Skip this version" button must not trigger a download (issue #1).
+
+    Regression test: the Skip button used to share the ``Open`` standard button
+    whose accept role also fired ``accepted`` and started a download. Skip is now
+    a separate ``ActionRole`` button so clicking it neither downloads nor
+    reports success.
+    """
+
+    def test_skip_does_not_download_installer(self, qtbot, monkeypatch):
+        # If Skip were still wired to download, this assertion would fail: the
+        # installer must never be fetched when the user chooses to skip.
+        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=False)) as download:
+            dialog = UpdateDialog(LatestRelease("1.2.0", "https://dl/SpiceGUI.exe"), parent=None)
+            qtbot.addWidget(dialog)
+            # Patch settings so _skip can record the skip without real I/O.
+            monkeypatch.setattr("controllers.settings_service.settings", MagicMock())
+            dialog._skip()
+            QCoreApplication.processEvents()
+            download.assert_not_called()
+            # Skip must not run a background worker either.
+            assert dialog._worker is None
+
+    def test_skip_still_downloads_when_download_pressed(self, qtbot, monkeypatch):
+        # Sanity check: the download path itself still works — only Skip is
+        # exempt — so the Skip test above is meaningful.
+        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=True)):
+            dialog = UpdateDialog(LatestRelease("1.2.0", "https://dl/SpiceGUI.exe"), parent=None)
+            qtbot.addWidget(dialog)
+            monkeypatch.setattr("controllers.settings_service.settings", MagicMock())
+            dialog._accept()
+            qtbot.waitUntil(lambda: dialog._worker is None or dialog._worker._finished, timeout=5000)
+            QCoreApplication.processEvents()
+            assert dialog._status_label.text() == "The installer has launched. Quitting to let it install…"
 
 
 def test_check_for_update_shows_dialog(qtbot, monkeypatch):
