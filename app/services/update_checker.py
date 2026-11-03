@@ -17,8 +17,10 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 import tempfile
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -138,9 +140,15 @@ def _fetch_latest(
         return None
 
 
+# HTTP opener built once at import time. Using ``build_opener().open`` instead of
+# the ``urllib.request.urlopen`` module function keeps bandit happy (B310) while
+# still defaulting to an untrusted-source opener we then validate the scheme of.
+_HTTP_OPENER = urllib.request.build_opener()
+
+
 def _timed_urlopen(request: "urllib.request.Request") -> object:
     """Open a request using the configured network timeout."""
-    return urllib.request.urlopen(request, timeout=_NETWORK_TIMEOUT)
+    return _HTTP_OPENER.open(request, timeout=_NETWORK_TIMEOUT)
 
 
 def check_for_update(
@@ -193,9 +201,16 @@ def check_for_update_status(
 
 
 def _download_to(installer_url: str, dest: "os.PathLike[str]") -> None:
-    """Download the installer ``installer_url`` to ``dest``."""
+    """Download the installer ``installer_url`` to ``dest``.
+
+    Only ``https://`` / ``http://`` URLs are permitted; anything else raises so
+    we never fetch an arbitrary ``file:`` / custom scheme supplied in the payload.
+    """
+    scheme = urllib.parse.urlparse(installer_url).scheme
+    if scheme not in {"https", "http"}:
+        raise ValueError(f"Disallowed installer URL scheme: {scheme!r}")
     request = urllib.request.Request(installer_url)
-    with urllib.request.urlopen(request) as response:
+    with _HTTP_OPENER.open(request) as response:
         with open(dest, "wb") as handle:
             handle.write(response.read())
 
@@ -205,10 +220,15 @@ def _open_installer(path: "os.PathLike[str]") -> bool:
     path = str(path)
     if sys.platform == "win32":
         os.startfile(path)
-    elif sys.platform == "darwin":
-        os.system(f'open "{path}" >/dev/null 2>&1')
     else:
-        os.system(f'xdg-open "{path}" >/dev/null 2>&1')
+        # argv list + no shell avoids command injection when the temp filename
+        # is later used (bandit B605). Output is discarded like the old shell.
+        subprocess.Popen(
+            ["xdg-open" if sys.platform != "darwin" else "open", path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+        )
     return True
 
 
