@@ -76,37 +76,33 @@ class WaveformConfigDialog(QDialog):
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
 
+    def _param_widgets(self, waveform_type: str) -> dict:
+        """Build the QLineEdit fields for one waveform type.
+
+        Falls back to the built-in defaults for any parameter missing from the
+        component's stored ``waveform_params``. Circuits saved with a partial
+        params dict (only the currently-selected type, as produced by
+        ``simulation/netlist_parser._setup_waveform_params``) would otherwise
+        raise ``KeyError`` when this dialog is constructed for a loaded circuit.
+        """
+        from models.waveform_defaults import default_waveform_params
+
+        saved = (self.component.waveform_params or {}).get(waveform_type, {})
+        defaults = default_waveform_params().get(waveform_type, {})
+        merged = {**defaults, **saved}
+        return {key: QLineEdit(str(value)) for key, value in merged.items()}
+
     def create_param_inputs(self):
-        """Create input fields for all parameter types"""
-        # SIN parameters
-        self.param_inputs["SIN"] = {
-            "offset": QLineEdit(self.component.waveform_params["SIN"]["offset"]),
-            "amplitude": QLineEdit(self.component.waveform_params["SIN"]["amplitude"]),
-            "frequency": QLineEdit(self.component.waveform_params["SIN"]["frequency"]),
-            "delay": QLineEdit(self.component.waveform_params["SIN"]["delay"]),
-            "theta": QLineEdit(self.component.waveform_params["SIN"]["theta"]),
-            "phase": QLineEdit(self.component.waveform_params["SIN"]["phase"]),
-        }
+        """Create input fields for all parameter types.
 
-        # PULSE parameters
-        self.param_inputs["PULSE"] = {
-            "v1": QLineEdit(self.component.waveform_params["PULSE"]["v1"]),
-            "v2": QLineEdit(self.component.waveform_params["PULSE"]["v2"]),
-            "td": QLineEdit(self.component.waveform_params["PULSE"]["td"]),
-            "tr": QLineEdit(self.component.waveform_params["PULSE"]["tr"]),
-            "tf": QLineEdit(self.component.waveform_params["PULSE"]["tf"]),
-            "pw": QLineEdit(self.component.waveform_params["PULSE"]["pw"]),
-            "per": QLineEdit(self.component.waveform_params["PULSE"]["per"]),
-        }
-
-        # EXP parameters
-        self.param_inputs["EXP"] = {
-            "v1": QLineEdit(self.component.waveform_params["EXP"]["v1"]),
-            "v2": QLineEdit(self.component.waveform_params["EXP"]["v2"]),
-            "td1": QLineEdit(self.component.waveform_params["EXP"]["td1"]),
-            "tau1": QLineEdit(self.component.waveform_params["EXP"]["tau1"]),
-            "td2": QLineEdit(self.component.waveform_params["EXP"]["td2"]),
-            "tau2": QLineEdit(self.component.waveform_params["EXP"]["tau2"]),
+        Every type is always populated (with defaults for missing values) so
+        that ``on_type_changed`` can switch between types without error,
+        regardless of which types are present in the loaded circuit.
+        """
+        self.param_inputs = {
+            "SIN": self._param_widgets("SIN"),
+            "PULSE": self._param_widgets("PULSE"),
+            "EXP": self._param_widgets("EXP"),
         }
 
     def on_type_changed(self, waveform_type):
