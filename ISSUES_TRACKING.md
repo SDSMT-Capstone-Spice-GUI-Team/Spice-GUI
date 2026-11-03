@@ -23,4 +23,4 @@ lose track of what's going on.
 - [x] **#12 Quit app after launching installer** — DONE: on download success both dialogs quit the app so the installer can replace the running executable.
 
 ## Verify
-- [ ] Run `make test -k "not ngspice"` and `make lint` (run `isort` first per repo rules).
+- [x] `make lint` (ruff + isort + black, all pass) and `make test` (4605 passed, 7 warnings) green.
