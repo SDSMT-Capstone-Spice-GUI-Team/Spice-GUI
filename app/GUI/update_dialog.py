@@ -10,12 +10,15 @@ import logging
 
 from cli import __version__
 from PyQt6.QtCore import QSize, QThread, QTimer, pyqtSignal
-from PyQt6.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
-                             QHBoxLayout, QLabel, QPushButton, QVBoxLayout)
-from services.update_checker import (DownloadResult, LatestRelease,
-                                     UpdateResult, check_for_update,
-                                     check_for_update_status,
-                                     download_and_open_installer)
+from PyQt6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from services.update_checker import (
+    DownloadResult,
+    LatestRelease,
+    UpdateResult,
+    check_for_update,
+    check_for_update_status,
+    download_and_open_installer,
+)
 
 logger = logging.getLogger(__name__)
 

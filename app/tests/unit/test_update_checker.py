@@ -11,12 +11,19 @@ import sys
 from pathlib import Path
 
 import pytest
-from services.update_checker import (INSTALLER_SUFFIX, DownloadResult,
-                                     LatestRelease, _fetch_latest,
-                                     _fetch_sha256, _select_installer,
-                                     check_for_update,
-                                     download_and_open_installer, is_newer,
-                                     parse_version, verify_installer)
+from services.update_checker import (
+    INSTALLER_SUFFIX,
+    DownloadResult,
+    LatestRelease,
+    _fetch_latest,
+    _fetch_sha256,
+    _select_installer,
+    check_for_update,
+    download_and_open_installer,
+    is_newer,
+    parse_version,
+    verify_installer,
+)
 
 CURRENT = "0.1.0"
 OWNER = "SDSMT-Capstone-Spice-GUI-Team"
