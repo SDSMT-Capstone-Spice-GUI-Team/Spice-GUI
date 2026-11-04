@@ -293,3 +293,17 @@ class HelpMixin:
             )
             if result == QMessageBox.StandardButton.Cancel:
                 break
+
+    def _check_for_update(self):
+        """Open the "Check for Update" status dialog.
+
+        The dialog runs its network check on a background worker and updates
+        itself when the check finishes, so no blocking wait is needed here.
+        No-op in dev mode (running from source), where the check is intentionally
+        disabled.
+        """
+        from .update_dialog import CheckUpdateDialog
+
+        dialog = CheckUpdateDialog(self)
+        dialog.show()
+        dialog.start()

@@ -25,7 +25,12 @@ from controllers.file_controller import validate_circuit_data
 from controllers.simulation_controller import SimulationController
 from models.circuit import CircuitModel
 
-__version__ = "0.1.0"
+try:
+    from _version import __version__
+except ImportError:
+    # No version file present (e.g. a plain source checkout). Fall back to a
+    # dev marker so ``--version`` still reports something.
+    __version__ = "0.1.0-dev"
 from simulation.csv_exporter import (
     export_ac_results,
     export_dc_sweep_results,

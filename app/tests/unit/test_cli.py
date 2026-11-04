@@ -2,6 +2,7 @@
 
 import io
 import json
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -425,6 +426,33 @@ class TestVersion:
         assert __version__
         parts = __version__.split(".")
         assert len(parts) == 3
+
+    def test_version_falls_back_when_version_file_missing(self, monkeypatch):
+        """``cli`` reports a version even when the generated file is absent (#3).
+
+        Regression test: ``cli`` imports the generated ``_version`` file but must
+        not hard-crash on a plain source checkout where that file is missing — it
+        falls back to a dev marker instead. A meta_path blocker makes the
+        generated ``_version`` module unimportable, exercising the
+        ``except ImportError`` path in ``cli.py``.
+        """
+        import importlib
+
+        class _BlockVersionFile:
+            def find_spec(self, name, path=None, target=None):
+                if name == "_version":
+                    raise ImportError("_version.py not generated in this checkout")
+                return None
+
+        monkeypatch.setattr(
+            sys,
+            "meta_path",
+            [_BlockVersionFile(), *sys.meta_path],
+        )
+        cli = importlib.import_module("cli")
+        # The fallback kept cli importable and exposed a usable version string.
+        assert cli.__version__
+        assert len(cli.__version__.split(".")) == 3
 
 
 class TestStdinPipe:

@@ -11,13 +11,17 @@ from simulation.ngspice_runner import NgspiceRunner
 class TestNgspiceRunnerPlatformDetection:
     """Verify ngspice discovery uses platform-appropriate paths via ngspice_config."""
 
-    def test_find_ngspice_uses_shutil_which_first(self, tmp_path):
+    def test_find_ngspice_uses_shutil_which_first(self, tmp_path, monkeypatch):
+        # Point the bundle root at an empty dir so no bundled copy is discovered
+        # regardless of the cwd the tests run from (see ngspice_config._bundle_root).
+        monkeypatch.setenv("SPICEGUI_BUNDLE_ROOT", str(tmp_path))
         runner = NgspiceRunner(output_dir=str(tmp_path))
         with patch("simulation.ngspice_config.shutil.which", return_value="/usr/bin/ngspice"):
             result = runner.find_ngspice()
         assert result == "/usr/bin/ngspice"
 
-    def test_find_ngspice_returns_none_when_not_found(self, tmp_path):
+    def test_find_ngspice_returns_none_when_not_found(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPICEGUI_BUNDLE_ROOT", str(tmp_path))
         runner = NgspiceRunner(output_dir=str(tmp_path))
         with (
             patch("simulation.ngspice_config.shutil.which", return_value=None),
@@ -26,7 +30,8 @@ class TestNgspiceRunnerPlatformDetection:
             result = runner.find_ngspice()
         assert result is None
 
-    def test_find_ngspice_checks_linux_paths(self, tmp_path):
+    def test_find_ngspice_checks_linux_paths(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPICEGUI_BUNDLE_ROOT", str(tmp_path))
         runner = NgspiceRunner(output_dir=str(tmp_path))
         checked_paths = []
         with (
@@ -41,7 +46,8 @@ class TestNgspiceRunnerPlatformDetection:
         assert "/usr/bin/ngspice" in checked_paths
         assert "/usr/local/bin/ngspice" in checked_paths
 
-    def test_find_ngspice_checks_macos_paths(self, tmp_path):
+    def test_find_ngspice_checks_macos_paths(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPICEGUI_BUNDLE_ROOT", str(tmp_path))
         runner = NgspiceRunner(output_dir=str(tmp_path))
         checked_paths = []
         with (
@@ -56,7 +62,8 @@ class TestNgspiceRunnerPlatformDetection:
         assert "/usr/local/bin/ngspice" in checked_paths
         assert "/opt/homebrew/bin/ngspice" in checked_paths
 
-    def test_find_ngspice_checks_windows_paths(self, tmp_path):
+    def test_find_ngspice_checks_windows_paths(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPICEGUI_BUNDLE_ROOT", str(tmp_path))
         runner = NgspiceRunner(output_dir=str(tmp_path))
         checked_paths = []
         with (
