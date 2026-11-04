@@ -10,14 +10,12 @@ import logging
 
 from cli import __version__
 from PyQt6.QtCore import QSize, QThread, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
-from services.update_checker import (
-    LatestRelease,
-    UpdateResult,
-    check_for_update,
-    check_for_update_status,
-    download_and_open_installer,
-)
+from PyQt6.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
+                             QHBoxLayout, QLabel, QPushButton, QVBoxLayout)
+from services.update_checker import (DownloadResult, LatestRelease,
+                                     UpdateResult, check_for_update,
+                                     check_for_update_status,
+                                     download_and_open_installer)
 
 logger = logging.getLogger(__name__)
 
@@ -124,13 +122,14 @@ class _DownloadWorker(QThread):
     """Downloads an installer on a background thread to avoid freezing the UI.
 
     Emits ``downloading`` with a short status string while the run is in
-    progress and ``done`` with a bool (True = downloaded and launched) when it
-    finishes. ``stop()`` requests an early abort; the check is only consulted on
-    entry since :func:`download_and_open_installer` already carries a timeout.
+    progress and ``done`` with a :class:`DownloadResult` when it finishes
+    (``launched`` True = downloaded and run). ``stop()`` requests an early abort;
+    the hash check is only consulted on entry since
+    :func:`download_and_open_installer` already carries a timeout.
     """
 
     downloading = pyqtSignal(str)
-    done = pyqtSignal(bool)
+    done = pyqtSignal(object)
 
     def __init__(self, release: LatestRelease):
         super().__init__()
@@ -144,11 +143,11 @@ class _DownloadWorker(QThread):
 
     def run(self) -> None:
         if self._stopped:
-            self.done.emit(False)
+            self.done.emit(DownloadResult(launched=False))
             return
         self.downloading.emit("Downloading the installer…")
-        success = download_and_open_installer(self._release)
-        self.done.emit(success)
+        result = download_and_open_installer(self._release)
+        self.done.emit(result)
         self._finished = True
 
 
@@ -219,20 +218,24 @@ class UpdateDialog(QDialog):
         self._worker = worker
         worker.start()
 
-    def _accept_done(self, success: bool) -> None:
+    def _accept_done(self, result: DownloadResult) -> None:
         """Called on the main thread when the background download finishes.
 
         After a successful download we quit the app so the installer can replace
         the running executable (issue #12); on failure we restore the buttons.
         """
-        if success:
+        if result.launched:
             self._status_label.setText("The installer has launched. Quitting to let it install…")
             QTimer.singleShot(1000, self._quit_now)
+        elif result.hash_mismatch:
+            self._status_label.setText(
+                "Installer checksum did not match; refusing to launch. Please report this to the maintainers."
+            )
         else:
             self._status_label.setText("Download failed. You can try again.")
-            self._accept_btn.setDisabled(False)
-            self._dismiss_btn.setDisabled(False)
-            self._skip_btn.setDisabled(False)
+        self._accept_btn.setDisabled(False)
+        self._dismiss_btn.setDisabled(False)
+        self._skip_btn.setDisabled(False)
 
     def _quit_now(self) -> None:
         """Close the dialog and quit the application."""
@@ -373,15 +376,20 @@ class CheckUpdateDialog(QDialog):
         self._worker = worker
         worker.start()
 
-    def _on_download_done(self, success: bool) -> None:
+    def _on_download_done(self, result: DownloadResult) -> None:
         """Called on the main thread when the background download finishes.
 
         After a successful download we quit the app so the installer can replace
         the running executable (issue #12); on failure we re-enable the buttons.
         """
-        if success:
+        if result.launched:
             self._status_label.setText("The installer has launched. Quitting to let it install…")
             QTimer.singleShot(1000, self._quit_now)
+        elif result.hash_mismatch:
+            self._status_label.setText(
+                "Installer checksum did not match; refusing to launch. Please report this to the maintainers."
+            )
+            self._dismiss_btn.setDisabled(False)
         else:
             self._status_label.setText("Download failed. You can try again.")
             self._download_btn.setDisabled(False)

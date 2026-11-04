@@ -10,9 +10,11 @@ made.
 from unittest.mock import MagicMock, patch
 
 import pytest
-from GUI.update_dialog import CheckUpdateDialog, UpdateDialog, _CheckUpdateWorker
+from GUI.update_dialog import (CheckUpdateDialog, UpdateDialog,
+                               _CheckUpdateWorker)
 from PyQt6.QtCore import QCoreApplication
-from services.update_checker import LatestRelease, UpdateOutcome, UpdateResult
+from services.update_checker import (DownloadResult, LatestRelease,
+                                     UpdateOutcome, UpdateResult)
 
 OWNER = "SDSMT-Capstone-Spice-GUI-Team"
 REPO = "Spice-GUI"
@@ -108,7 +110,10 @@ class TestCheckUpdateDialog:
     def test_download_runs_on_worker_and_quits_on_success(self, qtbot, monkeypatch):
         # The download runs on a background worker; patch the function where the
         # worker calls it so no real I/O happens.
-        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=True)):
+        with patch(
+            "GUI.update_dialog.download_and_open_installer",
+            MagicMock(return_value=DownloadResult(launched=True)),
+        ):
             dialog = CheckUpdateDialog(parent=None)
             dialog.start()
             qtbot.addWidget(dialog)
@@ -125,7 +130,10 @@ class TestCheckUpdateDialog:
             assert dialog._status_label.text() == "The installer has launched. Quitting to let it install…"
 
     def test_download_reports_failure_and_reenables_buttons(self, qtbot, monkeypatch):
-        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=False)):
+        with patch(
+            "GUI.update_dialog.download_and_open_installer",
+            MagicMock(return_value=DownloadResult(launched=False)),
+        ):
             dialog = CheckUpdateDialog(parent=None)
             dialog.start()
             qtbot.addWidget(dialog)
@@ -170,7 +178,7 @@ class TestUpdateDialogSkip:
     def test_skip_does_not_download_installer(self, qtbot, monkeypatch):
         # If Skip were still wired to download, this assertion would fail: the
         # installer must never be fetched when the user chooses to skip.
-        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=False)) as download:
+        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=DownloadResult(launched=False))) as download:
             dialog = UpdateDialog(LatestRelease("1.2.0", "https://dl/SpiceGUI.exe"), parent=None)
             qtbot.addWidget(dialog)
             # Patch settings so _skip can record the skip without real I/O.
@@ -184,7 +192,7 @@ class TestUpdateDialogSkip:
     def test_skip_still_downloads_when_download_pressed(self, qtbot, monkeypatch):
         # Sanity check: the download path itself still works — only Skip is
         # exempt — so the Skip test above is meaningful.
-        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=True)):
+        with patch("GUI.update_dialog.download_and_open_installer", MagicMock(return_value=DownloadResult(launched=True))):
             dialog = UpdateDialog(LatestRelease("1.2.0", "https://dl/SpiceGUI.exe"), parent=None)
             qtbot.addWidget(dialog)
             monkeypatch.setattr("controllers.settings_service.settings", MagicMock())

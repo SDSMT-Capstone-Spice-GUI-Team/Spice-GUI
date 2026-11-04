@@ -13,6 +13,7 @@ should not crash on startup.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -57,6 +58,7 @@ _INSTALLER_TEMP_PREFIX = "SpiceGUI-update-"
 Fetcher = Callable[["urllib.request.Request"], object]
 Downloader = Callable[[str, "os.PathLike[str]"], None]
 InstallerOpener = Callable[["os.PathLike[str]"], bool]
+HashFetcher = Callable[[str], str | None]
 
 
 def _is_frozen() -> bool:
@@ -90,10 +92,16 @@ def is_newer(latest: str, current: str) -> bool:
 
 @dataclass(frozen=True)
 class LatestRelease:
-    """A newer GitHub release and its downloadable installer path."""
+    """A newer GitHub release and its downloadable installer path.
+
+    ``installer_url`` is the ``.exe`` asset; ``sidecar_url`` is the same asset
+    with a ``.sha256`` suffix, published alongside it so the downloaded file can
+    be verified before launch.
+    """
 
     tag: str
     installer_url: str | None = None
+    sidecar_url: str | None = None
 
 
 class UpdateOutcome(Enum):
@@ -257,6 +265,37 @@ def _validate_installer_url(installer_url: str) -> None:
         raise ValueError(f"Disallowed installer host: {parsed.netloc!r} (only GitHub download hosts are permitted)")
 
 
+def _hash_file(path: "os.PathLike[str]") -> str:
+    """Return the lowercase hex SHA-256 digest of the file at ``path``.
+
+    Reads in fixed-size chunks so the installer (an executable, not a string) is
+    never buffered in memory. GitHub publishes sidecars as ``<asset>.sha256``
+    containing exactly that digest.
+    """
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(65_536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _fetch_sha256(sidecar_url: str) -> str:
+    """Download a ``<asset>.sha256`` sidecar and return its expected digest.
+
+    The sidecar's text is whitespace-trimmed and the first token kept, so
+    GitHub-style "hexdigest  filename" files are handled. ``None`` is returned
+    when the sidecar is missing or unparseable (e.g. a release published without
+    one), so the download can proceed in degraded mode.
+    """
+    try:
+        request = urllib.request.Request(sidecar_url)
+        with _HTTP_OPENER.open(request, timeout=_NETWORK_TIMEOUT) as response:
+            return response.read().decode("utf-8").split()[0].strip().lower()
+    except Exception as exc:  # noqa: BLE001 - a missing/unverifiable sidecar is non-fatal
+        logger.debug("Installer hash sidecar unavailable: %s", exc)
+        return None
+
+
 def _download_to(installer_url: str, dest: "os.PathLike[str]") -> None:
     """Download the installer ``installer_url`` to ``dest``.
 
@@ -302,18 +341,39 @@ def _open_installer(path: "os.PathLike[str]") -> bool:
     return True
 
 
+def verify_installer(path: "os.PathLike[str]", expected_hash: str | None) -> bool:
+    """Return True when the downloaded installer is authentic (or unverifiable).
+
+    Compares the file's SHA-256 against ``expected_hash``. When no expected hash
+    is available (a release published without a ``.sha256`` sidecar), the file is
+    accepted so a missing sidecar never blocks a legitimate download -- the hash
+    is a belt that improves, never disables, integrity checking.
+    """
+    if not expected_hash:
+        return True
+    try:
+        return _hash_file(path).lower() == expected_hash.strip().lower()
+    except OSError as exc:
+        logger.debug("Failed to hash installer for verification: %s", exc)
+        return False
+
+
 def download_and_open_installer(
     release: LatestRelease,
     downloader: Downloader = _download_to,
     opener_file: InstallerOpener = _open_installer,
-) -> bool:
+    hash_fetcher: HashFetcher = _fetch_sha256,
+) -> DownloadResult:
     """Download the release installer to a temp file and open it.
 
-    Returns True on success. Any failure (no installer URL, download error,
-    inability to launch) returns False instead of raising.
+    When the release publishes a ``.sha256`` sidecar, the downloaded installer's
+    digest is verified against it before launch; a mismatch aborts without
+    launching. ``DownloadResult.launched`` is True when the installer ran, and
+    ``DownloadResult.hash_mismatch`` records whether verification rejected the
+    file so the UI can explain why.
     """
     if not release.installer_url:
-        return False
+        return DownloadResult(launched=False)
     try:
         # Fixed prefix + suffix so the temp name never reflects the (untrusted)
         # URL and is always a plain .exe.
@@ -321,7 +381,23 @@ def download_and_open_installer(
         os.close(fd)
         dest = Path(raw_path)
         downloader(release.installer_url, dest)
-        return bool(opener_file(dest))
+        if not verify_installer(dest, release.sidecar_url and hash_fetcher(release.sidecar_url)):
+            logger.debug("Installer SHA-256 mismatch; refusing to launch.")
+            return DownloadResult(launched=False, hash_mismatch=True)
+        return DownloadResult(launched=bool(opener_file(dest)))
     except (urllib.error.URLError, OSError, ValueError) as exc:
         logger.debug("Failed to download/open installer: %s", exc)
-        return False
+        return DownloadResult(launched=False)
+
+
+@dataclass(frozen=True)
+class DownloadResult:
+    """Outcome of :func:`download_and_open_installer`.
+
+    ``launched`` is True when the installer ran. ``hash_mismatch`` records a
+    verification rejection so the caller can surface a specific message instead
+    of a generic failure.
+    """
+
+    launched: bool = False
+    hash_mismatch: bool = False

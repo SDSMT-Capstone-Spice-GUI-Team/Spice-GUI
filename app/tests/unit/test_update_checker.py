@@ -5,21 +5,18 @@ download/open flow, and skip-this-version persistence. The core logic is Qt-free
 and network access is injected, so these tests never touch the network.
 """
 
+import hashlib
 import json
 import sys
 from pathlib import Path
 
 import pytest
-from services.update_checker import (
-    INSTALLER_SUFFIX,
-    LatestRelease,
-    _fetch_latest,
-    _select_installer,
-    check_for_update,
-    download_and_open_installer,
-    is_newer,
-    parse_version,
-)
+from services.update_checker import (INSTALLER_SUFFIX, DownloadResult,
+                                     LatestRelease, _fetch_latest,
+                                     _fetch_sha256, _select_installer,
+                                     check_for_update,
+                                     download_and_open_installer, is_newer,
+                                     parse_version, verify_installer)
 
 CURRENT = "0.1.0"
 OWNER = "SDSMT-Capstone-Spice-GUI-Team"
@@ -34,6 +31,32 @@ class FakeResponse:
 
     def read(self) -> bytes:
         return self._payload
+
+    def __enter__(self) -> "FakeResponse":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        return None
+
+
+def _fake_opener(payload: bytes):
+    """Return a fake opener whose ``open`` yields a ``FakeResponse``."""
+
+    class _Opener:
+        def open(self, request, timeout=None):  # noqa: ARG003 - signature mirrors urllib
+            return FakeResponse(payload)
+
+    return _Opener()
+
+
+def _fake_opener_raise(exc: Exception):
+    """Return a fake opener whose ``open`` raises ``exc``."""
+
+    class _Opener:
+        def open(self, request, timeout=None):  # noqa: ARG003 - signature mirrors urllib
+            raise exc
+
+    return _Opener()
 
 
 class TestParseVersion:
@@ -203,7 +226,7 @@ class TestDownloadAndOpenInstaller:
         opener = _FakeInstallerOpener()
         release = LatestRelease("0.2.0", "https://dl/SpiceGUI.exe")
         result = download_and_open_installer(release, downloader=downloader, opener_file=opener)
-        assert result is True
+        assert result.launched is True
         assert opener.opened is not None
         assert opener.opened.is_file()
 
@@ -211,7 +234,9 @@ class TestDownloadAndOpenInstaller:
         release = LatestRelease("0.2.0", None)
         downloader = _FakeDownloader()
         opener = _FakeInstallerOpener()
-        assert download_and_open_installer(release, downloader=downloader, opener_file=opener) is False
+        assert download_and_open_installer(release, downloader=downloader, opener_file=opener) == DownloadResult(
+            launched=False
+        )
 
     def test_open_error_returns_false(self, tmp_path):
         def boom(path):
@@ -219,4 +244,95 @@ class TestDownloadAndOpenInstaller:
 
         release = LatestRelease("0.2.0", "https://dl/SpiceGUI.exe")
         downloader = _FakeDownloader()
-        assert download_and_open_installer(release, downloader=downloader, opener_file=boom) is False
+        assert download_and_open_installer(release, downloader=downloader, opener_file=boom) == DownloadResult(
+            launched=False
+        )
+
+    def test_hash_mismatch_refuses_to_launch(self, tmp_path):
+        # A released .sha256 that does not match the downloaded bytes must abort
+        # the launch rather than run a possibly-malicious installer.
+        content = b"PEfakeexe"
+        downloader = _FakeDownloader(content)
+        opener = _FakeInstallerOpener()
+        wrong_hash = "0" * 64
+        release = LatestRelease(
+            "0.2.0",
+            "https://dl/SpiceGUI.exe",
+            sidecar_url="https://dl/SpiceGUI.exe.sha256",
+        )
+        result = download_and_open_installer(
+            release,
+            downloader=downloader,
+            opener_file=opener,
+            hash_fetcher=lambda url: wrong_hash,
+        )
+        assert result.launched is False
+        assert result.hash_mismatch is True
+        assert opener.opened is None  # never launched
+
+    def test_hash_match_launches(self, tmp_path):
+        content = b"PEfakeexe"
+        downloader = _FakeDownloader(content)
+        opener = _FakeInstallerOpener()
+        expected_hash = hashlib.sha256(content).hexdigest()
+        release = LatestRelease(
+            "0.2.0",
+            "https://dl/SpiceGUI.exe",
+            sidecar_url="https://dl/SpiceGUI.exe.sha256",
+        )
+        result = download_and_open_installer(
+            release,
+            downloader=downloader,
+            opener_file=opener,
+            hash_fetcher=lambda url: expected_hash,
+        )
+        assert result.launched is True
+        assert result.hash_mismatch is False
+        assert opener.opened is not None
+
+    def test_missing_sidecar_still_launches(self, tmp_path):
+        # A release without a .sha256 sidecar is unverifiable but not rejected.
+        content = b"PEfakeexe"
+        downloader = _FakeDownloader(content)
+        opener = _FakeInstallerOpener()
+        release = LatestRelease("0.2.0", "https://dl/SpiceGUI.exe", sidecar_url=None)
+        result = download_and_open_installer(release, downloader=downloader, opener_file=opener)
+        assert result.launched is True
+
+
+class TestFetchSha256:
+    """_fetch_sha256 reads a sidecar and returns just the expected digest."""
+
+    def test_reads_single_hash(self, monkeypatch):
+        import services.update_checker as uc
+
+        # Sidecar text may be "hexdigest filename"; only the digest is returned.
+        monkeypatch.setattr(uc, "_HTTP_OPENER", _fake_opener(b"<sha>  SpiceGUI.exe\n"))
+        assert uc._fetch_sha256("https://dl/x.sha256") == "<sha>"
+
+    def test_missing_sidecar_returns_none(self, monkeypatch):
+        import services.update_checker as uc
+
+        monkeypatch.setattr(uc, "_HTTP_OPENER", _fake_opener_raise(RuntimeError("404")))
+        assert uc._fetch_sha256("https://dl/missing.sha256") is None
+
+
+class TestVerifyInstaller:
+    """verify_installer compares the file's digest to the expected hash."""
+
+    def test_no_expected_hash_is_true(self, tmp_path):
+        path = tmp_path / "installer.exe"
+        path.write_bytes(b"PEfakeexe")
+        assert verify_installer(path, None) is True
+
+    def test_matching_hash(self, tmp_path):
+        content = b"PEfakeexe"
+        path = tmp_path / "installer.exe"
+        path.write_bytes(content)
+        assert verify_installer(path, hashlib.sha256(content).hexdigest()) is True
+
+    def test_mismatched_hash_is_false(self, tmp_path):
+        content = b"PEfakeexe"
+        path = tmp_path / "installer.exe"
+        path.write_bytes(content)
+        assert verify_installer(path, "0" * 64) is False

@@ -104,16 +104,30 @@ jobs:
         shell: bash
         run: ls -la installer/Output/
 
+      - name: Compute SHA-256 of the installer
+        shell: bash
+        run: |
+          installer="$(ls installer/Output/*.exe | head -n1)"
+          # GitHub's updater reads this sidecar to verify the downloaded installer;
+          # the file holds only the lowercase hex digest, whitespace-trimmed.
+          sha256sum "$installer" | awk '{print $1}' > "$installer.sha256"
+          echo "Wrote $(ls -la "$installer.sha256" | awk '{print $NF}'):"
+          cat "$installer.sha256"
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer-${{ steps.version.outputs.version }}
-          path: installer/Output/*.exe
+          path: |
+            installer/Output/*.exe
+            installer/Output/*.sha256
           retention-days: 30
 
       - name: Attach installer to GitHub Release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: installer/Output/*.exe
+          files: |
+            installer/Output/*.exe
+            installer/Output/*.sha256
           fail_on_unmatched_files: true
