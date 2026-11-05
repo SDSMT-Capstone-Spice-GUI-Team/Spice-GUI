@@ -50,6 +50,7 @@ class ComponentGraphicsItem(QGraphicsItem):
 
         self._position_update_timer = None
         self._pending_position = None
+        self._drag_old_rect = None  # scene-rect of prior position; invalidated after each move
 
         self._hovered = False
 
@@ -67,10 +68,12 @@ class ComponentGraphicsItem(QGraphicsItem):
         # QGraphicsView ghosting artifact). ItemCoordinateCache keeps a cached
         # pixmap; Qt auto-invalidates both the old and new cache rectangles on
         # every move, so the old outline is redrawn over.
-        # NOTE: use ItemCoordinateCache, not ItemCache. The enum ItemCache
-        # only exists in newer PyQt6; on older builds referencing it raises
-        # AttributeError at item construction.
-        self.setCacheMode(QGraphicsItem.CacheMode.ItemCoordinateCache)
+        # NOTE: do NOT set ItemCoordinateCache. Qt rasterizes cached items to a
+        # raster <image> during vector output (SVG), which breaks the SVG export
+        # test and degrades vector exports. Drag ghosting (#975/#866) is instead
+        # prevented by invalidating the previous position rect in itemChange.
+        # (ItemCache only exists in newer PyQt6; on older builds referencing it
+        # raises AttributeError at item construction.)
 
         # Create terminals
         self.update_terminals()
@@ -631,6 +634,13 @@ class ComponentGraphicsItem(QGraphicsItem):
             grid_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
             grid_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
             snapped_pos = self._clamp_position(QPointF(grid_x, grid_y))
+            # Capture the scene-rect of the *current* (old) position while pos()
+            # has not moved yet, so we can invalidate it after the move and keep
+            # MinimalViewportUpdate from leaving a trailing ghost outline
+            # (#975, #866). This mirrors the wire_item.py pattern; ItemCoordinateCache
+            # is deliberately avoided because Qt rasterizes cached items during
+            # vector output and breaks the SVG export test.
+            self._drag_old_rect = self.mapToScene(self.boundingRect()).boundingRect()
             raw_delta = new_pos - self.pos()
 
             # A group drag must move every selected component by the same
@@ -677,6 +687,17 @@ class ComponentGraphicsItem(QGraphicsItem):
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             # Show straight-line preview for connected wires during drag
             # (full pathfinding runs after drag ends via debounced timer)
+            # Invalidate the *previous* position so dragging leaves no trailing
+            # ghost outlines (#975, #866). MinimalViewportUpdate only repaints
+            # the region the item moved into, so the region it just left is
+            # never cleared on its own. Invalidate the old rect before the new
+            # one (captured while pos() was still valid), mirroring the
+            # wire_item.py pattern; ItemCoordinateCache is avoided because Qt
+            # rasterizes cached items during vector output and breaks the SVG
+            # export test.
+            old_rect = getattr(self, "_drag_old_rect", None)
+            if old_rect is not None and self.scene():
+                self.scene().update(old_rect)
             self.update()
             # Skip wire preview for followers during group drag to avoid
             # tearing artifacts from rapid forced scene repaints (#442).

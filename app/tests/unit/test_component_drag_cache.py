@@ -1,23 +1,23 @@
 """Regression tests for issue #975 (links #866) — drag ghost outlines.
 
-Dragging a component off the region it just left was never invalidated, so the
-old outline stayed on screen (the classic QGraphicsView ghosting artifact).
-The fix caches the item with
-``QGraphicsItem.CacheMode.ItemCoordinateCache`` (``ItemCache`` only exists in
-newer PyQt6, so we use the pre-6.7-compatible name): Qt then
-auto-invalidates both the old and new cache rectangles on every move, so the
-previous outline is drawn over.
+When a component is dragged, ``MinimalViewportUpdate`` only repaints the
+region the item moved *into*; the region it just left was never
+invalidated, so the previous outline stayed on screen as a trailing
+"stack" of thin square outlines.
 
-These tests pin that invariant directly. There is no pixel-rendering test
-possible headless; what we *can* assert deterministically is that the item
-carries the cache mode that makes the fix work. If a future change removes
-``setCacheMode(ItemCache)`` (e.g. to squeeze out a bit of memory), the
-ghosting comes back and this test fails first.
+The fix invalidates the previous position's scene-rect on every move, in
+``itemChange``. ``_drag_old_rect`` is captured while ``pos()`` is still
+valid (in ``ItemPositionChange``) and ``scene().update()`` is called on it
+in ``ItemPositionHasChanged``, before the new position is drawn. This
+mirrors the pattern in ``wire_item.py`` and deliberately avoids
+``QGraphicsItem.ItemCoordinateCache``: Qt rasterizes cached items to a
+raster <image> during vector output, which breaks the SVG export test
+(#975) and degrades vector exports.
 """
 
 from GUI.component_item import ComponentGraphicsItem, Resistor
 from PyQt6.QtCore import QPointF
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
+from PyQt6.QtWidgets import QGraphicsScene
 
 
 def _add_resistor(scene, comp_id, x=0, y=0):
@@ -28,28 +28,56 @@ def _add_resistor(scene, comp_id, x=0, y=0):
     return comp
 
 
-class TestDragCacheMode:
-    """The component must be cached so dragging leaves no trailing outlines."""
+class TestDragGhostFix:
+    """Dragging must invalidate its previous position to avoid ghost outlines."""
 
-    def test_item_cache_mode_set_on_base_component(self):
-        """ComponentGraphicsItem sets ItemCache by default (no ghost outlines)."""
+    def test_drag_old_rect_initialized_to_none(self):
+        """The stale-position tracker starts cleared."""
         comp = ComponentGraphicsItem("C1", "resistor")
-        assert comp.cacheMode() == (
-            QGraphicsItem.CacheMode.ItemCoordinateCache
-        ), "Component must use ItemCache to invalidate its old position on drag"
+        assert getattr(comp, "_drag_old_rect", "MISSING") is None
 
-    def test_item_cache_mode_set_on_resistor(self):
-        """A concrete Resistor inherits the cache mode from the base item."""
-        scene = QGraphicsScene()
-        comp = _add_resistor(scene, "R1")
-        assert comp.cacheMode() == QGraphicsItem.CacheMode.ItemCoordinateCache
-
-    def test_item_cache_mode_survives_position_change(self):
-        """Moving the item (simulating a drag frame) keeps the cache mode set,
-        so Qt keeps invalidating the old rectangle every move."""
+    def test_drag_old_rect_captured_before_move(self):
+        """Captured scene-rect is set while pos() is still the old position."""
         scene = QGraphicsScene()
         comp = _add_resistor(scene, "R1", 0, 0)
-        # Simulate a single drag frame of the whole-translation movement that
-        # previously left the old outline uncleared.
-        comp.setPos(QPointF(100, 0))
-        assert comp.cacheMode() == QGraphicsItem.CacheMode.ItemCoordinateCache
+        proposed = QPointF(100, 0)
+        # ItemPositionChange returns the committed (snapped) position; it also
+        # stores the pre-move scene-rect that ItemPositionHasChanged later
+        # invalidates.
+        committed = comp.itemChange(
+            ComponentGraphicsItem.GraphicsItemChange.ItemPositionChange,
+            proposed,
+        )
+        assert committed == proposed
+        old_rect = comp._drag_old_rect
+        assert old_rect is not None and old_rect.isValid()
+        # The captured rect is at the OLD position (near 0,0), not the new one.
+        assert old_rect.left() < 50
+
+    def test_itempositionhaschanged_inv_uses_previous_rect(self):
+        """ItemPositionHasChanged invalidates the previously captured rect."""
+        scene = QGraphicsScene()
+        comp = _add_resistor(scene, "R1", 0, 0)
+        # Prime the stale-position tracker as a real move would.
+        item_change_value = comp.itemChange(
+            ComponentGraphicsItem.GraphicsItemChange.ItemPositionChange,
+            QPointF(60, 0),
+        )
+        old_rect = comp._drag_old_rect
+        assert old_rect is not None
+
+        # Track scene().update() calls during the position-has-changed phase.
+        calls = []
+        original_update = scene.update
+        scene.update = lambda *args: calls.append(args)
+
+        # ItemPositionHasChanged moves the item to item_change_value.
+        comp.itemChange(
+            ComponentGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
+            item_change_value,
+        )
+
+        scene.update = original_update
+        # The old scene-rect must have been passed to scene().update().
+        invalidated = any(len(c) == 1 and c[0].isValid() and c[0] == old_rect for c in calls)
+        assert invalidated, f"expected scene().update({old_rect}); got {calls}"
