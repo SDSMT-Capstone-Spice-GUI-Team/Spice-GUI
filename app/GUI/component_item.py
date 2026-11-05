@@ -58,6 +58,20 @@ class ComponentGraphicsItem(QGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
         self.setAcceptHoverEvents(True)
 
+        # Cache this item so dragging leaves no trailing "stack" of outlines.
+        # QGraphicsItem dragging moves the item by the *entire* mouse
+        # translation (many pixels at once), and the view uses
+        # MinimalViewportUpdate, which only repaints the region the item just
+        # moved *into*. Without a cache, the region the item just left is never
+        # invalidated and its old outline stays on screen (the classic
+        # QGraphicsView ghosting artifact). ItemCoordinateCache keeps a cached
+        # pixmap; Qt auto-invalidates both the old and new cache rectangles on
+        # every move, so the old outline is redrawn over.
+        # NOTE: use ItemCoordinateCache, not ItemCache. The enum ItemCache
+        # only exists in newer PyQt6; on older builds referencing it raises
+        # AttributeError at item construction.
+        self.setCacheMode(QGraphicsItem.CacheMode.ItemCoordinateCache)
+
         # Create terminals
         self.update_terminals()
 
